@@ -92,6 +92,12 @@ impl<C: LedgerContext> Mapper<C> {
             },
             original_cbor: match x.datum() {
                 Some(babbage::DatumOption::Data(x)) => Some(x.raw_cbor().to_vec().into()),
+                // A hash-datum output (Plutus V1 pools) carries only the
+                // hash; the datum bytes ride in the tx witness set. Resolve
+                // them so `original_cbor` matches `payload`.
+                Some(babbage::DatumOption::Hash(x)) => tx
+                    .and_then(|tx| tx.find_plutus_data(&x))
+                    .map(|d| d.raw_cbor().to_vec().into()),
                 _ => None,
             },
         }
