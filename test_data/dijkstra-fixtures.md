@@ -76,3 +76,26 @@ in `pallas_traverse::testing` asserts that `dijkstra-proposal.tx` and
 | proposal-param-change-key48.hex | the same with key 48, `max_ref_script_size_per_endorser_block`, which only Dijkstra has |
 | dijkstra-proposal.tx | a transaction carrying the key 48 proposal at body key 20 |
 | dijkstra-scripts.tx | a transaction carrying a guard clause in its witness set, the same clause and a PlutusV4 script in its auxiliary data, and a PlutusV4 reference script on its output |
+
+## The u5c snapshots
+
+`pallas-utxorpc` keeps a JSON snapshot per schema version per block, and a
+test compares the mapper's output to it. They are generated, not written:
+`REGENERATE_SNAPSHOTS=1 cargo test -p pallas-utxorpc --features unstable
+snapshot` rewrites each file in place, and a file that does not come back byte
+for byte identical on a second run is a file that no longer describes what the
+mapper does.
+
+| file | block | why that block |
+| --- | --- | --- |
+| `u5c_v1alpha.json`, `u5c_v1beta.json` | `u5c1.block` | the pre-existing non Dijkstra case |
+| `u5c_v1alpha_dijkstra.json`, `u5c_v1beta_dijkstra.json` | `dijkstra6.block` | four transactions and five certificates, every output a legacy array |
+
+`dijkstra10.block` had a snapshot pair here for its five post Alonzo map form
+outputs. `map_tx_output` reads an output through `pallas-traverse` and never
+branches on the form, and none of those five outputs carries an inline datum or
+a reference script, which are the only two things the map form can hold that a
+legacy array cannot. The pair pinned one field path the `dijkstra6` pair does
+not, a transaction `ttl`, and the pre-existing Conway snapshot already pins
+that one. The block is still read by `pallas-primitives` and `pallas-traverse`,
+where the form distinction lives.
