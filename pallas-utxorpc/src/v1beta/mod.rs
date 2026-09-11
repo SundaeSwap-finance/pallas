@@ -37,44 +37,18 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardan
 
 // ---- v1beta-specific bodies for methods that diverge from v1alpha -----------
 
+/// The u5c native script member this schema names for a required signature.
+fn pubkey_clause(hash: &pallas_crypto::hash::Hash<28>) -> u5c::native_script::NativeScript {
+    u5c::native_script::NativeScript::ScriptPubkeyHash(hash.to_vec().into())
+}
+
+/// The u5c governance action this schema names for an information action,
+/// whose message has no field.
+fn information_action() -> u5c::governance_action::GovernanceAction {
+    u5c::governance_action::GovernanceAction::InfoAction(u5c::InfoAction {})
+}
+
 impl<C: LedgerContext> Mapper<C> {
-    pub fn map_native_script(x: &pallas_primitives::alonzo::NativeScript) -> u5c::NativeScript {
-        let inner = match x {
-            babbage::NativeScript::ScriptPubkey(x) => {
-                u5c::native_script::NativeScript::ScriptPubkeyHash(x.to_vec().into())
-            }
-            babbage::NativeScript::ScriptAll(x) => {
-                u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptAny(x) => {
-                u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
-                    items: x.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::ScriptNOfK(n, k) => {
-                u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
-                    // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
-                    // i64: clamp rather than cast, or a negative value wraps into
-                    // an unsatisfiable one instead of the satisfiable 0 it means.
-                    k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
-                    scripts: k.iter().map(|x| Self::map_native_script(x)).collect(),
-                })
-            }
-            babbage::NativeScript::InvalidBefore(s) => {
-                u5c::native_script::NativeScript::InvalidBefore(*s)
-            }
-            babbage::NativeScript::InvalidHereafter(s) => {
-                u5c::native_script::NativeScript::InvalidHereafter(*s)
-            }
-        };
-
-        u5c::NativeScript {
-            native_script: inner.into(),
-        }
-    }
-
     pub fn map_tx_datum(
         &self,
         x: &trv::MultiEraOutput,
@@ -124,14 +98,7 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.script_ref().map(|x| match x {
-            trv::MultiEraScriptRef::Conway(x) => self.map_any_script(&x),
-            #[cfg(feature = "unstable")]
-            trv::MultiEraScriptRef::Dijkstra(_) => {
-                unimplemented!("map_output_script is not yet implemented for Dijkstra")
-            }
-            _ => unimplemented!("map_output_script has no arm for this reference script"),
-        })
+        x.script_ref().map(|x| self.map_script_ref(&x))
     }
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
@@ -152,101 +119,6 @@ impl<C: LedgerContext> Mapper<C> {
         u5c::Multiasset {
             policy_id: x.policy().to_vec().into(),
             assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
-        }
-    }
-
-    pub fn map_conway_gov_action(&self, x: &conway::GovAction) -> u5c::GovernanceAction {
-        let inner = match x {
-            conway::GovAction::ParameterChange(gov_id, params, script) => {
-                u5c::governance_action::GovernanceAction::ParameterChangeAction(
-                    u5c::ParameterChangeAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        protocol_param_update: Some(self.map_conway_pparams_update(params)),
-                        policy_hash: match script {
-                            Some(x) => x.to_vec().into(),
-                            _ => Default::default(),
-                        },
-                    },
-                )
-            }
-            conway::GovAction::HardForkInitiation(gov_id, version) => {
-                u5c::governance_action::GovernanceAction::HardForkInitiationAction(
-                    u5c::HardForkInitiationAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        protocol_version: Some(u5c::ProtocolVersion {
-                            major: version.0 as u32,
-                            minor: version.1 as u32,
-                        }),
-                    },
-                )
-            }
-            conway::GovAction::TreasuryWithdrawals(withdrawals, script) => {
-                u5c::governance_action::GovernanceAction::TreasuryWithdrawalsAction(
-                    u5c::TreasuryWithdrawalsAction {
-                        withdrawals: withdrawals
-                            .iter()
-                            .map(|(k, v)| u5c::WithdrawalAmount {
-                                reward_account: k.to_vec().into(),
-                                coin: u64_to_bigint(*v),
-                            })
-                            .collect(),
-                        policy_hash: match script {
-                            Some(x) => x.to_vec().into(),
-                            _ => Default::default(),
-                        },
-                    },
-                )
-            }
-            conway::GovAction::NoConfidence(gov_id) => {
-                u5c::governance_action::GovernanceAction::NoConfidenceAction(
-                    u5c::NoConfidenceAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                    },
-                )
-            }
-            conway::GovAction::UpdateCommittee(gov_id, remove, add, threshold) => {
-                u5c::governance_action::GovernanceAction::UpdateCommitteeAction(
-                    u5c::UpdateCommitteeAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        remove_committee_credentials: remove
-                            .iter()
-                            .map(|x| self.map_stake_credential(x))
-                            .collect(),
-                        new_committee_credentials: add
-                            .iter()
-                            .map(|(cred, epoch)| u5c::NewCommitteeCredentials {
-                                committee_cold_credential: Some(self.map_stake_credential(cred)),
-                                expires_epoch: *epoch as u32,
-                            })
-                            .collect(),
-                        new_committee_threshold: Some(rational_number_to_u5c(threshold.clone())),
-                    },
-                )
-            }
-            conway::GovAction::NewConstitution(gov_id, constitution) => {
-                u5c::governance_action::GovernanceAction::NewConstitutionAction(
-                    u5c::NewConstitutionAction {
-                        gov_action_id: self.map_gov_action_id(gov_id),
-                        constitution: Some(u5c::Constitution {
-                            anchor: Some(u5c::Anchor {
-                                url: constitution.anchor.url.clone(),
-                                content_hash: constitution.anchor.content_hash.to_vec().into(),
-                            }),
-                            hash: match constitution.guardrail_script {
-                                Some(x) => x.to_vec().into(),
-                                _ => Default::default(),
-                            },
-                        }),
-                    },
-                )
-            }
-            conway::GovAction::Information => {
-                u5c::governance_action::GovernanceAction::InfoAction(u5c::InfoAction {})
-            }
-        };
-
-        u5c::GovernanceAction {
-            governance_action: Some(inner),
         }
     }
 
@@ -333,7 +205,7 @@ impl<C: LedgerContext> Mapper<C> {
                 total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
             }
             .into(),
-            fee: u64_to_bigint(tx.fee().unwrap_or_default()),
+            fee: tx.fee().and_then(u64_to_bigint),
             validity: u5c::TxValidity {
                 start: tx.validity_start().unwrap_or_default(),
                 ttl: tx.ttl().unwrap_or_default(),
@@ -383,10 +255,7 @@ impl<C: LedgerContext> Mapper<C> {
                 governance_action_index: gov_action_id.action_index,
             }),
             vote: self.map_vote(&x.vote) as i32,
-            anchor: x.anchor.as_ref().map(|a| u5c::Anchor {
-                url: a.url.clone(),
-                content_hash: a.content_hash.to_vec().into(),
-            }),
+            anchor: x.anchor.as_ref().map(map_anchor),
         }
     }
 
@@ -426,18 +295,10 @@ impl<C: LedgerContext> Mapper<C> {
         }
     }
 
-    /// Maps the per-tx voting procedures (Conway only) into the v1beta `votes` field.
+    /// Map the transaction's voting procedures into the v1beta `votes` field.
+    /// Conway and Dijkstra share the type.
     pub fn map_votes(&self, tx: &trv::MultiEraTx) -> Vec<u5c::VoterVotes> {
-        #[cfg(feature = "unstable")]
-        if tx.era() == trv::Era::Dijkstra {
-            unimplemented!("map_votes is not yet implemented for Dijkstra")
-        }
-
-        let Some(conway_tx) = tx.as_conway() else {
-            return Vec::new();
-        };
-
-        let Some(procedures) = conway_tx.transaction_body.voting_procedures.as_ref() else {
+        let Some(procedures) = tx.voting_procedures() else {
             return Vec::new();
         };
 
@@ -454,62 +315,170 @@ impl<C: LedgerContext> Mapper<C> {
     }
 }
 
+/// The block fixtures this schema has a snapshot of, each with the snapshot
+/// contents and the snapshot file name.
+#[cfg(test)]
+fn snapshot_cases() -> Vec<(&'static str, &'static str, &'static str)> {
+    #[allow(unused_mut)]
+    let mut cases = vec![(
+        include_str!("../../../test_data/u5c1.block"),
+        include_str!("../../../test_data/u5c_v1beta.json"),
+        "u5c_v1beta.json",
+    )];
+
+    #[cfg(feature = "unstable")]
+    cases.push((
+        include_str!("../../../test_data/dijkstra6.block"),
+        include_str!("../../../test_data/u5c_v1beta_dijkstra.json"),
+        "u5c_v1beta_dijkstra.json",
+    ));
+
+    cases
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{TxoRef, UtxoMap};
+    use crate::testing::*;
     use pretty_assertions::assert_eq;
 
-    #[derive(Clone)]
-    struct NoLedger;
+    #[test]
+    fn a_pubkey_clause_maps_to_the_member_this_schema_names() {
+        let script = trv::MultiEraNativeScript::from_decoded_alonzo_compatible(
+            &alonzo::NativeScript::ScriptPubkey([0x44; 28].into()),
+        );
 
-    impl LedgerContext for NoLedger {
-        fn get_utxos(&self, _refs: &[TxoRef]) -> Option<UtxoMap> {
-            None
-        }
-
-        fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
-            None
-        }
+        assert_eq!(
+            Mapper::<NoLedger>::map_native_script(&script).native_script,
+            Some(u5c::native_script::NativeScript::ScriptPubkeyHash(
+                [0x44; 28].to_vec().into()
+            )),
+            "this schema names the required signature member ScriptPubkeyHash and carries the key hash in it"
+        );
     }
 
     #[test]
-    fn snapshot() {
-        let test_blocks = [include_str!("../../../test_data/u5c1.block")];
-        let test_snapshots = [include_str!("../../../test_data/u5c_v1beta.json")];
-
+    fn an_information_action_maps_to_the_value_this_schema_names() {
         let mapper = Mapper::new(NoLedger);
 
-        for (block_str, json_str) in test_blocks.iter().zip(test_snapshots) {
-            let cbor = hex::decode(block_str).unwrap();
-            let block = pallas_traverse::MultiEraBlock::decode(&cbor).unwrap();
-            let current = serde_json::json!(mapper.map_block(&block));
-
-            // Set REGENERATE_SNAPSHOTS=1 to overwrite the snapshot file in place.
-            if std::env::var("REGENERATE_SNAPSHOTS").is_ok() {
-                let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../test_data/u5c_v1beta.json");
-                std::fs::write(&path, serde_json::to_string_pretty(&current).unwrap()).unwrap();
-                eprintln!("regenerated {}", path.display());
-                continue;
-            }
-
-            let expected: serde_json::Value = serde_json::from_str(json_str).unwrap();
-
-            assert_eq!(expected, current)
-        }
+        assert_eq!(
+            mapper
+                .map_gov_action(&trv::MultiEraGovAction::from_conway(&conway_information()))
+                .governance_action,
+            Some(u5c::governance_action::GovernanceAction::InfoAction(
+                u5c::InfoAction {}
+            )),
+            "this schema types the information member a message with no field"
+        );
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
-    fn negative_n_of_k_threshold_maps_to_zero() {
-        let mapped = Mapper::<NoLedger>::map_native_script(
-            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
+    fn a_dijkstra_transaction_with_no_votes_maps_none() {
+        let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-proposal.tx"));
+        let mapper = Mapper::new(NoLedger);
+        assert!(mapper.map_votes(&tx).is_empty());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_transaction_with_one_vote_maps_it() {
+        let tx = dijkstra_tx_with_one_vote();
+        let mapper = Mapper::new(NoLedger);
+        let votes = mapper.map_votes(&tx);
+
+        assert_eq!(votes.len(), 1, "the body names one voter");
+
+        assert_eq!(
+            votes[0].voter,
+            Some(u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
+                stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                    VOTING_DREP_KEY_HASH.to_vec().into()
+                )),
+            })),
+            "a DRep key voter reaches u5c as a DRep credential holding that key hash"
         );
-        assert!(matches!(
-            mapped.native_script,
-            Some(u5c::native_script::NativeScript::ScriptNOfK(
-                u5c::ScriptNOfK { k: 0, .. }
-            ))
-        ));
+
+        assert_eq!(votes[0].votes.len(), 1, "that voter casts one vote");
+        let procedure = &votes[0].votes[0];
+
+        assert_eq!(
+            procedure.gov_action_id,
+            Some(u5c::GovernanceActionId {
+                transaction_id: VOTED_ACTION_TX_HASH.to_vec().into(),
+                governance_action_index: VOTED_ACTION_INDEX,
+            }),
+            "the action voted on reaches u5c by its transaction and its index"
+        );
+
+        assert_eq!(
+            procedure.vote,
+            u5c::Vote::Yes as i32,
+            "a yes vote must not reach u5c as any other vote"
+        );
+
+        assert_eq!(
+            procedure.anchor,
+            Some(u5c::Anchor {
+                url: VOTE_ANCHOR_URL.to_string(),
+                content_hash: VOTE_ANCHOR_HASH.to_vec().into(),
+            }),
+            "the anchor of that vote reaches u5c"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_committee_key_and_a_committee_script_vote_as_their_own_credential_kinds() {
+        let tx = dijkstra_tx_with_committee_votes();
+        let votes = Mapper::new(NoLedger).map_votes(&tx);
+
+        assert_eq!(votes.len(), 2, "the body names two voters");
+
+        let expected = [
+            (
+                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                        COMMITTEE_VOTER_KEY_HASH.to_vec().into(),
+                    )),
+                }),
+                u5c::VotingProcedure {
+                    gov_action_id: Some(u5c::GovernanceActionId {
+                        transaction_id: COMMITTEE_KEY_ACTION_TX_HASH.to_vec().into(),
+                        governance_action_index: 0,
+                    }),
+                    vote: u5c::Vote::No as i32,
+                    anchor: None,
+                },
+            ),
+            (
+                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::ScriptHash(
+                        COMMITTEE_VOTER_SCRIPT_HASH.to_vec().into(),
+                    )),
+                }),
+                u5c::VotingProcedure {
+                    gov_action_id: Some(u5c::GovernanceActionId {
+                        transaction_id: COMMITTEE_SCRIPT_ACTION_TX_HASH.to_vec().into(),
+                        governance_action_index: 0,
+                    }),
+                    vote: u5c::Vote::Abstain as i32,
+                    anchor: None,
+                },
+            ),
+        ];
+
+        for (voter, procedure) in expected {
+            let found = votes
+                .iter()
+                .find(|x| x.voter.as_ref() == Some(&voter))
+                .unwrap_or_else(|| panic!("this voter must reach u5c: {voter:?}"));
+
+            assert_eq!(
+                found.votes,
+                vec![procedure],
+                "a committee member's one vote must reach u5c as the vote it cast, on the action it named"
+            );
+        }
     }
 }
