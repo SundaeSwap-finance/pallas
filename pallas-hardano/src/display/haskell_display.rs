@@ -2622,7 +2622,7 @@ impl AsPort for Nullable<u32> {
 
 impl HaskellDisplay for CostModels {
     fn to_haskell_str(&self) -> String {
-        fn display_cost_model(version: u64, model_opt: &Option<CostModel>) -> Option<DisplayAsIs> {
+        fn display_cost_model(version: u64, model_opt: Option<&CostModel>) -> Option<DisplayAsIs> {
             match model_opt {
                 Some(model) => {
                     let model_str = model
@@ -2650,9 +2650,10 @@ impl HaskellDisplay for CostModels {
         }
 
         let known_str: Vec<DisplayAsIs> = [
-            display_cost_model(1, &self.plutus_v1),
-            display_cost_model(2, &self.plutus_v2),
-            display_cost_model(3, &self.plutus_v3),
+            display_cost_model(1, self.plutus_v1.as_ref()),
+            display_cost_model(2, self.plutus_v2.as_ref()),
+            display_cost_model(3, self.plutus_v3.as_ref()),
+            display_cost_model(4, self.plutus_v4()),
         ]
         .into_iter()
         .flatten()
@@ -2660,7 +2661,7 @@ impl HaskellDisplay for CostModels {
 
         let mut unknown_str = vec![];
 
-        for kv in self.unknown.iter() {
+        for kv in self.unknown.iter().filter(|kv| kv.0 != 3) {
             unknown_str.push(display_unknown(kv));
         }
 
@@ -2679,6 +2680,44 @@ impl HaskellDisplay for Network {
             Mainnet => "Mainnet".to_string(),
             Testnet => "Testnet".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod cost_models_tests {
+    use super::*;
+
+    #[test]
+    fn a_model_under_an_unnamed_key_renders_as_unknown() {
+        let models = CostModels {
+            plutus_v1: Some(vec![1]),
+            plutus_v2: None,
+            plutus_v3: Some(vec![3]),
+            unknown: vec![(9u64, vec![9i64])].into(),
+        };
+
+        assert_eq!(
+            models.to_haskell_str(),
+            "CostModels {_costModelsValid = fromList [(PlutusV1,CostModel PlutusV1 [1]),\
+             (PlutusV3,CostModel PlutusV3 [3])], _costModelsUnknown = fromList [(9,[9])]}"
+        );
+    }
+
+    #[test]
+    fn the_plutus_v4_model_renders_as_valid() {
+        let models = CostModels {
+            plutus_v1: Some(vec![1]),
+            plutus_v2: None,
+            plutus_v3: Some(vec![3]),
+            unknown: vec![(3u64, vec![4i64]), (9u64, vec![9i64])].into(),
+        };
+
+        assert_eq!(
+            models.to_haskell_str(),
+            "CostModels {_costModelsValid = fromList [(PlutusV1,CostModel PlutusV1 [1]),\
+             (PlutusV3,CostModel PlutusV3 [3]),(PlutusV4,CostModel PlutusV4 [4])], \
+             _costModelsUnknown = fromList [(9,[9])]}"
+        );
     }
 }
 
