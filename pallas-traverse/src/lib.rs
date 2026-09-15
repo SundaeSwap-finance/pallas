@@ -113,6 +113,9 @@ pub mod input;
 /// Leios endorser blocks and the ranking blocks that certify them.
 #[cfg(feature = "unstable")]
 pub mod leios;
+/// The certification walk over ranking block headers.
+#[cfg(feature = "unstable")]
+mod leios_follow;
 /// Helpers for transaction metadata.
 pub mod meta;
 /// Helpers for transaction outputs across eras.
@@ -844,6 +847,7 @@ mod attribute_tests {
         ("cert::BlsKeySlot", UnstableOnly, Always),
         ("governance::ParamRead", UnstableOnly, Always),
         ("leios::Error", UnstableOnly, Always),
+        ("leios_follow::PendingAnnouncement", UnstableOnly, Always),
         ("lib::Era", EveryBuild, Always),
         ("lib::Error", EveryBuild, Never),
         ("lib::Feature", EveryBuild, Always),

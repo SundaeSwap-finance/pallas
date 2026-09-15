@@ -52,13 +52,14 @@ Each name has three files. `.ebbody` is an endorser block body, a CBOR map from
 transaction hash to transaction size. `.ebtxs` holds its transactions in body
 order, one CBOR byte string per line. `.header` is the ranking block header
 that announces it. `dijkstra-17402` is cut from the Musashi chain of node
-release `prototype-2026w36`, and `dijkstra-eb1` and `dijkstra-eb2` from the
-Musashi chain of node release `prototype-2026w35`.
+release `prototype-2026w36`, and `dijkstra-eb1`, `dijkstra-eb2` and
+`dijkstra-eb3` from the Musashi chain of node release `prototype-2026w35`.
 
 | name | announced at slot | header hash | transactions | first key | first size | first transaction id |
 | --- | --- | --- | --- | --- | --- | --- |
 | dijkstra-eb1 | 429789 | `abba50f39b31ca7ed67ebe72f588668073a66090a33504a76d9abbc1d6a9d3b5` | 1 | `a69f9fc581e5914a101a3e619f5ce64b6bce76721fd5eed0cbad0e0f6d411cc5` | 229 | `a2a3715bac697e28991d003c62a0c280fb91af40944f7bbcee27d972ad0f0a08` |
 | dijkstra-eb2 | 397855 | `779e95c2816db83f41528b1b8260034f68c8f817c4f32edadc05de0fc16f22fb` | 30 | `455a00b521f35f2c0a6ff0a59296c3316de6219af206c13d2e95870f66541fec` | 200 | `1839e14ac4327a8a8f6c00d2bfbdb0b4a95bb6dc92d84d3a45d3ff9ada7964c2` |
+| dijkstra-eb3 | 376369 | `a4c183c4234560ae182fd5e56a021f0f4b13d5019bab155a536db9e8bbebca90` | 425 | `b6813cef46bc2f5b0ce9761e7177138f93edf6d4b9c95ff28b071a4ce0978d6b` | 201 | `1c60a3e90174e349a40a302742de803692d763dc906c51c1c21e253d841d555c` |
 | dijkstra-17402 | 371680 | `b0e696b02f5c527b43eabf2149b71c7f9579b4e2db1dbe0c04fe67881cdb8aa9` | 244 | `2bc50f5b4942ca304e39e7cd7f1c4261d85437ea5464b2d1a623f47790254a3d` | 201 | `82bfbdf62f180269e15a72672b51610bc17a043c3d6f5c5a2434403b00a49d98` |
 
 ## Transactions and proposals
