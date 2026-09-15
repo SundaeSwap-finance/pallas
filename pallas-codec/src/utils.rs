@@ -1279,6 +1279,12 @@ impl Deref for AnyCbor {
     }
 }
 
+impl AsRef<[u8]> for AnyCbor {
+    fn as_ref(&self) -> &[u8] {
+        &self.inner
+    }
+}
+
 impl<'b, C> minicbor::Decode<'b, C> for AnyCbor {
     fn decode(
         d: &mut minicbor::Decoder<'b>,

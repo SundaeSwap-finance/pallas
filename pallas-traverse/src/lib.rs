@@ -113,6 +113,9 @@ pub mod input;
 /// Leios endorser blocks and the ranking blocks that certify them.
 #[cfg(feature = "unstable")]
 pub mod leios;
+/// The certification walk over ranking block headers.
+#[cfg(feature = "unstable")]
+mod leios_follow;
 /// Helpers for transaction metadata.
 pub mod meta;
 /// Helpers for transaction outputs across eras.

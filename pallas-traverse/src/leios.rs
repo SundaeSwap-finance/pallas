@@ -9,11 +9,13 @@
 use std::ops::Deref;
 
 use pallas_codec::minicbor::{self, bytes::ByteSlice};
-use pallas_codec::utils::{AnyCbor, KeepRaw};
+use pallas_codec::utils::KeepRaw;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::dijkstra;
 
 use crate::{Era, MultiEraHeader, MultiEraTx, OriginalHash};
+
+pub use crate::leios_follow::*;
 
 /// Why an endorser block, its transactions, or a certificate was refused.
 #[derive(Debug, thiserror::Error)]
@@ -58,6 +60,37 @@ pub enum Error {
     /// A header certifies an endorser block and its parent announced none.
     #[error("header at slot {slot} certifies, its parent announced none")]
     CertifiesNothing { slot: u64 },
+
+    /// A delivered transaction is not wrapped in a CBOR byte string.
+    #[error("transaction {index} is not wrapped in a cbor byte string: {reason}")]
+    Envelope { index: usize, reason: String },
+
+    /// A header certifies an endorser block and the walk does not know which.
+    #[error(
+        "the header at slot {slot} certifies an endorser block and the walk cannot say which, \
+         because it resumed from a stored position without establishing whether an announcement \
+         was waiting"
+    )]
+    CertifiesUnknown { slot: u64 },
+
+    /// A block certifies an endorser block and carries transactions of its own.
+    #[error(
+        "the block at slot {slot} certifies an endorser block and carries {count} transactions \
+         of its own, which the chain inclusion rule forbids"
+    )]
+    CertifiesAndCarries { slot: u64, count: usize },
+
+    /// A block given to be resolved certifies no endorser block.
+    #[error("the block at slot {slot} certifies no endorser block, so there is nothing to resolve")]
+    NotCertifying { slot: u64 },
+
+    /// A block given to be resolved is of an era without endorser blocks.
+    #[error("a {era} block cannot certify an endorser block")]
+    NotLeiosEra { era: Era },
+
+    /// The block given to be resolved does not decode.
+    #[error("the block cbor is not a ranking block: {0}")]
+    InvalidBlock(String),
 }
 
 /// An endorser block body as leios-fetch delivers it.
@@ -95,7 +128,10 @@ impl EndorserBlockBody {
 
     /// Decodes the transactions `wire` delivers, one per entry in body order,
     /// refusing any whose byte string content does not hash to its entry.
-    pub fn transactions<'b>(&self, wire: &'b [AnyCbor]) -> Result<Vec<MultiEraTx<'b>>, Error> {
+    pub fn transactions<'b, W: AsRef<[u8]>>(
+        &self,
+        wire: &'b [W],
+    ) -> Result<Vec<MultiEraTx<'b>>, Error> {
         if wire.len() != self.len() {
             return Err(Error::TxCount {
                 named: self.len(),
@@ -111,7 +147,7 @@ impl EndorserBlockBody {
                 reason: e.to_string(),
             };
 
-            let inner: &ByteSlice = minicbor::decode(delivered.raw_bytes()).map_err(tx_decode)?;
+            let inner: &ByteSlice = minicbor::decode(delivered.as_ref()).map_err(tx_decode)?;
 
             let found = Hasher::<256>::hash(inner);
             if found != *named {
@@ -162,6 +198,7 @@ mod tests {
     use super::*;
     use crate::MultiEraBlock;
     use pallas_codec::minicbor::Encoder;
+    use pallas_codec::utils::AnyCbor;
 
     /// One endorser block of `test_data/dijkstra-fixtures.md`, with the values
     /// recorded for it there.
