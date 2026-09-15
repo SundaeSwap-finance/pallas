@@ -839,6 +839,55 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
+impl<C> minicbor::Encode<C> for CostModels {
+    /// Writes every model that arrived, under the key it arrived under.
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        let named = [
+            (0u64, self.plutus_v1.as_ref()),
+            (1, self.plutus_v2.as_ref()),
+            (2, self.plutus_v3.as_ref()),
+        ];
+
+        let present =
+            named.iter().filter(|(_, model)| model.is_some()).count() + self.unknown.len();
+        e.map(present as u64)?;
+
+        for (key, model) in named.iter() {
+            if let Some(model) = model {
+                e.u64(*key)?;
+                encode_cost_model(e, model)?;
+            }
+        }
+
+        for (key, model) in self.unknown.iter() {
+            e.u64(*key)?;
+            encode_cost_model(e, model)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Writes one cost model as the indefinite length array a node writes.
+fn encode_cost_model<W: minicbor::encode::Write>(
+    e: &mut minicbor::Encoder<W>,
+    model: &CostModel,
+) -> Result<(), minicbor::encode::Error<W::Error>> {
+    e.begin_array()?;
+
+    for cost in model {
+        e.i64(*cost)?;
+    }
+
+    e.end()?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 pub mod tests {
     use pallas_codec::minicbor;
@@ -970,6 +1019,44 @@ pub mod tests {
         )))
         .unwrap();
         assert_eq!(hex::encode(bytes), "821827d9010280");
+    }
+
+    #[test]
+    fn test_cost_models_with_three_languages_round_trip() {
+        use crate::miniprotocols::localstate::queries_v16::CostModels;
+
+        // a map of three, keys 0, 1 and 2, each an indefinite length array
+        let wire = hex::decode("a3009f1a000189b41901a4ff019f1a000189b4ff029f2002ff").expect("hex");
+
+        let models: CostModels = minicbor::decode(&wire).expect("decode three cost models");
+
+        assert_eq!(models.plutus_v1, Some(vec![100788, 420]));
+        assert_eq!(models.plutus_v2, Some(vec![100788]));
+        assert_eq!(models.plutus_v3, Some(vec![-1, 2]));
+        assert!(models.unknown.is_empty());
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
+    }
+
+    #[test]
+    fn test_a_cost_model_beyond_the_named_languages_round_trips() {
+        use crate::miniprotocols::localstate::queries_v16::CostModels;
+
+        // one model at key 4, which no field here is named for
+        let wire = hex::decode("a1049f0102ff").expect("hex");
+
+        let models: CostModels = minicbor::decode(&wire).expect("decode an unnamed cost model");
+
+        let carried: Vec<(u64, Vec<i64>)> = models.unknown.iter().cloned().collect();
+        assert_eq!(carried, vec![(4u64, vec![1i64, 2])]);
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
     }
 
     // TODO: DRY with other decode/encode roundtripss
