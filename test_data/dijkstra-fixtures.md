@@ -36,6 +36,7 @@ with the block's CRC32 and the header's offset and size.
 | dijkstra13.block | 00278/24 | 301082 | 14594 | `cf522686b27e452b3e261904058c7e323f3723e2f5c629e5a7542579b59474b4` | 1274 | 8 | 1 | certificate tag 9, vote delegation |
 | dijkstra14.block | 00574/21 | 620349 | 28687 | `9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf` | 1734 | 8 | 1 | a transaction body writing its certificate set as a bare array rather than under tag 258 |
 | dijkstra15.block | 00344/11 | 371916 | 17406 | `0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b` | 964 | 8 | 0 | an announced endorser block size of 71103, which needs the five byte uint |
+| dijkstra16.block | 00287/58 | 311025 | 14935 | `c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c` | 862 | 8 | 0 | no transactions, no Leios certificate and no announcement, which is what the endorser tests build a certifying block from |
 
 The `tag` column is the block wrapper tag. A Dijkstra header arriving on its
 own over chainsync carries envelope tag 7 rather than the wrapper tag 8, and
@@ -60,6 +61,42 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra13.block | 0, 1, 2, 4 | 0 | array | 7, 9 | tagged | 0 | nil | nil |
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
+| dijkstra16.block | none | none | none | none | none | 0 | nil | nil |
+
+## The endorser block fixtures
+
+Nine files describe three endorser blocks of the Musashi chain that ran before
+the one above, under node release `prototype-2026w35`. The `.ebbody` file is
+the body as leios-fetch delivered it, the `.ebtxs` file is one hex transaction
+per line in body order with its byte string envelope still on, and the
+`.header` file is the ranking block header whose `eb_announcement` names that
+body.
+
+The bodies and the transactions were pulled over leios-fetch from that chain's
+relay. The headers were cut afterwards from the same chain's immutable
+database, kept beside the node that captured the bodies, by walking one chunk
+with a CBOR decoder and taking each block's header span. Every header hash
+below is blake2b-256 of the header bytes and equals what that node's own
+secondary index records for the block.
+
+| file | chunk/index | slot | block | announcing header hash | bytes | certifies | announces |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra-eb1.header | 00397/47 | 429789 | 21507 | `abba50f39b31ca7ed67ebe72f588668073a66090a33504a76d9abbc1d6a9d3b5` | 892 | yes | `dijkstra-eb1.ebbody`, 37 bytes, `f753a2b1e556780d36961a1cde7ba05ea3ff9a58047b03385d5242b5c4610b5c` |
+| dijkstra-eb2.header | 00368/27 | 397855 | 19847 | `779e95c2816db83f41528b1b8260034f68c8f817c4f32edadc05de0fc16f22fb` | 896 | no | `dijkstra-eb2.ebbody`, 1082 bytes, `8f21f4531c3d5e6cf6939821221d01bc6c4f33c6470de4b1a852dd99ea19883d` |
+| dijkstra-eb3.header | 00348/23 | 376369 | 18772 | `a4c183c4234560ae182fd5e56a021f0f4b13d5019bab155a536db9e8bbebca90` | 893 | yes | `dijkstra-eb3.ebbody`, 15303 bytes, `a8f2a746b33a74bf39f9f8a56e108746d1512a5af91f48ba4336a61b81cf5fcd` |
+
+The `certifies` column is `block_body_contains_leios_cert`, which names the
+announcement made before its own header rather than the one that header makes,
+so one header can carry both and two of these do.
+
+The header alone is cut rather than the whole block because that chain writes a
+four element block body led by a nil, and this era models the three element
+body of the chain above. The block at slot 397855 also weighs 88105 bytes
+against 896 for its header.
+
+Every announced value the endorser tests in `pallas-traverse` run against comes
+out of these three files, and a test there checks each file against the hash in
+the table above before any body is decoded against it.
 
 ## Transactions cut from the chain
 

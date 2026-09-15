@@ -70,6 +70,10 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
     ),
+    (
+        "dijkstra16",
+        include_str!("../../../test_data/dijkstra16.block"),
+    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -328,6 +332,47 @@ fn a_block_transaction_is_not_a_mempool_transaction() {
     assert!(
         as_block.is_err(),
         "a mempool transaction must not decode as a block transaction"
+    );
+}
+
+/// MUST FIRE: the conversion back into a block's form gives the four element
+/// shape and marks the transaction valid, which is the only verdict the mempool
+/// form can carry.
+///
+/// MUST NOT FIRE: it must change nothing else. A round trip out to the mempool
+/// form and back has to land on the transaction the block started with, byte
+/// for byte, or the splice a certified endorser block goes through would be
+/// rewriting transactions rather than moving them.
+#[test]
+fn a_mempool_transaction_becomes_a_valid_block_transaction() {
+    let bytes = hex::decode(TEST_BLOCKS[WITH_TRANSACTIONS].1).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes).unwrap();
+
+    let tx = block
+        .block_body
+        .transactions
+        .first()
+        .expect("this fixture must carry at least one transaction");
+
+    let three = minicbor::to_vec(tx.to_mempool_transaction()).unwrap();
+    let mempool: MempoolTransaction = minicbor::decode(&three).unwrap();
+
+    let rebuilt = mempool.to_block_transaction();
+    assert!(rebuilt.success, "the mempool form admits no other verdict");
+    assert_eq!(&rebuilt, tx, "nothing but the flag was restored");
+    assert_eq!(
+        minicbor::to_vec(&rebuilt).unwrap(),
+        minicbor::to_vec(tx).unwrap(),
+        "the round trip is byte for byte"
+    );
+
+    // MUST NOT FIRE: what comes back is four elements, not three, so it is the
+    // block's form and not the one it started this test in.
+    let four = minicbor::to_vec(&rebuilt).unwrap();
+    let round: Result<MempoolTransaction, _> = minicbor::decode(&four);
+    assert!(
+        round.is_err(),
+        "the rebuilt transaction must no longer read as a mempool one"
     );
 }
 
@@ -868,6 +913,10 @@ const HEADER_HASHES: &[(&str, &str)] = &[
     (
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
+    ),
+    (
+        "dijkstra16",
+        "c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c",
     ),
 ];
 
