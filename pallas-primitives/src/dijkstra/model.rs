@@ -1481,6 +1481,27 @@ impl<'b> From<MempoolTransaction<'b>> for BlockTransaction<'b> {
     }
 }
 
+impl<'b> MempoolTransaction<'b> {
+    /// The same transaction as a block carries it, with the validity flag the
+    /// block producer sets.
+    ///
+    /// The flag is `true` and cannot be anything else. The mempool rule admits
+    /// the field only as the literal `true`, which is why the decoder below
+    /// refuses `false` rather than recording it, so a mempool transaction has
+    /// no other verdict to carry into a block. This is the inverse of
+    /// [`BlockTransaction::to_mempool_transaction`], and the pair is what a
+    /// certified endorser block's closure travels through on its way into the
+    /// ranking block that certified it.
+    pub fn to_block_transaction(&self) -> BlockTransaction<'b> {
+        BlockTransaction {
+            transaction_body: self.transaction_body.clone(),
+            transaction_witness_set: self.transaction_witness_set.clone(),
+            auxiliary_data: self.auxiliary_data.clone(),
+            success: true,
+        }
+    }
+}
+
 impl<'b, C> minicbor::Decode<'b, C> for MempoolTransaction<'b> {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let len = d.array()?;
