@@ -338,19 +338,29 @@ pub type ProtocolVersion = (ProtocolVersionMajor, ProtocolVersionMinor);
 
 pub type CostModel = Vec<i64>;
 
-#[derive(Encode, Debug, PartialEq, Eq, Clone)]
-#[cbor(map)]
+/// The cost models a node reports, keyed by Plutus language version.
+///
+/// Every key the wire carries has somewhere to live and goes back out again.
+/// The four languages the ledger has names have named fields, and `unknown`
+/// holds any key beyond them, so a language added to the ledger before it is
+/// added here arrives, survives a re-encode, and can be read by its number
+/// rather than going missing between the two.
+///
+/// The encoder is written out in `codec.rs` rather than derived, because a
+/// derived one has no way to write `unknown` and no way to write a model as
+/// the indefinite length array the node writes it as.
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CostModels {
-    #[n(0)]
     pub plutus_v1: Option<CostModel>,
 
-    #[n(1)]
     pub plutus_v2: Option<CostModel>,
 
-    #[n(2)]
     pub plutus_v3: Option<CostModel>,
 
-    #[cbor(skip)]
+    /// Key 3, which the Dijkstra ledger adds.
+    pub plutus_v4: Option<CostModel>,
+
+    /// Any key past the four named ones, in the order the wire gave them.
     pub unknown: KeyValuePairs<u64, CostModel>,
 }
 
@@ -476,6 +486,142 @@ pub struct ProtocolParam {
     pub drep_inactivity_period: Option<Epoch>,
     #[n(30)]
     pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
+}
+
+/// The number of entries in the Dijkstra protocol parameter array, which is
+/// `length (eraPParams @DijkstraEra)`.
+pub const DIJKSTRA_PROTOCOL_PARAM_FIELDS: u64 = 46;
+
+/// Dijkstra era protocol parameters, corresponding to [`DijkstraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L124-L235)
+/// in the Haskell sources, at cardano-ledger `1587f21a`, which is the commit the
+/// `prototype-2026w36` node release integrates.
+///
+/// The wire form is a positional array, not a map. [`EncCBOR (PParams era)`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L203-L208)
+/// writes `encodeListLen (length (eraPParams @era))` and then one entry per
+/// element of `eraPParams`, so the order of the fields below is the order of
+/// [`eraPParams` for Dijkstra](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L612-L659)
+/// and nothing else. The first 31 entries are the Conway ones in Conway order,
+/// carrying the same names they have in [`ProtocolParam`], entries 31 to 34 are
+/// the four reference script parameters Dijkstra appends, and entries 35 to 45
+/// are the pledge, pool margin and Leios parameters added between cardano-ledger
+/// `f3104f0` and `1587f21a`. The first 35 entries did not move across that
+/// range, so a value decoded by the earlier 35 entry form reads the same for
+/// every field it has.
+///
+/// The eleven appended entries are [`ppMaxPledgeLeverage`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L717-L869)
+/// through `ppMaxRefScriptSizePerEndorserBlock`, which carry update keys 38 to
+/// 48 of [`protocol_param_update`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/cddl/data/dijkstra.cddl#L681-L727)
+/// in the same order. Their ledger widths are `Word32` for the three period
+/// lengths and the four sizes and `Word16` for the committee size, and they are
+/// held here as [`u64`] to match the width every other integer field of this
+/// type already uses.
+///
+/// Every entry is present in every value the node sends, because the encoder
+/// above writes one entry per parameter with no room for a gap. So these fields
+/// are not optional, unlike Conway's, and [`Decode`] refuses an array of any
+/// other length rather than filling the difference in with absence. The Haskell
+/// decoder checks the same thing, with `decodeRecordNamed` over the same count.
+#[derive(Encode, Debug, PartialEq, Eq, Clone)]
+pub struct DijkstraProtocolParam {
+    #[n(0)]
+    pub minfee_a: u64,
+    #[n(1)]
+    pub minfee_b: u64,
+    #[n(2)]
+    pub max_block_body_size: u64,
+    #[n(3)]
+    pub max_transaction_size: u64,
+    #[n(4)]
+    pub max_block_header_size: u64,
+    #[n(5)]
+    pub key_deposit: Coin,
+    #[n(6)]
+    pub pool_deposit: Coin,
+    #[n(7)]
+    pub maximum_epoch: Epoch,
+    #[n(8)]
+    pub desired_number_of_stake_pools: u64,
+    #[n(9)]
+    pub pool_pledge_influence: RationalNumber,
+    #[n(10)]
+    pub expansion_rate: UnitInterval,
+    #[n(11)]
+    pub treasury_growth_rate: UnitInterval,
+    #[n(12)]
+    pub protocol_version: ProtocolVersion,
+    #[n(13)]
+    pub min_pool_cost: Coin,
+    #[n(14)]
+    pub ada_per_utxo_byte: Coin,
+    #[n(15)]
+    pub cost_models_for_script_languages: CostModels,
+    #[n(16)]
+    pub execution_costs: ExUnitPrices,
+    #[n(17)]
+    pub max_tx_ex_units: ExUnits,
+    #[n(18)]
+    pub max_block_ex_units: ExUnits,
+    #[n(19)]
+    pub max_value_size: u64,
+    #[n(20)]
+    pub collateral_percentage: u64,
+    #[n(21)]
+    pub max_collateral_inputs: u64,
+    #[n(22)]
+    pub pool_voting_thresholds: PoolVotingThresholds,
+    #[n(23)]
+    pub drep_voting_thresholds: DRepVotingThresholds,
+    #[n(24)]
+    pub min_committee_size: u64,
+    #[n(25)]
+    pub committee_term_limit: Epoch,
+    #[n(26)]
+    pub governance_action_validity_period: Epoch,
+    #[n(27)]
+    pub governance_action_deposit: Coin,
+    #[n(28)]
+    pub drep_deposit: Coin,
+    #[n(29)]
+    pub drep_inactivity_period: Epoch,
+    #[n(30)]
+    pub minfee_refscript_cost_per_byte: RationalNumber,
+    #[n(31)]
+    pub max_ref_script_size_per_block: u64,
+    #[n(32)]
+    pub max_ref_script_size_per_tx: u64,
+    #[n(33)]
+    pub ref_script_cost_stride: u64,
+    #[n(34)]
+    pub ref_script_cost_multiplier: PositiveInterval,
+    /// `MaxPledgeLeverage` is a `StrictMaybe NonNegativeInterval` written with
+    /// [`encodeNullStrictMaybe`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L367-L377),
+    /// so the entry is either the interval or a CBOR null, which is what the
+    /// CDDL rule `max_pledge_leverage = nonnegative_interval / nil` says and
+    /// what the network's dijkstra genesis carries today. The null is a value
+    /// the node sends, not an entry it left out, so it is held as
+    /// [`Nullable::Null`] rather than as an absent field.
+    #[n(35)]
+    pub max_pledge_leverage: Nullable<RationalNumber>,
+    #[n(36)]
+    pub min_pool_margin: UnitInterval,
+    #[n(37)]
+    pub leios_announcement_period_length: u64,
+    #[n(38)]
+    pub leios_vote_period_length: u64,
+    #[n(39)]
+    pub leios_diffusion_period_length: u64,
+    #[n(40)]
+    pub leios_committee_size: u64,
+    #[n(41)]
+    pub leios_quorum_stake_threshold: UnitInterval,
+    #[n(42)]
+    pub max_endorser_block_references_size: u64,
+    #[n(43)]
+    pub max_endorser_block_txs_size: u64,
+    #[n(44)]
+    pub max_endorser_block_ex_units: ExUnits,
+    #[n(45)]
+    pub max_ref_script_size_per_endorser_block: u64,
 }
 
 pub type StakeDistribution = KeyValuePairs<Bytes, Pool>;
