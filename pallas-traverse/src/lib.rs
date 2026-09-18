@@ -82,6 +82,9 @@ use pallas_primitives::{
 #[cfg(feature = "unstable")]
 use pallas_primitives::dijkstra;
 
+#[cfg(feature = "unstable")]
+use crate::cert::BlsKeySlot;
+
 mod support;
 
 #[cfg(test)]
@@ -298,8 +301,10 @@ pub enum MultiEraCert<'b> {
 
 /// What a [`MultiEraCert`] certifies, normalized across eras.
 ///
-/// Every kind corresponds to a variant of Conway's certificate type, of the
-/// type serving Shelley through Babbage, or of both.
+/// Fifteen kinds have a variant in Conway's certificate type and in every
+/// later era's. The two registration kinds that carry no deposit have one in
+/// Conway's and in every era before it. The last two have one only in the
+/// type serving Shelley through Babbage.
 ///
 /// Each payload is borrowed from the certificate, apart from the coin and
 /// epoch counts, which are copied.
@@ -373,8 +378,11 @@ pub enum MultiEraCertKind<'b> {
 /// The parameters a pool registration certificate carries, normalized across
 /// eras.
 ///
-/// Both the Alonzo and the Conway pool registration certificate name every
-/// field here.
+/// Every field but the BLS key is named by every era's pool registration. The
+/// `unstable` build adds the key slot Dijkstra introduces, which reads
+/// `BlsKeySlot::NoSlot` for a registration of any earlier era and never reads
+/// `BlsKeySlot::NotAPoolRegistration` here. That type is behind the feature,
+/// so these names are written plainly rather than linked.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct MultiEraPoolRegistration<'b> {
@@ -397,6 +405,9 @@ pub struct MultiEraPoolRegistration<'b> {
     pub relays: &'b [Relay],
     /// The off chain metadata the pool points at, which it may omit.
     pub pool_metadata: Option<&'b PoolMetadata>,
+    /// The BLS key slot, which only a Dijkstra registration may fill.
+    #[cfg(feature = "unstable")]
+    pub bls_key: BlsKeySlot<'b>,
 }
 
 /// Plutus redeemer normalized across eras.
