@@ -240,7 +240,10 @@ macro_rules! impl_cardano_mapper_shared {
                     ScriptLanguage::PlutusV1 => u5c::script::Script::PlutusV1(bytes().into()),
                     ScriptLanguage::PlutusV2 => u5c::script::Script::PlutusV2(bytes().into()),
                     ScriptLanguage::PlutusV3 => u5c::script::Script::PlutusV3(bytes().into()),
+                    #[cfg(feature = "unstable")]
                     ScriptLanguage::PlutusV4 => u5c::script::Script::PlutusV4(bytes().into()),
+                    #[cfg(feature = "unstable")]
+                    other => panic!("u5c has no script field for {other:?}"),
                 };
 
                 envelope(inner)

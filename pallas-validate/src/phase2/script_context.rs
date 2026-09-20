@@ -128,7 +128,7 @@ impl DataLookupTable {
                         match &script.0 {
                             ScriptRef::NativeScript(ns) => {
                                 scripts.insert(
-                                    ns.compute_hash(),
+                                    ns.original_hash(),
                                     ScriptVersion::Native(ns.clone().unwrap()),
                                 );
                             }
@@ -1110,7 +1110,9 @@ pub fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    use super::DataLookupTable;
+    use super::{
+        DataLookupTable, Hash, ResolvedInput, ScriptRef, TransactionInput, TransactionOutput,
+    };
     use pallas_crypto::hash::Hasher;
     use pallas_traverse::{ComputeHash, Era, MultiEraTx};
 
@@ -1155,6 +1157,75 @@ mod tests {
         );
 
         let keys: Vec<_> = DataLookupTable::from_transaction(&tx, &[])
+            .scripts()
+            .into_keys()
+            .collect();
+
+        assert_eq!(keys, vec![committed]);
+    }
+
+    fn conway_tx_outputting(script: &[u8]) -> Vec<u8> {
+        let mut script_ref = vec![0x82, 0x00]; // script reference, native script
+        script_ref.extend_from_slice(script);
+
+        let mut output = vec![
+            0xa3, 0x00, 0x41, 0x00, // output, one byte of address
+            0x01, 0x00, // no value
+            0x03, 0xd8, 0x18, 0x58, // script reference, wrapped in cbor
+        ];
+        output.push(script_ref.len() as u8);
+        output.extend_from_slice(&script_ref);
+
+        let mut cbor = vec![
+            0x84, // transaction
+            0xa3, 0x00, 0x80, 0x01, 0x81, // body, no inputs, one output
+        ];
+        cbor.extend_from_slice(&output);
+        cbor.extend_from_slice(&[0x02, 0x00]); // no fee
+        cbor.extend_from_slice(&[0xa0, 0xf5, 0xf6]); // no witnesses, valid, no auxiliary data
+        cbor
+    }
+
+    #[test]
+    fn a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in() {
+        let cbor = conway_tx_outputting(&COMMITTED_SCRIPT);
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+
+        let output = tx
+            .as_conway()
+            .expect("a Conway transaction")
+            .transaction_body
+            .outputs[0]
+            .clone();
+
+        let TransactionOutput::PostAlonzo(post_alonzo) = &output else {
+            panic!("a post Alonzo output")
+        };
+        let ScriptRef::NativeScript(reference) = &post_alonzo
+            .script_ref
+            .as_ref()
+            .expect("a script reference")
+            .0
+        else {
+            panic!("a native script reference")
+        };
+
+        let committed = Hasher::<224>::hash_tagged(&COMMITTED_SCRIPT, 0);
+        let re_encoded = reference.compute_hash();
+        assert_ne!(
+            committed, re_encoded,
+            "this script re encodes to its own bytes, so the key cannot tell the two apart"
+        );
+
+        let utxos = [ResolvedInput {
+            input: TransactionInput {
+                transaction_id: Hash::new([0; 32]),
+                index: 0,
+            },
+            output,
+        }];
+
+        let keys: Vec<_> = DataLookupTable::from_transaction(&tx, &utxos)
             .scripts()
             .into_keys()
             .collect();
