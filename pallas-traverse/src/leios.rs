@@ -63,6 +63,7 @@ use crate::{Era, MultiEraHeader, MultiEraTx};
 /// endorser block. Every variant names the evidence, so no caller has to infer
 /// a failure from a value that merely came back empty.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("endorser block body is not a cbor map of hash to size: {0}")]
     InvalidBody(String),
@@ -425,6 +426,7 @@ pub struct HeaderOutcome {
 /// and the two demand opposite answers the moment a certificate arrives, so
 /// they are held apart here rather than collapsed into an absence.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PendingAnnouncement {
     /// Nothing is waiting. Either the most recent Leios event on the chain was
     /// a certificate that consumed the announcement before it, or the chain has
