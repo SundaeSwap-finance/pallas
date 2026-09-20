@@ -659,7 +659,7 @@ mod tests {
         leiosfetch as lf, leiosnotify as ln, peersharing,
     };
     use crate::testing::BehaviorOutputExt;
-    use crate::{InterfaceError, InterfaceEvent};
+    use crate::{InterfaceCommand, InterfaceError, InterfaceEvent};
     use futures::StreamExt;
     use std::collections::HashMap;
     use std::net::Ipv4Addr;
@@ -674,6 +674,20 @@ mod tests {
         }
 
         outputs
+    }
+
+    /// Collects the leios-fetch messages the behavior asked the IO layer to send.
+    fn fetch_sends(outputs: &[BehaviorOutput<InitiatorBehavior>]) -> Vec<lf::Message> {
+        outputs
+            .iter()
+            .filter_map(|o| match o {
+                BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
+                    _,
+                    AnyMessage::LeiosFetch(msg),
+                )) => Some(msg.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     fn complete_handshake(behavior: &mut InitiatorBehavior, pid: &PeerId) {
@@ -1121,6 +1135,106 @@ mod tests {
         assert!(
             !issued.has_send(|m| matches!(m, AnyMessage::LeiosNotify(ln::Message::RequestNext))),
             "should NOT drive the notify pull loop"
+        );
+    }
+
+    #[tokio::test]
+    async fn back_to_back_fetch_commands_send_one_at_a_time() {
+        // Composition: an issued fetch holds the peer's leios-fetch slot until
+        // the IO layer confirms the send, so a second command queues instead of
+        // overlapping, and the peer is never seen as violating the protocol.
+        tokio::time::pause();
+
+        let mut behavior = InitiatorBehavior::default();
+        let pid = PeerId::test(22);
+        let first = Point::new(7, vec![0xE1; 32]);
+        let second = Point::new(8, vec![0xE2; 32]);
+
+        behavior.execute(InitiatorCommand::IncludePeer(pid.clone()));
+        behavior.execute(InitiatorCommand::Housekeeping);
+        drain_outputs(&mut behavior);
+
+        behavior.handle_io(InterfaceEvent::Connected(pid.clone()));
+        drain_outputs(&mut behavior);
+        complete_handshake_leios(&mut behavior, &pid);
+        drain_outputs(&mut behavior);
+
+        // Two fetch commands for the same peer, with nothing in between, which
+        // is what a bursting consumer does.
+        behavior.execute(InitiatorCommand::FetchEb(pid.clone(), first.clone()));
+        behavior.execute(InitiatorCommand::FetchEb(pid.clone(), second.clone()));
+        let issued = fetch_sends(&drain_outputs(&mut behavior));
+
+        assert_eq!(
+            issued.len(),
+            1,
+            "only the first fetch belongs on the wire, got {issued:?}"
+        );
+        assert!(
+            matches!(&issued[0], lf::Message::BlockRequest(p) if p == &first),
+            "the request on the wire should be the first one, got {:?}",
+            issued[0]
+        );
+
+        // The IO layer confirms every request the behavior handed it, and that
+        // confirmation is what moves the protocol out of idle. Confirming a
+        // second request while the first is outstanding reads as a violation,
+        // so this loop is driven by what actually went out, not by a count the
+        // test picked.
+        for msg in issued.iter() {
+            behavior.handle_io(InterfaceEvent::Sent(
+                pid.clone(),
+                AnyMessage::LeiosFetch(msg.clone()),
+            ));
+        }
+        let confirmed = fetch_sends(&drain_outputs(&mut behavior));
+        assert!(
+            confirmed.is_empty(),
+            "confirming the first send should not put a second request on the wire, got {confirmed:?}"
+        );
+        assert!(
+            !behavior.peers.get(&pid).unwrap().violation,
+            "a second fetch command must not make the peer look like a violator"
+        );
+
+        // The response frees the slot, so the queued second request goes out.
+        let block =
+            AnyMessage::LeiosFetch(lf::Message::Block(AnyCbor::from_raw_bytes(vec![1, 2, 3])));
+        behavior.handle_io(InterfaceEvent::Recv(pid.clone(), vec![block]));
+        let outputs = drain_outputs(&mut behavior);
+        assert!(
+            outputs.has_event(|e| matches!(e, InitiatorEvent::EbFetched(..))),
+            "should surface the first fetched EB body as an event"
+        );
+
+        let served = fetch_sends(&outputs);
+        assert_eq!(
+            served.len(),
+            1,
+            "the queued second fetch should go out once the peer is free, got {served:?}"
+        );
+        assert!(
+            matches!(&served[0], lf::Message::BlockRequest(p) if p == &second),
+            "the second request should carry the second EB, got {:?}",
+            served[0]
+        );
+
+        assert!(
+            !behavior.peers.get(&pid).unwrap().violation,
+            "the peer should still be in good standing"
+        );
+
+        // Housekeeping is where a violation would turn into a ban and a
+        // disconnect, which is the harm a burst of fetch commands must not do.
+        behavior.execute(InitiatorCommand::Housekeeping);
+        let swept = drain_outputs(&mut behavior);
+        assert!(
+            !behavior.promotion.banned_peers.contains(&pid),
+            "a burst of fetch commands should not ban the peer"
+        );
+        assert!(
+            !swept.has_disconnect_for(&pid),
+            "a burst of fetch commands should not disconnect the peer"
         );
     }
 }
