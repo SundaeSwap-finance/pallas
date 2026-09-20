@@ -1772,7 +1772,9 @@ impl HaskellDisplay for NativeScript {
             }
             ScriptAll(vec) => format!("AllOf ({})", vec.as_strict_seq()),
             ScriptAny(vec) => format!("AnyOf ({})", vec.as_strict_seq()),
-            ScriptNOfK(m, vec) => format!("MOfN {} ({})", m, vec.as_strict_seq()),
+            ScriptNOfK(m, vec) => {
+                format!("MOfN {} ({})", m.to_haskell_str_p(), vec.as_strict_seq())
+            }
             InvalidBefore(slot_no) => format!("TimeStart ({})", slot_no.as_slot_no()),
             InvalidHereafter(slot_no) => format!("TimeExpire ({})", slot_no.as_slot_no()),
         };
@@ -2717,5 +2719,18 @@ mod tests {
             said.contains("(9,[9])"),
             "the model under key 9 is not in the rendering: {said}"
         );
+    }
+}
+
+#[cfg(test)]
+mod native_script_tests {
+    use super::*;
+
+    #[test]
+    fn negative_n_of_k_threshold_is_parenthesized() {
+        // Matches this file's convention for every other negative constructor
+        // argument: `MOfN -1 (...)` isn't valid Haskell constructor syntax.
+        let str = NativeScript::ScriptNOfK(-1, vec![]).to_haskell_str();
+        assert!(str.contains("MOfN (-1) ("), "{str}");
     }
 }
