@@ -265,7 +265,7 @@ mod tests {
         );
 
         assert_eq!(
-            Mapper::<NoLedger>::map_native_script(&script).native_script,
+            Mapper::<NoLedger>::map_multi_era_native_script(&script).native_script,
             Some(u5c::native_script::NativeScript::ScriptPubkey(
                 [0x44; 28].to_vec().into()
             )),
@@ -317,6 +317,21 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn negative_n_of_k_threshold_maps_to_zero() {
+        let mapped = Mapper::<NoLedger>::map_native_script(
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
+        );
+        assert!(matches!(
+            mapped.native_script,
+            Some(u5c::native_script::NativeScript::ScriptNOfK(
+                u5c::ScriptNOfK { k: 0, .. }
+            ))
+        ));
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn oversized_n_of_k_threshold_maps_to_u32_max() {
         let mapped = Mapper::<NoLedger>::map_native_script(
             &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
@@ -443,6 +458,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
         // Depth and stack size are load-bearing, not just generous: both must
         // stay far enough apart that the old recursive mapping (one call
@@ -486,6 +502,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn map_native_script_preserves_mixed_shape_trees() {
         use pallas_primitives::alonzo::NativeScript;
 

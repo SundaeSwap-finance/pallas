@@ -356,7 +356,7 @@ mod tests {
         );
 
         assert_eq!(
-            Mapper::<NoLedger>::map_native_script(&script).native_script,
+            Mapper::<NoLedger>::map_multi_era_native_script(&script).native_script,
             Some(u5c::native_script::NativeScript::ScriptPubkeyHash(
                 [0x44; 28].to_vec().into()
             )),

@@ -382,6 +382,32 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            // The released signature returned parameters whose every field is
+            // its proto3 zero for a change that proposes no key u5c carries.
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_gov_action")]
+            pub fn map_conway_gov_action(
+                &self,
+                x: &pallas_primitives::conway::GovAction,
+            ) -> u5c::GovernanceAction {
+                let mut out =
+                    self.map_gov_action(&pallas_traverse::MultiEraGovAction::from_conway(x));
+
+                if let Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(
+                    change,
+                )) = out.governance_action.as_mut()
+                {
+                    change.protocol_param_update.get_or_insert_with(
+                        u5c::PParams::default,
+                    );
+                }
+
+                out
+            }
+
+            #[deprecated(
+                since = "1.5.0",
+                note = "use Mapper::map_multi_era_native_script. This method cannot represent a Dijkstra script"
+            )]
             pub fn map_native_script(
                 x: &pallas_primitives::alonzo::NativeScript,
             ) -> u5c::NativeScript {
@@ -426,22 +452,9 @@ macro_rules! impl_cardano_mapper_shared {
                 })
             }
 
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_script_ref")]
             pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
-                use pallas_primitives::conway;
-                match x {
-                    conway::ScriptRef::NativeScript(x) => u5c::Script {
-                        script: u5c::script::Script::Native(Self::map_native_script(x)).into(),
-                    },
-                    conway::ScriptRef::PlutusV1Script(x) => u5c::Script {
-                        script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
-                    },
-                    conway::ScriptRef::PlutusV2Script(x) => u5c::Script {
-                        script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
-                    },
-                    conway::ScriptRef::PlutusV3Script(x) => u5c::Script {
-                        script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
-                    },
-                }
+                self.map_script_ref(&pallas_traverse::MultiEraScriptRef::from_conway(x))
             }
 
             pub fn map_stake_credential(
@@ -517,7 +530,8 @@ macro_rules! impl_cardano_mapper_shared {
                     .multi_era_native_scripts()
                     .into_iter()
                     .map(|x| {
-                        let inner = u5c::script::Script::Native(Self::map_native_script(&x));
+                        let inner =
+                            u5c::script::Script::Native(Self::map_multi_era_native_script(&x));
                         envelope(inner)
                     })
                     .collect::<Vec<_>>()
@@ -721,7 +735,8 @@ macro_rules! impl_cardano_mapper_shared {
                     .multi_era_aux_native_scripts()
                     .into_iter()
                     .map(|x| {
-                        let inner = u5c::script::Script::Native(Self::map_native_script(&x));
+                        let inner =
+                            u5c::script::Script::Native(Self::map_multi_era_native_script(&x));
                         envelope(inner)
                     })
                     .collect::<Vec<_>>()
@@ -1992,6 +2007,116 @@ macro_rules! impl_cardano_mapper_shared {
                 );
             }
 
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let every = conway_update_of_every_key();
+                assert_eq!(
+                    mapper.map_conway_pparams_update(&every),
+                    every_key_as_pparams(None),
+                    "every key this signature read before must still reach the u5c field that key means"
+                );
+
+                let blank = conway_update_of_no_key();
+                assert_eq!(
+                    mapper.map_conway_pparams_update(&blank),
+                    u5c::PParams::default(),
+                    "an update proposing no key reached this signature as parameters whose every field is its proto3 zero"
+                );
+                assert_eq!(
+                    mapper.map_pparams_update(&trv::MultiEraParamUpdate::Conway(Box::new(
+                        std::borrow::Cow::Borrowed(&blank)
+                    ))),
+                    None,
+                    "the era neutral signature tells that update apart from one proposing zeros, which is the distinction the deprecated return type cannot carry"
+                );
+            }
+
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_gov_action_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let empty = conway_parameter_change(&[0xa0]);
+                assert_eq!(
+                    parameter_change(mapper.map_conway_gov_action(&empty)).protocol_param_update,
+                    Some(u5c::PParams::default()),
+                    "a parameter change proposing no key reached this signature carrying parameters whose every field is its proto3 zero"
+                );
+                assert_eq!(
+                    parameter_change(
+                        mapper.map_gov_action(&trv::MultiEraGovAction::from_conway(&empty))
+                    )
+                    .protocol_param_update,
+                    None,
+                    "the era neutral signature reports that same action as proposing no parameters, and only the deprecated one fills the field"
+                );
+
+                let one_key = conway_parameter_change(&[0xa1, 0x00, 0x19, 0x03, 0xe8]);
+                assert_eq!(
+                    mapper.map_conway_gov_action(&one_key),
+                    mapper.map_gov_action(&trv::MultiEraGovAction::from_conway(&one_key)),
+                    "an action that does propose a key maps the same through either signature"
+                );
+            }
+
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_any_script_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let native = conway_native_script_ref([0x71; 28]);
+                assert_eq!(
+                    mapper.map_any_script(&native).script,
+                    Some(u5c::script::Script::Native(
+                        Mapper::<NoLedger>::map_native_script(
+                            &pallas_primitives::alonzo::NativeScript::ScriptPubkey(
+                                [0x71; 28].into()
+                            )
+                        )
+                    )),
+                    "a native reference script reaches the native field carrying what the alonzo walk makes of the same script"
+                );
+
+                let plutus = [
+                    (
+                        1u8,
+                        [0x01u8, 0xaa],
+                        u5c::script::Script::PlutusV1(vec![0x01u8, 0xaa].into()),
+                        u5c::script::Script::PlutusV1(vec![0x01u8, 0x55].into()),
+                    ),
+                    (
+                        2,
+                        [0x02, 0xbb],
+                        u5c::script::Script::PlutusV2(vec![0x02u8, 0xbb].into()),
+                        u5c::script::Script::PlutusV2(vec![0x02u8, 0x44].into()),
+                    ),
+                    (
+                        3,
+                        [0x03, 0xcc],
+                        u5c::script::Script::PlutusV3(vec![0x03u8, 0xcc].into()),
+                        u5c::script::Script::PlutusV3(vec![0x03u8, 0x33].into()),
+                    ),
+                ];
+
+                for (language, bytes, expected, other_bytes) in plutus {
+                    let script_ref = conway_plutus_script_ref(language, &bytes);
+
+                    assert_eq!(
+                        mapper.map_any_script(&script_ref).script,
+                        Some(expected),
+                        "a Plutus reference script of language {language} reaches the field of that language carrying its own bytes"
+                    );
+                    assert_ne!(
+                        mapper.map_any_script(&script_ref).script,
+                        Some(other_bytes),
+                        "the field carries the script's own bytes, so bytes it did not carry must not match"
+                    );
+                }
+            }
+
             fn parameter_change(action: u5c::GovernanceAction) -> u5c::ParameterChangeAction {
                 match action.governance_action {
                     Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(x)) => x,
@@ -2146,16 +2271,28 @@ macro_rules! impl_cardano_mapper_shared {
 
                 let mapper = Mapper::new(NoLedger);
 
-                assert_eq!(mapper.map_purpose(&Tag::Spend), u5c::RedeemerPurpose::Spend);
-                assert_eq!(mapper.map_purpose(&Tag::Mint), u5c::RedeemerPurpose::Mint);
-                assert_eq!(mapper.map_purpose(&Tag::Cert), u5c::RedeemerPurpose::Cert);
                 assert_eq!(
-                    mapper.map_purpose(&Tag::Reward),
+                    mapper.map_multi_era_purpose(&Tag::Spend),
+                    u5c::RedeemerPurpose::Spend
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Mint),
+                    u5c::RedeemerPurpose::Mint
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Cert),
+                    u5c::RedeemerPurpose::Cert
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Reward),
                     u5c::RedeemerPurpose::Reward
                 );
-                assert_eq!(mapper.map_purpose(&Tag::Vote), u5c::RedeemerPurpose::Vote);
                 assert_eq!(
-                    mapper.map_purpose(&Tag::Propose),
+                    mapper.map_multi_era_purpose(&Tag::Vote),
+                    u5c::RedeemerPurpose::Vote
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Propose),
                     u5c::RedeemerPurpose::Propose
                 );
             }
@@ -2166,7 +2303,7 @@ macro_rules! impl_cardano_mapper_shared {
                 let mapper = Mapper::new(NoLedger);
 
                 assert_eq!(
-                    mapper.map_purpose(&pallas_traverse::MultiEraRedeemerTag::Guarding),
+                    mapper.map_multi_era_purpose(&pallas_traverse::MultiEraRedeemerTag::Guarding),
                     u5c::RedeemerPurpose::Unspecified,
                     "u5c has no guarding purpose, so a guard reads as unspecified rather than as one of the six it names"
                 );
@@ -2616,7 +2753,7 @@ macro_rules! impl_cardano_mapper_shared {
                     Some(clause),
                     multi
                         .native_script()
-                        .map(|x| Mapper::<NoLedger>::map_native_script(&x)),
+                        .map(|x| Mapper::<NoLedger>::map_multi_era_native_script(&x)),
                     "a native reference script maps to what its own native script maps to, rather than to an empty or a Plutus message"
                 );
             }
@@ -2649,7 +2786,7 @@ macro_rules! impl_cardano_mapper_shared {
                     dijkstra::NativeScript::ScriptPubkey([0x44; 28].into()),
                 ]);
 
-                let mapped = Mapper::<NoLedger>::map_native_script(
+                let mapped = Mapper::<NoLedger>::map_multi_era_native_script(
                     &pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script),
                 );
 
@@ -2748,12 +2885,12 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
-            fn negative_n_of_k_threshold_maps_to_zero() {
+            fn the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero() {
                 let negative = pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(
                     &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
                 );
                 assert!(matches!(
-                    Mapper::<NoLedger>::map_native_script(&negative).native_script,
+                    Mapper::<NoLedger>::map_multi_era_native_script(&negative).native_script,
                     Some(u5c::native_script::NativeScript::ScriptNOfK(
                         u5c::ScriptNOfK { k: 0, .. }
                     ))
@@ -2764,7 +2901,7 @@ macro_rules! impl_cardano_mapper_shared {
                 );
                 assert!(
                     matches!(
-                        Mapper::<NoLedger>::map_native_script(&positive).native_script,
+                        Mapper::<NoLedger>::map_multi_era_native_script(&positive).native_script,
                         Some(u5c::native_script::NativeScript::ScriptNOfK(
                             u5c::ScriptNOfK { k: 2, .. }
                         ))
@@ -3272,6 +3409,20 @@ macro_rules! impl_cardano_mapper_shared {
                 }
 
                 Some(mapped)
+            }
+
+            // An update that proposes no key reached this signature as a
+            // PParams of default fields, which is what None becomes here.
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_pparams_update")]
+            pub fn map_conway_pparams_update(
+                &self,
+                x: &pallas_primitives::conway::ProtocolParamUpdate,
+            ) -> u5c::PParams {
+                let update = pallas_traverse::MultiEraParamUpdate::Conway(Box::new(
+                    std::borrow::Cow::Borrowed(x),
+                ));
+
+                self.map_pparams_update(&update).unwrap_or_default()
             }
         }
     };
