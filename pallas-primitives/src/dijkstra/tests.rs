@@ -335,14 +335,9 @@ fn a_block_transaction_is_not_a_mempool_transaction() {
     );
 }
 
-/// MUST FIRE: the conversion back into a block's form gives the four element
-/// shape and marks the transaction valid, which is the only verdict the mempool
-/// form can carry.
-///
-/// MUST NOT FIRE: it must change nothing else. A round trip out to the mempool
-/// form and back has to land on the transaction the block started with, byte
-/// for byte, or the splice a certified endorser block goes through would be
-/// rewriting transactions rather than moving them.
+/// A round trip out to the mempool form and back lands on the transaction the
+/// block started with, byte for byte, so the splice a certified endorser block
+/// goes through moves transactions rather than rewriting them.
 #[test]
 fn a_mempool_transaction_becomes_a_valid_block_transaction() {
     let bytes = hex::decode(TEST_BLOCKS[WITH_TRANSACTIONS].1).unwrap();
@@ -366,8 +361,8 @@ fn a_mempool_transaction_becomes_a_valid_block_transaction() {
         "the round trip is byte for byte"
     );
 
-    // MUST NOT FIRE: what comes back is four elements, not three, so it is the
-    // block's form and not the one it started this test in.
+    // what comes back is four elements, not three, so it is the block's form
+    // and not the one it started this test in
     let four = minicbor::to_vec(&rebuilt).unwrap();
     let round: Result<MempoolTransaction, _> = minicbor::decode(&four);
     assert!(
