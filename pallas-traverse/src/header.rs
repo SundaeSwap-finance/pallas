@@ -40,7 +40,7 @@ impl<'b> MultiEraHeader<'b> {
                 let header = minicbor::decode(cbor).map_err(Error::invalid_cbor)?;
                 Ok(MultiEraHeader::Dijkstra(Cow::Owned(header)))
             }
-            unknown => Err(Error::UnknownHeaderEnvelopeTag(unknown)),
+            unknown => Err(Error::UnknownEra(unknown.into())),
         }
     }
 
@@ -364,7 +364,7 @@ mod tests {
             let err = MultiEraHeader::decode(tag, None, &raw)
                 .expect_err("an unknown envelope tag must be refused, not decoded as Babbage");
             assert!(
-                matches!(err, Error::UnknownHeaderEnvelopeTag(t) if t == tag),
+                matches!(err, Error::UnknownEra(t) if t == u16::from(tag)),
                 "envelope tag {tag} gave {err:?}"
             );
         }
@@ -377,7 +377,7 @@ mod tests {
 
         let err = MultiEraHeader::decode(7, None, &raw)
             .expect_err("envelope tag 7 must be refused when the Dijkstra era is not compiled in");
-        assert!(matches!(err, Error::UnknownHeaderEnvelopeTag(7)), "{err:?}");
+        assert!(matches!(err, Error::UnknownEra(7)), "{err:?}");
     }
 
     #[test]
