@@ -457,9 +457,9 @@ macro_rules! impl_cardano_mapper_shared {
                     change,
                 )) = out.governance_action.as_mut()
                 {
-                    change.protocol_param_update.get_or_insert_with(
-                        u5c::PParams::default,
-                    );
+                    change
+                        .protocol_param_update
+                        .get_or_insert_with(u5c::PParams::default);
                 }
 
                 out
