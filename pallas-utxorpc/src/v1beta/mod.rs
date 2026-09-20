@@ -98,7 +98,7 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.script_ref().map(|x| self.map_script_ref(&x))
+        x.multi_era_script_ref().map(|x| self.map_script_ref(&x))
     }
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
@@ -480,5 +480,49 @@ mod tests {
                 "a committee member's one vote must reach u5c as the vote it cast, on the action it named"
             );
         }
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn negative_n_of_k_threshold_maps_to_zero() {
+        let mapped = Mapper::<NoLedger>::map_native_script(
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
+        );
+        assert!(matches!(
+            mapped.native_script,
+            Some(u5c::native_script::NativeScript::ScriptNOfK(
+                u5c::ScriptNOfK { k: 0, .. }
+            ))
+        ));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn the_legacy_purpose_mapper_agrees_with_the_multi_era_one() {
+        use pallas_primitives::conway::RedeemerTag;
+        use pallas_traverse::MultiEraRedeemerTag;
+
+        let mapper = Mapper::new(NoLedger);
+        let tags = [
+            RedeemerTag::Spend,
+            RedeemerTag::Mint,
+            RedeemerTag::Cert,
+            RedeemerTag::Reward,
+            RedeemerTag::Vote,
+            RedeemerTag::Propose,
+        ];
+
+        let mut seen = Vec::new();
+        for tag in tags {
+            let legacy = mapper.map_purpose(&tag);
+            assert_eq!(
+                legacy,
+                mapper.map_multi_era_purpose(&MultiEraRedeemerTag::from(tag))
+            );
+            seen.push(legacy);
+        }
+
+        seen.dedup();
+        assert_eq!(seen.len(), 6, "each tag maps to a purpose of its own");
     }
 }

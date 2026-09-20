@@ -100,7 +100,7 @@ impl DataLookupTable {
         // `ScriptVersion::Native` holds the script type every era through Conway
         // shares, and phase 2 evaluation covers those eras. A native script of any
         // other shape does not reach the table.
-        for script in tx.native_scripts() {
+        for script in tx.multi_era_native_scripts() {
             if let Some(native) = script.as_alonzo_compatible() {
                 scripts.insert(script.hash(), ScriptVersion::Native(native.clone()));
             }
@@ -1105,5 +1105,60 @@ pub fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
         }
     } else {
         unreachable!("invalid reward address in withdrawals.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataLookupTable;
+    use pallas_crypto::hash::Hasher;
+    use pallas_traverse::{ComputeHash, Era, MultiEraTx};
+
+    /// `ScriptAll` over one `ScriptPubkey`, with the child list written as an
+    /// indefinite length array. The decoder accepts it and the encoder writes a
+    /// definite one, so the two hashes differ.
+    const COMMITTED_SCRIPT: [u8; 36] = [
+        0x82, 0x01, 0x9f, 0x82, 0x00, 0x58, 0x1c, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
+        0x17, 0x18, 0x19, 0x1a, 0x1b, 0xff,
+    ];
+
+    fn conway_tx_witnessing(script: &[u8]) -> Vec<u8> {
+        let mut cbor = vec![
+            0x84, // transaction
+            0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00, // body, no inputs, no outputs, no fee
+            0xa1, 0x01, 0x81, // witness set, one native script
+        ];
+        cbor.extend_from_slice(script);
+        cbor.extend_from_slice(&[0xf5, 0xf6]); // valid, no auxiliary data
+        cbor
+    }
+
+    #[test]
+    fn a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in() {
+        let cbor = conway_tx_witnessing(&COMMITTED_SCRIPT);
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+
+        let witness = &tx
+            .as_conway()
+            .expect("a Conway transaction")
+            .transaction_witness_set
+            .native_script
+            .as_ref()
+            .expect("one native script")[0];
+
+        let committed = Hasher::<224>::hash_tagged(&COMMITTED_SCRIPT, 0);
+        let re_encoded = witness.compute_hash();
+        assert_ne!(
+            committed, re_encoded,
+            "this script re encodes to its own bytes, so the key cannot tell the two apart"
+        );
+
+        let keys: Vec<_> = DataLookupTable::from_transaction(&tx, &[])
+            .scripts()
+            .into_keys()
+            .collect();
+
+        assert_eq!(keys, vec![committed]);
     }
 }

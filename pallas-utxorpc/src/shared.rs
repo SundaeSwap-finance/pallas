@@ -96,12 +96,31 @@ macro_rules! impl_cardano_mapper_shared {
         }
 
         impl<C: $crate::LedgerContext> Mapper<C> {
-            /// Map a purpose from the era neutral tag space.
+            #[deprecated(
+                since = "1.5.0",
+                note = "use map_multi_era_purpose. This method cannot represent the Dijkstra Guarding tag"
+            )]
             pub fn map_purpose(
+                &self,
+                x: &pallas_primitives::conway::RedeemerTag,
+            ) -> u5c::RedeemerPurpose {
+                use pallas_primitives::conway;
+                match x {
+                    conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
+                    conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
+                    conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
+                    conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
+                    conway::RedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
+                    conway::RedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
+                }
+            }
+
+            pub fn map_multi_era_purpose(
                 &self,
                 x: &pallas_traverse::MultiEraRedeemerTag,
             ) -> u5c::RedeemerPurpose {
                 use pallas_traverse::MultiEraRedeemerTag;
+
                 match x {
                     MultiEraRedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
                     MultiEraRedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
@@ -112,13 +131,13 @@ macro_rules! impl_cardano_mapper_shared {
                     // u5c has no guarding purpose.
                     #[cfg(feature = "unstable")]
                     MultiEraRedeemerTag::Guarding => u5c::RedeemerPurpose::Unspecified,
-                    _ => unimplemented!("map_purpose has no arm for this purpose"),
+                    _ => unimplemented!("map_multi_era_purpose has no arm for this purpose"),
                 }
             }
 
             pub fn map_redeemer(&self, x: &pallas_traverse::MultiEraRedeemer) -> u5c::Redeemer {
                 u5c::Redeemer {
-                    purpose: self.map_purpose(&x.tag()).into(),
+                    purpose: self.map_multi_era_purpose(&x.multi_era_tag()).into(),
                     payload: self.map_plutus_datum(x.data()).into(),
                     index: x.index(),
                     ex_units: Some(u5c::ExUnits {
@@ -430,7 +449,7 @@ macro_rules! impl_cardano_mapper_shared {
 
             fn collect_all_scripts(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<u5c::Script> {
                 let ns = tx
-                    .native_scripts()
+                    .multi_era_native_scripts()
                     .into_iter()
                     .map(|x| {
                         let inner = u5c::script::Script::Native(Self::map_native_script(&x));
@@ -608,7 +627,7 @@ macro_rules! impl_cardano_mapper_shared {
                 tx: &pallas_traverse::MultiEraTx,
             ) -> Vec<u5c::Script> {
                 let ns = tx
-                    .aux_native_scripts()
+                    .multi_era_aux_native_scripts()
                     .into_iter()
                     .map(|x| {
                         let inner = u5c::script::Script::Native(Self::map_native_script(&x));
