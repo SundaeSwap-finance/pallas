@@ -24,8 +24,8 @@ knows, maybe even a full node in a far away future).
 
 This branch of the fork at github.com/geofflittle/pallas carries the changes
 pallas needs to follow the Leios Musashi testnet, which runs at network magic
-164. Its base is upstream commit 9759749. Upstream pallas does not decode the
-Dijkstra era blocks that testnet produces.
+164. Its base is upstream commit aef0b5a, the v1.4.0 release. Upstream pallas
+does not decode the Dijkstra era blocks that testnet produces.
 
 | Change | Upstream pull request | State |
 | ------------------------------------------ | --------------------- | ------------------- |
@@ -48,7 +48,7 @@ a tag and never a branch.
 
 ```toml
 [dependencies]
-pallas = { version = "1.1.1", features = ["hardano", "phase2", "unstable", "network2"] }
+pallas = { version = "1.4.0", features = ["hardano", "phase2", "unstable", "network2"] }
 
 [patch.crates-io]
 pallas = { git = "https://github.com/geofflittle/pallas", tag = "<tag>" }
