@@ -845,6 +845,8 @@ mod attribute_tests {
     const PUBLIC_ENUMS: &[(&str, Presence, NonExhaustive)] = &[
         ("cert::BlsKeySlot", UnstableOnly, Always),
         ("governance::ParamRead", UnstableOnly, Always),
+        ("leios::Error", UnstableOnly, Always),
+        ("leios::PendingAnnouncement", UnstableOnly, Always),
         ("lib::Era", EveryBuild, Always),
         ("lib::Error", EveryBuild, Never),
         ("lib::Feature", EveryBuild, Always),
@@ -875,7 +877,24 @@ mod attribute_tests {
         ("script_ref::ScriptLanguage", EveryBuild, Always),
     ];
 
-    fn public_enums(module: &str, source: &str) -> Vec<(String, Presence, NonExhaustive)> {
+    /// The attributes written directly above line `i`, nearest first.
+    fn attributes_above<'a>(lines: &[&'a str], i: usize) -> Vec<&'a str> {
+        lines[..i]
+            .iter()
+            .rev()
+            .take_while(|above| {
+                let above = above.trim();
+                above.starts_with("#[") || above.starts_with("//")
+            })
+            .map(|above| above.trim())
+            .collect()
+    }
+
+    fn public_enums(
+        module: &str,
+        module_presence: Presence,
+        source: &str,
+    ) -> Vec<(String, Presence, NonExhaustive)> {
         let lines: Vec<&str> = source.lines().collect();
 
         lines
@@ -888,15 +907,7 @@ mod attribute_tests {
                     return None;
                 }
                 let name = name.to_string();
-                let attributes: Vec<&str> = lines[..i]
-                    .iter()
-                    .rev()
-                    .take_while(|above| {
-                        let above = above.trim();
-                        above.starts_with("#[") || above.starts_with("//")
-                    })
-                    .map(|above| above.trim())
-                    .collect();
+                let attributes = attributes_above(&lines, i);
                 let marking = if attributes.contains(&ALWAYS) {
                     Always
                 } else if attributes.contains(&WITH_UNSTABLE) {
@@ -907,9 +918,37 @@ mod attribute_tests {
                 let presence = if attributes.contains(&UNSTABLE_ONLY) {
                     UnstableOnly
                 } else {
-                    EveryBuild
+                    module_presence
                 };
                 Some((format!("{module}::{name}"), presence, marking))
+            })
+            .collect()
+    }
+
+    /// The builds each `mod name;` declaration in `source` is compiled in, by
+    /// module name. A module gated at its declaration takes every enum it
+    /// holds out of a default build, and the file's own text does not say so.
+    fn declared_modules(source: &str) -> Vec<(String, Presence)> {
+        let lines: Vec<&str> = source.lines().collect();
+
+        lines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, line)| {
+                let line = line.trim();
+                let rest = line
+                    .strip_prefix("pub mod ")
+                    .or_else(|| line.strip_prefix("mod "))?;
+                let name = rest.strip_suffix(';')?;
+                if name.is_empty() || !name.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+                    return None;
+                }
+                let presence = if attributes_above(&lines, i).contains(&UNSTABLE_ONLY) {
+                    UnstableOnly
+                } else {
+                    EveryBuild
+                };
+                Some((name.to_string(), presence))
             })
             .collect()
     }
@@ -936,16 +975,45 @@ mod attribute_tests {
 
     #[test]
     fn every_public_enum_carries_the_marking_it_is_listed_with() {
+        let sources: Vec<(std::path::PathBuf, String)> = source_files()
+            .into_iter()
+            .map(|file| {
+                let source =
+                    std::fs::read_to_string(&file).expect("a crate source file is readable");
+                (file, source)
+            })
+            .collect();
+
+        let declarations: Vec<(String, Presence)> = sources
+            .iter()
+            .flat_map(|(_, source)| declared_modules(source))
+            .collect();
+
         let mut found = Vec::new();
-        for file in source_files() {
+        for (file, source) in &sources {
             let module = file
                 .strip_prefix(SOURCE_ROOT)
                 .expect("a scanned file is under the crate source directory")
                 .with_extension("")
                 .to_string_lossy()
                 .into_owned();
-            let source = std::fs::read_to_string(&file).expect("a crate source file is readable");
-            found.extend(public_enums(&module, &source));
+
+            assert!(
+                !module.contains(std::path::MAIN_SEPARATOR),
+                "{module} is nested, and a gate on an outer module is not read here"
+            );
+
+            let module_presence = if module == "lib" {
+                EveryBuild
+            } else {
+                declarations
+                    .iter()
+                    .find(|(name, _)| *name == module)
+                    .map(|(_, presence)| *presence)
+                    .unwrap_or_else(|| panic!("{module} is a source file no module declares"))
+            };
+
+            found.extend(public_enums(&module, module_presence, source));
         }
         found.sort_by(|left, right| left.0.cmp(&right.0));
 
@@ -1007,11 +1075,36 @@ mod attribute_tests {
 
         for (source, presence, marking) in cases {
             assert_eq!(
-                public_enums("a_module", source),
+                public_enums("a_module", EveryBuild, source),
                 vec![("a_module::MultiEraThing".to_string(), presence, marking)],
                 "{source:?}"
             );
         }
+
+        assert_eq!(
+            public_enums(
+                "a_module",
+                UnstableOnly,
+                "#[derive(Debug)]\npub enum MultiEraThing<'b> {"
+            ),
+            vec![("a_module::MultiEraThing".to_string(), UnstableOnly, Never)],
+            "an enum in a module the crate gates is in no default build, whatever its own text says"
+        );
+    }
+
+    #[test]
+    fn the_module_scan_reads_the_gate_on_a_declaration() {
+        assert_eq!(
+            declared_modules(
+                "mod support;\npub mod cert;\n#[cfg(feature = \"unstable\")]\npub mod leios;\n/// Era detection.\npub mod probe;\n"
+            ),
+            vec![
+                ("support".to_string(), EveryBuild),
+                ("cert".to_string(), EveryBuild),
+                ("leios".to_string(), UnstableOnly),
+                ("probe".to_string(), EveryBuild),
+            ]
+        );
     }
 
     /// The variants each listed enum has without the `unstable` feature. A
