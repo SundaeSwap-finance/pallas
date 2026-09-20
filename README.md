@@ -20,6 +20,47 @@ application, it is meant to be used as a base layer to facilitate the
 development of higher-level use-cases, such as explorers, wallets, etc (who
 knows, maybe even a full node in a far away future).
 
+## The Leios and Dijkstra track
+
+This branch of the fork at github.com/geofflittle/pallas carries the changes
+pallas needs to follow the Leios Musashi testnet, which runs at network magic
+164. Its base is upstream commit 9759749. Upstream pallas does not decode the
+Dijkstra era blocks that testnet produces.
+
+| Change | Upstream pull request | State |
+| ------------------------------------------ | --------------------- | ------------------- |
+| Dijkstra era decoding                       | 800                   | open                |
+| Dijkstra value accessors                    | 801                   | open                |
+| Era neutral certificate view                | 815                   | open                |
+| UTxO RPC mapping of Dijkstra transactions   | not yet posted        | on this branch only |
+| Leios endorser block decoding               | not yet posted        | on this branch only |
+| Dijkstra parameters query reply             | not yet posted        | on this branch only |
+| One leios fetch in flight per peer          | not yet posted        | on this branch only |
+
+The block and transaction changes are in `pallas-primitives`, `pallas-traverse`
+and `pallas-utxorpc`. The parameters query reply is in `pallas-network` and
+`pallas-hardano`. The leios fetch change is in `pallas-network2`, which the
+`network2` feature gates, so a consumer that omits that feature gets none of it.
+
+Branches on this fork may be rewritten at any time. A published tag is never
+moved and never deleted, and the commit it names stays reachable. Consumers pin
+a tag and never a branch.
+
+```toml
+[dependencies]
+pallas = { version = "1.1.1", features = ["hardano", "phase2", "unstable", "network2"] }
+
+[patch.crates-io]
+pallas = { git = "https://github.com/geofflittle/pallas", tag = "<tag>" }
+```
+
+Cargo reads the features from the dependency entry and warns that a `features`
+key written inside the patch entry is unused. No tag is published yet, so
+`<tag>` above is a placeholder.
+
+When a pull request listed above lands in a pallas release, the consumer drops
+the patch entry.
+
 ## Getting Started
 
 For most use-cases, depend on the umbrella `pallas` crate — it re-exports every
