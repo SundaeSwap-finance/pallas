@@ -196,7 +196,7 @@ pub enum Feature {
 
 /// A block header normalized across eras, keeping access to its raw CBOR.
 #[derive(Debug)]
-#[non_exhaustive]
+#[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum MultiEraHeader<'b> {
     /// Byron epoch-boundary block header.
     EpochBoundary(Cow<'b, KeepRaw<'b, byron::EbbHead>>),
@@ -769,13 +769,9 @@ pub enum Error {
     #[error("Unknown CBOR structure: {0}")]
     UnknownCbor(String),
 
-    /// Block wrapper era tag is not one this crate knows how to handle.
-    #[error("Unknown block wrapper era tag: {0}")]
+    /// Era tag is not one this crate knows how to handle.
+    #[error("Unknown era tag: {0}")]
     UnknownEra(u16),
-
-    /// Chainsync header envelope tag is not one this crate knows how to handle.
-    #[error("Unknown chainsync header envelope tag: {0}")]
-    UnknownHeaderEnvelopeTag(u8),
 
     /// Operation requested in an era that does not support it.
     #[error("Invalid era for request: {0}")]
@@ -817,98 +813,421 @@ pub trait OriginalHash<const BYTES: usize> {
 
 #[cfg(test)]
 mod attribute_tests {
-    const THIS_FILE: &str = include_str!("lib.rs");
+    const SOURCE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
 
-    /// Every multi era enum this file defines, in sorted order.
-    const MULTI_ERA_ENUMS: &[&str] = &[
-        "MultiEraAsset",
-        "MultiEraBlock",
-        "MultiEraCert",
-        "MultiEraCertKind",
-        "MultiEraGovAction",
-        "MultiEraGovActionKind",
-        "MultiEraHeader",
-        "MultiEraInput",
-        "MultiEraMeta",
-        "MultiEraNativeClause",
-        "MultiEraNativeScript",
-        "MultiEraOutput",
-        "MultiEraParamUpdate",
-        "MultiEraPolicyAssets",
-        "MultiEraProposal",
-        "MultiEraRedeemer",
-        "MultiEraRedeemerTag",
-        "MultiEraScriptRef",
-        "MultiEraSigners",
-        "MultiEraTx",
-        "MultiEraUpdate",
-        "MultiEraValue",
-        "MultiEraWithdrawals",
+    const ALWAYS: &str = "#[non_exhaustive]";
+    const WITH_UNSTABLE: &str = "#[cfg_attr(feature = \"unstable\", non_exhaustive)]";
+    const UNSTABLE_ONLY: &str = "#[cfg(feature = \"unstable\")]";
+
+    use NonExhaustive::{Always, Never, WithUnstable};
+    use Presence::{EveryBuild, UnstableOnly};
+
+    /// Which builds apply `#[non_exhaustive]` to an enum.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum NonExhaustive {
+        Never,
+        WithUnstable,
+        Always,
+    }
+
+    /// Which builds declare an enum at all.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Presence {
+        UnstableOnly,
+        EveryBuild,
+    }
+
+    /// Every `pub enum` written in a `.rs` file under the crate's `src`
+    /// directory, by the module path that declares it, with the builds that
+    /// declare it and the builds that mark it `#[non_exhaustive]`, sorted by
+    /// path. A `Never` marking is an enum whose shape v1.4.0 already fixed,
+    /// which a caller may match exhaustively until the next major release.
+    const PUBLIC_ENUMS: &[(&str, Presence, NonExhaustive)] = &[
+        ("cert::BlsKeySlot", UnstableOnly, Always),
+        ("governance::ParamRead", UnstableOnly, Always),
+        ("lib::Era", EveryBuild, Always),
+        ("lib::Error", EveryBuild, Never),
+        ("lib::Feature", EveryBuild, Always),
+        ("lib::MultiEraAsset", EveryBuild, Always),
+        ("lib::MultiEraBlock", EveryBuild, Always),
+        ("lib::MultiEraCert", EveryBuild, Always),
+        ("lib::MultiEraCertKind", EveryBuild, Always),
+        ("lib::MultiEraGovAction", EveryBuild, Always),
+        ("lib::MultiEraGovActionKind", EveryBuild, Always),
+        ("lib::MultiEraHeader", EveryBuild, WithUnstable),
+        ("lib::MultiEraInput", EveryBuild, Always),
+        ("lib::MultiEraMeta", EveryBuild, Always),
+        ("lib::MultiEraNativeClause", EveryBuild, Always),
+        ("lib::MultiEraNativeScript", EveryBuild, Always),
+        ("lib::MultiEraOutput", EveryBuild, Always),
+        ("lib::MultiEraParamUpdate", EveryBuild, Always),
+        ("lib::MultiEraPolicyAssets", EveryBuild, Always),
+        ("lib::MultiEraProposal", EveryBuild, Always),
+        ("lib::MultiEraRedeemer", EveryBuild, Always),
+        ("lib::MultiEraRedeemerTag", EveryBuild, Always),
+        ("lib::MultiEraScriptRef", EveryBuild, Always),
+        ("lib::MultiEraSigners", EveryBuild, Always),
+        ("lib::MultiEraTx", EveryBuild, Always),
+        ("lib::MultiEraUpdate", EveryBuild, Always),
+        ("lib::MultiEraValue", EveryBuild, Always),
+        ("lib::MultiEraWithdrawals", EveryBuild, Always),
+        ("probe::Outcome", EveryBuild, Never),
+        ("script_ref::ScriptLanguage", EveryBuild, Always),
     ];
 
-    fn multi_era_enums(source: &str) -> Vec<(String, bool)> {
+    fn public_enums(module: &str, source: &str) -> Vec<(String, Presence, NonExhaustive)> {
         let lines: Vec<&str> = source.lines().collect();
 
         lines
             .iter()
             .enumerate()
             .filter_map(|(i, line)| {
-                let rest = line.trim().strip_prefix("pub enum MultiEra")?;
-                let name: String = std::iter::once("MultiEra")
-                    .chain(std::iter::once(
-                        rest.split(['<', ' ', '{']).next().unwrap_or_default(),
-                    ))
-                    .collect();
-                let marked = lines[..i]
+                let rest = line.trim().strip_prefix("pub enum ")?;
+                let name = rest.split(['<', ' ', '{']).next().unwrap_or_default();
+                if name.is_empty() {
+                    return None;
+                }
+                let name = name.to_string();
+                let attributes: Vec<&str> = lines[..i]
                     .iter()
                     .rev()
                     .take_while(|above| {
                         let above = above.trim();
                         above.starts_with("#[") || above.starts_with("//")
                     })
-                    .any(|above| above.trim() == "#[non_exhaustive]");
-                Some((name, marked))
+                    .map(|above| above.trim())
+                    .collect();
+                let marking = if attributes.contains(&ALWAYS) {
+                    Always
+                } else if attributes.contains(&WITH_UNSTABLE) {
+                    WithUnstable
+                } else {
+                    Never
+                };
+                let presence = if attributes.contains(&UNSTABLE_ONLY) {
+                    UnstableOnly
+                } else {
+                    EveryBuild
+                };
+                Some((format!("{module}::{name}"), presence, marking))
             })
             .collect()
     }
 
+    fn source_files() -> Vec<std::path::PathBuf> {
+        let mut files = Vec::new();
+        let mut pending = vec![std::path::PathBuf::from(SOURCE_ROOT)];
+
+        while let Some(dir) = pending.pop() {
+            let entries = std::fs::read_dir(&dir).expect("the crate source directory is readable");
+            for entry in entries {
+                let path = entry.expect("a source directory entry is readable").path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else if path.extension().is_some_and(|extension| extension == "rs") {
+                    files.push(path);
+                }
+            }
+        }
+
+        files.sort();
+        files
+    }
+
     #[test]
-    fn every_multi_era_enum_is_non_exhaustive() {
-        let enums = multi_era_enums(THIS_FILE);
+    fn every_public_enum_carries_the_marking_it_is_listed_with() {
+        let mut found = Vec::new();
+        for file in source_files() {
+            let module = file
+                .strip_prefix(SOURCE_ROOT)
+                .expect("a scanned file is under the crate source directory")
+                .with_extension("")
+                .to_string_lossy()
+                .into_owned();
+            let source = std::fs::read_to_string(&file).expect("a crate source file is readable");
+            found.extend(public_enums(&module, &source));
+        }
+        found.sort_by(|left, right| left.0.cmp(&right.0));
 
-        let mut found: Vec<&str> = enums.iter().map(|(name, _)| name.as_str()).collect();
-        found.sort_unstable();
-        assert_eq!(
-            found, MULTI_ERA_ENUMS,
-            "the scan found a different set of multi era enums than the one listed"
-        );
-
-        let unmarked: Vec<&str> = enums
+        let expected: Vec<(String, Presence, NonExhaustive)> = PUBLIC_ENUMS
             .iter()
-            .filter(|(_, marked)| !marked)
-            .map(|(name, _)| name.as_str())
+            .map(|(path, presence, marking)| (path.to_string(), *presence, *marking))
             .collect();
-        assert!(
-            unmarked.is_empty(),
-            "{unmarked:?} lack #[non_exhaustive], so adding an era variant to one breaks every downstream exhaustive match"
+
+        assert_eq!(
+            found, expected,
+            "a public enum is missing, is one the list does not name, or carries a presence or a marking other than the one it is listed with"
         );
     }
 
     #[test]
-    fn the_attribute_scan_reads_both_cases() {
-        let marked = multi_era_enums("#[non_exhaustive]\npub enum MultiEraThing<'b> {");
-        assert_eq!(marked, vec![("MultiEraThing".to_string(), true)]);
+    fn the_attribute_scan_reads_every_marking_and_presence() {
+        let cases = [
+            (
+                "#[non_exhaustive]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                Always,
+            ),
+            (
+                "#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                Always,
+            ),
+            (
+                "/// A thing.\n#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                Always,
+            ),
+            (
+                "#[cfg_attr(feature = \"unstable\", non_exhaustive)]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                WithUnstable,
+            ),
+            (
+                "/// A thing.\n#[derive(Debug)]\n#[cfg_attr(feature = \"unstable\", non_exhaustive)]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                WithUnstable,
+            ),
+            (
+                "#[derive(Debug)]\npub enum MultiEraThing<'b> {",
+                EveryBuild,
+                Never,
+            ),
+            (
+                "#[cfg(feature = \"unstable\")]\n#[non_exhaustive]\npub enum MultiEraThing<'b> {",
+                UnstableOnly,
+                Always,
+            ),
+            (
+                "#[cfg(feature = \"unstable\")]\npub enum MultiEraThing<'b> {",
+                UnstableOnly,
+                Never,
+            ),
+        ];
 
-        let reordered =
-            multi_era_enums("#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {");
-        assert_eq!(reordered, vec![("MultiEraThing".to_string(), true)]);
+        for (source, presence, marking) in cases {
+            assert_eq!(
+                public_enums("a_module", source),
+                vec![("a_module::MultiEraThing".to_string(), presence, marking)],
+                "{source:?}"
+            );
+        }
+    }
 
-        let documented = multi_era_enums(
-            "/// A thing.\n#[non_exhaustive]\n#[derive(Debug)]\npub enum MultiEraThing<'b> {",
-        );
-        assert_eq!(documented, vec![("MultiEraThing".to_string(), true)]);
+    /// The variants each listed enum has without the `unstable` feature. A
+    /// variant added outside the gate makes one of these matches inexhaustive,
+    /// so a build without the feature stops compiling.
+    #[cfg(not(feature = "unstable"))]
+    mod stable_variants {
+        macro_rules! variants {
+            ($($enum:ident: $path:path => [$($variant:pat),+ $(,)?]),+ $(,)?) => {
+                $(
+                    #[allow(non_snake_case)]
+                    fn $enum(value: &$path) {
+                        match value {
+                            $($variant => {}),+
+                        }
+                    }
+                )+
 
-        let bare = multi_era_enums("#[derive(Debug)]\npub enum MultiEraThing<'b> {");
-        assert_eq!(bare, vec![("MultiEraThing".to_string(), false)]);
+                #[test]
+                fn every_listed_enum_has_a_stable_variant_list() {
+                    $(let _: fn(&$path) = $enum;)+
+
+                    let mut covered = vec![$(stringify!($enum)),+];
+                    covered.sort_unstable();
+
+                    let mut listed: Vec<&str> = super::PUBLIC_ENUMS
+                        .iter()
+                        .filter(|(_, presence, _)| *presence == super::EveryBuild)
+                        .map(|(path, _, _)| path.rsplit("::").next().unwrap_or(path))
+                        .collect();
+                    listed.sort_unstable();
+
+                    assert_eq!(
+                        covered, listed,
+                        "an enum the marking list declares on a default build has no variant list here, or this list names one the marking list does not"
+                    );
+                }
+            };
+        }
+
+        variants! {
+            Era: crate::Era => [
+                crate::Era::Byron,
+                crate::Era::Shelley,
+                crate::Era::Allegra,
+                crate::Era::Mary,
+                crate::Era::Alonzo,
+                crate::Era::Babbage,
+                crate::Era::Conway,
+            ],
+            Error: crate::Error => [
+                crate::Error::InvalidCbor(..),
+                crate::Error::UnknownCbor(..),
+                crate::Error::UnknownEra(..),
+                crate::Error::InvalidEra(..),
+                crate::Error::InvalidUtxoRef(..),
+            ],
+            Feature: crate::Feature => [
+                crate::Feature::TimeLocks,
+                crate::Feature::MultiAssets,
+                crate::Feature::Staking,
+                crate::Feature::SmartContracts,
+                crate::Feature::CIP31,
+                crate::Feature::CIP32,
+                crate::Feature::CIP33,
+                crate::Feature::CIP1694,
+            ],
+            MultiEraAsset: crate::MultiEraAsset => [
+                crate::MultiEraAsset::AlonzoCompatibleOutput(..),
+                crate::MultiEraAsset::AlonzoCompatibleMint(..),
+                crate::MultiEraAsset::ConwayOutput(..),
+                crate::MultiEraAsset::ConwayMint(..),
+            ],
+            MultiEraBlock: crate::MultiEraBlock => [
+                crate::MultiEraBlock::EpochBoundary(..),
+                crate::MultiEraBlock::AlonzoCompatible(..),
+                crate::MultiEraBlock::Babbage(..),
+                crate::MultiEraBlock::Byron(..),
+                crate::MultiEraBlock::Conway(..),
+            ],
+            MultiEraCert: crate::MultiEraCert => [
+                crate::MultiEraCert::NotApplicable,
+                crate::MultiEraCert::AlonzoCompatible(..),
+                crate::MultiEraCert::Conway(..),
+            ],
+            MultiEraCertKind: crate::MultiEraCertKind => [
+                crate::MultiEraCertKind::StakeRegistration(..),
+                crate::MultiEraCertKind::StakeDeregistration(..),
+                crate::MultiEraCertKind::StakeDelegation(..),
+                crate::MultiEraCertKind::PoolRegistration(..),
+                crate::MultiEraCertKind::PoolRetirement(..),
+                crate::MultiEraCertKind::Reg(..),
+                crate::MultiEraCertKind::UnReg(..),
+                crate::MultiEraCertKind::VoteDeleg(..),
+                crate::MultiEraCertKind::StakeVoteDeleg(..),
+                crate::MultiEraCertKind::StakeRegDeleg(..),
+                crate::MultiEraCertKind::VoteRegDeleg(..),
+                crate::MultiEraCertKind::StakeVoteRegDeleg(..),
+                crate::MultiEraCertKind::AuthCommitteeHot(..),
+                crate::MultiEraCertKind::ResignCommitteeCold(..),
+                crate::MultiEraCertKind::RegDRep(..),
+                crate::MultiEraCertKind::UnRegDRep(..),
+                crate::MultiEraCertKind::UpdateDRep(..),
+                crate::MultiEraCertKind::GenesisKeyDelegation(..),
+                crate::MultiEraCertKind::MoveInstantaneousRewards(..),
+            ],
+            MultiEraGovAction: crate::MultiEraGovAction => [
+                crate::MultiEraGovAction::Conway(..),
+            ],
+            MultiEraGovActionKind: crate::MultiEraGovActionKind => [
+                crate::MultiEraGovActionKind::ParameterChange(..),
+                crate::MultiEraGovActionKind::HardForkInitiation(..),
+                crate::MultiEraGovActionKind::TreasuryWithdrawals(..),
+                crate::MultiEraGovActionKind::NoConfidence(..),
+                crate::MultiEraGovActionKind::UpdateCommittee(..),
+                crate::MultiEraGovActionKind::NewConstitution(..),
+                crate::MultiEraGovActionKind::Information,
+            ],
+            MultiEraHeader: crate::MultiEraHeader => [
+                crate::MultiEraHeader::EpochBoundary(..),
+                crate::MultiEraHeader::ShelleyCompatible(..),
+                crate::MultiEraHeader::BabbageCompatible(..),
+                crate::MultiEraHeader::Byron(..),
+            ],
+            MultiEraInput: crate::MultiEraInput => [
+                crate::MultiEraInput::Byron(..),
+                crate::MultiEraInput::AlonzoCompatible(..),
+            ],
+            MultiEraMeta: crate::MultiEraMeta => [
+                crate::MultiEraMeta::Empty,
+                crate::MultiEraMeta::NotApplicable,
+                crate::MultiEraMeta::AlonzoCompatible(..),
+            ],
+            MultiEraNativeClause: crate::MultiEraNativeClause => [
+                crate::MultiEraNativeClause::Pubkey(..),
+                crate::MultiEraNativeClause::All(..),
+                crate::MultiEraNativeClause::Any(..),
+                crate::MultiEraNativeClause::NOfK(..),
+                crate::MultiEraNativeClause::InvalidBefore(..),
+                crate::MultiEraNativeClause::InvalidHereafter(..),
+            ],
+            MultiEraNativeScript: crate::MultiEraNativeScript => [
+                crate::MultiEraNativeScript::AlonzoCompatible(..),
+            ],
+            MultiEraOutput: crate::MultiEraOutput => [
+                crate::MultiEraOutput::AlonzoCompatible(..),
+                crate::MultiEraOutput::Babbage(..),
+                crate::MultiEraOutput::Conway(..),
+                crate::MultiEraOutput::Byron(..),
+            ],
+            MultiEraParamUpdate: crate::MultiEraParamUpdate => [
+                crate::MultiEraParamUpdate::Conway(..),
+            ],
+            MultiEraPolicyAssets: crate::MultiEraPolicyAssets => [
+                crate::MultiEraPolicyAssets::AlonzoCompatibleMint(..),
+                crate::MultiEraPolicyAssets::AlonzoCompatibleOutput(..),
+                crate::MultiEraPolicyAssets::ConwayMint(..),
+                crate::MultiEraPolicyAssets::ConwayOutput(..),
+            ],
+            MultiEraProposal: crate::MultiEraProposal => [
+                crate::MultiEraProposal::Conway(..),
+            ],
+            MultiEraRedeemer: crate::MultiEraRedeemer => [
+                crate::MultiEraRedeemer::AlonzoCompatible(..),
+                crate::MultiEraRedeemer::Conway(..),
+            ],
+            MultiEraRedeemerTag: crate::MultiEraRedeemerTag => [
+                crate::MultiEraRedeemerTag::Spend,
+                crate::MultiEraRedeemerTag::Mint,
+                crate::MultiEraRedeemerTag::Cert,
+                crate::MultiEraRedeemerTag::Reward,
+                crate::MultiEraRedeemerTag::Vote,
+                crate::MultiEraRedeemerTag::Propose,
+            ],
+            MultiEraScriptRef: crate::MultiEraScriptRef => [
+                crate::MultiEraScriptRef::Conway(..),
+            ],
+            MultiEraSigners: crate::MultiEraSigners => [
+                crate::MultiEraSigners::NotApplicable,
+                crate::MultiEraSigners::Empty,
+                crate::MultiEraSigners::AlonzoCompatible(..),
+            ],
+            MultiEraTx: crate::MultiEraTx => [
+                crate::MultiEraTx::AlonzoCompatible(..),
+                crate::MultiEraTx::Babbage(..),
+                crate::MultiEraTx::Byron(..),
+                crate::MultiEraTx::Conway(..),
+            ],
+            MultiEraUpdate: crate::MultiEraUpdate => [
+                crate::MultiEraUpdate::Byron(..),
+                crate::MultiEraUpdate::AlonzoCompatible(..),
+                crate::MultiEraUpdate::Babbage(..),
+                crate::MultiEraUpdate::Conway(..),
+            ],
+            MultiEraValue: crate::MultiEraValue => [
+                crate::MultiEraValue::Byron(..),
+                crate::MultiEraValue::AlonzoCompatible(..),
+                crate::MultiEraValue::Conway(..),
+            ],
+            Outcome: crate::probe::Outcome => [
+                crate::probe::Outcome::Matched(..),
+                crate::probe::Outcome::EpochBoundary,
+                crate::probe::Outcome::Inconclusive,
+            ],
+            MultiEraWithdrawals: crate::MultiEraWithdrawals => [
+                crate::MultiEraWithdrawals::NotApplicable,
+                crate::MultiEraWithdrawals::Empty,
+                crate::MultiEraWithdrawals::AlonzoCompatible(..),
+                crate::MultiEraWithdrawals::Conway(..),
+            ],
+            ScriptLanguage: crate::script_ref::ScriptLanguage => [
+                crate::script_ref::ScriptLanguage::Native,
+                crate::script_ref::ScriptLanguage::PlutusV1,
+                crate::script_ref::ScriptLanguage::PlutusV2,
+                crate::script_ref::ScriptLanguage::PlutusV3,
+            ],
+        }
     }
 }

@@ -61,6 +61,8 @@
 //! [`pallas`]: https://crates.io/crates/pallas
 
 mod framework;
+mod metadatum;
+mod native_script;
 mod plutus_data;
 
 /// Ledger primitives for the Alonzo era (smart contracts).
@@ -153,7 +155,12 @@ pub type IPv6 = Bytes;
 pub type Metadata = BTreeMap<MetadatumLabel, Metadatum>;
 
 /// Single metadata value of any supported CBOR shape.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+///
+/// The CBOR codec, `Clone` and `Ord` never recurse per nesting level, so
+/// chain-deep metadata decodes, encodes, copies and compares on any stack,
+/// and [`pallas_codec::tree`] can traverse it through `IndexedNode`.
+/// `Debug`, `Drop` and Serde still recurse.
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Metadatum {
     /// Integer (signed or unsigned, up to 64 bits).
     Int(Int),
@@ -165,16 +172,6 @@ pub enum Metadatum {
     Array(Vec<Metadatum>),
     /// Map of metadata values keyed by metadata values.
     Map(KeyValuePairs<Metadatum, Metadatum>),
-}
-
-codec_by_datatype! {
-    Metadatum,
-    U8 | U16 | U32 | U64 | I8 | I16 | I32 | I64 | Int => Int,
-    Bytes => Bytes,
-    String | StringIndef => Text,
-    Array | ArrayIndef => Array,
-    Map | MapIndef => Map,
-    ()
 }
 
 /// Top-level metadata label (CIP-10 / CIP-25 / etc.).
