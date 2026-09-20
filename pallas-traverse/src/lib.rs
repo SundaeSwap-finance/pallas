@@ -877,6 +877,15 @@ mod attribute_tests {
             MultiEraGovAction => [
                 crate::MultiEraGovAction::Conway(..),
             ],
+            MultiEraGovActionKind => [
+                crate::MultiEraGovActionKind::ParameterChange(..),
+                crate::MultiEraGovActionKind::HardForkInitiation(..),
+                crate::MultiEraGovActionKind::TreasuryWithdrawals(..),
+                crate::MultiEraGovActionKind::NoConfidence(..),
+                crate::MultiEraGovActionKind::UpdateCommittee(..),
+                crate::MultiEraGovActionKind::NewConstitution(..),
+                crate::MultiEraGovActionKind::Information,
+            ],
             MultiEraHeader => [
                 crate::MultiEraHeader::EpochBoundary(..),
                 crate::MultiEraHeader::ShelleyCompatible(..),
@@ -892,11 +901,25 @@ mod attribute_tests {
                 crate::MultiEraMeta::NotApplicable,
                 crate::MultiEraMeta::AlonzoCompatible(..),
             ],
+            MultiEraNativeClause => [
+                crate::MultiEraNativeClause::Pubkey(..),
+                crate::MultiEraNativeClause::All(..),
+                crate::MultiEraNativeClause::Any(..),
+                crate::MultiEraNativeClause::NOfK(..),
+                crate::MultiEraNativeClause::InvalidBefore(..),
+                crate::MultiEraNativeClause::InvalidHereafter(..),
+            ],
+            MultiEraNativeScript => [
+                crate::MultiEraNativeScript::AlonzoCompatible(..),
+            ],
             MultiEraOutput => [
                 crate::MultiEraOutput::AlonzoCompatible(..),
                 crate::MultiEraOutput::Babbage(..),
                 crate::MultiEraOutput::Conway(..),
                 crate::MultiEraOutput::Byron(..),
+            ],
+            MultiEraParamUpdate => [
+                crate::MultiEraParamUpdate::Conway(..),
             ],
             MultiEraPolicyAssets => [
                 crate::MultiEraPolicyAssets::AlonzoCompatibleMint(..),
@@ -910,6 +933,17 @@ mod attribute_tests {
             MultiEraRedeemer => [
                 crate::MultiEraRedeemer::AlonzoCompatible(..),
                 crate::MultiEraRedeemer::Conway(..),
+            ],
+            MultiEraRedeemerTag => [
+                crate::MultiEraRedeemerTag::Spend,
+                crate::MultiEraRedeemerTag::Mint,
+                crate::MultiEraRedeemerTag::Cert,
+                crate::MultiEraRedeemerTag::Reward,
+                crate::MultiEraRedeemerTag::Vote,
+                crate::MultiEraRedeemerTag::Propose,
+            ],
+            MultiEraScriptRef => [
+                crate::MultiEraScriptRef::Conway(..),
             ],
             MultiEraSigners => [
                 crate::MultiEraSigners::NotApplicable,
