@@ -529,6 +529,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn oversized_n_of_k_threshold_maps_to_u32_max() {
         let mapped = Mapper::<NoLedger>::map_native_script(
             &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
