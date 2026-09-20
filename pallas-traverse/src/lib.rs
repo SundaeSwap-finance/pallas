@@ -817,4 +817,128 @@ mod attribute_tests {
             );
         }
     }
+
+    /// The variants each listed enum has without the `unstable` feature. A
+    /// variant added outside the gate makes one of these matches inexhaustive,
+    /// so a build without the feature stops compiling.
+    #[cfg(not(feature = "unstable"))]
+    mod stable_variants {
+        macro_rules! variants {
+            ($($enum:ident => [$($variant:pat),+ $(,)?]),+ $(,)?) => {
+                $(
+                    #[allow(non_snake_case)]
+                    fn $enum(value: &crate::$enum) {
+                        match value {
+                            $($variant => {}),+
+                        }
+                    }
+                )+
+
+                #[test]
+                fn every_listed_enum_has_a_stable_variant_list() {
+                    $(let _: fn(&crate::$enum) = $enum;)+
+
+                    let mut covered = vec![$(stringify!($enum)),+];
+                    covered.sort_unstable();
+
+                    let mut listed: Vec<&str> = super::MULTI_ERA_ENUMS
+                        .iter()
+                        .map(|(name, _)| *name)
+                        .collect();
+                    listed.sort_unstable();
+
+                    assert_eq!(
+                        covered, listed,
+                        "an enum the marking list names has no variant list here, or this list names one the marking list does not"
+                    );
+                }
+            };
+        }
+
+        variants! {
+            MultiEraAsset => [
+                crate::MultiEraAsset::AlonzoCompatibleOutput(..),
+                crate::MultiEraAsset::AlonzoCompatibleMint(..),
+                crate::MultiEraAsset::ConwayOutput(..),
+                crate::MultiEraAsset::ConwayMint(..),
+            ],
+            MultiEraBlock => [
+                crate::MultiEraBlock::EpochBoundary(..),
+                crate::MultiEraBlock::AlonzoCompatible(..),
+                crate::MultiEraBlock::Babbage(..),
+                crate::MultiEraBlock::Byron(..),
+                crate::MultiEraBlock::Conway(..),
+            ],
+            MultiEraCert => [
+                crate::MultiEraCert::NotApplicable,
+                crate::MultiEraCert::AlonzoCompatible(..),
+                crate::MultiEraCert::Conway(..),
+            ],
+            MultiEraGovAction => [
+                crate::MultiEraGovAction::Conway(..),
+            ],
+            MultiEraHeader => [
+                crate::MultiEraHeader::EpochBoundary(..),
+                crate::MultiEraHeader::ShelleyCompatible(..),
+                crate::MultiEraHeader::BabbageCompatible(..),
+                crate::MultiEraHeader::Byron(..),
+            ],
+            MultiEraInput => [
+                crate::MultiEraInput::Byron(..),
+                crate::MultiEraInput::AlonzoCompatible(..),
+            ],
+            MultiEraMeta => [
+                crate::MultiEraMeta::Empty,
+                crate::MultiEraMeta::NotApplicable,
+                crate::MultiEraMeta::AlonzoCompatible(..),
+            ],
+            MultiEraOutput => [
+                crate::MultiEraOutput::AlonzoCompatible(..),
+                crate::MultiEraOutput::Babbage(..),
+                crate::MultiEraOutput::Conway(..),
+                crate::MultiEraOutput::Byron(..),
+            ],
+            MultiEraPolicyAssets => [
+                crate::MultiEraPolicyAssets::AlonzoCompatibleMint(..),
+                crate::MultiEraPolicyAssets::AlonzoCompatibleOutput(..),
+                crate::MultiEraPolicyAssets::ConwayMint(..),
+                crate::MultiEraPolicyAssets::ConwayOutput(..),
+            ],
+            MultiEraProposal => [
+                crate::MultiEraProposal::Conway(..),
+            ],
+            MultiEraRedeemer => [
+                crate::MultiEraRedeemer::AlonzoCompatible(..),
+                crate::MultiEraRedeemer::Conway(..),
+            ],
+            MultiEraSigners => [
+                crate::MultiEraSigners::NotApplicable,
+                crate::MultiEraSigners::Empty,
+                crate::MultiEraSigners::AlonzoCompatible(..),
+            ],
+            MultiEraTx => [
+                crate::MultiEraTx::AlonzoCompatible(..),
+                crate::MultiEraTx::Babbage(..),
+                crate::MultiEraTx::Byron(..),
+                crate::MultiEraTx::Conway(..),
+            ],
+            MultiEraUpdate => [
+                crate::MultiEraUpdate::Byron(..),
+                crate::MultiEraUpdate::AlonzoCompatible(..),
+                crate::MultiEraUpdate::Babbage(..),
+                crate::MultiEraUpdate::Conway(..),
+            ],
+            MultiEraValue => [
+                crate::MultiEraValue::Byron(..),
+                crate::MultiEraValue::AlonzoCompatible(..),
+                crate::MultiEraValue::Conway(..),
+            ],
+            MultiEraWithdrawals => [
+                crate::MultiEraWithdrawals::NotApplicable,
+                crate::MultiEraWithdrawals::Empty,
+                crate::MultiEraWithdrawals::AlonzoCompatible(..),
+                crate::MultiEraWithdrawals::Conway(..),
+            ],
+        }
+    }
 }
