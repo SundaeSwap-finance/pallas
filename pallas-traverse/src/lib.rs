@@ -691,6 +691,7 @@ pub trait OriginalHash<const BYTES: usize> {
 #[cfg(test)]
 mod attribute_tests {
     const THIS_FILE: &str = include_str!("lib.rs");
+    const SCRIPT_REF_FILE: &str = include_str!("script_ref.rs");
 
     const ALWAYS: &str = "#[non_exhaustive]";
     const WITH_UNSTABLE: &str = "#[cfg_attr(feature = \"unstable\", non_exhaustive)]";
@@ -703,9 +704,14 @@ mod attribute_tests {
         Always,
     }
 
-    /// Every multi era enum this file defines with the marking it is required
-    /// to carry, sorted by name.
-    const MULTI_ERA_ENUMS: &[(&str, NonExhaustive)] = &[
+    /// Every public enum of the two era facing modules with the marking it is
+    /// required to carry, sorted by name. A `Never` row is an enum whose shape
+    /// v1.4.0 already fixed, which a caller may match exhaustively until the
+    /// next major release.
+    const PUBLIC_ENUMS: &[(&str, NonExhaustive)] = &[
+        ("Era", NonExhaustive::Always),
+        ("Error", NonExhaustive::Never),
+        ("Feature", NonExhaustive::Always),
         ("MultiEraAsset", NonExhaustive::Always),
         ("MultiEraBlock", NonExhaustive::Always),
         ("MultiEraCert", NonExhaustive::Always),
@@ -728,21 +734,22 @@ mod attribute_tests {
         ("MultiEraUpdate", NonExhaustive::Always),
         ("MultiEraValue", NonExhaustive::Always),
         ("MultiEraWithdrawals", NonExhaustive::Always),
+        ("ScriptLanguage", NonExhaustive::WithUnstable),
     ];
 
-    fn multi_era_enums(source: &str) -> Vec<(String, NonExhaustive)> {
+    fn public_enums(source: &str) -> Vec<(String, NonExhaustive)> {
         let lines: Vec<&str> = source.lines().collect();
 
         lines
             .iter()
             .enumerate()
             .filter_map(|(i, line)| {
-                let rest = line.trim().strip_prefix("pub enum MultiEra")?;
-                let name: String = std::iter::once("MultiEra")
-                    .chain(std::iter::once(
-                        rest.split(['<', ' ', '{']).next().unwrap_or_default(),
-                    ))
-                    .collect();
+                let rest = line.trim().strip_prefix("pub enum ")?;
+                let name = rest.split(['<', ' ', '{']).next().unwrap_or_default();
+                if name.is_empty() {
+                    return None;
+                }
+                let name = name.to_string();
                 let attributes: Vec<&str> = lines[..i]
                     .iter()
                     .rev()
@@ -765,18 +772,19 @@ mod attribute_tests {
     }
 
     #[test]
-    fn every_multi_era_enum_carries_the_marking_it_is_listed_with() {
-        let mut found = multi_era_enums(THIS_FILE);
+    fn every_public_enum_carries_the_marking_it_is_listed_with() {
+        let mut found = public_enums(THIS_FILE);
+        found.extend(public_enums(SCRIPT_REF_FILE));
         found.sort_by(|left, right| left.0.cmp(&right.0));
 
-        let expected: Vec<(String, NonExhaustive)> = MULTI_ERA_ENUMS
+        let expected: Vec<(String, NonExhaustive)> = PUBLIC_ENUMS
             .iter()
             .map(|(name, marking)| (name.to_string(), *marking))
             .collect();
 
         assert_eq!(
             found, expected,
-            "a multi era enum is missing, is one the list does not name, or carries a marking other than the one it is listed with"
+            "a public enum is missing, is one the list does not name, or carries a marking other than the one it is listed with"
         );
     }
 
@@ -811,7 +819,7 @@ mod attribute_tests {
 
         for (source, marking) in cases {
             assert_eq!(
-                multi_era_enums(source),
+                public_enums(source),
                 vec![("MultiEraThing".to_string(), marking)],
                 "{source:?}"
             );
@@ -824,10 +832,10 @@ mod attribute_tests {
     #[cfg(not(feature = "unstable"))]
     mod stable_variants {
         macro_rules! variants {
-            ($($enum:ident => [$($variant:pat),+ $(,)?]),+ $(,)?) => {
+            ($($enum:ident: $path:path => [$($variant:pat),+ $(,)?]),+ $(,)?) => {
                 $(
                     #[allow(non_snake_case)]
-                    fn $enum(value: &crate::$enum) {
+                    fn $enum(value: &$path) {
                         match value {
                             $($variant => {}),+
                         }
@@ -836,12 +844,12 @@ mod attribute_tests {
 
                 #[test]
                 fn every_listed_enum_has_a_stable_variant_list() {
-                    $(let _: fn(&crate::$enum) = $enum;)+
+                    $(let _: fn(&$path) = $enum;)+
 
                     let mut covered = vec![$(stringify!($enum)),+];
                     covered.sort_unstable();
 
-                    let mut listed: Vec<&str> = super::MULTI_ERA_ENUMS
+                    let mut listed: Vec<&str> = super::PUBLIC_ENUMS
                         .iter()
                         .map(|(name, _)| *name)
                         .collect();
@@ -856,28 +864,54 @@ mod attribute_tests {
         }
 
         variants! {
-            MultiEraAsset => [
+            Era: crate::Era => [
+                crate::Era::Byron,
+                crate::Era::Shelley,
+                crate::Era::Allegra,
+                crate::Era::Mary,
+                crate::Era::Alonzo,
+                crate::Era::Babbage,
+                crate::Era::Conway,
+            ],
+            Error: crate::Error => [
+                crate::Error::InvalidCbor(..),
+                crate::Error::UnknownCbor(..),
+                crate::Error::UnknownEra(..),
+                crate::Error::InvalidEra(..),
+                crate::Error::InvalidUtxoRef(..),
+            ],
+            Feature: crate::Feature => [
+                crate::Feature::TimeLocks,
+                crate::Feature::MultiAssets,
+                crate::Feature::Staking,
+                crate::Feature::SmartContracts,
+                crate::Feature::CIP31,
+                crate::Feature::CIP32,
+                crate::Feature::CIP33,
+                crate::Feature::CIP1694,
+            ],
+            MultiEraAsset: crate::MultiEraAsset => [
                 crate::MultiEraAsset::AlonzoCompatibleOutput(..),
                 crate::MultiEraAsset::AlonzoCompatibleMint(..),
                 crate::MultiEraAsset::ConwayOutput(..),
                 crate::MultiEraAsset::ConwayMint(..),
             ],
-            MultiEraBlock => [
+            MultiEraBlock: crate::MultiEraBlock => [
                 crate::MultiEraBlock::EpochBoundary(..),
                 crate::MultiEraBlock::AlonzoCompatible(..),
                 crate::MultiEraBlock::Babbage(..),
                 crate::MultiEraBlock::Byron(..),
                 crate::MultiEraBlock::Conway(..),
             ],
-            MultiEraCert => [
+            MultiEraCert: crate::MultiEraCert => [
                 crate::MultiEraCert::NotApplicable,
                 crate::MultiEraCert::AlonzoCompatible(..),
                 crate::MultiEraCert::Conway(..),
             ],
-            MultiEraGovAction => [
+            MultiEraGovAction: crate::MultiEraGovAction => [
                 crate::MultiEraGovAction::Conway(..),
             ],
-            MultiEraGovActionKind => [
+            MultiEraGovActionKind: crate::MultiEraGovActionKind => [
                 crate::MultiEraGovActionKind::ParameterChange(..),
                 crate::MultiEraGovActionKind::HardForkInitiation(..),
                 crate::MultiEraGovActionKind::TreasuryWithdrawals(..),
@@ -886,22 +920,22 @@ mod attribute_tests {
                 crate::MultiEraGovActionKind::NewConstitution(..),
                 crate::MultiEraGovActionKind::Information,
             ],
-            MultiEraHeader => [
+            MultiEraHeader: crate::MultiEraHeader => [
                 crate::MultiEraHeader::EpochBoundary(..),
                 crate::MultiEraHeader::ShelleyCompatible(..),
                 crate::MultiEraHeader::BabbageCompatible(..),
                 crate::MultiEraHeader::Byron(..),
             ],
-            MultiEraInput => [
+            MultiEraInput: crate::MultiEraInput => [
                 crate::MultiEraInput::Byron(..),
                 crate::MultiEraInput::AlonzoCompatible(..),
             ],
-            MultiEraMeta => [
+            MultiEraMeta: crate::MultiEraMeta => [
                 crate::MultiEraMeta::Empty,
                 crate::MultiEraMeta::NotApplicable,
                 crate::MultiEraMeta::AlonzoCompatible(..),
             ],
-            MultiEraNativeClause => [
+            MultiEraNativeClause: crate::MultiEraNativeClause => [
                 crate::MultiEraNativeClause::Pubkey(..),
                 crate::MultiEraNativeClause::All(..),
                 crate::MultiEraNativeClause::Any(..),
@@ -909,32 +943,32 @@ mod attribute_tests {
                 crate::MultiEraNativeClause::InvalidBefore(..),
                 crate::MultiEraNativeClause::InvalidHereafter(..),
             ],
-            MultiEraNativeScript => [
+            MultiEraNativeScript: crate::MultiEraNativeScript => [
                 crate::MultiEraNativeScript::AlonzoCompatible(..),
             ],
-            MultiEraOutput => [
+            MultiEraOutput: crate::MultiEraOutput => [
                 crate::MultiEraOutput::AlonzoCompatible(..),
                 crate::MultiEraOutput::Babbage(..),
                 crate::MultiEraOutput::Conway(..),
                 crate::MultiEraOutput::Byron(..),
             ],
-            MultiEraParamUpdate => [
+            MultiEraParamUpdate: crate::MultiEraParamUpdate => [
                 crate::MultiEraParamUpdate::Conway(..),
             ],
-            MultiEraPolicyAssets => [
+            MultiEraPolicyAssets: crate::MultiEraPolicyAssets => [
                 crate::MultiEraPolicyAssets::AlonzoCompatibleMint(..),
                 crate::MultiEraPolicyAssets::AlonzoCompatibleOutput(..),
                 crate::MultiEraPolicyAssets::ConwayMint(..),
                 crate::MultiEraPolicyAssets::ConwayOutput(..),
             ],
-            MultiEraProposal => [
+            MultiEraProposal: crate::MultiEraProposal => [
                 crate::MultiEraProposal::Conway(..),
             ],
-            MultiEraRedeemer => [
+            MultiEraRedeemer: crate::MultiEraRedeemer => [
                 crate::MultiEraRedeemer::AlonzoCompatible(..),
                 crate::MultiEraRedeemer::Conway(..),
             ],
-            MultiEraRedeemerTag => [
+            MultiEraRedeemerTag: crate::MultiEraRedeemerTag => [
                 crate::MultiEraRedeemerTag::Spend,
                 crate::MultiEraRedeemerTag::Mint,
                 crate::MultiEraRedeemerTag::Cert,
@@ -942,36 +976,42 @@ mod attribute_tests {
                 crate::MultiEraRedeemerTag::Vote,
                 crate::MultiEraRedeemerTag::Propose,
             ],
-            MultiEraScriptRef => [
+            MultiEraScriptRef: crate::MultiEraScriptRef => [
                 crate::MultiEraScriptRef::Conway(..),
             ],
-            MultiEraSigners => [
+            MultiEraSigners: crate::MultiEraSigners => [
                 crate::MultiEraSigners::NotApplicable,
                 crate::MultiEraSigners::Empty,
                 crate::MultiEraSigners::AlonzoCompatible(..),
             ],
-            MultiEraTx => [
+            MultiEraTx: crate::MultiEraTx => [
                 crate::MultiEraTx::AlonzoCompatible(..),
                 crate::MultiEraTx::Babbage(..),
                 crate::MultiEraTx::Byron(..),
                 crate::MultiEraTx::Conway(..),
             ],
-            MultiEraUpdate => [
+            MultiEraUpdate: crate::MultiEraUpdate => [
                 crate::MultiEraUpdate::Byron(..),
                 crate::MultiEraUpdate::AlonzoCompatible(..),
                 crate::MultiEraUpdate::Babbage(..),
                 crate::MultiEraUpdate::Conway(..),
             ],
-            MultiEraValue => [
+            MultiEraValue: crate::MultiEraValue => [
                 crate::MultiEraValue::Byron(..),
                 crate::MultiEraValue::AlonzoCompatible(..),
                 crate::MultiEraValue::Conway(..),
             ],
-            MultiEraWithdrawals => [
+            MultiEraWithdrawals: crate::MultiEraWithdrawals => [
                 crate::MultiEraWithdrawals::NotApplicable,
                 crate::MultiEraWithdrawals::Empty,
                 crate::MultiEraWithdrawals::AlonzoCompatible(..),
                 crate::MultiEraWithdrawals::Conway(..),
+            ],
+            ScriptLanguage: crate::script_ref::ScriptLanguage => [
+                crate::script_ref::ScriptLanguage::Native,
+                crate::script_ref::ScriptLanguage::PlutusV1,
+                crate::script_ref::ScriptLanguage::PlutusV2,
+                crate::script_ref::ScriptLanguage::PlutusV3,
             ],
         }
     }
