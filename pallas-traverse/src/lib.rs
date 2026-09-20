@@ -734,7 +734,7 @@ mod attribute_tests {
         ("MultiEraUpdate", NonExhaustive::Always),
         ("MultiEraValue", NonExhaustive::Always),
         ("MultiEraWithdrawals", NonExhaustive::Always),
-        ("ScriptLanguage", NonExhaustive::WithUnstable),
+        ("ScriptLanguage", NonExhaustive::Always),
     ];
 
     fn public_enums(source: &str) -> Vec<(String, NonExhaustive)> {

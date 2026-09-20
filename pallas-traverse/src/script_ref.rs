@@ -148,7 +148,7 @@ impl<'b> MultiEraScriptRef<'b> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "unstable", non_exhaustive)]
+#[non_exhaustive]
 pub enum ScriptLanguage {
     Native,
     PlutusV1,
