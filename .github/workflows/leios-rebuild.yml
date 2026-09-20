@@ -1,0 +1,88 @@
+name: Leios rebuild
+
+on:
+  schedule:
+    - cron: "37 5 * * *"
+  push:
+    branches: [leios-musashi]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  UPSTREAM_URL: https://github.com/txpipe/pallas.git
+
+jobs:
+  rebuild:
+    name: Rebuild on upstream main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: leios-musashi
+          submodules: true
+          fetch-depth: 0
+      - name: Merge upstream main
+        run: |
+          set -eu
+          git config user.name "leios rebuild"
+          git config user.email "leios-rebuild@invalid"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch --no-tags upstream main
+          branch_head=$(git rev-parse HEAD)
+          upstream_head=$(git rev-parse upstream/main)
+          behind=$(git rev-list --count HEAD..upstream/main)
+          {
+            echo "BRANCH_HEAD=$branch_head"
+            echo "UPSTREAM_HEAD=$upstream_head"
+            echo "BEHIND=$behind"
+          } >> "$GITHUB_ENV"
+          git checkout --detach "$branch_head"
+          if ! git merge --no-commit --no-ff upstream/main
+          then
+            echo "::error::merge of upstream main into leios-musashi conflicts"
+            git ls-files --unmerged | awk '{ print $4 }' | sort -u
+            exit 1
+          fi
+          git submodule update --init --recursive
+          echo "upstream commits merged $behind"
+      # With no new upstream commits the merge is the pushed tree, which the CI workflow tests.
+      - if: env.BEHIND != '0'
+        uses: dtolnay/rust-toolchain@stable
+      - if: env.BEHIND != '0'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
+      - if: env.BEHIND != '0'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
+      - name: Build
+        if: env.BEHIND != '0'
+        run: cargo build --workspace --all-targets --profile test
+      - name: Test
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: --workspace
+      - name: Test blueprint feature
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-network -p pallas-network2 --features blueprint
+      - name: Test unstable feature
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
+      - name: Summary
+        if: always()
+        run: |
+          echo "branch leios-musashi ${BRANCH_HEAD:-unknown} upstream main ${UPSTREAM_HEAD:-unknown} behind ${BEHIND:-unknown} result ${{ job.status }}"
