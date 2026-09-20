@@ -2651,6 +2651,7 @@ impl HaskellDisplay for CostModels {
             display_cost_model(1, &self.plutus_v1),
             display_cost_model(2, &self.plutus_v2),
             display_cost_model(3, &self.plutus_v3),
+            display_cost_model(4, &self.plutus_v4),
         ]
         .into_iter()
         .flatten()
@@ -2677,5 +2678,44 @@ impl HaskellDisplay for Network {
             Mainnet => "Mainnet".to_string(),
             Testnet => "Testnet".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// MUST FIRE: every cost model a value holds reaches the rendered string,
+    /// the Plutus v4 model included, and a model under a key with no field of
+    /// its own is rendered under the unknown map rather than going missing.
+    ///
+    /// The two halves are one claim. This rendering exists to be compared with
+    /// what a Haskell node prints, so a model dropped on the way makes the two
+    /// strings differ for a reason the reader of the difference cannot see.
+    #[test]
+    fn every_cost_model_reaches_the_rendered_string() {
+        let models = CostModels {
+            plutus_v1: Some(vec![1]),
+            plutus_v2: Some(vec![2]),
+            plutus_v3: Some(vec![3]),
+            plutus_v4: Some(vec![4]),
+            unknown: vec![(9u64, vec![9i64])].into(),
+        };
+
+        let said = models.to_haskell_str();
+
+        for version in 1..=4 {
+            assert!(
+                said.contains(&format!(
+                    "PlutusV{version},CostModel PlutusV{version} [{version}]"
+                )),
+                "the plutus v{version} model is not in the rendering: {said}"
+            );
+        }
+
+        assert!(
+            said.contains("(9,[9])"),
+            "the model under key 9 is not in the rendering: {said}"
+        );
     }
 }
