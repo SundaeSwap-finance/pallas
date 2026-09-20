@@ -37,11 +37,6 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1alpha::carda
 
 // ---- v1alpha-specific bodies for methods that diverge from v1beta -----------
 
-/// The u5c native script member this schema names for a required signature.
-fn pubkey_clause(hash: &pallas_crypto::hash::Hash<28>) -> u5c::native_script::NativeScript {
-    u5c::native_script::NativeScript::ScriptPubkey(hash.to_vec().into())
-}
-
 /// The u5c governance action this schema names for an information action. The
 /// proto prescribes the value 6 and gives the member no message.
 fn information_action() -> u5c::governance_action::GovernanceAction {
