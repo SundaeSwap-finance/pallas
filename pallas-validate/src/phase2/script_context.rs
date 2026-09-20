@@ -100,7 +100,7 @@ impl DataLookupTable {
         // `ScriptVersion::Native` holds the script type every era through Conway
         // shares, and phase 2 evaluation covers those eras. A native script of any
         // other shape does not reach the table.
-        for script in tx.native_scripts() {
+        for script in tx.multi_era_native_scripts() {
             if let Some(native) = script.as_alonzo_compatible() {
                 scripts.insert(script.hash(), ScriptVersion::Native(native.clone()));
             }
