@@ -209,17 +209,19 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            /// Map a reference script of any era.
             pub fn map_script_ref(&self, x: &pallas_traverse::MultiEraScriptRef) -> u5c::Script {
                 use pallas_traverse::script_ref::ScriptLanguage;
 
                 let bytes = || x.plutus_bytes().unwrap_or_default().to_vec();
 
                 let inner = match x.language() {
-                    ScriptLanguage::Native => u5c::script::Script::Native(Self::map_native_script(
-                        &x.native_script()
-                            .expect("a script whose language is native carries a native script"),
-                    )),
+                    ScriptLanguage::Native => {
+                        u5c::script::Script::Native(Self::map_multi_era_native_script(
+                            &x.native_script().expect(
+                                "a script whose language is native carries a native script",
+                            ),
+                        ))
+                    }
                     ScriptLanguage::PlutusV1 => u5c::script::Script::PlutusV1(bytes().into()),
                     ScriptLanguage::PlutusV2 => u5c::script::Script::PlutusV2(bytes().into()),
                     ScriptLanguage::PlutusV3 => u5c::script::Script::PlutusV3(bytes().into()),
@@ -229,15 +231,17 @@ macro_rules! impl_cardano_mapper_shared {
                 envelope(inner)
             }
 
-            /// Map a native script of any era. A guard clause has no u5c field
-            /// and maps to an empty message.
-            pub fn map_native_script(
+            /// A guard clause has no u5c field and maps to an empty message.
+            pub fn map_multi_era_native_script(
                 x: &pallas_traverse::MultiEraNativeScript,
             ) -> u5c::NativeScript {
                 use pallas_traverse::{MultiEraNativeClause, MultiEraNativeScript};
 
                 let list = |scripts: &[MultiEraNativeScript]| u5c::NativeScriptList {
-                    items: scripts.iter().map(Self::map_native_script).collect(),
+                    items: scripts
+                        .iter()
+                        .map(Self::map_multi_era_native_script)
+                        .collect(),
                 };
 
                 let inner = match x.clause() {
@@ -269,7 +273,7 @@ macro_rules! impl_cardano_mapper_shared {
                             native_script: None,
                         };
                     }
-                    _ => unimplemented!("map_native_script has no arm for this clause"),
+                    _ => unimplemented!("map_multi_era_native_script has no arm for this clause"),
                 };
 
                 u5c::NativeScript {
@@ -277,7 +281,6 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            /// Map a governance action of any era.
             pub fn map_gov_action(
                 &self,
                 x: &pallas_traverse::MultiEraGovAction,
@@ -376,6 +379,68 @@ macro_rules! impl_cardano_mapper_shared {
 
                 u5c::GovernanceAction {
                     governance_action: Some(inner),
+                }
+            }
+
+            pub fn map_native_script(
+                x: &pallas_primitives::alonzo::NativeScript,
+            ) -> u5c::NativeScript {
+                use pallas_primitives::babbage;
+
+                // Folded bottom-up rather than recursed: scripts nest as deep
+                // as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::NativeScript>| {
+                    let inner = match x {
+                        babbage::NativeScript::ScriptPubkey(x) => {
+                            Self::map_native_script_pubkey(x.to_vec())
+                        }
+                        babbage::NativeScript::ScriptAll(_) => {
+                            u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                                items: children,
+                            })
+                        }
+                        babbage::NativeScript::ScriptAny(_) => {
+                            u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
+                                items: children,
+                            })
+                        }
+                        babbage::NativeScript::ScriptNOfK(n, _) => {
+                            u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
+                                // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                                // i64: clamp rather than cast, or a negative value wraps into
+                                // an unsatisfiable one instead of the satisfiable 0 it means.
+                                k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
+                                scripts: children,
+                            })
+                        }
+                        babbage::NativeScript::InvalidBefore(s) => {
+                            u5c::native_script::NativeScript::InvalidBefore(*s)
+                        }
+                        babbage::NativeScript::InvalidHereafter(s) => {
+                            u5c::native_script::NativeScript::InvalidHereafter(*s)
+                        }
+                    };
+                    u5c::NativeScript {
+                        native_script: Some(inner),
+                    }
+                })
+            }
+
+            pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
+                use pallas_primitives::conway;
+                match x {
+                    conway::ScriptRef::NativeScript(x) => u5c::Script {
+                        script: u5c::script::Script::Native(Self::map_native_script(x)).into(),
+                    },
+                    conway::ScriptRef::PlutusV1Script(x) => u5c::Script {
+                        script: u5c::script::Script::PlutusV1(x.0.to_vec().into()).into(),
+                    },
+                    conway::ScriptRef::PlutusV2Script(x) => u5c::Script {
+                        script: u5c::script::Script::PlutusV2(x.0.to_vec().into()).into(),
+                    },
+                    conway::ScriptRef::PlutusV3Script(x) => u5c::Script {
+                        script: u5c::script::Script::PlutusV3(x.0.to_vec().into()).into(),
+                    },
                 }
             }
 
@@ -533,27 +598,47 @@ macro_rules! impl_cardano_mapper_shared {
                 x: &pallas_primitives::alonzo::PlutusData,
             ) -> u5c::PlutusData {
                 use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::PlutusData::Constr(x) => {
-                        u5c::plutus_data::PlutusData::Constr(self.map_plutus_constr(x))
-                    }
-                    babbage::PlutusData::Map(x) => {
-                        u5c::plutus_data::PlutusData::Map(self.map_plutus_map(x))
-                    }
-                    babbage::PlutusData::Array(x) => {
-                        u5c::plutus_data::PlutusData::Array(self.map_plutus_array(x))
-                    }
-                    babbage::PlutusData::BigInt(x) => {
-                        u5c::plutus_data::PlutusData::BigInt(self.map_plutus_bigint(x))
-                    }
-                    babbage::PlutusData::BoundedBytes(x) => {
-                        u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
-                    }
-                };
 
-                u5c::PlutusData {
-                    plutus_data: inner.into(),
-                }
+                // Folded bottom-up rather than recursed: datums nest as deep
+                // as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::PlutusData>| {
+                    let inner = match x {
+                        babbage::PlutusData::Constr(x) => {
+                            u5c::plutus_data::PlutusData::Constr(u5c::Constr {
+                                tag: x.tag as u32,
+                                any_constructor: x.any_constructor.unwrap_or_default(),
+                                fields: children,
+                            })
+                        }
+                        babbage::PlutusData::Map(_) => {
+                            let mut children = children.into_iter();
+                            let mut pairs = Vec::with_capacity(children.len() / 2);
+                            while let (Some(key), Some(value)) = (children.next(), children.next())
+                            {
+                                pairs.push(u5c::PlutusDataPair {
+                                    key: key.into(),
+                                    value: value.into(),
+                                });
+                            }
+                            u5c::plutus_data::PlutusData::Map(u5c::PlutusDataMap { pairs })
+                        }
+                        babbage::PlutusData::Array(_) => {
+                            u5c::plutus_data::PlutusData::Array(u5c::PlutusDataArray {
+                                items: children,
+                            })
+                        }
+                        babbage::PlutusData::BigInt(x) => {
+                            u5c::plutus_data::PlutusData::BigInt(self.map_plutus_bigint(x))
+                        }
+                        babbage::PlutusData::BoundedBytes(x) => {
+                            u5c::plutus_data::PlutusData::BoundedBytes(x.to_vec().into())
+                        }
+                    };
+
+                    u5c::PlutusData {
+                        plutus_data: inner.into(),
+                    }
+                })
             }
 
             pub fn map_gov_action_id(
@@ -580,35 +665,41 @@ macro_rules! impl_cardano_mapper_shared {
 
             pub fn map_metadatum(x: &pallas_primitives::alonzo::Metadatum) -> u5c::Metadatum {
                 use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::Metadatum::Int(x) => {
-                        u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64)
-                    }
-                    babbage::Metadatum::Bytes(x) => {
-                        u5c::metadatum::Metadatum::Bytes(Vec::<u8>::from(x.clone()).into())
-                    }
-                    babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
-                    babbage::Metadatum::Array(x) => {
-                        u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
-                            items: x.iter().map(|x| Self::map_metadatum(x)).collect(),
-                        })
-                    }
-                    babbage::Metadatum::Map(x) => {
-                        u5c::metadatum::Metadatum::Map(u5c::MetadatumMap {
-                            pairs: x
-                                .iter()
-                                .map(|(k, v)| u5c::MetadatumPair {
-                                    key: Self::map_metadatum(k).into(),
-                                    value: Self::map_metadatum(v).into(),
-                                })
-                                .collect(),
-                        })
-                    }
-                };
 
-                u5c::Metadatum {
-                    metadatum: inner.into(),
-                }
+                // Folded bottom-up rather than recursed: metadata nests as
+                // deep as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::Metadatum>| {
+                    let inner = match x {
+                        babbage::Metadatum::Int(x) => {
+                            u5c::metadatum::Metadatum::Int(i128::from(x.0) as i64)
+                        }
+                        babbage::Metadatum::Bytes(x) => {
+                            u5c::metadatum::Metadatum::Bytes(Vec::<u8>::from(x.clone()).into())
+                        }
+                        babbage::Metadatum::Text(x) => u5c::metadatum::Metadatum::Text(x.clone()),
+                        babbage::Metadatum::Array(_) => {
+                            u5c::metadatum::Metadatum::Array(u5c::MetadatumArray {
+                                items: children,
+                            })
+                        }
+                        babbage::Metadatum::Map(_) => {
+                            let mut children = children.into_iter();
+                            let mut pairs = Vec::with_capacity(children.len() / 2);
+                            while let (Some(key), Some(value)) = (children.next(), children.next())
+                            {
+                                pairs.push(u5c::MetadatumPair {
+                                    key: key.into(),
+                                    value: value.into(),
+                                });
+                            }
+                            u5c::metadatum::Metadatum::Map(u5c::MetadatumMap { pairs })
+                        }
+                    };
+
+                    u5c::Metadatum {
+                        metadatum: inner.into(),
+                    }
+                })
             }
 
             pub fn map_metadata(
