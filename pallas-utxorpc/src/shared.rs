@@ -78,6 +78,21 @@ macro_rules! impl_cardano_mapper_shared {
             value
         }
 
+        /// One native script node without its children, in the terms u5c
+        /// names. An era's enum is read into this once, so the mapping from a
+        /// clause to its u5c member is written once for every era.
+        enum NativeClause<'a> {
+            Pubkey(&'a pallas_crypto::hash::Hash<28>),
+            All,
+            Any,
+            NOfK(i64),
+            InvalidBefore(u64),
+            InvalidHereafter(u64),
+            /// The clause Dijkstra adds, which u5c has no member for.
+            #[cfg(feature = "unstable")]
+            Guard,
+        }
+
         /// Map an anchor, whose type every era carrying one shares.
         fn map_anchor(x: &pallas_primitives::conway::Anchor) -> u5c::Anchor {
             u5c::Anchor {
@@ -96,12 +111,31 @@ macro_rules! impl_cardano_mapper_shared {
         }
 
         impl<C: $crate::LedgerContext> Mapper<C> {
-            /// Map a purpose from the era neutral tag space.
+            #[deprecated(
+                since = "1.5.0",
+                note = "use map_multi_era_purpose. This method cannot represent the Dijkstra Guarding tag"
+            )]
             pub fn map_purpose(
+                &self,
+                x: &pallas_primitives::conway::RedeemerTag,
+            ) -> u5c::RedeemerPurpose {
+                use pallas_primitives::conway;
+                match x {
+                    conway::RedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
+                    conway::RedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
+                    conway::RedeemerTag::Cert => u5c::RedeemerPurpose::Cert,
+                    conway::RedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
+                    conway::RedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
+                    conway::RedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
+                }
+            }
+
+            pub fn map_multi_era_purpose(
                 &self,
                 x: &pallas_traverse::MultiEraRedeemerTag,
             ) -> u5c::RedeemerPurpose {
                 use pallas_traverse::MultiEraRedeemerTag;
+
                 match x {
                     MultiEraRedeemerTag::Spend => u5c::RedeemerPurpose::Spend,
                     MultiEraRedeemerTag::Mint => u5c::RedeemerPurpose::Mint,
@@ -112,13 +146,13 @@ macro_rules! impl_cardano_mapper_shared {
                     // u5c has no guarding purpose.
                     #[cfg(feature = "unstable")]
                     MultiEraRedeemerTag::Guarding => u5c::RedeemerPurpose::Unspecified,
-                    _ => unimplemented!("map_purpose has no arm for this purpose"),
+                    _ => unimplemented!("map_multi_era_purpose has no arm for this purpose"),
                 }
             }
 
             pub fn map_redeemer(&self, x: &pallas_traverse::MultiEraRedeemer) -> u5c::Redeemer {
                 u5c::Redeemer {
-                    purpose: self.map_purpose(&x.tag()).into(),
+                    purpose: self.map_multi_era_purpose(&x.multi_era_tag()).into(),
                     payload: self.map_plutus_datum(x.data()).into(),
                     index: x.index(),
                     ex_units: Some(u5c::ExUnits {
@@ -190,107 +224,126 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
-            /// Map a reference script of any era.
             pub fn map_script_ref(&self, x: &pallas_traverse::MultiEraScriptRef) -> u5c::Script {
                 use pallas_traverse::script_ref::ScriptLanguage;
 
                 let bytes = || x.plutus_bytes().unwrap_or_default().to_vec();
 
                 let inner = match x.language() {
-                    ScriptLanguage::Native => u5c::script::Script::Native(Self::map_native_script(
-                        &x.native_script()
-                            .expect("a script whose language is native carries a native script"),
-                    )),
+                    ScriptLanguage::Native => {
+                        u5c::script::Script::Native(Self::map_multi_era_native_script(
+                            &x.native_script().expect(
+                                "a script whose language is native carries a native script",
+                            ),
+                        ))
+                    }
                     ScriptLanguage::PlutusV1 => u5c::script::Script::PlutusV1(bytes().into()),
                     ScriptLanguage::PlutusV2 => u5c::script::Script::PlutusV2(bytes().into()),
                     ScriptLanguage::PlutusV3 => u5c::script::Script::PlutusV3(bytes().into()),
+                    #[cfg(feature = "unstable")]
                     ScriptLanguage::PlutusV4 => u5c::script::Script::PlutusV4(bytes().into()),
+                    other => panic!("u5c has no script field for {other:?}"),
                 };
 
                 envelope(inner)
             }
 
-            /// Map a native script of any era. A guard clause has no u5c field
-            /// and maps to an empty message.
-            pub fn map_native_script(
+            /// A guard clause has no u5c field and maps to an empty message.
+            /// Rebuild one node over children already mapped.
+            fn native_script_node(
+                clause: NativeClause,
+                children: Vec<u5c::NativeScript>,
+            ) -> u5c::NativeScript {
+                let inner = match clause {
+                    NativeClause::Pubkey(x) => Self::map_native_script_pubkey(x.to_vec()),
+                    NativeClause::All => {
+                        u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                            items: children,
+                        })
+                    }
+                    NativeClause::Any => {
+                        u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
+                            items: children,
+                        })
+                    }
+                    NativeClause::NOfK(k) => {
+                        u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
+                            // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                            // i64: clamp rather than cast, or a negative value wraps into
+                            // an unsatisfiable one instead of the satisfiable 0 it means.
+                            k: k.clamp(0, i64::from(u32::MAX)) as u32,
+                            scripts: children,
+                        })
+                    }
+                    NativeClause::InvalidBefore(s) => {
+                        u5c::native_script::NativeScript::InvalidBefore(s)
+                    }
+                    NativeClause::InvalidHereafter(s) => {
+                        u5c::native_script::NativeScript::InvalidHereafter(s)
+                    }
+                    #[cfg(feature = "unstable")]
+                    NativeClause::Guard => {
+                        return u5c::NativeScript {
+                            native_script: None,
+                        };
+                    }
+                };
+
+                u5c::NativeScript {
+                    native_script: Some(inner),
+                }
+            }
+
+            pub fn map_multi_era_native_script(
                 x: &pallas_traverse::MultiEraNativeScript,
             ) -> u5c::NativeScript {
-                let wrap = |inner| u5c::NativeScript {
-                    native_script: Some(inner),
-                };
-
-                let list = |items| u5c::NativeScriptList { items };
-
-                let n_of_k = |k: i64, scripts| {
-                    u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
-                        // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
-                        // i64: clamp rather than cast, or a negative value wraps into
-                        // an unsatisfiable one instead of the satisfiable 0 it means.
-                        k: k.clamp(0, i64::from(u32::MAX)) as u32,
-                        scripts,
-                    })
-                };
-
-                // Folded bottom up rather than recursed, because scripts nest as
-                // deep as a transaction has bytes. Each era's own script type is
-                // folded, because the era neutral clause view clones a node's
-                // children every time it is read.
+                // Folded bottom-up rather than recursed: scripts nest as deep
+                // as a transaction has bytes.
                 if let Some(x) = x.as_alonzo_compatible() {
-                    use pallas_primitives::alonzo::NativeScript;
+                    return pallas_codec::tree::fold_tree(x, |node, children| {
+                        use pallas_primitives::alonzo::NativeScript;
 
-                    return pallas_codec::tree::fold_tree(
-                        x,
-                        |x, children: Vec<u5c::NativeScript>| match x {
-                            NativeScript::ScriptPubkey(x) => wrap(pubkey_clause(x)),
-                            NativeScript::ScriptAll(_) => wrap(
-                                u5c::native_script::NativeScript::ScriptAll(list(children)),
-                            ),
-                            NativeScript::ScriptAny(_) => wrap(
-                                u5c::native_script::NativeScript::ScriptAny(list(children)),
-                            ),
-                            NativeScript::ScriptNOfK(k, _) => wrap(n_of_k(*k, children)),
-                            NativeScript::InvalidBefore(s) => {
-                                wrap(u5c::native_script::NativeScript::InvalidBefore(*s))
-                            }
-                            NativeScript::InvalidHereafter(s) => {
-                                wrap(u5c::native_script::NativeScript::InvalidHereafter(*s))
-                            }
-                        },
-                    );
+                        Self::native_script_node(
+                            match node {
+                                NativeScript::ScriptPubkey(x) => NativeClause::Pubkey(x),
+                                NativeScript::ScriptAll(_) => NativeClause::All,
+                                NativeScript::ScriptAny(_) => NativeClause::Any,
+                                NativeScript::ScriptNOfK(k, _) => NativeClause::NOfK(*k),
+                                NativeScript::InvalidBefore(s) => NativeClause::InvalidBefore(*s),
+                                NativeScript::InvalidHereafter(s) => {
+                                    NativeClause::InvalidHereafter(*s)
+                                }
+                            },
+                            children,
+                        )
+                    });
                 }
 
                 #[cfg(feature = "unstable")]
                 if let Some(x) = x.as_dijkstra() {
-                    use pallas_primitives::dijkstra::NativeScript;
+                    return pallas_codec::tree::fold_tree(x, |node, children| {
+                        use pallas_primitives::dijkstra::NativeScript;
 
-                    return pallas_codec::tree::fold_tree(
-                        x,
-                        |x, children: Vec<u5c::NativeScript>| match x {
-                            NativeScript::ScriptPubkey(x) => wrap(pubkey_clause(x)),
-                            NativeScript::ScriptAll(_) => wrap(
-                                u5c::native_script::NativeScript::ScriptAll(list(children)),
-                            ),
-                            NativeScript::ScriptAny(_) => wrap(
-                                u5c::native_script::NativeScript::ScriptAny(list(children)),
-                            ),
-                            NativeScript::ScriptNOfK(k, _) => wrap(n_of_k(*k, children)),
-                            NativeScript::InvalidBefore(s) => {
-                                wrap(u5c::native_script::NativeScript::InvalidBefore(*s))
-                            }
-                            NativeScript::InvalidHereafter(s) => {
-                                wrap(u5c::native_script::NativeScript::InvalidHereafter(*s))
-                            }
-                            NativeScript::ScriptRequireGuard(_) => u5c::NativeScript {
-                                native_script: None,
+                        Self::native_script_node(
+                            match node {
+                                NativeScript::ScriptPubkey(x) => NativeClause::Pubkey(x),
+                                NativeScript::ScriptAll(_) => NativeClause::All,
+                                NativeScript::ScriptAny(_) => NativeClause::Any,
+                                NativeScript::ScriptNOfK(k, _) => NativeClause::NOfK(*k),
+                                NativeScript::InvalidBefore(s) => NativeClause::InvalidBefore(*s),
+                                NativeScript::InvalidHereafter(s) => {
+                                    NativeClause::InvalidHereafter(*s)
+                                }
+                                NativeScript::ScriptRequireGuard(_) => NativeClause::Guard,
                             },
-                        },
-                    );
+                            children,
+                        )
+                    });
                 }
 
-                unimplemented!("map_native_script has no arm for this era")
+                unimplemented!("map_multi_era_native_script has no arm for this era")
             }
 
-            /// Map a governance action of any era.
             pub fn map_gov_action(
                 &self,
                 x: &pallas_traverse::MultiEraGovAction,
@@ -392,6 +445,81 @@ macro_rules! impl_cardano_mapper_shared {
                 }
             }
 
+            // The released signature returned parameters whose every field is
+            // its proto3 zero for a change that proposes no key u5c carries.
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_gov_action")]
+            pub fn map_conway_gov_action(
+                &self,
+                x: &pallas_primitives::conway::GovAction,
+            ) -> u5c::GovernanceAction {
+                let mut out =
+                    self.map_gov_action(&pallas_traverse::MultiEraGovAction::from_conway(x));
+
+                if let Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(
+                    change,
+                )) = out.governance_action.as_mut()
+                {
+                    change
+                        .protocol_param_update
+                        .get_or_insert_with(u5c::PParams::default);
+                }
+
+                out
+            }
+
+            #[deprecated(
+                since = "1.5.0",
+                note = "use Mapper::map_multi_era_native_script. This method cannot represent a Dijkstra script"
+            )]
+            pub fn map_native_script(
+                x: &pallas_primitives::alonzo::NativeScript,
+            ) -> u5c::NativeScript {
+                use pallas_primitives::babbage;
+
+                // Folded bottom-up rather than recursed: scripts nest as deep
+                // as a transaction has bytes.
+                pallas_codec::tree::fold_tree(x, |x, children: Vec<u5c::NativeScript>| {
+                    let inner = match x {
+                        babbage::NativeScript::ScriptPubkey(x) => {
+                            Self::map_native_script_pubkey(x.to_vec())
+                        }
+                        babbage::NativeScript::ScriptAll(_) => {
+                            u5c::native_script::NativeScript::ScriptAll(u5c::NativeScriptList {
+                                items: children,
+                            })
+                        }
+                        babbage::NativeScript::ScriptAny(_) => {
+                            u5c::native_script::NativeScript::ScriptAny(u5c::NativeScriptList {
+                                items: children,
+                            })
+                        }
+                        babbage::NativeScript::ScriptNOfK(n, _) => {
+                            u5c::native_script::NativeScript::ScriptNOfK(u5c::ScriptNOfK {
+                                // u5c's `k` is wire-fixed at uint32, the ledger's threshold is
+                                // i64: clamp rather than cast, or a negative value wraps into
+                                // an unsatisfiable one instead of the satisfiable 0 it means.
+                                k: (*n).clamp(0, i64::from(u32::MAX)) as u32,
+                                scripts: children,
+                            })
+                        }
+                        babbage::NativeScript::InvalidBefore(s) => {
+                            u5c::native_script::NativeScript::InvalidBefore(*s)
+                        }
+                        babbage::NativeScript::InvalidHereafter(s) => {
+                            u5c::native_script::NativeScript::InvalidHereafter(*s)
+                        }
+                    };
+                    u5c::NativeScript {
+                        native_script: Some(inner),
+                    }
+                })
+            }
+
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_script_ref")]
+            pub fn map_any_script(&self, x: &pallas_primitives::conway::ScriptRef) -> u5c::Script {
+                self.map_script_ref(&pallas_traverse::MultiEraScriptRef::from_conway(x))
+            }
+
             pub fn map_stake_credential(
                 &self,
                 x: &pallas_primitives::babbage::StakeCredential,
@@ -462,10 +590,11 @@ macro_rules! impl_cardano_mapper_shared {
 
             fn collect_all_scripts(&self, tx: &pallas_traverse::MultiEraTx) -> Vec<u5c::Script> {
                 let ns = tx
-                    .native_scripts()
+                    .multi_era_native_scripts()
                     .into_iter()
                     .map(|x| {
-                        let inner = u5c::script::Script::Native(Self::map_native_script(&x));
+                        let inner =
+                            u5c::script::Script::Native(Self::map_multi_era_native_script(&x));
                         envelope(inner)
                     })
                     .collect::<Vec<_>>()
@@ -666,10 +795,11 @@ macro_rules! impl_cardano_mapper_shared {
                 tx: &pallas_traverse::MultiEraTx,
             ) -> Vec<u5c::Script> {
                 let ns = tx
-                    .aux_native_scripts()
+                    .multi_era_aux_native_scripts()
                     .into_iter()
                     .map(|x| {
-                        let inner = u5c::script::Script::Native(Self::map_native_script(&x));
+                        let inner =
+                            u5c::script::Script::Native(Self::map_multi_era_native_script(&x));
                         envelope(inner)
                     })
                     .collect::<Vec<_>>()
@@ -969,6 +1099,42 @@ macro_rules! impl_cardano_mapper_shared {
             ) -> Option<u5c::Certificate> {
                 let inner = self.map_cert_kind(&x.kind()?);
                 Some(self.certificate(inner, tx, order))
+            }
+
+            #[deprecated(
+                since = "1.5.0",
+                note = "use Mapper::map_cert or Mapper::map_cert_kind"
+            )]
+            pub fn map_alonzo_compatible_cert(
+                &self,
+                x: &pallas_primitives::alonzo::Certificate,
+                tx: &pallas_traverse::MultiEraTx,
+                order: u32,
+            ) -> u5c::Certificate {
+                let cert = pallas_traverse::MultiEraCert::AlonzoCompatible(Box::new(
+                    std::borrow::Cow::Borrowed(x),
+                ));
+
+                self.map_cert(&cert, tx, order)
+                    .expect("an Alonzo compatible certificate is always applicable")
+            }
+
+            #[deprecated(
+                since = "1.5.0",
+                note = "use Mapper::map_cert or Mapper::map_cert_kind"
+            )]
+            pub fn map_conway_cert(
+                &self,
+                x: &pallas_primitives::conway::Certificate,
+                tx: &pallas_traverse::MultiEraTx,
+                order: u32,
+            ) -> u5c::Certificate {
+                let cert = pallas_traverse::MultiEraCert::Conway(Box::new(
+                    std::borrow::Cow::Borrowed(x),
+                ));
+
+                self.map_cert(&cert, tx, order)
+                    .expect("a Conway certificate is always applicable")
             }
         }
 
@@ -1614,6 +1780,67 @@ macro_rules! impl_cardano_mapper_shared {
                     "position zero is indexed by no redeemer"
                 );
             }
+
+            #[test]
+            #[allow(deprecated)]
+            fn the_era_specific_mappers_map_through_the_certificate_view() {
+                let raw = tx_with_redeemers(vec![conway::Redeemer {
+                    tag: conway::RedeemerTag::Cert,
+                    index: 1,
+                    data: pallas_primitives::PlutusData::BoundedBytes(vec![0x0f].into()),
+                    ex_units: pallas_primitives::ExUnits {
+                        mem: 11,
+                        steps: 22,
+                    },
+                }]);
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+
+                let conway_certificate = conway::Certificate::StakeRegistration(credential());
+
+                assert_eq!(
+                    mapper.map_conway_cert(&conway_certificate, &tx, 0),
+                    u5c::Certificate {
+                        certificate: Some(
+                            u5c::certificate::Certificate::StakeRegistration(key_credential(
+                                CREDENTIAL
+                            ))
+                        ),
+                        redeemer: None,
+                    }
+                );
+                assert_eq!(
+                    mapper
+                        .map_conway_cert(&conway_certificate, &tx, 1)
+                        .redeemer
+                        .map(|r| r.index),
+                    Some(1),
+                    "position one is indexed by a certificate redeemer"
+                );
+
+                let alonzo_certificate = alonzo::Certificate::PoolRetirement(POOL.into(), EPOCH);
+
+                assert_eq!(
+                    mapper.map_alonzo_compatible_cert(&alonzo_certificate, &tx, 0),
+                    u5c::Certificate {
+                        certificate: Some(u5c::certificate::Certificate::PoolRetirement(
+                            u5c::PoolRetirementCert {
+                                pool_keyhash: POOL.to_vec().into(),
+                                epoch: EPOCH,
+                            }
+                        )),
+                        redeemer: None,
+                    }
+                );
+                assert_eq!(
+                    mapper
+                        .map_alonzo_compatible_cert(&alonzo_certificate, &tx, 1)
+                        .redeemer
+                        .map(|r| r.index),
+                    Some(1),
+                    "position one is indexed by a certificate redeemer"
+                );
+            }
         }
 
         #[cfg(test)]
@@ -1843,6 +2070,116 @@ macro_rules! impl_cardano_mapper_shared {
                 );
             }
 
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let every = conway_update_of_every_key();
+                assert_eq!(
+                    mapper.map_conway_pparams_update(&every),
+                    every_key_as_pparams(None),
+                    "every key this signature read before must still reach the u5c field that key means"
+                );
+
+                let blank = conway_update_of_no_key();
+                assert_eq!(
+                    mapper.map_conway_pparams_update(&blank),
+                    u5c::PParams::default(),
+                    "an update proposing no key reached this signature as parameters whose every field is its proto3 zero"
+                );
+                assert_eq!(
+                    mapper.map_pparams_update(&trv::MultiEraParamUpdate::Conway(Box::new(
+                        std::borrow::Cow::Borrowed(&blank)
+                    ))),
+                    None,
+                    "the era neutral signature tells that update apart from one proposing zeros, which is the distinction the deprecated return type cannot carry"
+                );
+            }
+
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_gov_action_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let empty = conway_parameter_change(&[0xa0]);
+                assert_eq!(
+                    parameter_change(mapper.map_conway_gov_action(&empty)).protocol_param_update,
+                    Some(u5c::PParams::default()),
+                    "a parameter change proposing no key reached this signature carrying parameters whose every field is its proto3 zero"
+                );
+                assert_eq!(
+                    parameter_change(
+                        mapper.map_gov_action(&trv::MultiEraGovAction::from_conway(&empty))
+                    )
+                    .protocol_param_update,
+                    None,
+                    "the era neutral signature reports that same action as proposing no parameters, and only the deprecated one fills the field"
+                );
+
+                let one_key = conway_parameter_change(&[0xa1, 0x00, 0x19, 0x03, 0xe8]);
+                assert_eq!(
+                    mapper.map_conway_gov_action(&one_key),
+                    mapper.map_gov_action(&trv::MultiEraGovAction::from_conway(&one_key)),
+                    "an action that does propose a key maps the same through either signature"
+                );
+            }
+
+            #[test]
+            #[allow(deprecated)]
+            fn the_deprecated_any_script_mapper_answers_as_v1_4_0_did() {
+                let mapper = Mapper::new(NoLedger);
+
+                let native = conway_native_script_ref([0x71; 28]);
+                assert_eq!(
+                    mapper.map_any_script(&native).script,
+                    Some(u5c::script::Script::Native(
+                        Mapper::<NoLedger>::map_native_script(
+                            &pallas_primitives::alonzo::NativeScript::ScriptPubkey(
+                                [0x71; 28].into()
+                            )
+                        )
+                    )),
+                    "a native reference script reaches the native field carrying what the alonzo walk makes of the same script"
+                );
+
+                let plutus = [
+                    (
+                        1u8,
+                        [0x01u8, 0xaa],
+                        u5c::script::Script::PlutusV1(vec![0x01u8, 0xaa].into()),
+                        u5c::script::Script::PlutusV1(vec![0x01u8, 0x55].into()),
+                    ),
+                    (
+                        2,
+                        [0x02, 0xbb],
+                        u5c::script::Script::PlutusV2(vec![0x02u8, 0xbb].into()),
+                        u5c::script::Script::PlutusV2(vec![0x02u8, 0x44].into()),
+                    ),
+                    (
+                        3,
+                        [0x03, 0xcc],
+                        u5c::script::Script::PlutusV3(vec![0x03u8, 0xcc].into()),
+                        u5c::script::Script::PlutusV3(vec![0x03u8, 0x33].into()),
+                    ),
+                ];
+
+                for (language, bytes, expected, other_bytes) in plutus {
+                    let script_ref = conway_plutus_script_ref(language, &bytes);
+
+                    assert_eq!(
+                        mapper.map_any_script(&script_ref).script,
+                        Some(expected),
+                        "a Plutus reference script of language {language} reaches the field of that language carrying its own bytes"
+                    );
+                    assert_ne!(
+                        mapper.map_any_script(&script_ref).script,
+                        Some(other_bytes),
+                        "the field carries the script's own bytes, so bytes it did not carry must not match"
+                    );
+                }
+            }
+
             fn parameter_change(action: u5c::GovernanceAction) -> u5c::ParameterChangeAction {
                 match action.governance_action {
                     Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(x)) => x,
@@ -1997,16 +2334,28 @@ macro_rules! impl_cardano_mapper_shared {
 
                 let mapper = Mapper::new(NoLedger);
 
-                assert_eq!(mapper.map_purpose(&Tag::Spend), u5c::RedeemerPurpose::Spend);
-                assert_eq!(mapper.map_purpose(&Tag::Mint), u5c::RedeemerPurpose::Mint);
-                assert_eq!(mapper.map_purpose(&Tag::Cert), u5c::RedeemerPurpose::Cert);
                 assert_eq!(
-                    mapper.map_purpose(&Tag::Reward),
+                    mapper.map_multi_era_purpose(&Tag::Spend),
+                    u5c::RedeemerPurpose::Spend
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Mint),
+                    u5c::RedeemerPurpose::Mint
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Cert),
+                    u5c::RedeemerPurpose::Cert
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Reward),
                     u5c::RedeemerPurpose::Reward
                 );
-                assert_eq!(mapper.map_purpose(&Tag::Vote), u5c::RedeemerPurpose::Vote);
                 assert_eq!(
-                    mapper.map_purpose(&Tag::Propose),
+                    mapper.map_multi_era_purpose(&Tag::Vote),
+                    u5c::RedeemerPurpose::Vote
+                );
+                assert_eq!(
+                    mapper.map_multi_era_purpose(&Tag::Propose),
                     u5c::RedeemerPurpose::Propose
                 );
             }
@@ -2017,7 +2366,7 @@ macro_rules! impl_cardano_mapper_shared {
                 let mapper = Mapper::new(NoLedger);
 
                 assert_eq!(
-                    mapper.map_purpose(&pallas_traverse::MultiEraRedeemerTag::Guarding),
+                    mapper.map_multi_era_purpose(&pallas_traverse::MultiEraRedeemerTag::Guarding),
                     u5c::RedeemerPurpose::Unspecified,
                     "u5c has no guarding purpose, so a guard reads as unspecified rather than as one of the six it names"
                 );
@@ -2467,7 +2816,7 @@ macro_rules! impl_cardano_mapper_shared {
                     Some(clause),
                     multi
                         .native_script()
-                        .map(|x| Mapper::<NoLedger>::map_native_script(&x)),
+                        .map(|x| Mapper::<NoLedger>::map_multi_era_native_script(&x)),
                     "a native reference script maps to what its own native script maps to, rather than to an empty or a Plutus message"
                 );
             }
@@ -2500,7 +2849,7 @@ macro_rules! impl_cardano_mapper_shared {
                     dijkstra::NativeScript::ScriptPubkey([0x44; 28].into()),
                 ]);
 
-                let mapped = Mapper::<NoLedger>::map_native_script(
+                let mapped = Mapper::<NoLedger>::map_multi_era_native_script(
                     &pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script),
                 );
 
@@ -2528,52 +2877,6 @@ macro_rules! impl_cardano_mapper_shared {
                     list.items[0].native_script, list.items[1].native_script,
                     "so the guard must not read as the clause beside it"
                 );
-            }
-
-            #[cfg(feature = "unstable")]
-            #[test]
-            fn a_deeply_nested_dijkstra_script_maps_on_a_small_stack() {
-                use pallas_primitives::dijkstra;
-
-                // Depth and stack size are load bearing, not just generous. A
-                // mapping that spends one call frame per level aborts here, and
-                // it stops proving that the moment either constant drifts.
-                std::thread::Builder::new()
-                    .stack_size(128 * 1024)
-                    .spawn(|| {
-                        let mut script = dijkstra::NativeScript::ScriptPubkey([0x44; 28].into());
-                        for _ in 0..20_000 {
-                            script = dijkstra::NativeScript::ScriptAll(vec![script]);
-                        }
-
-                        let mapped = Mapper::<NoLedger>::map_native_script(
-                            &pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script),
-                        );
-
-                        let mut depth = 0;
-                        let mut cursor = &mapped;
-                        while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
-                            &cursor.native_script
-                        {
-                            cursor = list.items.first().expect("script_all carries one member");
-                            depth += 1;
-                        }
-
-                        assert_eq!(depth, 20_000, "every level must reach the mapped script");
-                        assert_eq!(
-                            cursor.native_script,
-                            Some(pubkey_clause(&[0x44; 28].into())),
-                            "and the leaf under them is the key hash this schema names"
-                        );
-
-                        // The u5c type has no drop of its own, so a chain this
-                        // deep is leaked rather than dropped on this stack. The
-                        // leak is a few megabytes in one test thread.
-                        std::mem::forget(mapped);
-                    })
-                    .unwrap()
-                    .join()
-                    .unwrap();
             }
 
             #[test]
@@ -2645,12 +2948,12 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
-            fn negative_n_of_k_threshold_maps_to_zero() {
+            fn the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero() {
                 let negative = pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(
                     &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
                 );
                 assert!(matches!(
-                    Mapper::<NoLedger>::map_native_script(&negative).native_script,
+                    Mapper::<NoLedger>::map_multi_era_native_script(&negative).native_script,
                     Some(u5c::native_script::NativeScript::ScriptNOfK(
                         u5c::ScriptNOfK { k: 0, .. }
                     ))
@@ -2661,12 +2964,202 @@ macro_rules! impl_cardano_mapper_shared {
                 );
                 assert!(
                     matches!(
-                        Mapper::<NoLedger>::map_native_script(&positive).native_script,
+                        Mapper::<NoLedger>::map_multi_era_native_script(&positive).native_script,
                         Some(u5c::native_script::NativeScript::ScriptNOfK(
                             u5c::ScriptNOfK { k: 2, .. }
                         ))
                     ),
                     "a threshold the u5c field can hold reaches it unclamped"
+                );
+            }
+
+            #[test]
+            fn the_era_neutral_walk_preserves_mixed_shape_trees() {
+                use pallas_primitives::alonzo::NativeScript;
+
+                let script = NativeScript::ScriptNOfK(
+                    2,
+                    vec![
+                        NativeScript::ScriptPubkey([1; 28].into()),
+                        NativeScript::ScriptAll(vec![
+                            NativeScript::ScriptPubkey([2; 28].into()),
+                            NativeScript::ScriptAny(vec![
+                                NativeScript::InvalidBefore(100),
+                                NativeScript::InvalidHereafter(200),
+                            ]),
+                        ]),
+                        NativeScript::ScriptPubkey([3; 28].into()),
+                    ],
+                );
+                let script =
+                    pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(&script);
+
+                let mapped = Mapper::<NoLedger>::map_multi_era_native_script(&script);
+                let Some(u5c::native_script::NativeScript::ScriptNOfK(n_of_k)) =
+                    &mapped.native_script
+                else {
+                    panic!("expected ScriptNOfK, got {:?}", mapped.native_script);
+                };
+                assert_eq!(n_of_k.k, 2);
+                assert_eq!(n_of_k.scripts.len(), 3);
+
+                // Two levels are wider than one child, so a walk that pairs a
+                // mapped child with the wrong source child keeps every count
+                // right and still fails here.
+                assert_eq!(
+                    n_of_k.scripts[0].native_script,
+                    Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![1u8; 28]))
+                );
+                assert_eq!(
+                    n_of_k.scripts[2].native_script,
+                    Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![3u8; 28]))
+                );
+
+                let Some(u5c::native_script::NativeScript::ScriptAll(all)) =
+                    &n_of_k.scripts[1].native_script
+                else {
+                    panic!(
+                        "expected ScriptAll, got {:?}",
+                        n_of_k.scripts[1].native_script
+                    );
+                };
+                assert_eq!(all.items.len(), 2);
+                assert_eq!(
+                    all.items[0].native_script,
+                    Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![2u8; 28]))
+                );
+
+                let Some(u5c::native_script::NativeScript::ScriptAny(any)) =
+                    &all.items[1].native_script
+                else {
+                    panic!("expected ScriptAny, got {:?}", all.items[1].native_script);
+                };
+                assert_eq!(any.items.len(), 2);
+                assert_eq!(
+                    any.items[0].native_script,
+                    Some(u5c::native_script::NativeScript::InvalidBefore(100))
+                );
+                assert_eq!(
+                    any.items[1].native_script,
+                    Some(u5c::native_script::NativeScript::InvalidHereafter(200))
+                );
+            }
+
+            #[test]
+            fn the_era_neutral_walk_handles_deeply_nested_scripts_on_a_small_stack() {
+                // Depth and stack size are load-bearing, not just generous:
+                // both must stay far enough apart that a mapping of one call
+                // frame per level aborts here, or this test stops proving
+                // anything the moment either constant drifts.
+                std::thread::Builder::new()
+                    .stack_size(128 * 1024)
+                    .spawn(|| {
+                        let mut script =
+                            pallas_primitives::alonzo::NativeScript::ScriptPubkey([0; 28].into());
+                        for _ in 0..20_000 {
+                            script =
+                                pallas_primitives::alonzo::NativeScript::ScriptAll(vec![script]);
+                        }
+                        let script =
+                            pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(
+                                &script,
+                            );
+
+                        let mapped = Mapper::<NoLedger>::map_multi_era_native_script(&script);
+
+                        let mut depth = 0;
+                        let mut cursor = &mapped;
+                        while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
+                            &cursor.native_script
+                        {
+                            cursor = list.items.first().expect("ScriptAll must carry a child");
+                            depth += 1;
+                        }
+                        assert_eq!(depth, 20_000);
+                        assert_eq!(
+                            cursor.native_script,
+                            Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![0u8; 28])),
+                            "the walk reaches the leaf the source put at the bottom"
+                        );
+
+                        // u5c's generated type has no custom Drop, so dropping
+                        // a chain this deep aborts the way a recursive mapping
+                        // does. Leak it: this test is about the mapping, and
+                        // the leak is a few MB, thread local and test only.
+                        std::mem::forget(mapped);
+                    })
+                    .unwrap()
+                    .join()
+                    .unwrap();
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn the_era_neutral_walk_handles_a_deeply_nested_dijkstra_script() {
+                std::thread::Builder::new()
+                    .stack_size(128 * 1024)
+                    .spawn(|| {
+                        let mut script =
+                            pallas_primitives::dijkstra::NativeScript::ScriptPubkey([0; 28].into());
+                        for _ in 0..20_000 {
+                            script =
+                                pallas_primitives::dijkstra::NativeScript::ScriptAll(vec![script]);
+                        }
+                        let script =
+                            pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script);
+
+                        let mapped = Mapper::<NoLedger>::map_multi_era_native_script(&script);
+
+                        let mut depth = 0;
+                        let mut cursor = &mapped;
+                        while let Some(u5c::native_script::NativeScript::ScriptAll(list)) =
+                            &cursor.native_script
+                        {
+                            cursor = list.items.first().expect("ScriptAll must carry a child");
+                            depth += 1;
+                        }
+                        assert_eq!(depth, 20_000);
+                        assert_eq!(
+                            cursor.native_script,
+                            Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![0u8; 28]))
+                        );
+
+                        std::mem::forget(mapped);
+                    })
+                    .unwrap()
+                    .join()
+                    .unwrap();
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn a_guard_clause_nested_in_a_dijkstra_script_maps_to_an_empty_message() {
+                use pallas_primitives::dijkstra::{NativeScript, StakeCredential};
+
+                let guard = NativeScript::ScriptRequireGuard(StakeCredential::AddrKeyhash(
+                    [9u8; 28].into(),
+                ));
+                let script = NativeScript::ScriptAll(vec![
+                    NativeScript::ScriptPubkey([8; 28].into()),
+                    guard,
+                ]);
+                let script = pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script);
+
+                let mapped = Mapper::<NoLedger>::map_multi_era_native_script(&script);
+                let Some(u5c::native_script::NativeScript::ScriptAll(all)) = &mapped.native_script
+                else {
+                    panic!("expected ScriptAll, got {:?}", mapped.native_script);
+                };
+
+                assert_eq!(all.items.len(), 2, "a guard clause keeps its position");
+                assert_eq!(
+                    all.items[0].native_script,
+                    Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![8u8; 28])),
+                    "the clause beside a guard maps to what it means"
+                );
+                assert_eq!(
+                    all.items[1].native_script, None,
+                    "a guard clause has no u5c field and maps to an empty message"
                 );
             }
 
@@ -3169,6 +3662,20 @@ macro_rules! impl_cardano_mapper_shared {
                 }
 
                 Some(mapped)
+            }
+
+            // An update that proposes no key reached this signature as a
+            // PParams of default fields, which is what None becomes here.
+            #[deprecated(since = "1.5.0", note = "use Mapper::map_pparams_update")]
+            pub fn map_conway_pparams_update(
+                &self,
+                x: &pallas_primitives::conway::ProtocolParamUpdate,
+            ) -> u5c::PParams {
+                let update = pallas_traverse::MultiEraParamUpdate::Conway(Box::new(
+                    std::borrow::Cow::Borrowed(x),
+                ));
+
+                self.map_pparams_update(&update).unwrap_or_default()
             }
         }
     };

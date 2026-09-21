@@ -1,56 +1,9 @@
-//! The Leios endorsement layer, from a follower's side of the wire.
+//! Leios endorsement, from a follower's side of the wire.
 //!
-//! On a Leios network most transactions never appear in a ranking block. A
-//! ranking block header announces an endorser block, a later ranking block
-//! certifies that announcement, and the certified endorser block carries the
-//! transactions. A follower that reads only the ranking chain builds a ledger
-//! that is silently short.
-//!
-//! The endorser block body is a network object rather than a ledger one. Its
-//! rule is
-//!
-//! ```cddl
-//! endorser_block = { * hash => word32 }
-//! ```
-//!
-//! from the node to node `leios-fetch` CDDL of cardano-blueprint on the
-//! `leios-prototype` branch, `src/network/node-to-node/leios-fetch/messages.cddl`,
-//! quoted verbatim in the conformance test in
-//! `pallas-network2/src/protocol/leiosfetch.rs`. It is absent from the Dijkstra
-//! ledger CDDL, which carries only `eb_announcement`, `leios_certificate` and
-//! the two header fields.
-//!
-//! Three properties of that wire form each cost a follower its ledger if it
-//! guesses, so every one of them is carried in a type here rather than left to
-//! a caller.
-//!
-//! 1. The protocol has no not found reply. An endorser block the peer does not
-//!    hold comes back as `a0`, a well formed empty body, indistinguishable from
-//!    one that committed no transactions. The announcement commits the body
-//!    length and the body hash before any fetch, so
-//!    [`crate::leios::EndorserBlockBody::decode_announced`] is the constructor
-//!    that pairs the two and refuses a body the announcement did not promise.
-//!    Length alone does not identify one: a peer answering a `[slot, eb_hash]`
-//!    point with a different endorser block of the same length passes every
-//!    later check too, because each transaction is then checked against the
-//!    entries of the body that arrived.
-//! 2. The body keys a transaction by the blake2b-256 of the whole transaction,
-//!    not by its transaction id, which is the blake2b-256 of the body alone. A
-//!    follower that looks for transaction ids finds nothing, with no error.
-//! 3. Each transaction arrives wrapped in a CBOR byte string, and the length in
-//!    the body is the length of the unwrapped transaction.
-//!
-//! The certification rule needs nothing but ranking chain headers. Walk them in
-//! order, carry the most recent announcement forward, and when a header sets
-//! `block_body_contains_leios_cert` the carried announcement is the endorser
-//! block to fetch and apply at that header's block. An announcement superseded
-//! before any block certifies it is abandoned network wide.
-//! [`crate::leios::CertificationTracker`] is that walk.
-//!
-//! The links above are written in full because this module carries an inner
-//! doc block and `lib.rs` carries an outer one on its `mod` line. The two are
-//! merged, and a bare item name in the merged text is looked for in the crate
-//! root rather than here.
+//! The transactions of a certified endorser block are not in the ranking block
+//! that certifies it, so a follower reading only the ranking chain builds a
+//! ledger that is short. The endorser block body is a network object, defined
+//! by the node to node `leios-fetch` CDDL rather than by the ledger CDDL.
 
 use pallas_codec::minicbor::{Decoder, Encoder, data::Type};
 use pallas_codec::utils::MaybeIndefArray;
@@ -60,9 +13,9 @@ use pallas_primitives::dijkstra;
 use crate::{Era, MultiEraHeader, MultiEraTx};
 
 /// Everything that can go wrong between an announcement and an applied
-/// endorser block. Every variant names the evidence, so no caller has to infer
-/// a failure from a value that merely came back empty.
+/// endorser block.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("endorser block body is not a cbor map of hash to size: {0}")]
     InvalidBody(String),
@@ -149,13 +102,9 @@ pub struct EndorserBlockBody {
 }
 
 impl EndorserBlockBody {
-    /// Decodes a body with nothing to check it against.
-    ///
-    /// Prefer [`Self::decode_announced`]. This constructor cannot tell an
-    /// endorser block that committed no transactions from one the peer does not
-    /// hold, because the wire gives both answers as `a0`, and it cannot tell
-    /// the endorser block that was asked for from any other one the peer chose
-    /// to send.
+    /// Decodes a body with nothing to check it against, which cannot tell an
+    /// endorser block the peer does not hold from one that committed no
+    /// transactions.
     pub fn decode(cbor: &[u8]) -> Result<Self, Error> {
         let mut d = Decoder::new(cbor);
         let mut entries = Vec::new();
@@ -210,29 +159,8 @@ impl EndorserBlockBody {
         Ok(Self { entries })
     }
 
-    /// Decodes a body fetched for a specific announcement, refusing any body
-    /// the announcement did not commit to, on length and on hash.
-    ///
-    /// Both are checked before the body is read, because a body that is not the
-    /// announced endorser block is the wrong object whatever its contents turn
-    /// out to be, and saying so names what went wrong on the wire rather than
-    /// what is wrong with bytes nobody asked for.
-    ///
-    /// The announced hash is read here as blake2b-256 of the endorser block
-    /// bytes exactly as the wire delivered them. CIP-0164 says of the field
-    /// that the hash referenced in ranking block headers is computed from the
-    /// complete endorser block structure and serves as its unique identifier,
-    /// and the complete structure a leios-fetch peer sends is the
-    /// `endorser_block` map of that protocol's own CDDL, which is these bytes.
-    /// The sibling field fixes the same reading of which bytes are meant:
-    /// `eb_size` is the length of that map, and each fixture in this module is
-    /// exactly the length its own announcement gave. Blake2b-256 is the digest
-    /// every other 32 byte identity on this chain uses, the transaction keys
-    /// inside this very body included.
-    ///
-    /// Every fixture here is decoded against the announcement a real ranking
-    /// block header made of it, so that reading rests on captured pairs as
-    /// well as on the two specifications.
+    /// Decodes a body fetched for a specific announcement, refusing on length
+    /// and on hash any body the announcement did not commit to.
     pub fn decode_announced(
         cbor: &[u8],
         announcement: &dijkstra::EbAnnouncement,
@@ -255,9 +183,7 @@ impl EndorserBlockBody {
         Self::decode(cbor)
     }
 
-    /// The entries in wire order. The announced hash commits to that order,
-    /// because the same entries in any other order hash differently at exactly
-    /// the announced length.
+    /// The entries in wire order, which the announced hash commits to.
     pub fn entries(&self) -> &[EndorserBlockEntry] {
         &self.entries
     }
@@ -267,6 +193,7 @@ impl EndorserBlockBody {
         self.entries.len()
     }
 
+    /// Whether this endorser block commits to no transactions.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -285,22 +212,9 @@ impl EndorserBlockBody {
         out
     }
 
-    /// Pairs the delivered transactions with the entries that name them.
-    ///
-    /// `wire` is the leios-fetch values in body order, each still wrapped in its
-    /// CBOR byte string. Every transaction is checked against the entry naming
-    /// it, on count, length and hash, and then decoded as a Dijkstra
-    /// transaction, so the returned list is either the whole endorser block or
-    /// an error naming the transaction that failed.
-    ///
-    /// A closure transaction is the three element `mempool_transaction`, since
-    /// nothing has put it in a block yet, and what comes back here is the four
-    /// element `block_transaction` the certifying ranking block will carry.
-    /// Only the validity flag is added, and only as `true`, because the mempool
-    /// rule admits no other value for it. Reading a closure with the block form
-    /// directly is what the era remodel made impossible: it fails at the
-    /// missing fourth element rather than reading three fields and inventing a
-    /// verdict for the fourth.
+    /// Pairs the delivered transactions, each still wrapped in its leios-fetch
+    /// byte string envelope, with the entries that name them, checking every
+    /// one on count, length and hash.
     pub fn transactions<'b>(&self, wire: &'b [Vec<u8>]) -> Result<Vec<MultiEraTx<'b>>, Error> {
         if wire.len() != self.entries.len() {
             return Err(Error::TxCount {
@@ -338,11 +252,8 @@ impl EndorserBlockBody {
     }
 }
 
-/// Removes the CBOR byte string envelope a leios-fetch transaction arrives in.
-///
-/// The length the endorser block body records is the length of the transaction
-/// inside the envelope, so the envelope is invisible to the body's accounting
-/// and a caller that forgets it fails every hash and every size check at once.
+/// Removes the CBOR byte string envelope a leios-fetch transaction arrives in,
+/// which the lengths in an endorser block body do not count.
 pub fn unwrap_tx(wire: &[u8]) -> Result<&[u8], String> {
     let mut d = Decoder::new(wire);
 
@@ -358,21 +269,8 @@ pub fn unwrap_tx(wire: &[u8]) -> Result<&[u8], String> {
     Ok(inner)
 }
 
-/// Reads one unwrapped closure transaction and returns it in the form a block
-/// carries.
-///
-/// The bytes are `mempool_transaction`, three elements. The value returned is
-/// `block_transaction`, four, with the validity flag set to the only value the
-/// mempool rule admits. The two rules are separate types in this era precisely
-/// so that neither is read as the other, and this is the one place a follower
-/// crosses between them, because certification is what puts a closure
-/// transaction into a block.
-///
-/// A four element `mempool_transaction`, which the rule also allows on
-/// submission with the deprecated flag present and `true`, is accepted here
-/// too, and comes out with its fields in the block's order rather than the
-/// mempool's. A byte level splice would get that pair the wrong way round,
-/// which is why this decodes rather than editing an array header.
+/// Reads one unwrapped `mempool_transaction` and returns the
+/// `block_transaction` a certifying block carries.
 fn decode_closure_transaction(index: usize, inner: &[u8]) -> Result<MultiEraTx<'_>, Error> {
     let mempool: dijkstra::MempoolTransaction =
         pallas_codec::minicbor::decode(inner).map_err(|e| Error::TxDecode {
@@ -387,25 +285,20 @@ fn decode_closure_transaction(index: usize, inner: &[u8]) -> Result<MultiEraTx<'
 
 /// An announcement carried forward by [`CertificationTracker`], and the point a
 /// leios-fetch request needs.
-///
-/// The announcement itself has no slot in it. The slot a fetch point wants is
-/// the slot of the ranking block that made the announcement, which is what the
-/// node's own store keys the endorser block by.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnnouncedEndorserBlock {
-    /// Slot of the ranking block that announced it.
+    /// Slot of the ranking block that announced it, which is the slot a
+    /// leios-fetch point carries.
     pub slot: u64,
+    /// Digest the announcement commits the body to.
     pub hash: Hash<32>,
     /// Byte length the announcement commits the body to.
     pub size: u32,
 }
 
-/// What one ranking block header says about the endorsement layer.
-///
-/// Both answers are held together because a header can certify the pending
-/// announcement and make a new one of its own in the same block, and a caller
-/// that reads only one of the two loses either the payload or the next
-/// announcement.
+/// Both of the things one ranking block header says about the endorsement
+/// layer, held together because a header can certify the pending announcement
+/// and make a new one of its own in the same block.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HeaderOutcome {
     /// The endorser block this header certifies, to be fetched and applied at
@@ -416,41 +309,29 @@ pub struct HeaderOutcome {
 }
 
 /// What a certification walk knows about an announcement waiting to be
-/// certified.
-///
-/// A follower walking from origin is only ever in the first two states. A
-/// follower resuming from a stored position can be in a third: it has not read
-/// the blocks that would tell it, so it does not know. Writing that third state
-/// as `None` makes it indistinguishable from knowing that nothing is pending,
-/// and the two demand opposite answers the moment a certificate arrives, so
-/// they are held apart here rather than collapsed into an absence.
+/// certified, where not knowing is a state of its own, because a walk that
+/// resumed from a stored position must not be read as knowing that nothing is
+/// pending.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PendingAnnouncement {
-    /// Nothing is waiting. Either the most recent Leios event on the chain was
-    /// a certificate that consumed the announcement before it, or the chain has
-    /// carried no Leios event at all.
+    /// Nothing is waiting, either because a certificate consumed the last
+    /// announcement or because the chain has carried no Leios event.
     #[default]
     Nothing,
 
     /// This announcement is waiting for the certificate that will name it.
     Waiting(AnnouncedEndorserBlock),
 
-    /// Whether an announcement is waiting could not be established, because the
-    /// walk started from a stored position and has not yet read a Leios event.
-    ///
-    /// This is not a permanent state. The next announcement the walk sees
-    /// settles it, because an announcement replaces whatever came before. Until
-    /// then a certificate cannot be answered and is refused.
+    /// The walk resumed from a stored position and has not yet read a Leios
+    /// event, so a certificate cannot be answered and is refused until the next
+    /// announcement settles it.
     Unknown,
 }
 
 impl PendingAnnouncement {
     /// The announcement waiting for a certificate, if the walk both knows and
     /// has one.
-    ///
-    /// A caller that needs to tell "nothing is waiting" from "cannot tell"
-    /// should match on the value instead, which is the whole reason this is not
-    /// an `Option`.
     pub fn waiting(&self) -> Option<&AnnouncedEndorserBlock> {
         match self {
             Self::Waiting(eb) => Some(eb),
@@ -478,18 +359,16 @@ impl CertificationTracker {
         &self.pending
     }
 
-    /// Observes the next header of the ranking chain.
-    ///
-    /// Certification is settled before the header's own announcement is
-    /// recorded, because `block_body_contains_leios_cert` names the
-    /// announcement that precedes this header, never the one this header makes.
+    /// Observes the next header of the ranking chain, settling certification
+    /// before the header's own announcement is recorded, because
+    /// `block_body_contains_leios_cert` names the announcement that precedes
+    /// this header.
     pub fn observe(&mut self, header: &MultiEraHeader) -> Result<HeaderOutcome, Error> {
         let mut outcome = HeaderOutcome::default();
 
         if header.block_body_contains_leios_cert() == Some(true) {
-            // The state is only consumed when it can answer. A refusal leaves
-            // the walk exactly as it was, so a caller that retries the same
-            // header gets the same answer rather than a different one.
+            // A refusal leaves the walk as it was, so retrying the same header
+            // gives the same answer.
             match &self.pending {
                 PendingAnnouncement::Nothing => {
                     return Err(Error::CertifiesNothing {
@@ -529,23 +408,8 @@ impl CertificationTracker {
 }
 
 /// Rewrites a certifying ranking block so its transaction list is the
-/// transactions of the endorser block it certifies.
-///
-/// A Cardano node already serves this shape to its local clients: the node to
-/// client chainsync server resolves the certificate and hands over a block
-/// whose body carries the endorsed transactions inline, and CIP-0164 names
-/// serving a modified block with inline endorser block transactions over
-/// LocalChainSync as the recommended presentation. A follower reading node to
-/// node gets the unresolved block and has to do the same resolution itself.
-///
-/// The transaction list is replaced rather than extended. A certifying ranking
-/// block carries no transactions of its own, so there is no order to choose
-/// between two sets, and a block that carried both is refused rather than
-/// guessed at.
-///
-/// `txs` are the transactions of the certified endorser block in body order,
-/// already unwrapped from their leios-fetch byte string envelopes. The header
-/// is left byte identical, so the block keeps its hash and its slot.
+/// transactions of the endorser block it certifies, given in body order and
+/// already unwrapped from their leios-fetch envelopes.
 pub fn resolve_certified_block(block_cbor: &[u8], txs: &[&[u8]]) -> Result<Vec<u8>, Error> {
     let block =
         crate::MultiEraBlock::decode(block_cbor).map_err(|e| Error::InvalidBlock(e.to_string()))?;
@@ -563,30 +427,9 @@ pub fn resolve_certified_block(block_cbor: &[u8], txs: &[&[u8]]) -> Result<Vec<u
     replace_transaction_list(block_cbor, txs)
 }
 
-/// Rewrites a Dijkstra block's transaction list and leaves every other byte of
-/// the block alone.
-///
-/// This is the splice on its own, without the certification checks
-/// [`resolve_certified_block`] makes before it, because a follower has a second
-/// reason to rewrite a list: an ordinary ranking block can carry a transaction
-/// the chain already applied, and applying it a second time spends an input
-/// that is already spent.
-///
-/// The header keeps the bytes it arrived in, so the block keeps its hash and
-/// its slot, and so the stored body no longer matches what the stored header
-/// commits to. That is the same trade [`resolve_certified_block`] already
-/// makes, and it is why a follower doing either of these must refuse to serve
-/// blocks onward.
-///
-/// `txs` are `mempool_transaction` bytes, three elements, which is what an
-/// endorser block closure and a client submission both carry. A ranking block
-/// body carries `block_transaction`, four, so each one is decoded and written
-/// back in the block's form rather than copied through. Copying them through
-/// would build a block that no longer decodes as its own era.
-///
-/// Every element other than the transaction list reaches the output through
-/// this crate's own encoder rather than as the bytes it arrived in, and
-/// `block_isomorphic_decoding_encoding` is what holds those two the same.
+/// Rewrites a Dijkstra block's transaction list from `mempool_transaction`
+/// bytes, leaving the header in the bytes it arrived in, so the stored body no
+/// longer matches what the stored header commits to.
 pub fn replace_transaction_list(block_cbor: &[u8], txs: &[&[u8]]) -> Result<Vec<u8>, Error> {
     let (era, mut block): (u16, dijkstra::Block) = pallas_codec::minicbor::decode(block_cbor)
         .map_err(|e| Error::InvalidBlock(e.to_string()))?;
@@ -608,15 +451,8 @@ pub fn replace_transaction_list(block_cbor: &[u8], txs: &[&[u8]]) -> Result<Vec<
 }
 
 /// Refuses a block that both certifies an endorser block and carries
-/// transactions of its own.
-///
-/// CIP-0164 step 5 states that a ranking block contains either a certificate
-/// for the endorser block announced by its predecessor or a list of
-/// transactions forming a valid extension, and never both, on the ground that
-/// allowing both would force a validator to build the ledger state from every
-/// endorsed transaction before it could validate the block's own. So the two
-/// sets have no defined order, and a follower that met a block carrying both
-/// would have to guess one.
+/// transactions of its own, a combination the chain inclusion rule forbids and
+/// for which the two sets have no defined order.
 pub fn refuse_certifying_block_with_own_txs(
     slot: u64,
     certifies: bool,
@@ -730,14 +566,9 @@ mod tests {
         (body, f.wire_txs())
     }
 
-    /// MUST FIRE: each `.header` fixture is the ranking block header the chain
-    /// stored, at the hash the chain knows that block by, and it announces the
-    /// body beside it.
-    ///
-    /// Every announced value the tests below run against comes out of these
-    /// three files, so without this a hand written header naming whatever a
-    /// body happens to hash to would satisfy the whole module and the pairing
-    /// would be worth nothing.
+    /// Every announced value this module runs against comes out of the
+    /// `.header` fixtures, so a hand written header naming whatever a body
+    /// happens to hash to would otherwise satisfy all of it.
     #[test]
     fn each_fixture_header_is_the_ranking_block_the_chain_stored() {
         for f in FIXTURES {
@@ -768,8 +599,6 @@ mod tests {
         }
     }
 
-    /// MUST FIRE: each body decodes to exactly the transactions the wire named,
-    /// and re-encodes to the bytes the wire carried.
     #[test]
     fn bodies_decode_to_their_wire_transaction_count_and_re_encode_byte_for_byte() {
         for f in FIXTURES {
@@ -793,11 +622,9 @@ mod tests {
         }
     }
 
-    /// MUST FIRE: leios-fetch answers "I do not have it" with a well formed
-    /// empty body, so the only thing separating a missing endorser block from an
-    /// empty one is the length the announcement committed to.
-    ///
-    /// MUST NOT FIRE: the real body of the same announcement is accepted.
+    /// leios-fetch answers "I do not have it" with a well formed empty body, so
+    /// the only thing separating a missing endorser block from an empty one is
+    /// the length the announcement committed to.
     #[test]
     fn an_empty_reply_is_refused_against_the_announcement_that_named_it() {
         let f = &FIXTURES[2];
@@ -822,15 +649,8 @@ mod tests {
         assert_eq!(body.len(), 425);
     }
 
-    /// MUST FIRE: a body of exactly the announced length and the announced
-    /// hash that is not a map of hash to size is refused as malformed rather
-    /// than read as empty.
-    ///
     /// The announcement here names this body's own length and digest, so the
-    /// shape is the only thing left for the refusal to be about. A body that
-    /// failed the length or the hash check would be refused before its shape
-    /// was read, and this test would then pass without the shape check
-    /// existing at all.
+    /// shape is the only thing left for the refusal to be about.
     #[test]
     fn a_body_of_the_right_length_but_the_wrong_shape_is_refused() {
         // a three byte cbor array, not a map
@@ -854,17 +674,9 @@ mod tests {
         assert!(matches!(err, Error::InvalidBody(_)), "wrong refusal: {err}");
     }
 
-    /// MUST FIRE: a body of exactly the announced length that is a different
-    /// endorser block is refused, and the refusal names both hashes.
-    ///
-    /// A leios-fetch request names its endorser block by `[slot, eb_hash]` and
-    /// the peer answers with bytes, so the only thing tying the answer to the
-    /// request is the announcement. Length alone does not tie it: another
-    /// endorser block of the same length passes every later check as well,
-    /// because each transaction is checked against the entry of the body that
-    /// arrived rather than against the announcement.
-    ///
-    /// MUST NOT FIRE: the body the announcement actually names is accepted.
+    /// Length alone does not tie the answer to the request. Another endorser
+    /// block of the same length passes every later check as well, because each
+    /// transaction is checked against the entry of the body that arrived.
     #[test]
     fn a_body_of_the_announced_length_that_is_a_different_endorser_block_is_refused() {
         let f = &FIXTURES[0];
@@ -898,17 +710,9 @@ mod tests {
         assert_eq!(body.len(), f.count);
     }
 
-    /// MUST FIRE: a body carrying exactly the entries the announcement names,
-    /// in another order, is refused on hash.
-    ///
-    /// MUST NOT FIRE: the length check ahead of it, and the body in wire order.
-    /// Every key is 32 bytes and every value keeps its own encoding, so
-    /// permuting the entries moves the same bytes about and changes no byte
-    /// count at all. The reordered body is therefore exactly the announced
-    /// length and reaches the hash, which is the only check left that can tell
-    /// the two apart. That is what makes the entry order a value the chain
-    /// commits to rather than a convenience of this decoder, and it is why the
-    /// length check cannot stand in for the hash check.
+    /// Every key is 32 bytes and every value keeps its own encoding, so a
+    /// reordered body is exactly the announced length and reaches the hash,
+    /// which is the only check left that can tell the two apart.
     #[test]
     fn a_body_with_the_announced_entries_in_another_order_is_refused_on_hash() {
         let f = &FIXTURES[2];
@@ -957,8 +761,6 @@ mod tests {
         assert_eq!(again.entries(), body.entries());
     }
 
-    /// MUST FIRE: the delivered transactions are the ones the body names, in
-    /// body order, unwrapped from their envelopes and decoded as Dijkstra.
     #[test]
     fn transactions_are_the_named_ones_in_body_order() {
         for f in FIXTURES {
@@ -978,13 +780,9 @@ mod tests {
         }
     }
 
-    /// MUST FIRE: the transaction an earlier investigation named, at the index
-    /// it named, with the output the ranking chain at slot 382536 spends.
-    ///
-    /// The endorser block keys it by the blake2b-256 of the whole transaction,
-    /// `9f3ce353...`, while its transaction id is `fffa4361...`. Both are
-    /// asserted here, because a follower that confuses them finds nothing and
-    /// gets no error.
+    /// The endorser block keys this transaction by the blake2b-256 of the whole
+    /// transaction, which is not its transaction id, and both are asserted
+    /// because a follower that confuses them finds nothing and gets no error.
     #[test]
     fn the_producing_transaction_of_the_block_that_stalled_is_at_index_391() {
         let f = &FIXTURES[2];
@@ -1011,8 +809,6 @@ mod tests {
         assert_eq!(tx.inputs().len(), 1);
     }
 
-    /// MUST FIRE: a delivery in the wrong order is refused, because the body
-    /// names which transaction goes where.
     #[test]
     fn a_permuted_delivery_is_refused() {
         let f = &FIXTURES[1];
@@ -1029,8 +825,6 @@ mod tests {
         assert!(matches!(err, Error::TxHash { index: 0, .. }), "{err}");
     }
 
-    /// MUST FIRE: a short delivery is refused rather than yielding the prefix
-    /// that did arrive.
     #[test]
     fn a_short_delivery_is_refused() {
         let f = &FIXTURES[1];
@@ -1053,8 +847,8 @@ mod tests {
         }
     }
 
-    /// MUST FIRE: a transaction handed over without its byte string envelope is
-    /// refused, which is the shape a caller that skipped the unwrap produces.
+    /// An unwrapped transaction is the shape a caller that skipped the unwrap
+    /// hands over.
     #[test]
     fn a_transaction_delivered_without_its_envelope_is_refused() {
         let f = &FIXTURES[0];
@@ -1075,26 +869,9 @@ mod tests {
         assert!(matches!(err, Error::Envelope { index: 0, .. }), "{err}");
     }
 
-    /// Three of the block fixtures set a Leios header field. Blocks 17403 and
-    /// 17406 end their header body with a true certificate flag and an
-    /// announcement, `f5 82 5820 ...`, and block 17512 ends it `f5 f6`, a
-    /// certificate with nothing announced. Every other Dijkstra fixture ends
-    /// `f4 f6`. The tests in `pallas-primitives` read all three and name the
-    /// announced hash and size of the first.
-    ///
-    /// None of the three can stand in for what is built here. A resolve test
-    /// needs a certifying block whose endorser block's transactions are in
-    /// hand, and the two endorser blocks those fixtures announce were never
-    /// fetched, so the block under test is built from one that certifies
-    /// nothing.
-    ///
-    /// The build is a field set and a re-encode of a real header, so
-    /// everything except the two fields under test is the chain's own bytes:
-    /// the slot, the issuer, the vrf proof, the body hash and the block body
-    /// are untouched. What the resulting block is not is a block a node would
-    /// accept, because the header signature no longer covers the header body.
-    /// Nothing here checks a signature, and the two callers that would care
-    /// are named in the doc comment of [`resolve_certified_block`].
+    /// Re-encodes a real header with the two Leios fields set, so the result
+    /// is not a block a node would accept, because the header signature no
+    /// longer covers the header body.
     pub(super) fn with_leios_header_fields(
         block_str: &str,
         certifies: bool,
@@ -1192,12 +969,9 @@ mod tests {
         MultiEraHeader::decode(7, None, raw).unwrap()
     }
 
-    /// MUST FIRE and MUST NOT FIRE: the helper above changes the two fields it
-    /// says it changes and no other byte of the block.
-    ///
-    /// Without this the synthetic fixtures underneath every certification test
-    /// are unexamined, and a helper that quietly rebuilt the whole header
-    /// would make those tests pass against bytes no chain ever carried.
+    /// Every certification test rests on `with_leios_header_fields`, and a
+    /// version of it that quietly rebuilt the whole header would make those
+    /// tests pass against bytes no chain ever carried.
     #[test]
     fn the_synthetic_header_changes_two_fields_and_nothing_else() {
         let plain = hex::decode(include_str!("../../test_data/dijkstra16.block").trim()).unwrap();
@@ -1234,8 +1008,8 @@ mod tests {
         assert_eq!(header.eb_announcement().map(|a| a.eb_size), Some(4096));
         assert_eq!(header.slot(), 311025, "the chain's own slot survives");
 
-        // MUST NOT FIRE: asking for neither field leaves a header that reads
-        // exactly as the chain wrote it
+        // asking for neither field leaves a header that reads exactly as the
+        // chain wrote it
         let neither = with_leios_header_fields(
             include_str!("../../test_data/dijkstra16.block"),
             false,
@@ -1244,8 +1018,7 @@ mod tests {
         assert_eq!(neither, plain, "a no-op build re-encodes byte for byte");
     }
 
-    /// MUST FIRE: a header that certifies with nothing pending is refused. A
-    /// follower that answered this with "nothing to fetch" would skip a whole
+    /// A follower that answered this with "nothing to fetch" would skip a whole
     /// endorser block and never know.
     #[test]
     fn a_header_that_certifies_nothing_pending_is_refused() {
@@ -1269,14 +1042,9 @@ mod tests {
         }
     }
 
-    /// MUST FIRE and MUST NOT FIRE together: the walk carries the most recent
-    /// announcement forward, yields it at the header that certifies it, holds
-    /// certification and announcement together when one header does both, and
-    /// abandons an announcement superseded before any block certified it.
-    ///
-    /// The headers are four real Musashi w36 blocks in chain order, each with
-    /// its Leios fields set as this walk needs them, since the chain itself
-    /// sets neither field on any block.
+    /// The headers are four real Musashi blocks in chain order, each with its
+    /// Leios fields set as this walk needs them, since the chain itself sets
+    /// neither field on any block.
     #[test]
     fn certification_walks_the_headers_and_abandons_a_superseded_announcement() {
         let earlier = AnnouncedEndorserBlock {
@@ -1350,8 +1118,6 @@ mod tests {
         assert_eq!(tracker.pending().waiting(), Some(&announced9));
     }
 
-    /// MUST NOT FIRE: a pre-Leios header certifies nothing and announces
-    /// nothing, and must not be read as certifying with nothing pending either.
     #[test]
     fn a_pre_leios_header_certifies_nothing() {
         let cbor = hex::decode(include_str!("../../test_data/conway1.block").trim()).unwrap();
@@ -1380,15 +1146,9 @@ mod tests {
         );
     }
 
-    /// MUST FIRE: a walk that resumed without establishing whether an
-    /// announcement was waiting refuses a certificate, and says that is why.
-    ///
-    /// MUST NOT FIRE: it must not be refused as certifying nothing. The two
-    /// refusals mean opposite things. Certifying nothing is a chain that broke
-    /// its own inclusion rule and the follower is right to stop for good.
-    /// Certifying while the walk cannot tell is the follower's own cold start,
-    /// which the next announcement repairs, and reporting it as the first would
-    /// send an operator looking for a chain fault that is not there.
+    /// The two refusals mean opposite things. Certifying with nothing pending
+    /// is a chain that broke its own inclusion rule, and certifying while the
+    /// walk cannot tell is the follower's own cold start.
     #[test]
     fn a_walk_that_cannot_tell_refuses_a_certificate_as_its_own_ignorance() {
         let block = certifying_block();
@@ -1421,13 +1181,8 @@ mod tests {
         );
     }
 
-    /// MUST FIRE: not knowing is temporary. An announcement settles the walk,
-    /// and the certificate that follows resolves to that announcement rather
-    /// than to a refusal.
-    ///
-    /// MUST NOT FIRE: the refusal must not survive the announcement, because a
-    /// follower that stayed refused after learning the answer could never
-    /// resume at all.
+    /// A follower whose refusal survived the announcement could never resume at
+    /// all.
     #[test]
     fn an_announcement_settles_a_walk_that_could_not_tell() {
         let mut tracker = CertificationTracker::resume_from(PendingAnnouncement::Unknown);
@@ -1457,8 +1212,6 @@ mod tests {
         assert_eq!(out.certified, Some(announced));
     }
 
-    /// MUST NOT FIRE: a refusal leaves the walk as it was, so the same header
-    /// observed again gives the same answer rather than a different one.
     #[test]
     fn a_refused_certificate_does_not_change_the_walk() {
         let block = certifying_block();
@@ -1477,10 +1230,8 @@ mod tests {
         assert!(matches!(err, Error::CertifiesUnknown { .. }), "{err}");
     }
 
-    /// MUST FIRE on the one illegal combination, MUST NOT FIRE on the other
-    /// three. CIP-0164 forbids a ranking block that both certifies and carries
-    /// its own transactions, and no such block exists on this chain, so the
-    /// only way this refusal is ever exercised is here.
+    /// No block on this chain both certifies and carries its own transactions,
+    /// so the four combinations are built here rather than found.
     #[test]
     fn a_certifying_block_with_its_own_transactions_is_refused() {
         assert!(refuse_certifying_block_with_own_txs(10, false, 0).is_ok());
@@ -1506,8 +1257,6 @@ mod resolve_tests {
     use super::*;
     use crate::MultiEraBlock;
 
-    /// MUST FIRE: a certifying block resolves to a block carrying the endorser
-    /// block's transactions, with its header and therefore its hash untouched.
     #[test]
     fn a_certifying_block_resolves_to_the_endorser_blocks_transactions() {
         let raw = certifying_block();
@@ -1542,8 +1291,8 @@ mod resolve_tests {
         );
     }
 
-    /// MUST FIRE: the one transaction case, so the array header width is not
-    /// only ever exercised at one size.
+    /// The one transaction case, so the array header width is not only ever
+    /// exercised at one size.
     #[test]
     fn a_single_transaction_endorser_block_resolves() {
         let raw = certifying_block();
@@ -1557,8 +1306,6 @@ mod resolve_tests {
         assert_eq!(after.txs()[0].inputs().len(), 1);
     }
 
-    /// MUST NOT FIRE: a block that certifies nothing is refused rather than
-    /// silently given somebody else's transactions.
     #[test]
     fn a_block_that_certifies_nothing_is_refused() {
         let raw = hex::decode(include_str!("../../test_data/dijkstra6.block").trim()).unwrap();
@@ -1575,19 +1322,9 @@ mod resolve_tests {
         assert!(matches!(err, Error::NotCertifying { .. }), "{err}");
     }
 
-    /// MUST FIRE: the splice replaces the transaction list.
-    ///
-    /// MUST NOT FIRE: it replaces nothing else. The two certificate slots that
-    /// follow the list in a w36 block body have to come through byte for byte.
-    ///
-    /// This is the assertion the deleted `invalid_transactions` element costs.
-    /// The body led with that element until the w36 ledger removed it, so a
-    /// walk that still steps over one element before reading the list returns
-    /// the span of the Leios certificate instead, and the splice writes a
-    /// transaction list where a certificate belongs while leaving the real list
-    /// untouched. The count assertion alone would not settle it, since a wrong
-    /// span can still produce the count asked for, so the trailing bytes are
-    /// pinned here separately.
+    /// A splice that stepped over the wrong body element would write a
+    /// transaction list where a certificate belongs and still produce the count
+    /// asked for, so the trailing bytes are pinned separately.
     #[test]
     fn the_splice_replaces_the_transaction_list_and_not_a_certificate_slot() {
         let raw = hex::decode(include_str!("../../test_data/dijkstra6.block").trim()).unwrap();
@@ -1648,11 +1385,6 @@ mod resolve_tests {
         );
     }
 
-    /// MUST FIRE: what the splice writes is the block's four element
-    /// transaction form, not the three element form the closure arrived in.
-    ///
-    /// MUST NOT FIRE: the transaction body is not rewritten, so the
-    /// transaction keeps the hash the endorser block named it by.
     #[test]
     fn the_spliced_transactions_carry_the_blocks_validity_flag() {
         let raw = certifying_block();
@@ -1684,8 +1416,6 @@ mod resolve_tests {
         );
     }
 
-    /// MUST NOT FIRE: a pre-Leios block is refused by era rather than having
-    /// its body rewritten.
     #[test]
     fn a_pre_leios_block_is_refused() {
         let raw = hex::decode(include_str!("../../test_data/conway1.block").trim()).unwrap();
@@ -1696,10 +1426,8 @@ mod resolve_tests {
         assert!(matches!(err, Error::NotLeiosEra { .. }), "{err}");
     }
 
-    /// MUST FIRE: resolving with no transactions gives an empty block rather
-    /// than an error, because an endorser block genuinely may commit to none,
-    /// and the refusal that protects against a missing one is the announced
-    /// size check at fetch time, not this.
+    /// An endorser block may commit to no transactions, and what refuses a
+    /// missing one is the announced size check at fetch time rather than this.
     #[test]
     fn resolving_with_no_transactions_gives_an_empty_block() {
         let raw = certifying_block();

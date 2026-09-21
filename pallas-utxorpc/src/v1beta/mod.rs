@@ -37,11 +37,6 @@ crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardan
 
 // ---- v1beta-specific bodies for methods that diverge from v1alpha -----------
 
-/// The u5c native script member this schema names for a required signature.
-fn pubkey_clause(hash: &pallas_crypto::hash::Hash<28>) -> u5c::native_script::NativeScript {
-    u5c::native_script::NativeScript::ScriptPubkeyHash(hash.to_vec().into())
-}
-
 /// The u5c governance action this schema names for an information action,
 /// whose message has no field.
 fn information_action() -> u5c::governance_action::GovernanceAction {
@@ -49,6 +44,13 @@ fn information_action() -> u5c::governance_action::GovernanceAction {
 }
 
 impl<C: LedgerContext> Mapper<C> {
+    // v1beta names this variant ScriptPubkeyHash; v1alpha names it
+    // ScriptPubkey. The rest of map_native_script is identical between
+    // versions and lives in shared.rs.
+    fn map_native_script_pubkey(bytes: Vec<u8>) -> u5c::native_script::NativeScript {
+        u5c::native_script::NativeScript::ScriptPubkeyHash(bytes.into())
+    }
+
     pub fn map_tx_datum(
         &self,
         x: &trv::MultiEraOutput,
@@ -98,7 +100,7 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.script_ref().map(|x| self.map_script_ref(&x))
+        x.multi_era_script_ref().map(|x| self.map_script_ref(&x))
     }
 
     pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
@@ -349,7 +351,7 @@ mod tests {
         );
 
         assert_eq!(
-            Mapper::<NoLedger>::map_native_script(&script).native_script,
+            Mapper::<NoLedger>::map_multi_era_native_script(&script).native_script,
             Some(u5c::native_script::NativeScript::ScriptPubkeyHash(
                 [0x44; 28].to_vec().into()
             )),
@@ -483,11 +485,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn negative_n_of_k_threshold_maps_to_zero() {
         let mapped = Mapper::<NoLedger>::map_native_script(
-            &trv::MultiEraNativeScript::from_decoded_alonzo_compatible(
-                &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
-            ),
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
         );
         assert!(matches!(
             mapped.native_script,
@@ -498,11 +499,40 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn the_legacy_purpose_mapper_agrees_with_the_multi_era_one() {
+        use pallas_primitives::conway::RedeemerTag;
+        use pallas_traverse::MultiEraRedeemerTag;
+
+        let mapper = Mapper::new(NoLedger);
+        let tags = [
+            RedeemerTag::Spend,
+            RedeemerTag::Mint,
+            RedeemerTag::Cert,
+            RedeemerTag::Reward,
+            RedeemerTag::Vote,
+            RedeemerTag::Propose,
+        ];
+
+        let mut seen = Vec::new();
+        for tag in tags {
+            let legacy = mapper.map_purpose(&tag);
+            assert_eq!(
+                legacy,
+                mapper.map_multi_era_purpose(&MultiEraRedeemerTag::from(tag))
+            );
+            seen.push(legacy);
+        }
+
+        seen.dedup();
+        assert_eq!(seen.len(), 6, "each tag maps to a purpose of its own");
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn oversized_n_of_k_threshold_maps_to_u32_max() {
         let mapped = Mapper::<NoLedger>::map_native_script(
-            &trv::MultiEraNativeScript::from_decoded_alonzo_compatible(
-                &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
-            ),
+            &pallas_primitives::alonzo::NativeScript::ScriptNOfK(i64::MAX, vec![]),
         );
         assert!(matches!(
             mapped.native_script,
@@ -513,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn map_native_script_handles_deeply_nested_scripts_on_a_small_stack() {
         // Depth and stack size are load-bearing, not just generous: both must
         // stay far enough apart that the old recursive mapping (one call
@@ -527,9 +558,7 @@ mod tests {
                     script = pallas_primitives::alonzo::NativeScript::ScriptAll(vec![script]);
                 }
 
-                let mapped = Mapper::<NoLedger>::map_native_script(
-                    &trv::MultiEraNativeScript::from_decoded_alonzo_compatible(&script),
-                );
+                let mapped = Mapper::<NoLedger>::map_native_script(&script);
 
                 let mut depth = 0;
                 let mut cursor = &mapped;
@@ -558,6 +587,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn map_native_script_preserves_mixed_shape_trees() {
         use pallas_primitives::alonzo::NativeScript;
 
@@ -579,9 +609,7 @@ mod tests {
             ],
         );
 
-        let mapped = Mapper::<NoLedger>::map_native_script(
-            &trv::MultiEraNativeScript::from_decoded_alonzo_compatible(&script),
-        );
+        let mapped = Mapper::<NoLedger>::map_native_script(&script);
         let Some(u5c::native_script::NativeScript::ScriptNOfK(n_of_k)) = &mapped.native_script
         else {
             panic!("expected ScriptNOfK, got {:?}", mapped.native_script);
