@@ -149,6 +149,9 @@ impl<I: Interface<AnyMessage>> MyNode<I> {
             InitiatorEvent::EbFetched(pid, _, _) => {
                 tracing::info!(%pid, "leios fetch received");
             }
+            InitiatorEvent::PeerDisconnected(pid, why) => {
+                tracing::info!(%pid, ?why, "peer session ended");
+            }
         }
 
         self.enqueue_next_cmds();
