@@ -324,6 +324,10 @@ impl Dashboard {
             },
 
             // Block bodies / tx-submission requests are not part of this view.
+            InitiatorEvent::PeerDisconnected(pid, why) => {
+                tracing::warn!(%pid, ?why, "peer session ended");
+            }
+
             InitiatorEvent::BlockBodyReceived(..) | InitiatorEvent::TxRequested(..) => {}
         }
 
