@@ -29,6 +29,8 @@ Dijkstra blocks. The hash is the header hash.
 | dijkstra14.block | 28687 | 620349 | `9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf` |
 | dijkstra15.block | 17406 | 371916 | `0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b` |
 | dijkstra16.block | 14935 | 311025 | `c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c` |
+| dijkstra17.block | 39080 | 854292 | `435a2d49007479dedc45e27f5054158aabd2cfdabf4860877416588287243cb6` |
+| dijkstra18.block | 46854 | 1032954 | `4eef873084a917feff38bf65e4ecf58021d1d9bcf98fac95ffbcb5cee02fcc98` |
 
 ## Headers
 
