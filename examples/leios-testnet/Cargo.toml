@@ -11,7 +11,24 @@ release = false
 [dependencies]
 pallas-network2 = { path = "../../pallas-network2" }
 pallas-codec = { path = "../../pallas-codec" }
+pallas-crypto = { path = "../../pallas-crypto" }
+pallas-traverse = { path = "../../pallas-traverse" }
 hex = "0.4.3"
 tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros", "time"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+[features]
+unstable = ["pallas-traverse/unstable"]
+
+[[bin]]
+name = "leios-testnet"
+path = "src/main.rs"
+
+# The harvester reads Dijkstra headers, certificates and blocks, all of which
+# are behind the unstable feature, and naming the feature here keeps a build of
+# the workspace that did not ask for it from turning it on.
+[[bin]]
+name = "harvest"
+path = "src/bin/harvest.rs"
+required-features = ["unstable"]
