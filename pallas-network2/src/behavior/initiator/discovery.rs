@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{BehaviorOutput, InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
+use crate::{OutboundQueue, PeerId, behavior::AnyMessage};
 
 use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
 
@@ -22,6 +22,9 @@ fn peer_supports_peer_sharing(peer: &InitiatorState) -> bool {
     peer.is_initialized() && peer.supports_peer_sharing()
 }
 
+/// Returns true when `peer` can be asked for peers right now: it is handshaked,
+/// it offers peer sharing, it has shared nothing yet, and no earlier request of
+/// ours is still waiting for the IO layer to confirm its send.
 fn peer_is_available(peer: &InitiatorState) -> bool {
     peer_supports_peer_sharing(peer)
         && matches!(
@@ -30,6 +33,7 @@ fn peer_is_available(peer: &InitiatorState) -> bool {
                 crate::protocol::peersharing::IdleState::Empty
             )
         )
+        && !peer.send_unconfirmed(crate::protocol::peersharing::CHANNEL_ID)
 }
 
 /// Sub-behavior that discovers new peers via the peer-sharing mini-protocol.
@@ -40,19 +44,19 @@ pub struct DiscoveryBehavior {
 }
 
 impl DiscoveryBehavior {
-    fn request_peers(&self, pid: &PeerId, outbound: &mut OutboundQueue<super::InitiatorBehavior>) {
+    fn request_peers(
+        &self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
         let amount = self.config.high_water_mark as usize - self.discovered.len();
 
         tracing::debug!(amount, "requesting peers");
 
         let msg = crate::protocol::peersharing::Message::ShareRequest(amount as u8);
 
-        let out = BehaviorOutput::InterfaceCommand(InterfaceCommand::Send(
-            pid.clone(),
-            AnyMessage::PeerSharing(msg),
-        ));
-
-        outbound.push_ready(out);
+        super::send_to_peer(pid, state, AnyMessage::PeerSharing(msg), outbound);
     }
 
     /// Extracts discovered peer addresses from the peer-sharing response, if
@@ -109,7 +113,7 @@ impl PeerVisitor for DiscoveryBehavior {
             return;
         }
 
-        self.request_peers(pid, outbound);
+        self.request_peers(pid, state, outbound);
     }
 
     fn visit_inbound_msg(
