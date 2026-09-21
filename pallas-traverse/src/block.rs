@@ -158,11 +158,32 @@ impl<'b> MultiEraBlock<'b> {
                 .into_iter()
                 .map(|x| MultiEraTx::Conway(Box::new(Cow::Owned(x))))
                 .collect(),
+            // A sub transaction is emitted before the parent whose body contains
+            // it. The parent's transaction id is the hash of a body that includes
+            // the sub transaction bodies, so a sub transaction cannot name a
+            // parent output as an input and a parent can name a sub output.
             #[cfg(feature = "unstable")]
-            MultiEraBlock::Dijkstra(x) => support::clone_dijkstra_txs(x)
-                .into_iter()
-                .map(|x| MultiEraTx::Dijkstra(Box::new(Cow::Owned(x))))
-                .collect(),
+            MultiEraBlock::Dijkstra(x) => {
+                let mut out = Vec::new();
+
+                for tx in support::clone_dijkstra_txs(x).into_iter() {
+                    let subs: Vec<_> = tx
+                        .transaction_body
+                        .sub_transactions
+                        .iter()
+                        .flat_map(|x| x.iter())
+                        .cloned()
+                        .collect();
+
+                    for sub in subs {
+                        out.push(MultiEraTx::DijkstraSub(Box::new(Cow::Owned(sub))));
+                    }
+
+                    out.push(MultiEraTx::Dijkstra(Box::new(Cow::Owned(tx))));
+                }
+
+                out
+            }
             MultiEraBlock::EpochBoundary(_) => vec![],
         }
     }
@@ -189,7 +210,19 @@ impl<'b> MultiEraBlock<'b> {
             MultiEraBlock::Byron(x) => x.body.tx_payload.len(),
             MultiEraBlock::Conway(x) => x.transaction_bodies.len(),
             #[cfg(feature = "unstable")]
-            MultiEraBlock::Dijkstra(x) => x.block_body.transactions.len(),
+            MultiEraBlock::Dijkstra(x) => x
+                .block_body
+                .transactions
+                .iter()
+                .map(|tx| {
+                    1 + tx
+                        .transaction_body
+                        .sub_transactions
+                        .iter()
+                        .flat_map(|x| x.iter())
+                        .count()
+                })
+                .sum(),
         }
     }
 
@@ -625,6 +658,89 @@ mod tests {
         }
 
         assert_eq!(seen, 8);
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_block_without_a_sub_transaction_yields_only_its_top_level() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra3.block"), 1usize),
+            (include_str!("../../test_data/dijkstra5.block"), 3),
+            (include_str!("../../test_data/dijkstra6.block"), 4),
+            (include_str!("../../test_data/dijkstra12.block"), 24),
+        ];
+
+        for (block_str, top_level) in cases {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+            let nested = txs
+                .iter()
+                .filter(|tx| tx.as_dijkstra_sub().is_some())
+                .count();
+
+            assert_eq!(
+                (txs.len(), block.tx_count(), nested),
+                (top_level, top_level, 0),
+                "a block with no transaction body key 23 yields its top level transactions and nothing else"
+            );
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_block_yields_the_sub_transactions_of_its_batch() {
+        let cases = [
+            (
+                include_str!("../../test_data/dijkstra17.block"),
+                854292u64,
+                247usize,
+                "ca42eb1227f150670a8a8c7c82468ff10dd726b2aa08ac209a8b8b5530fb28c7",
+                "bd1b7336a5a62005a2576658e64990fab684a641139095afc16865c371e637b4",
+                245usize,
+                246usize,
+                1usize,
+            ),
+            (
+                include_str!("../../test_data/dijkstra18.block"),
+                1032954,
+                435,
+                "31dae9d64e767c94be97acdeac9fb60ff5322a96ead4dabd187d880e03220dc1",
+                "d04727b7a026cf5b310c0e86a2920c6d23067c0062ac783d7f4f90905a2293bb",
+                296,
+                297,
+                2,
+            ),
+        ];
+
+        for (block_str, slot, emitted, sub_id, parent_id, sub_at, parent_at, sub_outputs) in cases {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            let position = |id: &str| txs.iter().position(|tx| hex::encode(tx.hash()) == id);
+            let outputs = position(sub_id).map(|at| txs[at].produces().len());
+
+            assert_eq!(
+                (
+                    block.slot(),
+                    txs.len(),
+                    block.tx_count(),
+                    position(sub_id),
+                    position(parent_id),
+                    outputs,
+                ),
+                (
+                    slot,
+                    emitted,
+                    emitted,
+                    Some(sub_at),
+                    Some(parent_at),
+                    Some(sub_outputs),
+                ),
+                "a sub transaction is emitted immediately before the parent whose body contains it, keyed by the hash of its own body"
+            );
+        }
     }
 
     #[cfg(feature = "unstable")]

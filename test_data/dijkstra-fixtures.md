@@ -37,6 +37,14 @@ with the block's CRC32 and the header's offset and size.
 | dijkstra14.block | 00574/21 | 620349 | 28687 | `9b481f4b4fa46de9a1bde085570b5fc9d90f161f99bde7f63bfe4ed20dbc37bf` | 1734 | 8 | 1 | a transaction body writing its certificate set as a bare array rather than under tag 258 |
 | dijkstra15.block | 00344/11 | 371916 | 17406 | `0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b` | 964 | 8 | 0 | an announced endorser block size of 71103, which needs the five byte uint |
 | dijkstra16.block | 00287/58 | 311025 | 14935 | `c9d7bca094227279830e2e2110acbb965dc9e90d469ac97594d40bc8e295735c` | 862 | 8 | 0 | no transactions, no Leios certificate and no announcement, which is what the endorser tests build a certifying block from |
+| dijkstra17.block | 00791/1 | 854292 | 39080 | `435a2d49007479dedc45e27f5054158aabd2cfdabf4860877416588287243cb6` | 50838 | 8 | 246 | body key 23, one sub transaction under the last transaction, producing one output the node still holds unspent, so `txs()` returns 247 for it |
+| dijkstra18.block | 00956/22 | 1032954 | 46854 | `4eef873084a917feff38bf65e4ecf58021d1d9bcf98fac95ffbcb5cee02fcc98` | 88499 | 8 | 434 | body key 23 again, one sub transaction of the smallest shape, keys 0 and 1 only, producing two outputs the node still holds unspent, so `txs()` returns 435 for it |
+
+`dijkstra17.block` and `dijkstra18.block` came out of the immutable database of
+the Musashi node itself rather than the relay archive above, by taking the
+block offset from the chunk's secondary index and reading to the offset of the
+next entry. The slot and the hash in the table are the ones that index records,
+and the CRC32 it records equals the CRC32 of the bytes written here.
 
 The `tag` column is the block wrapper tag. A Dijkstra header arriving on its
 own over chainsync carries envelope tag 7 rather than the wrapper tag 8, and
@@ -62,6 +70,8 @@ models is exercised by no fixture and is modelled from the CDDL alone.
 | dijkstra14.block | 0, 1, 2, 3, 4 | 0 | map | 3 | bare | 0 | nil | nil |
 | dijkstra15.block | none | none | none | none | none | 0 | present | present |
 | dijkstra16.block | none | none | none | none | none | 0 | nil | nil |
+| dijkstra17.block | 0, 1, 2, 13, 18, 23 | 0 | map, array | none | tagged, bare | 1 | nil | nil |
+| dijkstra18.block | 0, 1, 2, 18, 23 | 0 | array | none | tagged | 1 | nil | nil |
 
 ## The endorser block fixtures
 
