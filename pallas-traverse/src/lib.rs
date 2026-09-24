@@ -847,6 +847,7 @@ mod attribute_tests {
         ("cert::BlsKeySlot", UnstableOnly, Always),
         ("governance::ParamRead", UnstableOnly, Always),
         ("leios::Error", UnstableOnly, Always),
+        ("leios_follow::PendingAnnouncement", UnstableOnly, Always),
         ("lib::Era", EveryBuild, Always),
         ("lib::Error", EveryBuild, Never),
         ("lib::Feature", EveryBuild, Always),

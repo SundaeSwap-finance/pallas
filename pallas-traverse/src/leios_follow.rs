@@ -90,6 +90,7 @@ pub struct HeaderOutcome {
 /// and the two demand opposite answers the moment a certificate arrives, so
 /// they are held apart here rather than collapsed into an absence.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PendingAnnouncement {
     /// Nothing is waiting. Either the most recent Leios event on the chain was
     /// a certificate that consumed the announcement before it, or the chain has
