@@ -71,6 +71,60 @@ mod conway_tests {
     }
 
     #[test]
+    fn registration_deposit_is_required_through_dispatch() {
+        // Synthetic mutation of the existing Conway control. The deposit has
+        // not been reserved; balance must fail before the invalid signatures.
+        let raw = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
+        let mut tx: Tx = conway_minted_tx_from_cbor(&raw);
+        let mut body = (*tx.transaction_body).clone();
+        assert!(body.certificates.is_none());
+        body.certificates = Some(
+            vec![pallas_primitives::conway::Certificate::Reg(
+                pallas_primitives::StakeCredential::AddrKeyhash([1; 28].into()),
+                2_000_000,
+            )]
+            .try_into()
+            .unwrap(),
+        );
+        let changed_body = minicbor::to_vec(body).unwrap();
+        tx.transaction_body = minicbor::decode(&changed_body).unwrap();
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
+            Value::Coin(20_000_000),
+            None,
+            None,
+        )];
+        let utxos = mk_utxo_for_conway_tx(&tx.transaction_body, tx_outs_info);
+        let mut params = mk_mainnet_params_epoch_365();
+        params.key_deposit = 2_000_000;
+        // Isolate balance from the size-dependent fee of the derived body.
+        params.minfee_a = 0;
+        params.minfee_b = 0;
+        let env = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(params),
+            prot_magic: 764824073,
+            block_slot: 137806612,
+            network_id: 1,
+            acnt: Some(AccountState::default()),
+        };
+        let result = validate_txs(
+            &[MultiEraTx::from_conway(&tx)],
+            &env,
+            &utxos,
+            &mut CertState::default(),
+        );
+        assert!(
+            matches!(
+                result,
+                Err(PostAlonzo(PostAlonzoError::PreservationOfValue))
+            ),
+            "expected deposit imbalance, got {result:?}"
+        );
+    }
+
+    #[test]
     //Transaction hash:
     // b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f
     fn successful_preview_tx_with_plutus_v3_script() {

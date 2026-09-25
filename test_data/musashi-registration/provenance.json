@@ -1,0 +1,94 @@
+{
+  "fixture_id": "musashi-registration-20260925",
+  "network": {
+    "magic": 164,
+    "genesis_start": "2026-09-07T00:00:00Z",
+    "shelley_genesis_blake2b_256": "1944510a4fd91415444285231058f6f6ff0f6f3ff3d0356c76c00c5a77f29567",
+    "node_version": "unknown; N2N handshake version 15 only"
+  },
+  "capture": {
+    "date": "2026-09-25",
+    "peer": "52.58.138.208:3001",
+    "tool": "Pallas harvest",
+    "pallas_revision": "385599890cda4c6384dbfc102849709f7adc9d97",
+    "method": "block-fetch, with header hashes from a separate chain-sync index"
+  },
+  "parameters": {
+    "epoch": 64,
+    "protocol_major": 12,
+    "key_deposit": 2000000,
+    "source": "GET /epochs/64/parameters on a frozen copy of the deployment Dolos archive",
+    "source_response_sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+    "source_archive_tip": "07399d647197d33694958cc730daa9dd5517b456bec7cbbd4b4d53093c5026f1",
+    "query_binary_sha256": "4ca5a2fe3b56eed75fc19dfa0517a903212c06f778812cfd2402847cd88ffdad",
+    "limits": "Only fields needed for this rule are retained; this is an excerpt of the historical Dolos response, not independent node parameter verification."
+  },
+  "cases": {
+    "protocol": {
+      "transaction_id": "4918868794546ff4c10121a7caef9b74a208e59e191945a3bd48d21dc7fe2b2e",
+      "slot": 1401321,
+      "transaction_index": 0,
+      "body": "protocol.body.hex",
+      "fee": 811597,
+      "registration_count": 4,
+      "input": {
+        "file": "protocol.input.hex",
+        "era": "Dijkstra",
+        "encoding": "legacy array",
+        "transaction_id": "8a6bf772bc2d4523f4e8a3aa30225d2173916827eb9a63ee8bb241a4ceeb2c99",
+        "output_index": 1,
+        "slot": 1394025,
+        "transaction_index": 0
+      }
+    },
+    "settings": {
+      "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+      "slot": 1401365,
+      "transaction_index": 0,
+      "body": "settings.body.hex",
+      "fee": 233167,
+      "registration_count": 1,
+      "input": {
+        "file": "settings.input.hex",
+        "era": "Dijkstra",
+        "encoding": "legacy array",
+        "transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+        "output_index": 1,
+        "slot": 1401345,
+        "transaction_index": 0
+      }
+    }
+  },
+  "blocks": {
+    "1401321": {
+      "file": "blocks/1401321.block",
+      "header_hash": "b803547e4b0f181e8b050789783c3ac323a7124395091a966ab0843374cf2d04",
+      "block_number": 62985
+    },
+    "1394025": {
+      "file": "blocks/1394025.block",
+      "header_hash": "5e08a832b13f3b93cbfd31880a7701ace90694ed0086d0c8bef3ac359709cc08",
+      "block_number": 62636
+    },
+    "1401365": {
+      "file": "blocks/1401365.block",
+      "header_hash": "c73d2e1f1c280344d1145b023744c635be3da150be753e5cda1419d6e32fac8b",
+      "block_number": 62988
+    },
+    "1401345": {
+      "file": "blocks/1401345.block",
+      "header_hash": "51243e1756d43553fe9dd469169f9733fe89c05d8a3c944312526577947fab02",
+      "block_number": 62987
+    }
+  },
+  "payload_blake2b_256": {
+    "blocks/1394025.block": "5446a519996f425ef1e8cdc113b7b04883fa6becc090f96c8a620adcada71592",
+    "blocks/1401321.block": "945ce2e2161ef85ef4b4d951e37ac68963e06aa9481e69312716388502fb7314",
+    "blocks/1401345.block": "91aff938e15b1c5afb8d1854c9ebea2cd9b7dcad5e612faab25e892a0149cc81",
+    "blocks/1401365.block": "187c7d8bf644a700a0caaf044671816da3c7351ddc90ccf4c91a544f7ac710fd",
+    "protocol.body.hex": "4918868794546ff4c10121a7caef9b74a208e59e191945a3bd48d21dc7fe2b2e",
+    "protocol.input.hex": "0a52bddcde883abe133101bd2221bc2080576e1fdf3e2d77050cb0cdde3f2325",
+    "settings.body.hex": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "settings.input.hex": "43a13abb726ae46fed05f96efc1d9cf07e81398a1551089670d35a7aa03b468c"
+  }
+}
