@@ -629,6 +629,30 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     #[test]
+    fn txs_yields_only_the_transactions_the_block_body_lists() {
+        let cases = [
+            (include_str!("../../test_data/dijkstra17.block"), 246usize),
+            (include_str!("../../test_data/dijkstra18.block"), 434),
+        ];
+
+        for (block_str, listed) in cases {
+            let cbor = dijkstra_block(block_str);
+            let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
+            let txs = block.txs();
+
+            let subs: usize = txs.iter().map(|tx| tx.sub_transactions().len()).sum();
+            assert_eq!(subs, 1, "the block carries one sub transaction");
+
+            assert_eq!(
+                (txs.len(), block.tx_count()),
+                (listed, listed),
+                "a sub transaction is read through the transaction carrying it, never as a block transaction"
+            );
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
     fn a_plain_dijkstra_block_reports_no_redeemers_or_withdrawals() {
         let cbor = dijkstra_block(include_str!("../../test_data/dijkstra3.block"));
         let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
