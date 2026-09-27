@@ -119,3 +119,12 @@ The [certificate witness report and coverage matrix](certificate-witnesses.md)
 reuse the unchanged settings capture for certificate authorization and phase-one
 redeemer pointers. Its scope, explicit
 Conway test view, red/green results, and remaining gaps are recorded separately.
+
+## Registration scripts in phase two
+
+The [registration script report](registration-scripts.md) reuses the unchanged
+settings capture to reproduce `UnsupportedCertificateType` and execute its actual
+reference script after fixing `Reg` resolution. It explicitly uses a Conway
+protocol-9 view; native Dijkstra and historical protocol-12 evaluation remain
+unverified. The report includes context encoding, negative cases, reproducible
+before/after results, and outstanding protocol-aware context work.
