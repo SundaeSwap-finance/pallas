@@ -1,0 +1,82 @@
+{
+  "fixture_id": "musashi-registration-phase-two-scripts",
+  "date": "2026-09-27",
+  "parent_provenance": "provenance.json",
+  "witness_and_reference_provenance": "certificate-witnesses-provenance.json",
+  "baseline": "fd67e8ff1fa75c2057d500f5eafb252c089c0d71",
+  "ledger": {
+    "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+    "sources": [
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/TxCert.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/TxCert.hs",
+        "sha256": "932e3070d27fab7ca18299992b6dd27869325d085a16b107ee83d6ed49715dd4"
+      },
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs",
+        "sha256": "11d7c614cfdc16aff2c7f0e1d6f6b553657c298de08afa631b5173eb7dcd04be"
+      },
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/TxInfo.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/TxInfo.hs",
+        "sha256": "ad44dd79cfb4598bf34f9706fc01e29ef397a24f80288ff3ef8dbe02297642c9"
+      }
+    ]
+  },
+  "capture": {
+    "era": "Dijkstra",
+    "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "slot": 1401365,
+    "historical_protocol_major": 12,
+    "script_language": "PlutusV3",
+    "script_hash": "9eb9018892f84064087cfb1559cab8956d6300c47b6f325a7262c3db"
+  },
+  "replay": {
+    "representation": "Native decode and identity checks followed by compatible original CBOR decoded into Conway types; production eval_redeemer entry point.",
+    "protocol_major": 9,
+    "protocol_choice": "Synthetic Conway bootstrap view matching existing V3 context encoding; not native Dijkstra or historical protocol-12 replay.",
+    "slot_config": {
+      "zero_slot": 0,
+      "zero_time": 1788739200000,
+      "slot_length": 1000
+    },
+    "genesis_excerpt": {
+      "systemStart": "2026-09-07T00:00:00Z",
+      "slotLength": 1,
+      "source_blake2b_256": "1944510a4fd91415444285231058f6f6ff0f6f3ff3d0356c76c00c5a77f29567",
+      "source": "Captured Shelley genesis identified by parent provenance; only time fields needed here retained."
+    },
+    "evaluator": {
+      "crate": "amaru-uplc",
+      "version": "0.1.0",
+      "crate_checksum": "b565727e99c072b9d29f7ddf9eafffd51ec69a653dad6589c36d4d1ca053603c",
+      "cost_model": "Built-in evaluator model; historical parameters are not applied",
+      "historical_node_and_evaluator_build": "unknown"
+    },
+    "expected": {
+      "tag": "Cert",
+      "index": 0,
+      "success": true,
+      "failure_message": null,
+      "logs": [],
+      "observed_units": {
+        "mem": 18485,
+        "steps": 4805428
+      }
+    }
+  },
+  "derived_cases": [
+    "Remove or replace reference script with unrelated bytes.",
+    "Change certificate redeemer index to 1 or u32::MAX; change tag to Mint.",
+    "Replace target certificate with key Reg or exempt legacy registration.",
+    "Insert key Reg before captured Reg and use list redeemer at index 1.",
+    "Move unchanged captured script to witness set.",
+    "Remove reference inputs to construct synthetic V1/V2 contexts."
+  ],
+  "limits": [
+    "Original captured CBOR unchanged. No historical protocol-12/native Dijkstra evaluation or complete submission claim.",
+    "V3 encoding intentionally uses protocol-9 omission of deposit. Later-protocol deposit/refund translation is outstanding.",
+    "No exact historical cost/budget comparison; certificate state and signatures of mutated bodies are not evaluated."
+  ]
+}

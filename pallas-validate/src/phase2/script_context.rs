@@ -864,6 +864,7 @@ pub fn find_script(
             .ok_or(Error::MissingScriptForRedeemer)
             .and_then(|cert| match cert {
                 Certificate::StakeDeregistration(stake_credential)
+                | Certificate::Reg(stake_credential, _)
                 | Certificate::UnReg(stake_credential, _)
                 | Certificate::VoteDeleg(stake_credential, _)
                 | Certificate::VoteRegDeleg(stake_credential, _, _)
@@ -881,7 +882,6 @@ pub fn find_script(
                 },
                 Certificate::StakeRegistration { .. }
                 | Certificate::PoolRetirement { .. }
-                | Certificate::Reg { .. }
                 | Certificate::PoolRegistration { .. } => Err(Error::UnsupportedCertificateType),
             })
             .and_then(lookup_script),
@@ -1233,3 +1233,6 @@ mod tests {
         assert_eq!(keys, vec![committed]);
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+mod registration_scripts;
