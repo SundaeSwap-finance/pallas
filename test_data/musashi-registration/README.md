@@ -128,3 +128,10 @@ reference script after fixing `Reg` resolution. It explicitly uses a Conway
 protocol-9 view; native Dijkstra and historical protocol-12 evaluation remain
 unverified. The report includes context encoding, negative cases, reproducible
 before/after results, and outstanding protocol-aware context work.
+
+## Native Dijkstra input outputs
+
+The [native input report](native-inputs.md) reuses the settings capture with
+Dijkstra-tagged spending, collateral and reference outputs. It records the
+`InputDecoding` reproduction, checked script compatibility boundary, earlier-era
+regressions and remaining native evaluation/submission work.
