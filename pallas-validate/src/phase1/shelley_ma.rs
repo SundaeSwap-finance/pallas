@@ -702,7 +702,7 @@ fn check_native_scripts(
     Ok(())
 }
 
-fn eval_native_script(
+pub(super) fn eval_native_script(
     vkey_wits: &Vec<VKeyWitness>, // changed from alonzo
     native_script: &NativeScript,
     low_bnd: &Option<u64>,

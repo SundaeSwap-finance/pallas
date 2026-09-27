@@ -110,5 +110,12 @@ Scope is the stake-registration component: `StakeRegistration`, `Reg`,
 deposits, withdrawals and full certificate validation remain separate work.
 The current validator does not necessarily reject every omitted case. These tests
 do not establish genuine Conway network-registration coverage or full native
-Dijkstra validation/submission. Keep the Dolos deposit shim until S07 integration
-verification passes.
+Dijkstra validation/submission. Downstream deposit workarounds still require
+end-to-end validation and submission checks before removal.
+
+## Certificate witnesses
+
+The [certificate witness report and coverage matrix](certificate-witnesses.md)
+reuse the unchanged settings capture for certificate authorization and phase-one
+redeemer pointers. Its scope, explicit
+Conway test view, red/green results, and remaining gaps are recorded separately.
