@@ -1,0 +1,165 @@
+{
+  "fixture_id": "musashi-native-dijkstra-inputs",
+  "date": "2026-09-27",
+  "baseline": "9a298f8d8fdf5ed21582d4c8e3836a8e0fde9d15",
+  "parent_provenance": "provenance.json",
+  "reference_provenance": "certificate-witnesses-provenance.json",
+  "network": {
+    "magic": 164,
+    "genesis_start": "2026-09-07T00:00:00Z",
+    "shelley_genesis_blake2b_256": "1944510a4fd91415444285231058f6f6ff0f6f3ff3d0356c76c00c5a77f29567",
+    "node_version": "unknown; N2N handshake version 15 only"
+  },
+  "capture": {
+    "date": "2026-09-25",
+    "peer": "52.58.138.208:3001",
+    "tool": "Pallas harvest",
+    "pallas_revision": "385599890cda4c6384dbfc102849709f7adc9d97",
+    "method": "block-fetch, with header hashes from a separate chain-sync index"
+  },
+  "case": {
+    "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "slot": 1401365,
+    "era": "Dijkstra",
+    "transaction_view": "Unchanged compatible body/witness CBOR decoded as Conway solely for scoped input consumers",
+    "input_output_representation": "Native Dijkstra; no output era relabeling or output Conway view",
+    "spending_and_collateral": {
+      "file": "settings.input.hex",
+      "era": "Dijkstra",
+      "encoding": "legacy array",
+      "transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+      "output_index": 1,
+      "slot": 1401345,
+      "transaction_index": 0
+    },
+    "reference": {
+      "block": "blocks/1401345.block",
+      "transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+      "transaction_index": 0,
+      "output_index": 0,
+      "era": "Dijkstra",
+      "script_language": "PlutusV3",
+      "blake2b_256": "20209f58a49b42c671fa8b10bcf3f223edc1b2f3a1123680658e1a7736bd395f"
+    },
+    "witness_blake2b_256": "738ff611e74b9952694e98e61360e3e940b86defc75a8ea372ea002fa7e0bda4",
+    "success": true
+  },
+  "payload_blake2b_256": {
+    "blocks/1401365.block": "187c7d8bf644a700a0caaf044671816da3c7351ddc90ccf4c91a544f7ac710fd",
+    "blocks/1401345.block": "91aff938e15b1c5afb8d1854c9ebea2cd9b7dcad5e612faab25e892a0149cc81",
+    "settings.input.hex": "43a13abb726ae46fed05f96efc1d9cf07e81398a1551089670d35a7aa03b468c"
+  },
+  "parameters": {
+    "historical_protocol_major": 12,
+    "historical_key_deposit": 2000000,
+    "historical_source": "provenance.json parameters excerpt",
+    "collateral_percentage": 150,
+    "collateral_percentage_origin": "synthetic boundary parameter, not independently verified historical state",
+    "historical_node_evaluator_version": "unknown",
+    "full_historical_state": "not supplied or claimed"
+  },
+  "ledger": {
+    "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+    "sources": [
+      {
+        "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs",
+        "sha256": "802666de93f4d756e57ea176520c05d5fb42d624f53044f36f48e1232102694f"
+      },
+      {
+        "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Scripts.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Scripts.hs",
+        "sha256": "391a730dd5c9640db8726dbff0a2ae7772b94662f54211089643e5cb0db014fd"
+      },
+      {
+        "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs",
+        "sha256": "8cf3db98611bf1d445e6fbdc7e2ed7dd6db9b162748b3aec3f6062d6e06caf34"
+      },
+      {
+        "path": "eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxo.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxo.hs",
+        "sha256": "86f140ec715b5d7e9fe436677e8dda1b2e00aaa1289fae8c7a031ff6bba75d2c"
+      },
+      {
+        "path": "eras/babbage/impl/src/Cardano/Ledger/Babbage/UTxO.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/babbage/impl/src/Cardano/Ledger/Babbage/UTxO.hs",
+        "sha256": "1734acff282f45dbd389c9d7bdf7519f2bb8b7baee035597bb904ac34f4c6667"
+      },
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/Rules/Utxow.hs",
+        "sha256": "4eeea66c6e80cd9e4ee4c4c97ae122550bd04cb7631c6dc7f954d449a8dfca99"
+      },
+      {
+        "path": "eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxo.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Rules/Utxo.hs",
+        "sha256": "551b23ffa3bef69a802dd2f4cba0369dc2a7c3c6db32b62810161666e7be5a53"
+      }
+    ]
+  },
+  "supported": {
+    "output_encodings": [
+      "legacy array",
+      "post-Alonzo map"
+    ],
+    "value": [
+      "coin",
+      "multiasset"
+    ],
+    "datum": [
+      "absent",
+      "hash",
+      "inline"
+    ],
+    "reference_scripts": [
+      "absent",
+      "PlutusV1",
+      "PlutusV2",
+      "PlutusV3",
+      "existing native timelock constructors without guards"
+    ],
+    "reference_roles": [
+      "spending",
+      "reference"
+    ],
+    "unsupported": {
+      "PlutusV4": "UnsupportedPlutusLanguage",
+      "native guards including nested": "UnsupportedNativeScript",
+      "bootstrap witness in Conway consumer": "InputDecoding"
+    }
+  },
+  "synthetic_cases": [
+    "Missing/corrupt witness and absent/incorrect/unavailable reference script",
+    "Script/malformed/reward collateral address, missing/insufficient collateral, incorrect total and native assets with/without matching return",
+    "Input/reference hash datums, inline and unneeded datums",
+    "V1-V3 spending/reference scripts for mint and integrity discovery",
+    "Noncanonical native all/any authorization, V4, direct/nested guards",
+    "Era-appropriate synthetic Shelley-through-Conway legacy/map outputs and earlier payment signatures",
+    "Synthetic Byron output built from public pallas-addresses vector"
+  ],
+  "older_conway_contexts": [
+    {
+      "file": "../conway4.tx",
+      "transaction_id": "b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f",
+      "supplied_collateral": 2554439518,
+      "collateral_return": 2554439518,
+      "fee": 180403
+    },
+    {
+      "file": "../conway5.tx",
+      "transaction_id": "3e1ae85c08b610d5d03e67cf90e78980d1d2f54ffc50c21672e24180b450d354",
+      "supplied_collateral": 49731771,
+      "collateral_return": 49731771,
+      "fee": 178819
+    }
+  ],
+  "older_conway_context_change": "Existing manually supplied UTxO amounts are unchanged. Corrected false-success assertions to CollateralMinLovelace; no historical producer claim.",
+  "limits": [
+    "Input-consumer validation only, no native Dijkstra dispatch/evaluation/submission",
+    "Earlier captured-script execution proof remains explicitly derived Conway protocol 9",
+    "Native phase-two EraCbor resolution and post-bootstrap protocol-aware V3 deposit/refund translation remain outstanding",
+    "No full historical parameter/cost model or ledger state replay",
+    "Earlier-era input cases are synthetic; existing earlier-era validators unchanged"
+  ]
+}

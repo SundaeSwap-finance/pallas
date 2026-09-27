@@ -284,6 +284,9 @@ pub enum AlonzoError {
 #[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum PostAlonzoError {
+    #[error("native reference script uses features unsupported by this validator")]
+    UnsupportedNativeScript,
+
     #[error("native script evaluation failed")]
     NativeScriptDenial,
 
