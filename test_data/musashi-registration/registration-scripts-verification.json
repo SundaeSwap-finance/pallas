@@ -1,0 +1,216 @@
+{
+  "date": "2026-09-27",
+  "baseline": "fd67e8ff1fa75c2057d500f5eafb252c089c0d71",
+  "baseline_preparation": "Extract baseline tree; copy final registration_scripts.rs and add only its unstable/test module declaration. No production behavior changed. Original fixture files identical.",
+  "command": "cargo test --offline -p pallas-validate --features unstable,phase2 --lib registration_scripts -- --nocapture",
+  "build_separation": {
+    "baseline": "Separate extracted tree and CARGO_TARGET_DIR; CARGO_PROFILE_DEV_DEBUG=0",
+    "fixed": "Canonical checkout target directory; default dev profile"
+  },
+  "baseline_exit_code": 101,
+  "baseline_result": "2 passed; 6 failed",
+  "fixed_exit_code": 0,
+  "fixed_result": "8 passed; 0 failed",
+  "captured_script": {
+    "baseline_actual": "Err(UnsupportedCertificateType)",
+    "fixed_actual": "Ok(TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 18485, steps: 4805428 }, success: true, logs: [], failure_message: None })",
+    "context": "Conway bootstrap protocol 9; not historical protocol-12/native Dijkstra replay"
+  },
+  "other_baseline_failures": [
+    "Missing/incorrect script: UnsupportedCertificateType instead of MissingRequiredScript with exact author hash.",
+    "Key Reg target: UnsupportedCertificateType instead of NonScriptStakeCredential.",
+    "Full-position resolver and witness-carried captured script: UnsupportedCertificateType.",
+    "V1/V2 Reg encoding: unreachable-code panic before encoding."
+  ],
+  "outcomes": [
+    {
+      "test": "captured_registration_context_has_full_certificate_position",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_registration_executes_reference_script_in_conway_view",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_registration_rejects_bad_indices_and_wrong_purpose",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_registration_requires_correct_script",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "registration_can_execute_same_script_from_witness_set",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "registration_position_includes_non_script_certificates",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "registration_rejects_key_and_exempt_certificate_targets",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "registration_v1_v2_context_uses_legacy_registration_encoding",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    }
+  ],
+  "source_sha256": {
+    "pallas-validate/src/phase2/script_context/registration_scripts.rs": "c0fa8b3a24e3fa551e6a3f569b8b3f1b5f63e879ecfd6405e95d1ea2f28fed71",
+    "pallas-validate/src/phase2/script_context.rs": "d3effcdc1d0a0682318b01058d2618eda9ee87182d144c1469b160d8ae680ba9",
+    "pallas-validate/src/phase2/to_plutus_data.rs": "a9fbc756ed5bb93533aeae201ae17250568b7f2b0d830e035b90d3fb30f6b42d"
+  },
+  "unchanged_payloads": "All eight original hex payload files byte-identical to baseline; hashes are of decoded CBOR. Native fixture-integrity test passes.",
+  "gates": [
+    {
+      "name": "phase2",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 3.38
+    },
+    {
+      "name": "integrity",
+      "command": "cargo test --offline -p pallas-traverse --features unstable --test musashi_registration",
+      "exit_code": 0,
+      "seconds": 0.22
+    },
+    {
+      "name": "fmt-changed",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase2/script_context.rs pallas-validate/src/phase2/to_plutus_data.rs pallas-validate/src/phase2/script_context/registration_scripts.rs",
+      "exit_code": 0,
+      "seconds": 0.1
+    },
+    {
+      "name": "fmt-workspace",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.6,
+      "explanation": "Only pre-existing formatting differences in unchanged examples/leios-testnet/src/bin/harvest.rs at lines 294, 544, 567, 581, 688, 732, 741. Changed files pass."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.41
+    },
+    {
+      "name": "clippy-phase2",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.39
+    },
+    {
+      "name": "docs",
+      "command": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 2.91
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 1.53
+    },
+    {
+      "name": "workspace-test",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 253.98,
+      "explanation": "All 19 math unit tests passed. Sandbox then denied local sockets in pallas-network/tests/plexer.rs. Remaining workspace and math docs passed on retry."
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 1.43,
+      "explanation": "Sandbox denied local socket creation; complete blueprint suite passed with sockets enabled."
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 6.73
+    },
+    {
+      "name": "phase2-default",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 4.96
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.71
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 1.75
+    },
+    {
+      "name": "primitives-isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.16
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 1.07
+    },
+    {
+      "name": "workspace-socket-retry",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0,
+      "seconds": 16.46
+    },
+    {
+      "name": "blueprint-socket-retry",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 5.84
+    },
+    {
+      "name": "math-docs",
+      "command": "cargo test --offline -p pallas-math --doc",
+      "exit_code": 0,
+      "seconds": 0.73
+    },
+    {
+      "name": "final-phase2",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "explanation": "Repeated after final StakingHash encoding assertion/correction."
+    },
+    {
+      "name": "final-clippy-phase2",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "explanation": "Repeated after final StakingHash encoding assertion/correction."
+    },
+    {
+      "name": "final-format",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase2/script_context.rs pallas-validate/src/phase2/to_plutus_data.rs pallas-validate/src/phase2/script_context/registration_scripts.rs",
+      "exit_code": 0,
+      "explanation": "Repeated after final StakingHash encoding assertion/correction."
+    }
+  ],
+  "full_logs": "Full raw output is not distributed with fixtures. This tracked manifest preserves commands, source hashes, specific baseline failures and final results; registration-scripts.md documents reproduction.",
+  "remaining_gaps": [
+    "Native Dijkstra evaluation/submission and post-protocol-9 V3 deposit/refund context translation.",
+    "Historical node/evaluator identity, cost-model replay and budget enforcement.",
+    "Other certificate context encodings/language restrictions, certificate state and complete validation."
+  ]
+}
