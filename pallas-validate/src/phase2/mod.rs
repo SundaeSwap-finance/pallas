@@ -1,6 +1,8 @@
 pub mod data;
 pub mod error;
 mod evaluator;
+#[cfg(feature = "unstable")]
+mod native_evaluator;
 pub mod script_context;
 pub mod to_plutus_data;
 pub mod tx;

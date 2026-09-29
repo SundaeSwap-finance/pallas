@@ -1,0 +1,43 @@
+   Compiling amaru-deps v0.0.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-deps)
+   Compiling amaru-observability-macros v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-observability/macros)
+   Compiling amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-uplc)
+   Compiling amaru-curve25519-dalek v3.2.0 (/home/rodrigo/projects/amaru-stable-compat/crates/vendor/amaru-curve25519-dalek)
+   Compiling amaru-kes-summed-ed25519 v0.2.1 (/home/rodrigo/projects/amaru-stable-compat/crates/vendor/amaru-kes-summed-ed25519)
+   Compiling amaru-ledger v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-ledger)
+   Compiling librocksdb-sys v0.17.3+10.4.2
+   Compiling hickory-resolver v0.25.2
+   Compiling tar v0.4.46
+   Compiling rand v0.10.2
+   Compiling mithril-aggregator-client v0.2.4
+   Compiling mithril-cardano-node-internal-database v0.2.4
+   Compiling flume v0.12.0
+   Compiling tonic v0.14.6
+   Compiling prost-types v0.14.4
+   Compiling amaru-minicbor-extra v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-minicbor-extra)
+   Compiling amaru-metrics v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-metrics)
+error: failed to run custom build command for `librocksdb-sys v0.17.3+10.4.2`
+
+Caused by:
+  process didn't exit successfully: `/home/rodrigo/projects/amaru/target/debug/build/librocksdb-sys/22c80d2d1c67c1a4/out/build_script_build` (exit status: 101)
+  --- stderr
+
+  thread 'main' (2868411) panicked at /home/rodrigo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/lib.rs:616:27:
+  Unable to find libclang: "couldn't find any valid shared libraries matching: ['libclang.so', 'libclang-*.so', 'libclang.so.*', 'libclang-*.so.*'], set the `LIBCLANG_PATH` environment variable to a path where one of these files can be found (invalid: [])"
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+warning: unused dependency `inventory`
+  --> crates/amaru-observability/macros/Cargo.toml:21:1
+   |
+21 | inventory.workspace = true
+   | ^^^^^^^^^
+   |
+   = note: `cargo::unused_dependencies` is set to `warn` by default
+help: consider removing the dependency on `inventory`
+warning: unused dependency `opentelemetry`
+  --> crates/amaru-observability/macros/Cargo.toml:22:1
+   |
+22 | opentelemetry.workspace = true
+   | ^^^^^^^^^^^^^
+   |
+help: consider removing the dependency on `opentelemetry`
+warning: `amaru-observability-macros` (manifest) generated 2 warnings

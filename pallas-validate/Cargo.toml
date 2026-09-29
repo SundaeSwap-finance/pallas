@@ -25,12 +25,14 @@ itertools.workspace = true
 tracing.workspace = true
 
 # phase2 dependencies
-amaru-uplc = { git = "https://github.com/rodrigomd94/amaru.git", rev = "12dba6c181c1774bde47373bb1ce5fe10a672bea", optional = true }
-amaru-kernel = { git = "https://github.com/rodrigomd94/amaru.git", rev = "12dba6c181c1774bde47373bb1ce5fe10a672bea", optional = true }
+# Experiment only: native backend requires Rust 1.97 and an unpublished local commit.
+amaru-uplc = { version = "=0.1.0", optional = true }
+amaru-uplc-native = { package = "amaru-uplc", git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
+amaru-kernel = { git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
 
 [features]
-phase2 = ["amaru-uplc", "amaru-kernel"]
+phase2 = ["amaru-uplc", "amaru-uplc-native", "amaru-kernel"]
 unstable = ["pallas-traverse/unstable", "pallas-primitives/unstable"]

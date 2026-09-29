@@ -1,0 +1,17 @@
+    Blocking waiting for file lock on build directory
+   Compiling serde_core v1.0.229
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+    Checking thiserror v2.0.21
+   Compiling zerocopy-derive v0.8.59
+   Compiling minicbor-derive v0.16.2
+    Checking serde v1.0.229
+    Checking zerocopy v0.8.59
+    Checking half v2.7.1
+    Checking minicbor v0.26.5
+    Checking pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+    Checking pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+    Checking pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 37.56s

@@ -1,10 +1,10 @@
-# Amaru fork integration experiment — not ready to merge
+# Two-evaluator experiment — passing locally on Rust 1.97
 
-See [amaru-integration/README.md](amaru-integration/README.md) for the current
-experimental branch result. Native registration passes with the original budget,
-but earlier-protocol regressions, an integer subset mismatch and the Rust-version
-requirement prevent adopting this evaluator as a replacement. The report below
-records the earlier base checkpoint, not this experiment's runtime behavior.
+See [dual-evaluator/README.md](dual-evaluator/README.md) for the current isolated
+experiment. Native registration and earlier-era tests pass together using separate
+backends and the new local Amaru candidate. Publication, compiler-policy adoption
+and reintegration remain outstanding. The prior failed single-backend result is
+preserved in [amaru-integration/README.md](amaru-integration/README.md).
 
 ## Historical base checkpoint
 
