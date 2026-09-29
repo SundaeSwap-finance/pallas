@@ -305,7 +305,7 @@ impl Environment {
     }
 }
 
-/// Parameters for the supported native Dijkstra transfers and registrations.
+/// Parameters for the supported native Dijkstra transfers, batches and registrations.
 /// This is not a complete Dijkstra parameter set; unsupported features reject.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone)]
