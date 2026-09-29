@@ -1,0 +1,805 @@
+{
+  "evaluator": "amaru-uplc 0.1.0",
+  "crate_checksum": "b565727e99c072b9d29f7ddf9eafffd51ec69a653dad6589c36d4d1ca053603c",
+  "cost_map_source_sha256": "4fb22e5f4446f42a2c0dcaf98c4318a7cf9f64d064199e04a75346c8b3ce81de",
+  "historical_vector_length": 350,
+  "evaluator_base_mapping_length": 251,
+  "candidate_builtins": [
+    "AddInteger",
+    "AppendByteString",
+    "BData",
+    "Blake2b_224",
+    "Blake2b_256",
+    "ChooseData",
+    "ChooseList",
+    "ConsByteString",
+    "ConstrData",
+    "DivideInteger",
+    "EqualsByteString",
+    "EqualsData",
+    "EqualsInteger",
+    "FstPair",
+    "HeadList",
+    "IData",
+    "IfThenElse",
+    "LengthOfByteString",
+    "LessThanEqualsByteString",
+    "LessThanEqualsInteger",
+    "LessThanInteger",
+    "ListData",
+    "MapData",
+    "MkCons",
+    "MkPairData",
+    "ModInteger",
+    "SerialiseData",
+    "SndPair",
+    "TailList",
+    "UnBData",
+    "UnConstrData",
+    "UnIData",
+    "UnListData",
+    "UnMapData",
+    "VerifyEd25519Signature"
+  ],
+  "status": "candidate rejected: protocol-12 argument bounds are not implemented",
+  "checked_coefficients": [
+    {
+      "index": 0,
+      "evaluator_name": "add_integer-cpu-arguments-intercept",
+      "historical_name": "addInteger-cpu-arguments-intercept",
+      "value": 100788
+    },
+    {
+      "index": 1,
+      "evaluator_name": "add_integer-cpu-arguments-slope",
+      "historical_name": "addInteger-cpu-arguments-slope",
+      "value": 420
+    },
+    {
+      "index": 2,
+      "evaluator_name": "add_integer-mem-arguments-intercept",
+      "historical_name": "addInteger-memory-arguments-intercept",
+      "value": 1
+    },
+    {
+      "index": 3,
+      "evaluator_name": "add_integer-mem-arguments-slope",
+      "historical_name": "addInteger-memory-arguments-slope",
+      "value": 1
+    },
+    {
+      "index": 4,
+      "evaluator_name": "append_byte_string-cpu-arguments-intercept",
+      "historical_name": "appendByteString-cpu-arguments-intercept",
+      "value": 1000
+    },
+    {
+      "index": 5,
+      "evaluator_name": "append_byte_string-cpu-arguments-slope",
+      "historical_name": "appendByteString-cpu-arguments-slope",
+      "value": 173
+    },
+    {
+      "index": 6,
+      "evaluator_name": "append_byte_string-mem-arguments-intercept",
+      "historical_name": "appendByteString-memory-arguments-intercept",
+      "value": 0
+    },
+    {
+      "index": 7,
+      "evaluator_name": "append_byte_string-mem-arguments-slope",
+      "historical_name": "appendByteString-memory-arguments-slope",
+      "value": 1
+    },
+    {
+      "index": 12,
+      "evaluator_name": "b_data-cpu-arguments",
+      "historical_name": "bData-cpu-arguments",
+      "value": 11183
+    },
+    {
+      "index": 13,
+      "evaluator_name": "b_data-mem-arguments",
+      "historical_name": "bData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 14,
+      "evaluator_name": "blake2b_256-cpu-arguments-intercept",
+      "historical_name": "blake2b_256-cpu-arguments-intercept",
+      "value": 201305
+    },
+    {
+      "index": 15,
+      "evaluator_name": "blake2b_256-cpu-arguments-slope",
+      "historical_name": "blake2b_256-cpu-arguments-slope",
+      "value": 8356
+    },
+    {
+      "index": 16,
+      "evaluator_name": "blake2b_256-mem-arguments",
+      "historical_name": "blake2b_256-memory-arguments",
+      "value": 4
+    },
+    {
+      "index": 17,
+      "evaluator_name": "cek_apply_cost-exBudgetCPU",
+      "historical_name": "cekApplyCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 18,
+      "evaluator_name": "cek_apply_cost-exBudgetmem",
+      "historical_name": "cekApplyCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 19,
+      "evaluator_name": "cek_builtin_cost-exBudgetCPU",
+      "historical_name": "cekBuiltinCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 20,
+      "evaluator_name": "cek_builtin_cost-exBudgetmem",
+      "historical_name": "cekBuiltinCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 21,
+      "evaluator_name": "cek_const_cost-exBudgetCPU",
+      "historical_name": "cekConstCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 22,
+      "evaluator_name": "cek_const_cost-exBudgetmem",
+      "historical_name": "cekConstCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 23,
+      "evaluator_name": "cek_delay_cost-exBudgetCPU",
+      "historical_name": "cekDelayCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 24,
+      "evaluator_name": "cek_delay_cost-exBudgetmem",
+      "historical_name": "cekDelayCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 25,
+      "evaluator_name": "cek_force_cost-exBudgetCPU",
+      "historical_name": "cekForceCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 26,
+      "evaluator_name": "cek_force_cost-exBudgetmem",
+      "historical_name": "cekForceCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 27,
+      "evaluator_name": "cek_lam_cost-exBudgetCPU",
+      "historical_name": "cekLamCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 28,
+      "evaluator_name": "cek_lam_cost-exBudgetmem",
+      "historical_name": "cekLamCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 29,
+      "evaluator_name": "cek_startup_cost-exBudgetCPU",
+      "historical_name": "cekStartupCost-exBudgetCPU",
+      "value": 100
+    },
+    {
+      "index": 30,
+      "evaluator_name": "cek_startup_cost-exBudgetmem",
+      "historical_name": "cekStartupCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 31,
+      "evaluator_name": "cek_var_cost-exBudgetCPU",
+      "historical_name": "cekVarCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 32,
+      "evaluator_name": "cek_var_cost-exBudgetmem",
+      "historical_name": "cekVarCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 33,
+      "evaluator_name": "choose_data-cpu-arguments",
+      "historical_name": "chooseData-cpu-arguments",
+      "value": 94375
+    },
+    {
+      "index": 34,
+      "evaluator_name": "choose_data-mem-arguments",
+      "historical_name": "chooseData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 35,
+      "evaluator_name": "choose_list-cpu-arguments",
+      "historical_name": "chooseList-cpu-arguments",
+      "value": 132994
+    },
+    {
+      "index": 36,
+      "evaluator_name": "choose_list-mem-arguments",
+      "historical_name": "chooseList-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 39,
+      "evaluator_name": "cons_byte_string-cpu-arguments-intercept",
+      "historical_name": "consByteString-cpu-arguments-intercept",
+      "value": 72010
+    },
+    {
+      "index": 40,
+      "evaluator_name": "cons_byte_string-cpu-arguments-slope",
+      "historical_name": "consByteString-cpu-arguments-slope",
+      "value": 178
+    },
+    {
+      "index": 41,
+      "evaluator_name": "cons_byte_string-mem-arguments-intercept",
+      "historical_name": "consByteString-memory-arguments-intercept",
+      "value": 0
+    },
+    {
+      "index": 42,
+      "evaluator_name": "cons_byte_string-mem-arguments-slope",
+      "historical_name": "consByteString-memory-arguments-slope",
+      "value": 1
+    },
+    {
+      "index": 43,
+      "evaluator_name": "constr_data-cpu-arguments",
+      "historical_name": "constrData-cpu-arguments",
+      "value": 22151
+    },
+    {
+      "index": 44,
+      "evaluator_name": "constr_data-mem-arguments",
+      "historical_name": "constrData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 49,
+      "evaluator_name": "divide_integer-cpu-arguments-constant",
+      "historical_name": "divideInteger-cpu-arguments-constant",
+      "value": 85848
+    },
+    {
+      "index": 50,
+      "evaluator_name": "divide_integer-cpu-arguments-c00",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c00",
+      "value": 123203
+    },
+    {
+      "index": 51,
+      "evaluator_name": "divide_integer-cpu-arguments-c01",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c01",
+      "value": 7305
+    },
+    {
+      "index": 52,
+      "evaluator_name": "divide_integer-cpu-arguments-c02",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c02",
+      "value": -900
+    },
+    {
+      "index": 53,
+      "evaluator_name": "divide_integer-cpu-arguments-c10",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c10",
+      "value": 1716
+    },
+    {
+      "index": 54,
+      "evaluator_name": "divide_integer-cpu-arguments-c11",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c11",
+      "value": 960
+    },
+    {
+      "index": 55,
+      "evaluator_name": "divide_integer-cpu-arguments-c20",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-c20",
+      "value": 57
+    },
+    {
+      "index": 56,
+      "evaluator_name": "divide_integer-cpu-arguments-minimum",
+      "historical_name": "divideInteger-cpu-arguments-model-arguments-minimum",
+      "value": 85848
+    },
+    {
+      "index": 57,
+      "evaluator_name": "divide_integer-mem-arguments-intercept",
+      "historical_name": "divideInteger-memory-arguments-intercept",
+      "value": 0
+    },
+    {
+      "index": 58,
+      "evaluator_name": "divide_integer-mem-arguments-minimum",
+      "historical_name": "divideInteger-memory-arguments-minimum",
+      "value": 1
+    },
+    {
+      "index": 59,
+      "evaluator_name": "divide_integer-mem-arguments-slope",
+      "historical_name": "divideInteger-memory-arguments-slope",
+      "value": 1
+    },
+    {
+      "index": 64,
+      "evaluator_name": "equals_byte_string-cpu-arguments-constant",
+      "historical_name": "equalsByteString-cpu-arguments-constant",
+      "value": 30623
+    },
+    {
+      "index": 65,
+      "evaluator_name": "equals_byte_string-cpu-arguments-intercept",
+      "historical_name": "equalsByteString-cpu-arguments-intercept",
+      "value": 28755
+    },
+    {
+      "index": 66,
+      "evaluator_name": "equals_byte_string-cpu-arguments-slope",
+      "historical_name": "equalsByteString-cpu-arguments-slope",
+      "value": 75
+    },
+    {
+      "index": 67,
+      "evaluator_name": "equals_byte_string-mem-arguments",
+      "historical_name": "equalsByteString-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 68,
+      "evaluator_name": "equals_data-cpu-arguments-intercept",
+      "historical_name": "equalsData-cpu-arguments-intercept",
+      "value": 898148
+    },
+    {
+      "index": 69,
+      "evaluator_name": "equals_data-cpu-arguments-slope",
+      "historical_name": "equalsData-cpu-arguments-slope",
+      "value": 27279
+    },
+    {
+      "index": 70,
+      "evaluator_name": "equals_data-mem-arguments",
+      "historical_name": "equalsData-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 71,
+      "evaluator_name": "equals_integer-cpu-arguments-intercept",
+      "historical_name": "equalsInteger-cpu-arguments-intercept",
+      "value": 51775
+    },
+    {
+      "index": 72,
+      "evaluator_name": "equals_integer-cpu-arguments-slope",
+      "historical_name": "equalsInteger-cpu-arguments-slope",
+      "value": 558
+    },
+    {
+      "index": 73,
+      "evaluator_name": "equals_integer-mem-arguments",
+      "historical_name": "equalsInteger-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 78,
+      "evaluator_name": "fst_pair-cpu-arguments",
+      "historical_name": "fstPair-cpu-arguments",
+      "value": 141895
+    },
+    {
+      "index": 79,
+      "evaluator_name": "fst_pair-mem-arguments",
+      "historical_name": "fstPair-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 80,
+      "evaluator_name": "head_list-cpu-arguments",
+      "historical_name": "headList-cpu-arguments",
+      "value": 83150
+    },
+    {
+      "index": 81,
+      "evaluator_name": "head_list-mem-arguments",
+      "historical_name": "headList-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 82,
+      "evaluator_name": "i_data-cpu-arguments",
+      "historical_name": "iData-cpu-arguments",
+      "value": 15299
+    },
+    {
+      "index": 83,
+      "evaluator_name": "i_data-mem-arguments",
+      "historical_name": "iData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 84,
+      "evaluator_name": "if_then_else-cpu-arguments",
+      "historical_name": "ifThenElse-cpu-arguments",
+      "value": 76049
+    },
+    {
+      "index": 85,
+      "evaluator_name": "if_then_else-mem-arguments",
+      "historical_name": "ifThenElse-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 88,
+      "evaluator_name": "length_of_byte_string-cpu-arguments",
+      "historical_name": "lengthOfByteString-cpu-arguments",
+      "value": 22100
+    },
+    {
+      "index": 89,
+      "evaluator_name": "length_of_byte_string-mem-arguments",
+      "historical_name": "lengthOfByteString-memory-arguments",
+      "value": 10
+    },
+    {
+      "index": 93,
+      "evaluator_name": "less_than_equals_byte_string-cpu-arguments-intercept",
+      "historical_name": "lessThanEqualsByteString-cpu-arguments-intercept",
+      "value": 28999
+    },
+    {
+      "index": 94,
+      "evaluator_name": "less_than_equals_byte_string-cpu-arguments-slope",
+      "historical_name": "lessThanEqualsByteString-cpu-arguments-slope",
+      "value": 74
+    },
+    {
+      "index": 95,
+      "evaluator_name": "less_than_equals_byte_string-mem-arguments",
+      "historical_name": "lessThanEqualsByteString-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 96,
+      "evaluator_name": "less_than_equals_integer-cpu-arguments-intercept",
+      "historical_name": "lessThanEqualsInteger-cpu-arguments-intercept",
+      "value": 43285
+    },
+    {
+      "index": 97,
+      "evaluator_name": "less_than_equals_integer-cpu-arguments-slope",
+      "historical_name": "lessThanEqualsInteger-cpu-arguments-slope",
+      "value": 552
+    },
+    {
+      "index": 98,
+      "evaluator_name": "less_than_equals_integer-mem-arguments",
+      "historical_name": "lessThanEqualsInteger-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 99,
+      "evaluator_name": "less_than_integer-cpu-arguments-intercept",
+      "historical_name": "lessThanInteger-cpu-arguments-intercept",
+      "value": 44749
+    },
+    {
+      "index": 100,
+      "evaluator_name": "less_than_integer-cpu-arguments-slope",
+      "historical_name": "lessThanInteger-cpu-arguments-slope",
+      "value": 541
+    },
+    {
+      "index": 101,
+      "evaluator_name": "less_than_integer-mem-arguments",
+      "historical_name": "lessThanInteger-memory-arguments",
+      "value": 1
+    },
+    {
+      "index": 102,
+      "evaluator_name": "list_data-cpu-arguments",
+      "historical_name": "listData-cpu-arguments",
+      "value": 33852
+    },
+    {
+      "index": 103,
+      "evaluator_name": "list_data-mem-arguments",
+      "historical_name": "listData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 104,
+      "evaluator_name": "map_data-cpu-arguments",
+      "historical_name": "mapData-cpu-arguments",
+      "value": 68246
+    },
+    {
+      "index": 105,
+      "evaluator_name": "map_data-mem-arguments",
+      "historical_name": "mapData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 106,
+      "evaluator_name": "mk_cons-cpu-arguments",
+      "historical_name": "mkCons-cpu-arguments",
+      "value": 72362
+    },
+    {
+      "index": 107,
+      "evaluator_name": "mk_cons-mem-arguments",
+      "historical_name": "mkCons-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 112,
+      "evaluator_name": "mk_pair_data-cpu-arguments",
+      "historical_name": "mkPairData-cpu-arguments",
+      "value": 11546
+    },
+    {
+      "index": 113,
+      "evaluator_name": "mk_pair_data-mem-arguments",
+      "historical_name": "mkPairData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 114,
+      "evaluator_name": "mod_integer-cpu-arguments-constant",
+      "historical_name": "modInteger-cpu-arguments-constant",
+      "value": 85848
+    },
+    {
+      "index": 115,
+      "evaluator_name": "mod_integer-cpu-arguments-c00",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c00",
+      "value": 123203
+    },
+    {
+      "index": 116,
+      "evaluator_name": "mod_integer-cpu-arguments-c01",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c01",
+      "value": 7305
+    },
+    {
+      "index": 117,
+      "evaluator_name": "mod_integer-cpu-arguments-c02",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c02",
+      "value": -900
+    },
+    {
+      "index": 118,
+      "evaluator_name": "mod_integer-cpu-arguments-c10",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c10",
+      "value": 1716
+    },
+    {
+      "index": 119,
+      "evaluator_name": "mod_integer-cpu-arguments-c11",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c11",
+      "value": 960
+    },
+    {
+      "index": 120,
+      "evaluator_name": "mod_integer-cpu-arguments-c20",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-c20",
+      "value": 57
+    },
+    {
+      "index": 121,
+      "evaluator_name": "mod_integer-cpu-arguments-minimum",
+      "historical_name": "modInteger-cpu-arguments-model-arguments-minimum",
+      "value": 85848
+    },
+    {
+      "index": 122,
+      "evaluator_name": "mod_integer-mem-arguments-intercept",
+      "historical_name": "modInteger-memory-arguments-intercept",
+      "value": 0
+    },
+    {
+      "index": 123,
+      "evaluator_name": "mod_integer-mem-arguments-slope",
+      "historical_name": "modInteger-memory-arguments-slope",
+      "value": 1
+    },
+    {
+      "index": 151,
+      "evaluator_name": "serialise_data-cpu-arguments-intercept",
+      "historical_name": "serialiseData-cpu-arguments-intercept",
+      "value": 955506
+    },
+    {
+      "index": 152,
+      "evaluator_name": "serialise_data-cpu-arguments-slope",
+      "historical_name": "serialiseData-cpu-arguments-slope",
+      "value": 213312
+    },
+    {
+      "index": 153,
+      "evaluator_name": "serialise_data-mem-arguments-intercept",
+      "historical_name": "serialiseData-memory-arguments-intercept",
+      "value": 0
+    },
+    {
+      "index": 154,
+      "evaluator_name": "serialise_data-mem-arguments-slope",
+      "historical_name": "serialiseData-memory-arguments-slope",
+      "value": 2
+    },
+    {
+      "index": 165,
+      "evaluator_name": "snd_pair-cpu-arguments",
+      "historical_name": "sndPair-cpu-arguments",
+      "value": 141992
+    },
+    {
+      "index": 166,
+      "evaluator_name": "snd_pair-mem-arguments",
+      "historical_name": "sndPair-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 171,
+      "evaluator_name": "tail_list-cpu-arguments",
+      "historical_name": "tailList-cpu-arguments",
+      "value": 81663
+    },
+    {
+      "index": 172,
+      "evaluator_name": "tail_list-mem-arguments",
+      "historical_name": "tailList-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 175,
+      "evaluator_name": "un_b_data-cpu-arguments",
+      "historical_name": "unBData-cpu-arguments",
+      "value": 20142
+    },
+    {
+      "index": 176,
+      "evaluator_name": "un_b_data-mem-arguments",
+      "historical_name": "unBData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 177,
+      "evaluator_name": "un_constr_data-cpu-arguments",
+      "historical_name": "unConstrData-cpu-arguments",
+      "value": 24588
+    },
+    {
+      "index": 178,
+      "evaluator_name": "un_constr_data-mem-arguments",
+      "historical_name": "unConstrData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 179,
+      "evaluator_name": "un_i_data-cpu-arguments",
+      "historical_name": "unIData-cpu-arguments",
+      "value": 20744
+    },
+    {
+      "index": 180,
+      "evaluator_name": "un_i_data-mem-arguments",
+      "historical_name": "unIData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 181,
+      "evaluator_name": "un_list_data-cpu-arguments",
+      "historical_name": "unListData-cpu-arguments",
+      "value": 25933
+    },
+    {
+      "index": 182,
+      "evaluator_name": "un_list_data-mem-arguments",
+      "historical_name": "unListData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 183,
+      "evaluator_name": "un_map_data-cpu-arguments",
+      "historical_name": "unMapData-cpu-arguments",
+      "value": 24623
+    },
+    {
+      "index": 184,
+      "evaluator_name": "un_map_data-mem-arguments",
+      "historical_name": "unMapData-memory-arguments",
+      "value": 32
+    },
+    {
+      "index": 187,
+      "evaluator_name": "verify_ed25519_signature-cpu-arguments-intercept",
+      "historical_name": "verifyEd25519Signature-cpu-arguments-intercept",
+      "value": 53384111
+    },
+    {
+      "index": 188,
+      "evaluator_name": "verify_ed25519_signature-cpu-arguments-slope",
+      "historical_name": "verifyEd25519Signature-cpu-arguments-slope",
+      "value": 14333
+    },
+    {
+      "index": 189,
+      "evaluator_name": "verify_ed25519_signature-mem-arguments",
+      "historical_name": "verifyEd25519Signature-memory-arguments",
+      "value": 10
+    },
+    {
+      "index": 193,
+      "evaluator_name": "cek_constr_cost-exBudgetCPU",
+      "historical_name": "cekConstrCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 194,
+      "evaluator_name": "cek_constr_cost-exBudgetmem",
+      "historical_name": "cekConstrCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 195,
+      "evaluator_name": "cek_case_cost-exBudgetCPU",
+      "historical_name": "cekCaseCost-exBudgetCPU",
+      "value": 16000
+    },
+    {
+      "index": 196,
+      "evaluator_name": "cek_case_cost-exBudgetmem",
+      "historical_name": "cekCaseCost-exBudgetMemory",
+      "value": 100
+    },
+    {
+      "index": 238,
+      "evaluator_name": "blake2b_224-cpu-arguments-intercept",
+      "historical_name": "blake2b_224-cpu-arguments-intercept",
+      "value": 207616
+    },
+    {
+      "index": 239,
+      "evaluator_name": "blake2b_224-cpu-arguments-slope",
+      "historical_name": "blake2b_224-cpu-arguments-slope",
+      "value": 8310
+    },
+    {
+      "index": 240,
+      "evaluator_name": "blake2b_224-mem-arguments-slope",
+      "historical_name": "blake2b_224-memory-arguments",
+      "value": 4
+    }
+  ],
+  "limitations": [
+    "Parameter response is captured Dolos data, not independent node parameters.",
+    "Evaluator maps the first 251 entries for a 350-entry vector; complete vector is passed unchanged.",
+    "Candidate enumerates these builtins and CEK costs; coefficient agreement does not prove their protocol-12 semantics.",
+    "Quotient/remainder naming discrepancies outside this subset are not resolved or supported.",
+    "This is a coefficient-position audit, not an independent implementation of builtin semantics.",
+    "Historical node/evaluator identity and independent execution-unit comparison are unavailable."
+  ]
+}

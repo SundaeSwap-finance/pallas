@@ -1,0 +1,103 @@
+   Compiling pallas-validate v1.4.0 (/tmp/musashi-s06/baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 3.89s
+     Running unittests src/lib.rs (/tmp/musashi-s06/baseline-target/debug/deps/pallas_validate-ebbbc619acd94472)
+
+running 31 tests
+test phase2::evaluator::tests::machine_failure_keeps_logs ... ok
+test phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context ... ok
+test phase2::evaluator::tests::script_cbor_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic ... ok
+
+thread 'phase2::dijkstra_evaluation_tests::native_and_conway_post_bootstrap_context_reaches_script' (312) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:599:13:
+assertion `left == right` failed: protocol 10: TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 612, steps: 1325672 }, success: false, logs: [], failure_message: Some("Empty list") }
+  left: false
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test phase2::dijkstra_evaluation_tests::native_and_conway_post_bootstrap_context_reaches_script ... FAILED
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_earlier_era_inputs_keep_original_labels' (315) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:614:34:
+called `Result::unwrap()` on an `Err` value: WrongEra
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures' (323) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:141:5:
+expected MissingRequiredScript, got WrongEra
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources' (316) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:141:5:
+expected MissingRequiredScript, got WrongEra
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos' (320) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:141:5:
+expected ResolvedInputNotFound, got WrongEra
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget' (317) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:109:30:
+native protocol-12 registration must evaluate: WrongEra
+test phase2::dijkstra_evaluation_tests::native_registration_earlier_era_inputs_keep_original_labels ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources ... FAILED
+captured execution: TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 18485, steps: 4805428 }, success: true, logs: [], failure_message: None }
+captured builtin inventory: {"AddInteger", "AppendByteString", "BData", "Blake2b_224", "Blake2b_256", "ChooseData", "ChooseList", "ConsByteString", "ConstrData", "DivideInteger", "EqualsByteString", "EqualsData", "EqualsInteger", "FstPair", "HeadList", "IData", "IfThenElse", "LengthOfByteString", "LessThanEqualsByteString", "LessThanEqualsInteger", "LessThanInteger", "ListData", "MapData", "MkCons", "MkPairData", "ModInteger", "SerialiseData", "SndPair", "TailList", "UnBData", "UnConstrData", "UnIData", "UnListData", "UnMapData", "VerifyEd25519Signature"}
+test phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos ... FAILED
+test phase2::evaluator::tests::flat_decode_failure_is_typed ... ok
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated' (314) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:243:37:
+called `Result::unwrap()` on an `Err` value: WrongEra
+test phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget ... FAILED
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols' (322) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:141:5:
+expected protocol version (requires 12.0), got WrongEra
+test phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view ... ok
+test phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_builtin_inventory ... ok
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position' (321) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:140:41:
+RequiredRedeemersMismatch: []
+test phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated ... FAILED
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget' (318) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:214:36:
+called `Result::unwrap()` on an `Err` value: WrongEra
+
+thread 'phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence' (342) panicked at pallas-validate/src/phase2/v3_deposit_context_tests.rs:73:17:
+assertion `left == right` failed: certificate list protocol 10
+  left: Array(Def([Constr(Constr { tag: 121, any_constructor: None, fields: Indef([Constr(Constr { tag: 122, any_constructor: None, fields: Indef([BoundedBytes(BoundedBytes([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]))]) }), Constr(Constr { tag: 122, any_constructor: None, fields: Indef([]) })]) })]))
+ right: Array(Def([Constr(Constr { tag: 121, any_constructor: None, fields: Def([Constr(Constr { tag: 122, any_constructor: None, fields: Indef([BoundedBytes(BoundedBytes([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]))]) }), Constr(Constr { tag: 121, any_constructor: None, fields: Indef([BigInt(Int(Int(Int { neg: false, val: 0 })))]) })]) })]))
+test phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols ... FAILED
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts' (319) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:141:5:
+expected DecodeError, got WrongEra
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer' (324) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:434:34:
+called `Result::unwrap()` on an `Err` value: WrongEra
+test phase2::script_context::registration_scripts::captured_registration_context_has_full_certificate_position ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget ... FAILED
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... FAILED
+test phase2::script_context::registration_scripts::captured_registration_rejects_bad_indices_and_wrong_purpose ... ok
+test phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set ... ok
+test phase2::script_context::registration_scripts::registration_rejects_key_and_exempt_certificate_targets ... ok
+test phase2::script_context::registration_scripts::registration_v1_v2_context_uses_legacy_registration_encoding ... ok
+test phase2::script_context::registration_scripts::registration_position_includes_non_script_certificates ... ok
+test phase2::script_context::tests::a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer ... FAILED
+test phase2::script_context::registration_scripts::captured_registration_requires_correct_script ... ok
+test phase2::script_context::tests::a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+
+failures:
+
+failures:
+    phase2::dijkstra_evaluation_tests::native_and_conway_post_bootstrap_context_reaches_script
+    phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated
+    phase2::dijkstra_evaluation_tests::native_registration_earlier_era_inputs_keep_original_labels
+    phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources
+    phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget
+    phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget
+    phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts
+    phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos
+    phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position
+    phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols
+    phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures
+    phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer
+    phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence
+
+test result: FAILED. 18 passed; 13 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`
