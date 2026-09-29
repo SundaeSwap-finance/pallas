@@ -4,6 +4,14 @@ use thiserror::Error;
 #[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum ValidationError {
+    #[cfg(feature = "unstable")]
+    #[error("unsupported Dijkstra phase-one feature: {0}")]
+    DijkstraUnsupported(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra certificate validation requires historical certificate state")]
+    DijkstraCertificateStateUnavailable,
+
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
 
