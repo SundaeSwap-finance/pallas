@@ -1,0 +1,10 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.39s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-a64a894a7db7be8c)
+
+running 3 tests
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 89 filtered out; finished in 0.00s

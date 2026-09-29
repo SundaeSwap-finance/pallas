@@ -1,0 +1,21 @@
+--- a/pallas-validate/src/phase2/mod.rs
++++ b/pallas-validate/src/phase2/mod.rs
+@@ -23,0 +24,3 @@
++
++#[cfg(test)]
++mod v3_deposit_context_tests;
+--- a/pallas-validate/src/phase2/to_plutus_data.rs
++++ b/pallas-validate/src/phase2/to_plutus_data.rs
+@@ -1529,0 +1530,7 @@
++
++// Baseline API adapter only: preserve the original protocol-unaware encoding.
++impl ScriptContext<'_> {
++    pub fn to_plutus_data_with_protocol(&self, _protocol_major: u32) -> PlutusData {
++        self.to_plutus_data()
++    }
++}
+--- a/pallas-validate/src/phase2/tx.rs
++++ b/pallas-validate/src/phase2/tx.rs
+@@ -72 +72 @@
+-fn execute_script(
++pub(super) fn execute_script(

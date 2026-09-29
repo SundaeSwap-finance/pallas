@@ -1,0 +1,139 @@
+{
+  "fixture_id": "musashi-s06-context-and-evaluator-gap",
+  "date": "2026-09-29",
+  "status": "S06 incomplete; only context translation installed in production",
+  "baseline": "4be4fb2171a73bdb04994c8472e76f601d41318f",
+  "ledger_specification_revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+  "historical_node_version": null,
+  "historical_evaluator_version": null,
+  "unknown_status": "unknown; specification revision and evaluator dependency are not historical node identity",
+  "network": {
+    "name": "Musashi",
+    "magic": 164,
+    "era": "Dijkstra",
+    "protocol_version": [
+      12,
+      0
+    ]
+  },
+  "parents": [
+    "../musashi-registration/provenance.json",
+    "../musashi-registration/registration-scripts-provenance.json",
+    "../musashi-registration/native-inputs-provenance.json",
+    "../musashi-phase1/registration-provenance.json"
+  ],
+  "captured": {
+    "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "slot": 1401365,
+    "application_name": "RealFi settings-validator stake registration",
+    "producer": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+    "spending_and_collateral_index": 1,
+    "reference_index": 0,
+    "input_eras": "original Dijkstra",
+    "script_hash": "9eb9018892f84064087cfb1559cab8956d6300c47b6f325a7262c3db",
+    "declared_budget": {
+      "memory": 18485,
+      "cpu": 4805428
+    },
+    "capture_tool_revision": "385599890cda4c6384dbfc102849709f7adc9d97",
+    "capture_date": "2026-09-25"
+  },
+  "extracted": {
+    "parameters": "../musashi-phase1/registration-epoch64-parameters.json",
+    "parameters_sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+    "cost_model_length": 350,
+    "trust_boundary": "archived Dolos response; no independent node parameter verification"
+  },
+  "synthetic": {
+    "final_tests": "pallas-validate/src/phase2/v3_deposit_context_tests.rs",
+    "candidate": "native-candidate.patch",
+    "counterexample": "small script doubles one-byte string 17 times and passes resulting 131072 bytes to blake2b_256",
+    "expected": "reject oversized builtin operand under post-PV11 V3 semantics E",
+    "candidate_actual": {
+      "success": true,
+      "memory": 45976,
+      "cpu": 144888665
+    },
+    "capture_mutations": "in memory only; mutated signatures/state not validated; phase-two tests"
+  },
+  "candidate_evaluator": {
+    "crate": "amaru-uplc",
+    "version": "0.1.0",
+    "checksum": "b565727e99c072b9d29f7ddf9eafffd51ec69a653dad6589c36d4d1ca053603c",
+    "source_revision": "5698e4d819e52e6c8467e79a2955947ed93c88be",
+    "cost_model": "full unchanged historical 350-entry vector passed to evaluator; internal mapping and semantic limits recorded separately",
+    "production_installed": false
+  },
+  "alternative": {
+    "repository": "aiken-lang/aiken",
+    "revision": "bacbeb35fbc9f1db93cd2e1e93fb1d93053acb4a",
+    "release_also_inspected": "1.1.23",
+    "declared_rust_version": "1.94.1",
+    "repository_required_rust_version": "1.88",
+    "dependency_changed": false
+  },
+  "independent_node_comparison": {
+    "available": false,
+    "reason": "No archived independent evaluator response/version; cardano-cli and cardano-node absent from PATH; no live evaluation or submission attempted"
+  },
+  "ledger_sources": [
+    {
+      "repository": "IntersectMBO/cardano-ledger",
+      "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+      "path": "eras/conway/impl/src/Cardano/Ledger/Conway/TxInfo.hs",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/TxInfo.hs",
+      "sha256": "ad44dd79cfb4598bf34f9706fc01e29ef397a24f80288ff3ef8dbe02297642c9"
+    },
+    {
+      "repository": "IntersectMBO/cardano-ledger",
+      "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+      "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs",
+      "sha256": "6ddb45815fc73bcdbd91f6b6dfbf5428563356d4c129486cb359d4687513ed91"
+    },
+    {
+      "repository": "IntersectMBO/cardano-ledger",
+      "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+      "path": "libs/cardano-ledger-core/cardano-ledger-core.cabal",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/libs/cardano-ledger-core/cardano-ledger-core.cabal",
+      "sha256": "e82d21a77cdb05549cfabdbdb3f94693645ef93de4422dbcbe49b0a50ae78fac"
+    },
+    {
+      "repository": "IntersectMBO/cardano-ledger",
+      "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+      "path": "cabal.project",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/cabal.project",
+      "sha256": "ae4c708f9ecc75a9efae19a22348636c376018c0df758d9e3a10e71fc639d4d9"
+    },
+    {
+      "repository": "IntersectMBO/plutus",
+      "revision": "1.68.0.0",
+      "path": "plutus-ledger-api/src/PlutusLedgerApi/V3/EvaluationContext.hs",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/plutus/1.68.0.0/plutus-ledger-api/src/PlutusLedgerApi/V3/EvaluationContext.hs",
+      "sha256": "efc693f86c5b803f694d7a683f1fe53851f2a16e690fb1d2573a369decb23268",
+      "tag_target": "9e17e2404dc6988c908b1fea099dde202df73b6a"
+    },
+    {
+      "repository": "IntersectMBO/plutus",
+      "revision": "1.68.0.0",
+      "path": "plutus-core/plutus-core/src/PlutusCore/Default/Builtins.hs",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/plutus/1.68.0.0/plutus-core/plutus-core/src/PlutusCore/Default/Builtins.hs",
+      "sha256": "396226f91c048eee40b9bc3288e3441a46e737d6eb4a84d386ed9d2493da2218",
+      "tag_target": "9e17e2404dc6988c908b1fea099dde202df73b6a"
+    },
+    {
+      "repository": "IntersectMBO/plutus",
+      "revision": "1.68.0.0",
+      "path": "plutus-core/plutus-core/src/PlutusCore/Default/Universe/Cardano.hs",
+      "url": "https://raw.githubusercontent.com/IntersectMBO/plutus/1.68.0.0/plutus-core/plutus-core/src/PlutusCore/Default/Universe/Cardano.hs",
+      "sha256": "353c896bb289591bb6e6ca323b63fa55bf7563fc77cd63f462aa61b74c031f3d",
+      "tag_target": "9e17e2404dc6988c908b1fea099dde202df73b6a"
+    }
+  ],
+  "payload_sha256_decoded_cbor": {
+    "blocks/1401345.block": "3fd9508c06aeb45c8bd55fff119356ce48b268da9bd27d452f87a5f952deda44",
+    "blocks/1401365.block": "fb6d1e959d5f64aff41f8c932baa4a94050d14b74d62c97558e41b70de84d0b4",
+    "settings.body.hex": "83388704786cca06f663a4f07851c91869b78fa120c3641ab6cdf9446cf10085",
+    "settings.input.hex": "2bf1fc2c5bbe231716ea62d5cd72e247be7a789047206b65130c1e199879e441"
+  }
+}

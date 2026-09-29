@@ -1,0 +1,19 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.63s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-a64a894a7db7be8c)
+
+running 1 test
+
+thread 'phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary' (313) panicked at pallas-validate/src/phase2/dijkstra_evaluation_tests.rs:678:9:
+protocol-12 must reject oversized builtin operand: [TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 45976, steps: 144888665 }, success: true, logs: [], failure_message: None }]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary ... FAILED
+
+failures:
+
+failures:
+    phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 104 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`
