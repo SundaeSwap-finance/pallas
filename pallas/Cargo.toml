@@ -33,6 +33,7 @@ unstable = [
   "pallas-primitives/unstable",
   "pallas-utxorpc/unstable",
   "pallas-validate/unstable",
+  "pallas-network2?/unstable",
 ]
 
 # pallas-validate feature flags
