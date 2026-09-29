@@ -7,6 +7,8 @@ pub mod conway;
 #[cfg(feature = "unstable")]
 pub mod dijkstra;
 #[cfg(all(test, feature = "unstable"))]
+mod dijkstra_batch_tests;
+#[cfg(all(test, feature = "unstable"))]
 mod dijkstra_registration_tests;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_tests;
