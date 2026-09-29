@@ -132,7 +132,9 @@ fn v3_deposit_context_protocol_reaches_script_execution() {
         "(program 1.1.0 (lam ctx (force [[[(force (builtin ifThenElse)) {condition}] (delay (con unit ()))] (delay (error))])))"
     );
     let arena = Arena::new();
-    let program = parse_program(&arena, &source).into_result().unwrap();
+    let program = parse_program(&arena, &source, amaru_kernel::ProtocolVersion::new(12, 0))
+        .into_result()
+        .unwrap();
     let script = minicbor::to_vec(minicbor::bytes::ByteVec::from(
         flat::encode(program).unwrap(),
     ))

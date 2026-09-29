@@ -1,0 +1,29 @@
+{
+  "pallas_base": "b09918be7b71525d349e7f010d8cffeb3708de4b",
+  "restored_checkpoint": "3de0b4c27fef179f2b406c922571a6e2d4d86d33",
+  "branch": "experiment/amaru-uplc-integration",
+  "amaru_revision": "12dba6c181c1774bde47373bb1ce5fe10a672bea",
+  "amaru_git": "https://github.com/rodrigomd94/amaru.git",
+  "toolchain": "nightly-2026-09-04",
+  "ledger_specification": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+  "historical_node_evaluator": "unknown",
+  "new_independent_comparison": false,
+  "captured_transaction": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+  "native_result": {
+    "memory": 18485,
+    "cpu": 4805428,
+    "success": true
+  },
+  "phase2": {
+    "passed": 33,
+    "failed": 8,
+    "ignored": 1
+  },
+  "replacement_gate": "failed",
+  "main_branch_changed": false,
+  "dolos_pin_changed": false,
+  "submitted": false,
+  "pushed_by_this_task": false,
+  "parameter_sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+  "lock_sha256": "f38aea2bde35e9d07b8c5026c1c37c5a19aeaca99e5f7eb8d8e83521df2c7043"
+}
