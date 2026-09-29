@@ -1,6 +1,6 @@
 //! Synthetic evaluator semantics, separate from the unchanged network capture.
 use super::{error::Error, evaluator::eval_native_v3};
-use amaru_uplc::{arena::Arena, flat, syn::parse_program};
+use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
 use pallas_codec::minicbor;
 use pallas_primitives::{PlutusData, conway::ExUnits};
 
@@ -164,7 +164,7 @@ fn registration_cons_byte_string_keeps_v3_byte_range() {
 
 #[test]
 fn registration_integer_bounds_are_explicit_subset_errors() {
-    use amaru_uplc::constant::Integer;
+    use amaru_uplc_native::constant::Integer;
     let bound = Integer::from(1) << 262_143usize;
     for (value, supported) in [
         (&bound - 1, true),

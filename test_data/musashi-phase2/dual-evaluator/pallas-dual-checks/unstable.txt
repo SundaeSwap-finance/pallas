@@ -1,0 +1,838 @@
+   Compiling memchr v2.8.3
+   Compiling serde_core v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling tracing-core v0.1.36
+   Compiling syn v3.0.6
+   Compiling anyhow v1.0.104
+   Compiling getrandom v0.4.3
+   Compiling itertools v0.13.0
+   Compiling tokio v1.53.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand v0.9.5
+   Compiling tempfile v3.27.0
+   Compiling prost-derive v0.13.5
+   Compiling tracing v0.1.44
+   Compiling rand_chacha v0.9.0
+   Compiling rusty-fork v0.3.1
+   Compiling chrono v0.4.45
+   Compiling proptest v1.11.0
+   Compiling tokio-stream v0.1.19
+   Compiling prost v0.13.5
+   Compiling prost-types v0.13.5
+   Compiling serde_json v1.0.151
+   Compiling pbjson-build v0.7.0
+   Compiling prost-build v0.13.5
+   Compiling test-case-core v3.4.0
+   Compiling pbjson-types v0.7.0
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling async-trait v0.1.92
+   Compiling test-case-macros v3.4.0
+   Compiling test-case v3.4.0
+   Compiling tonic v0.12.3
+   Compiling thiserror v2.0.21
+   Compiling serde v1.0.229
+   Compiling pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+   Compiling pbjson v0.7.0
+   Compiling pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+   Compiling pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+   Compiling pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+   Compiling utxorpc-spec v0.19.2
+   Compiling pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+   Compiling pallas-utxorpc v1.4.0 (/tmp/pallas-amaru-integration/pallas-utxorpc)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.76s
+     Running unittests src/lib.rs (target/debug/deps/pallas_primitives-d88b67d5e3a78279)
+
+running 173 tests
+test alonzo::json::tests::native_script_json_preserves_mixed_shape_trees ... ok
+test alonzo::json::tests::plutus_data_json_preserves_mixed_shapes ... ok
+test alonzo::native_script::tests::equality_checks_variant_payload_order_and_arity ... ok
+test alonzo::model::tests::header_isomorphic_decoding_encoding ... ok
+test alonzo::model::tests::plutus_data_isomorphic_decoding_encoding ... ok
+test alonzo::native_script::tests::malformed_arrays_are_rejected_without_reserving_claimed_length ... ok
+test alonzo::native_script::tests::n_of_k_threshold_is_signed ... ok
+test alonzo::native_script::tests::matches_ledger_cddl_wire_format ... ok
+test alonzo::native_script::tests::preserves_permissive_array_decoding ... ok
+test byron::model::tests::header_isomorphic_decoding_encoding ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_10_drep_script_alice_drep_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_11_drep_script_alice_spo_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_12_drep_script_bob_drep_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_1_cc_script_alice_cc_script_alice_expects_ordering_equal ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_2_cc_script_alice_cc_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_3_cc_script_alice_drep_script_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_4_cc_script_alice_drep_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_5_cc_script_alice_spo_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_6_cc_script_bob_cc_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_7_drep_script_alice_cc_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_8_drep_script_alice_cc_key_alice_expects_ordering_greater ... ok
+test conway::model::tests::block_isomorphic_decoding_encoding ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_9_drep_script_alice_drep_script_alice_expects_ordering_equal ... ok
+test dijkstra::endorser::tests::a_key_that_is_not_32_bytes_is_refused_as_a_hash ... ok
+test dijkstra::endorser::tests::an_indefinite_body_decodes_to_the_entries_of_its_definite_form ... ok
+test dijkstra::endorser::tests::each_body_decodes_to_its_recorded_count_and_first_entry ... ok
+test dijkstra::endorser::tests::each_body_re_encodes_byte_for_byte ... ok
+test alonzo::json::tests::test_native_scripts_serialize_as_expected ... ok
+test conway::script_data::tests::test_script_data_hash ... ok
+test alonzo::json::tests::test_datums_serialize_as_expected ... ok
+test dijkstra::native_script::tests::malformed_arrays_are_rejected ... ok
+test babbage::model::tests::fragments_decoding ... ok
+test dijkstra::native_script::tests::equality_checks_variant_payload_order_and_arity ... ok
+test byron::model::tests::main_block_isomorphic_decoding_encoding ... ok
+test dijkstra::native_script::tests::matches_ledger_cddl_wire_format ... ok
+test dijkstra::native_script::tests::shares_alonzo_wire_format_for_common_variants ... ok
+test babbage::model::tests::block_isomorphic_decoding_encoding ... ok
+test dijkstra::tests::a_certificate_travels_without_an_announcement ... ok
+test alonzo::json::tests::native_script_json_string_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test dijkstra::tests::a_mempool_transaction_becomes_a_valid_block_transaction ... ok
+test dijkstra::tests::a_block_carrying_both_leios_fields_reads_both ... ok
+test dijkstra::tests::a_mempool_transaction_is_moved_into_its_block_form ... ok
+test dijkstra::tests::a_block_transaction_is_not_a_mempool_transaction ... ok
+test dijkstra::tests::a_mempool_transaction_re_encodes_both_accepted_shapes ... ok
+test dijkstra::tests::a_set_of_one_element_reads_on_both_arms ... ok
+test dijkstra::tests::a_proposal_keeps_the_dijkstra_parameter_keys ... ok
+test dijkstra::tests::a_vote_delegation_certificate_is_read_from_the_chain ... ok
+test dijkstra::tests::a_ttl_and_both_output_forms_are_read_from_one_block ... ok
+test dijkstra::tests::a_certificate_set_is_read_on_both_arms_from_the_chain ... ok
+test dijkstra::tests::an_empty_array_is_not_a_nonempty_set ... ok
+test dijkstra::tests::an_account_balance_interval_is_two_elements_or_none ... ok
+test dijkstra::tests::an_empty_guards_array_is_refused ... ok
+test dijkstra::tests::an_announced_size_reaches_the_five_byte_uint ... ok
+test dijkstra::tests::cost_models_keeps_a_key_the_named_fields_do_not_cover ... ok
+test dijkstra::tests::conway_header_is_refused_as_dijkstra ... ok
+test dijkstra::tests::a_set_re_encodes_the_arm_it_was_read_from ... ok
+test dijkstra::tests::a_pool_registration_re_encodes_each_bls_key_state ... ok
+test dijkstra::tests::dijkstra_header_is_not_a_babbage_header ... ok
+test dijkstra::tests::n_of_k_threshold_is_signed_at_the_extremes ... ok
+test dijkstra::tests::pre_fork_blocks_are_refused_as_dijkstra_blocks ... ok
+test dijkstra::tests::the_array_form_of_auxiliary_data_carries_this_eras_native_scripts ... ok
+test dijkstra::tests::the_array_form_still_carries_a_clause_every_era_has ... ok
+test dijkstra::tests::the_legal_account_balance_interval_forms_still_read ... ok
+test dijkstra::tests::block_isomorphic_decoding_encoding ... ok
+test dijkstra::tests::header_isomorphic_decoding_encoding ... ok
+test alonzo::native_script::tests::malformed_deep_script_cleans_up_completed_children ... ok
+test dijkstra::tests::every_fixture_hashes_to_its_recorded_header_hash ... ok
+test dijkstra::native_script::tests::malformed_deep_script_cleans_up_completed_children ... ok
+test dijkstra::tests::transaction_payloads_reencode_to_their_wire_bytes ... ok
+test alonzo::native_script::tests::round_trips_through_cbor ... ok
+test metadatum::tests::orders_like_the_derived_ord_did ... ok
+test metadatum::tests::rejects_dangling_keys_and_foreign_types ... ok
+test metadatum::tests::indefinite_arrays_encode_as_definite ... ok
+test metadatum::tests::round_trips_leaves_and_containers ... ok
+test dijkstra::tests::every_cited_rule_matches_the_vendored_cddl ... ok
+test metadatum::tests::walks_keys_and_values_in_order ... ok
+test dijkstra::native_script::tests::round_trips_through_cbor ... ok
+test alonzo::model::tests::block_isomorphic_decoding_encoding ... ok
+test alonzo::json::tests::native_script_json_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test alonzo::native_script::tests::deep_script_lifecycle_on_small_stack ... ok
+test dijkstra::native_script::tests::deep_script_lifecycle_on_small_stack ... ok
+test plutus_data::tests::ordering::test_case_10_bytes_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_11_bytes_array_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_12_bytes_array_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_13_bytes_int_0_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_14_int_42_int_14_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_15_int_14_int_14_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_16_int_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_17_int_0_int_1_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_18_int_2_int_1_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_19_int_0_biguint_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_1_bytes_bytes_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_20_int_14_biguint_14_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_21_int_14_biguint_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_22_biguint_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_23_biguint_42_int_14_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_24_biguint_14_255_int_42_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_25_bignint_0_int_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_26_bignint_14_255_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_27_biguint_int_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_28_biguint_0_0_1_int_1_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_29_int_0_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_2_bytes_1_2_3_bytes_4_5_6_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_30_int_0_map_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_31_int_0_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_32_int_0_array_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_33_int_0_array_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_34_int_0_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_35_array_def_array_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_36_array_def_array_indef_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_37_array_indef_array_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_38_array_def_int_14_int_42_array_def_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_39_array_def_int_14_int_42_array_def_int_15_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_3_bytes_1_2_3_bytes_1_2_3_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_40_array_def_int_14_int_42_array_def_int_1_int_2_int_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_41_array_def_int_14_int_42_array_indef_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_42_array_indef_int_14_int_42_array_def_int_15_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_43_array_def_int_14_int_42_array_indef_int_1_int_2_int_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_44_array_def_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::cbor_roundtrip ... ok
+test plutus_data::tests::ordering::test_case_45_array_def_map_def_expects_ordering_greater ... ok
+test metadatum::tests::encodes_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::ordering::test_case_46_array_def_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_48_array_def_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_47_array_def_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_49_map_def_map_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_4_bytes_4_5_6_bytes_1_2_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_50_map_def_map_indef_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_51_map_indef_map_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_52_map_def_int_14_int_42_map_def_int_14_int_41_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_53_map_def_int_14_int_41_map_def_int_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::clone_preserves_value_and_encoding ... ok
+test plutus_data::tests::ordering::test_case_55_map_def_int_14_int_42_map_indef_int_14_int_42_int_1_int_999_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_54_map_def_int_14_int_42_map_def_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_56_map_def_int_15_int_42_map_indef_int_14_int_42_int_1_int_999_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_57_map_def_constr_121_expects_ordering_greater ... ok
+test alonzo::json::tests::plutus_data_json_string_handles_deeply_nested_data_on_a_small_stack ... ok
+test plutus_data::tests::ordering::test_case_58_map_def_array_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_59_map_def_array_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_5_bytes_1_2_3_bytes_2_2_3_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_60_map_def_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_61_map_def_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_62_constr_121_constr_121_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_63_constr_122_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_64_constr_122_constr_121_int_999_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_66_constr_any_0_constr_121_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_65_constr_126_int_999_constr_1281_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_67_constr_any_1_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_68_constr_any_7_int_14_constr_1280_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_6_bytes_1_2_3_bytes_1_2_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_69_constr_any_7_int_14_constr_1281_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_70_constr_any_121_map_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_71_constr_any_121_map_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_72_constr_any_121_array_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_73_constr_any_121_array_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_74_constr_any_121_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_75_constr_any_121_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_7_bytes_2_2_bytes_1_2_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_9_bytes_map_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_8_bytes_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::preserves_container_encodings_and_rejects_dangling_keys ... ok
+test plutus_data::tests::equals_list_irrespective_of_encoding ... ok
+test metadatum::tests::clones_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::json_string_matches_json_value ... ok
+test metadatum::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test byron::model::tests::boundary_block_isomorphic_decoding_encoding ... ok
+test alonzo::json::tests::plutus_data_json_handles_deeply_nested_data_on_a_small_stack ... ok
+test metadatum::tests::rejects_malformed_deep_nesting_and_cleans_up_on_a_small_stack ... ok
+test plutus_data::tests::clones_and_encodes_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::rejects_malformed_deep_nesting_and_cleans_up_on_a_small_stack ... ok
+test metadatum::tests::compares_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::compares_deep_nesting_on_a_small_stack ... ok
+
+test result: ok. 173 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_traverse-06e5d2fdd9fc910c)
+
+running 190 tests
+test attribute_tests::the_module_scan_reads_the_gate_on_a_declaration ... ok
+test block::tests::a_block_body_that_carries_certificates_reports_them ... ok
+test block::tests::a_block_body_that_carries_no_certificates_reports_none ... ok
+test attribute_tests::the_attribute_scan_reads_every_marking_and_presence ... ok
+test block::tests::a_block_that_carries_a_leios_certificate_reports_it ... ok
+test block::tests::a_plain_dijkstra_block_reports_no_redeemers_or_withdrawals ... ok
+test block::tests::dijkstra_block_decodes_as_dijkstra ... ok
+test block::tests::the_block_before_the_fork_is_conway ... ok
+test cert::tests::a_vote_delegation_certificate_is_read_through_the_multi_era_cert ... ok
+test block::tests::a_map_form_output_is_read_through_the_multi_era_accessors ... ok
+test cert::tests::an_era_carrying_no_certificates_reads_no_kind ... ok
+test cert::tests::every_alonzo_certificate_is_read_through_the_certificate_view ... ok
+test cert::tests::every_alonzo_certificate_payload_reads_back_by_value ... ok
+test cert::tests::an_earlier_era_certificate_is_not_read_as_dijkstra ... ok
+test cert::tests::a_dijkstra_registration_that_fills_no_bls_key_slot_reads_no_key ... ok
+test block::tests::auxiliary_data_is_reported_only_where_a_block_carries_it ... ok
+test block::tests::dijkstra_blocks_yield_their_transactions ... ok
+test cert::tests::an_alonzo_pool_registration_carries_its_parameters_through_the_view ... ok
+test block::tests::the_same_accessors_find_what_is_there ... ok
+test cert::tests::every_conway_certificate_is_read_through_the_certificate_view ... ok
+test era::tests::every_era_round_trips_through_its_tag ... ok
+test cert::tests::every_conway_certificate_payload_reads_back_by_value ... ok
+test governance::dijkstra_tests::a_dijkstra_committee_update_is_read_through_the_same_credential_slice ... ok
+test governance::dijkstra_tests::a_dijkstra_proposal_reaches_the_dijkstra_parameter_update ... ok
+test governance::dijkstra_tests::a_dijkstra_update_leaving_key_18_alone_reads_no_cost_models ... ok
+test governance::dijkstra_tests::an_info_action_proposes_no_parameter_update ... ok
+test fees::tests::known_fee_matches ... ok
+test governance::dijkstra_tests::an_information_action_is_read_as_information_in_both_eras ... ok
+test governance::dijkstra_tests::a_conway_proposal_reaches_the_conway_parameter_update ... ok
+test governance::tests::a_conway_committee_update_carries_both_credential_lists ... ok
+test governance::dijkstra_tests::a_dijkstra_update_reads_all_four_cost_models ... ok
+test cert::tests::every_dijkstra_certificate_is_read_through_the_certificate_view ... ok
+test cert::tests::a_dijkstra_pool_registration_carries_its_bls_key_through_the_view ... ok
+test governance::tests::a_conway_proposal_reaches_its_parameter_update_without_the_feature ... ok
+test governance::tests::a_conway_parameter_change_carries_its_update_through_the_view ... ok
+test era::tests::dijkstra_sorts_after_conway_and_inherits_its_features ... ok
+test governance::dijkstra_tests::every_dijkstra_action_reports_the_id_it_carries_and_no_other_reports_one ... ok
+test governance::tests::a_conway_update_leaving_key_18_alone_reads_no_cost_models ... ok
+test era::tests::unknown_era_tags_are_still_refused ... ok
+test governance::dijkstra_tests::a_dijkstra_parameter_change_carries_this_eras_update_through_the_view ... ok
+test governance::tests::a_conway_update_reads_every_cost_model_it_proposes ... ok
+test governance::tests::a_conway_update_writing_key_3_still_reads_no_plutus_v4 ... ok
+test governance::tests::an_info_action_proposes_no_parameter_update ... ok
+test cert::tests::every_dijkstra_fixture_certificate_reads_the_arm_its_tag_names ... ok
+test cert::tests::every_dijkstra_certificate_payload_reads_back_by_value ... ok
+test hashes::tests::native_script_hashes_as_cardano_cli ... ok
+test hashes::tests::plutus_data_hashes_as_cardano_cli ... ok
+test hashes::tests::byron_transaction_hash_works ... ok
+test hashes::tests::dijkstra_auxiliary_data_hashes_as_the_body_declares ... ok
+test governance::tests::every_conway_action_is_read_through_the_action_view ... ok
+test governance::tests::every_conway_action_reports_the_id_it_carries_and_no_other_reports_one ... ok
+test block::tests::test_iteration ... ok
+test cert::tests::every_dijkstra_fixture_certificate_is_readable ... ok
+test hashes::tests::babbage_transaction_hash_works ... ok
+test hashes::tests::plutus_v2_script_hashes_as_cardano_cli ... ok
+test hashes::tests::test_inline_datum_hash_respects_original_cbor ... ok
+test hashes::tests::dijkstra_transaction_ids_match_the_node_utxo_keys ... ok
+test hashes::tests::plutus_v1_script_hashes_as_cardano_cli ... ok
+test hashes::tests::test_public_key_hash ... ok
+test hashes::tests::tx_wits_plutus_v1_script_hashes_as_cli ... ok
+test hashes::tests::alonzo_transaction_hash_works ... ok
+test hashes::tests::the_first_dijkstra_block_names_the_last_conway_one ... ok
+test header::tests::a_babbage_header_carries_no_leios_certificate_flag ... ok
+test header::tests::an_earlier_era_header_has_no_leios_fields_at_all ... ok
+test block::tests::dijkstra_outputs_carry_an_address_and_a_value ... ok
+test header::tests::a_header_that_announces_an_endorser_block_says_so ... ok
+test header::tests::conway_header_still_decodes ... ok
+test hashes::tests::test_witness_datum_hash_respects_original_cbor ... ok
+test hashes::tests::every_dijkstra_block_body_re_encodes_to_what_its_header_names ... ok
+test hashes::tests::every_fixture_block_hashes_as_the_node_recorded_it ... ok
+test header::tests::dijkstra_header_decodes_as_dijkstra ... ok
+test header::tests::every_header_variant_names_its_era ... ok
+test header::tests::the_conway_tag_reads_a_dijkstra_header_as_babbage_and_drops_two_fields ... ok
+test header::tests::unknown_envelope_tag_is_refused ... ok
+test attribute_tests::every_public_enum_carries_the_marking_it_is_listed_with ... ok
+test input::tests::test_duplicate_consumed_inputs ... ok
+test input::tests::test_expected_values ... ok
+test input::tests::test_utxo_ref_parsing ... ok
+test header::tests::envelope_tag_seven_reads_the_slot_the_fixture_record_names ... ok
+test leios::tests::a_body_is_accepted_when_the_announcement_is_the_hash_of_its_bytes ... ok
+test leios::tests::a_body_that_is_a_different_endorser_block_is_refused ... ok
+test header::tests::the_certificate_flag_and_the_announcement_are_read_separately ... ok
+test leios::tests::a_header_that_does_not_certify_after_a_parent_that_announced_certifies_nothing ... ok
+test leios::tests::a_body_that_is_not_a_map_is_refused ... ok
+test leios::tests::a_body_with_trailing_bytes_is_accepted_against_the_hash_of_its_map ... ok
+test leios::tests::a_transaction_is_accepted_whatever_size_its_entry_names ... ok
+test leios::tests::a_long_delivery_is_refused ... ok
+test leios::tests::a_short_delivery_is_refused ... ok
+test leios::tests::an_empty_reply_is_refused_against_the_announcement_that_named_it ... ok
+test leios::tests::a_certifying_header_given_a_parent_it_does_not_name_is_refused ... ok
+test leios::tests::a_certificate_after_a_parent_that_announced_nothing_is_refused_on_a_rewritten_header ... ok
+test leios::tests::a_header_that_does_not_certify_certifies_nothing_whatever_parent_it_is_given ... ok
+test leios::tests::a_permuted_delivery_is_refused ... ok
+test leios::tests::a_body_is_accepted_whatever_size_the_announcement_names ... ok
+test leios::tests::each_real_certificate_names_its_parents_announcement ... ok
+test leios::tests::a_body_whose_bytes_differ_from_the_announced_ones_is_refused_on_hash ... ok
+test leios::tests::a_transaction_delivered_without_its_envelope_is_refused ... ok
+test leios::tests::each_fixture_header_is_the_ranking_block_the_chain_stored ... ok
+test leios_follow::tests::a_certifying_block_with_its_own_transactions_is_refused ... ok
+test leios::tests::the_first_dijkstra_header_after_a_conway_parent_certifies_nothing ... ok
+test leios_follow::tests::a_pre_leios_header_certifies_nothing ... ok
+test leios_follow::tests::a_walk_that_cannot_tell_refuses_a_certificate_as_its_own_ignorance ... ok
+test leios_follow::tests::a_refused_certificate_does_not_change_the_walk ... ok
+test leios_follow::resolve_tests::a_block_that_certifies_nothing_is_refused ... ok
+test leios::tests::a_body_naming_one_transaction_twice_is_accepted ... ok
+test leios_follow::tests::a_header_that_certifies_nothing_pending_is_refused ... ok
+test leios_follow::resolve_tests::a_single_transaction_endorser_block_resolves ... ok
+test leios_follow::resolve_tests::the_spliced_transactions_carry_the_blocks_validity_flag ... ok
+test leios_follow::tests::an_announcement_settles_a_walk_that_could_not_tell ... ok
+test leios_follow::resolve_tests::resolving_with_no_transactions_gives_an_empty_block ... ok
+test leios_follow::tests::certification_walks_the_headers_and_abandons_a_superseded_announcement ... ok
+test leios_follow::resolve_tests::the_splice_replaces_the_transaction_list_and_not_a_certificate_slot ... ok
+test probe::tests::a_shape_no_rule_describes_is_reported_as_other ... ok
+test probe::tests::a_three_element_transaction_is_the_mempool_shape ... ok
+test leios_follow::resolve_tests::a_pre_leios_block_is_refused ... ok
+test probe::tests::an_indefinite_array_is_read_by_the_same_rules_as_a_definite_one ... ok
+test probe::tests::alonzo_block_detected ... ok
+test leios_follow::tests::each_fixture_header_is_the_ranking_block_the_chain_stored ... ok
+test probe::tests::allegra_block_detected ... ok
+test leios_follow::tests::the_synthetic_header_changes_two_fields_and_nothing_else ... ok
+test probe::tests::babbage_block_detected ... ok
+test redeemers::dijkstra_tests::a_dijkstra_purpose_the_redeemer_does_not_carry_is_not_reported ... ok
+test redeemers::dijkstra_tests::the_legacy_reader_refuses_the_guarding_tag - should panic ... ok
+test probe::tests::shelley_block_detected ... ok
+test redeemers::dijkstra_tests::a_dijkstra_spend_redeemer_is_named_under_the_spend_tag ... ok
+test probe::tests::byron_block_detected ... ok
+test probe::tests::dijkstra_block_detected ... ok
+test script_ref::dijkstra_tests::a_native_reference_script_is_reported_as_native ... ok
+test probe::tests::conway_block_detected ... ok
+test redeemers::tests::a_purpose_the_redeemer_does_not_carry_is_not_reported ... ok
+test script_ref::dijkstra_tests::a_plutus_v4_reference_script_is_reported_as_v4 ... ok
+test redeemers::dijkstra_tests::the_legacy_reader_answers_a_dijkstra_tag_conway_shares ... ok
+test script_ref::dijkstra_tests::an_output_with_no_reference_script_reports_none ... ok
+test redeemers::dijkstra_tests::a_guarding_redeemer_is_named_in_the_shared_tag_space ... ok
+test redeemers::tests::a_conway_purpose_keeps_its_name_in_the_shared_tag_space ... ok
+test script_ref::dijkstra_tests::an_era_with_no_reference_script_rule_is_refused ... ok
+test script_ref::tests::a_conway_native_reference_script_is_read_in_the_shared_type ... ok
+test probe::tests::the_validity_flag_position_tells_the_two_four_element_shapes_apart ... ok
+test probe::tests::mary_block_detected ... ok
+test size::tests::known_size_matches ... ok
+test script_ref::tests::a_conway_output_with_no_reference_script_reports_none ... ok
+test time::tests::calc_matches_preview_values ... ok
+test time::tests::calc_matches_preprod_values ... ok
+test time::tests::calc_matches_mainnet_values ... ok
+test script_ref::dijkstra_tests::the_legacy_reader_answers_a_dijkstra_reference_script_none ... ok
+test script_ref::tests::a_conway_reference_script_is_read_in_the_shared_type ... ok
+test testing::tests::the_shared_transaction_fixtures_are_what_these_builders_write ... ok
+test time::tests::calc_matches_testnet_values ... ok
+test time::tests::known_slot_matches ... ok
+test tx::tests::a_chain_transaction_carries_one_sub_transaction ... ok
+test tx::tests::a_dijkstra_mempool_transaction_decodes ... ok
+test tx::tests::a_dijkstra_block_transaction_still_decodes_and_keeps_its_flag ... ok
+test tx::tests::a_sub_transaction_answers_the_accessors_from_its_own_body ... ok
+test tx::tests::a_sub_transaction_hashes_the_body_bytes_it_arrived_in ... ok
+test tx::tests::a_three_element_transaction_is_not_guessed_as_dijkstra ... ok
+test tx::tests::an_earlier_era_transaction_answers_as_it_did_before ... ok
+test tx::tests::a_transaction_with_no_voting_procedures_says_so ... ok
+test tx::tests::an_indefinite_three_element_transaction_is_not_guessed_as_dijkstra ... ok
+test leios::tests::each_real_certifying_block_names_the_endorser_block_whose_transactions_it_lacks ... ok
+test tx::tests::an_indefinite_earlier_era_transaction_decodes_as_its_definite_form ... ok
+test tx::tests::every_transaction_lands_in_the_era_its_shape_names ... ok
+test tx::tests::an_indefinite_block_form_decodes_through_the_era_agnostic_entry_point ... ok
+test tx::tests::an_indefinite_mempool_form_decodes_for_the_dijkstra_era ... ok
+test witnesses::dijkstra_tests::a_guard_clause_nested_in_a_script_all_is_read_as_a_guard ... ok
+test witnesses::dijkstra_tests::a_transaction_with_no_script_witness_reports_none ... ok
+test tx::tests::the_listed_accessors_answer_a_dijkstra_transaction ... ok
+test block::tests::txs_yields_only_the_transactions_the_block_body_lists ... ok
+test witnesses::dijkstra_tests::a_conway_native_script_witness_is_not_reported_as_a_dijkstra_one ... ok
+test tx::tests::the_block_form_decodes_for_its_own_era_alone ... ok
+test witnesses::dijkstra_tests::a_dijkstra_native_script_witness_is_readable ... ok
+test tx::tests::the_four_element_mempool_form_decodes_for_the_dijkstra_era ... ok
+test tx::tests::the_two_fallible_decoders_have_a_dijkstra_arm ... ok
+test witnesses::dijkstra_tests::auxiliary_data_with_no_plutus_v4_script_reports_none ... ok
+test witnesses::dijkstra_tests::dijkstra_auxiliary_data_scripts_are_readable ... ok
+test witnesses::dijkstra_tests::the_legacy_script_readers_answer_a_dijkstra_transaction_empty ... ok
+test witnesses::tests::the_three_dijkstra_auxiliary_plutus_accessors_answer_empty_for_conway ... ok
+test witnesses::tests::a_nested_script_carries_no_bytes_of_its_own ... ok
+test witnesses::tests::a_conway_native_script_reads_every_clause_it_can_hold ... ok
+test witnesses::tests::a_conway_native_script_witness_is_read_in_the_shared_type ... ok
+test witnesses::tests::a_conway_transaction_with_no_script_reports_none ... ok
+test witnesses::tests::a_negative_n_of_k_threshold_reads_back_signed ... ok
+test witnesses::tests::a_witness_set_script_hashes_the_bytes_it_arrived_in ... ok
+test witnesses::tests::an_auxiliary_data_script_hashes_this_crates_own_encoding ... ok
+test witnesses::tests::conway_auxiliary_data_scripts_are_read_in_the_shared_type ... ok
+test witnesses::tests::dijkstra_answers_the_auxiliary_plutus_v2_and_v3_scripts_conway_drops ... ok
+test leios::tests::the_body_key_of_a_transaction_is_not_its_id ... ok
+test leios::tests::each_fixture_reads_as_its_recorded_count_and_first_transaction ... ok
+test tx::tests::a_sub_transaction_reports_the_verdict_on_the_transaction_carrying_it ... ok
+test probe::tests::genesis_block_detected ... ok
+test leios_follow::resolve_tests::a_certifying_block_resolves_to_the_endorser_blocks_transactions ... ok
+
+test result: ok. 190 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/deep_native_script.rs (target/debug/deps/deep_native_script-783b6467061e588f)
+
+running 1 test
+test preprod_deep_native_script_block_on_default_sized_stack ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/musashi_registration.rs (target/debug/deps/musashi_registration-aaf1186f1c581c46)
+
+running 1 test
+test registration_fixtures_match_successful_network_transactions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/signed_n_of_k_threshold.rs (target/debug/deps/signed_n_of_k_threshold-c1804026041b1170)
+
+running 1 test
+test preprod_negative_n_of_k_threshold_decodes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_utxorpc-3fe45e4e44882fb9)
+
+running 112 tests
+test cross_version_compat::certificate_wire_compatible ... ok
+test cross_version_compat::pparams_wire_compatible ... ok
+test cross_version_compat::metadata_wire_compatible ... ok
+test cross_version_compat::plutus_data_wire_compatible ... ok
+test cross_version_compat::pool_registration_cert_wire_compatible ... ok
+test v1alpha::cert_tests::a_move_instantaneous_rewards_certificate_maps_the_pot_and_every_target ... ok
+test v1alpha::cert_tests::a_certificate_carries_the_redeemer_the_transaction_indexes_at_its_position ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_maps_its_update_through_the_view ... ok
+test v1alpha::mapper_tests::a_certificate_carries_the_redeemer_paired_with_its_own_position ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_maps_every_key_u5c_carries ... ok
+test v1alpha::cert_tests::a_pool_registration_read_from_a_block_maps_every_parameter ... ok
+test v1alpha::mapper_tests::a_conway_transaction_maps_its_plutus_v3_witness_script ... ok
+test v1alpha::mapper_tests::a_dijkstra_block_with_no_certificates_maps_none ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_setting_a_key_to_zero_maps_to_that_key ... ok
+test v1alpha::mapper_tests::a_dijkstra_block_maps_every_certificate ... ok
+test v1alpha::cert_tests::every_conway_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1alpha::cert_tests::every_alonzo_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1alpha::mapper_tests::a_dijkstra_parameter_change_maps_a_key_u5c_carries ... ok
+test v1alpha::mapper_tests::a_dijkstra_pool_registration_drops_the_bls_key_it_fills ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_of_nothing_u5c_carries_maps_to_no_parameters ... ok
+test v1alpha::mapper_tests::a_dijkstra_parameter_change_of_a_key_u5c_cannot_carry_maps_to_no_parameters ... ok
+test v1alpha::mapper_tests::a_dijkstra_transaction_maps_its_auxiliary_plutus_scripts ... ok
+test v1alpha::mapper_tests::a_conway_transaction_without_a_v3_witness_script_reports_no_v3 ... ok
+test v1alpha::cert_tests::the_era_specific_mappers_map_through_the_certificate_view ... ok
+test v1alpha::mapper_tests::a_dijkstra_reference_script_maps_the_language_only_this_era_names ... ok
+test v1alpha::mapper_tests::a_guard_clause_nested_in_a_dijkstra_script_maps_to_an_empty_message ... ok
+test v1alpha::mapper_tests::a_dijkstra_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1alpha::mapper_tests::a_guard_clause_inside_a_list_maps_to_an_empty_message ... ok
+test v1alpha::mapper_tests::a_dijkstra_parameter_change_of_a_carried_key_and_an_era_key_maps_the_carried_one ... ok
+test v1alpha::mapper_tests::a_governance_action_carries_the_action_id_it_names ... ok
+test v1alpha::mapper_tests::a_guarding_redeemer_maps_to_the_purpose_u5c_leaves_unspecified ... ok
+test v1alpha::mapper_tests::every_redeemer_tag_the_eras_share_maps_to_the_purpose_it_names ... ok
+test v1alpha::mapper_tests::every_governance_action_kind_maps_the_payload_it_carries ... ok
+test v1alpha::mapper_tests::the_deprecated_any_script_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::mapper_tests::the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::mapper_tests::a_dijkstra_parameter_change_maps_every_key_u5c_carries ... ok
+test v1alpha::mapper_tests::a_dijkstra_proposal_maps_its_governance_action ... ok
+test v1alpha::mapper_tests::a_sub_transaction_maps_to_its_own_body ... ok
+test v1alpha::mapper_tests::a_dijkstra_transaction_maps_every_script_it_carries ... ok
+test v1alpha::tests::an_information_action_maps_to_the_value_this_schema_names ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_preserves_mixed_shape_trees ... ok
+test v1alpha::mapper_tests::an_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1alpha::mapper_tests::execution_prices_map_memory_and_steps_to_the_fields_their_names_give ... ok
+test v1alpha::mapper_tests::the_deprecated_gov_action_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::tests::a_pubkey_clause_maps_to_the_member_this_schema_names ... ok
+test v1alpha::mapper_tests::a_sub_transaction_reaches_none_of_the_mapped_transaction ... ok
+test v1alpha::mapper_tests::every_reference_script_language_maps_to_the_field_it_names ... ok
+test v1alpha::tests::oversized_n_of_k_threshold_maps_to_u32_max ... ok
+test v1alpha::tests::negative_n_of_k_threshold_maps_to_zero ... ok
+test v1beta::cert_tests::a_move_instantaneous_rewards_certificate_maps_the_pot_and_every_target ... ok
+test v1beta::cert_tests::a_certificate_carries_the_redeemer_the_transaction_indexes_at_its_position ... ok
+test v1alpha::tests::the_legacy_purpose_mapper_agrees_with_the_multi_era_one ... ok
+test v1alpha::tests::map_native_script_preserves_mixed_shape_trees ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_maps_every_key_u5c_carries ... ok
+test v1beta::cert_tests::the_era_specific_mappers_map_through_the_certificate_view ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_of_nothing_u5c_carries_maps_to_no_parameters ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_maps_its_update_through_the_view ... ok
+test v1beta::cert_tests::a_pool_registration_read_from_a_block_maps_every_parameter ... ok
+test v1beta::cert_tests::every_alonzo_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1beta::mapper_tests::a_dijkstra_parameter_change_maps_every_key_u5c_carries ... ok
+test v1beta::mapper_tests::a_dijkstra_parameter_change_of_a_carried_key_and_an_era_key_maps_the_carried_one ... ok
+test v1beta::mapper_tests::a_dijkstra_parameter_change_of_a_key_u5c_cannot_carry_maps_to_no_parameters ... ok
+test v1beta::mapper_tests::a_dijkstra_proposal_maps_its_governance_action ... ok
+test v1beta::mapper_tests::a_dijkstra_reference_script_maps_the_language_only_this_era_names ... ok
+test v1beta::mapper_tests::a_dijkstra_transaction_maps_every_script_it_carries ... ok
+test v1beta::mapper_tests::a_dijkstra_transaction_maps_its_auxiliary_plutus_scripts ... ok
+test v1beta::mapper_tests::a_dijkstra_pool_registration_drops_the_bls_key_it_fills ... ok
+test v1beta::mapper_tests::a_dijkstra_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_setting_a_key_to_zero_maps_to_that_key ... ok
+test v1beta::cert_tests::every_conway_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1beta::mapper_tests::a_certificate_carries_the_redeemer_paired_with_its_own_position ... ok
+test v1beta::mapper_tests::a_dijkstra_parameter_change_maps_a_key_u5c_carries ... ok
+test v1beta::mapper_tests::a_conway_transaction_maps_its_plutus_v3_witness_script ... ok
+test v1beta::mapper_tests::a_dijkstra_block_maps_every_certificate ... ok
+test v1beta::mapper_tests::a_governance_action_carries_the_action_id_it_names ... ok
+test v1beta::mapper_tests::a_guard_clause_nested_in_a_dijkstra_script_maps_to_an_empty_message ... ok
+test v1beta::mapper_tests::a_conway_transaction_without_a_v3_witness_script_reports_no_v3 ... ok
+test v1beta::mapper_tests::a_guarding_redeemer_maps_to_the_purpose_u5c_leaves_unspecified ... ok
+test v1beta::mapper_tests::every_governance_action_kind_maps_the_payload_it_carries ... ok
+test v1beta::mapper_tests::an_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1beta::mapper_tests::a_sub_transaction_maps_to_its_own_body ... ok
+test v1beta::mapper_tests::a_sub_transaction_reaches_none_of_the_mapped_transaction ... ok
+test v1beta::mapper_tests::every_redeemer_tag_the_eras_share_maps_to_the_purpose_it_names ... ok
+test v1beta::mapper_tests::a_guard_clause_inside_a_list_maps_to_an_empty_message ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_handles_a_deeply_nested_dijkstra_script ... ok
+test v1beta::mapper_tests::the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did ... ok
+test v1beta::mapper_tests::the_deprecated_any_script_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::tests::map_metadatum_handles_deeply_nested_metadata_on_a_small_stack ... ok
+test v1beta::tests::a_committee_key_and_a_committee_script_vote_as_their_own_credential_kinds ... ok
+test v1beta::mapper_tests::a_dijkstra_block_with_no_certificates_maps_none ... ok
+test v1beta::mapper_tests::the_deprecated_gov_action_mapper_answers_as_v1_4_0_did ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_preserves_mixed_shape_trees ... ok
+test v1beta::tests::a_dijkstra_transaction_with_one_vote_maps_it ... ok
+test v1beta::tests::a_dijkstra_transaction_with_no_votes_maps_none ... ok
+test v1beta::mapper_tests::every_reference_script_language_maps_to_the_field_it_names ... ok
+test v1beta::mapper_tests::execution_prices_map_memory_and_steps_to_the_fields_their_names_give ... ok
+test v1beta::tests::an_information_action_maps_to_the_value_this_schema_names ... ok
+test v1beta::tests::a_pubkey_clause_maps_to_the_member_this_schema_names ... ok
+test v1beta::tests::oversized_n_of_k_threshold_maps_to_u32_max ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero ... ok
+test v1beta::tests::map_native_script_preserves_mixed_shape_trees ... ok
+test v1beta::tests::negative_n_of_k_threshold_maps_to_zero ... ok
+test v1beta::tests::the_legacy_purpose_mapper_agrees_with_the_multi_era_one ... ok
+test v1alpha::tests::map_native_script_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1alpha::tests::map_plutus_datum_handles_deeply_nested_data_on_a_small_stack ... ok
+test v1beta::mapper_tests::snapshot ... ok
+test v1alpha::mapper_tests::snapshot ... ok
+test v1beta::tests::map_native_script_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_handles_a_deeply_nested_dijkstra_script ... ok
+
+test result: ok. 112 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-23ac6eedf84890af)
+
+running 73 tests
+test phase1::conway::certificate_witnesses::all_plutus_versions_can_supply_certificate_scripts ... ok
+test phase1::conway::certificate_witnesses::captured_registration_rejects_incorrect_reference_script ... ok
+test phase1::conway::certificate_witnesses::captured_registration_rejects_wrong_pointer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_requires_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_accepts_certificate_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_requires_script_even_without_redeemer ... ok
+test phase1::conway::native_inputs::byron_output_inspection_preserves_existing_witness_boundary ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_script_and_plutus_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_checks_original_signatures_and_balance ... ok
+test phase1::conway::native_inputs::captured_native_collateral_address_and_value ... ok
+test phase1::conway::certificate_witnesses::legacy_registration_requires_neither_key_script_nor_redeemer ... ok
+test phase1::conway::native_inputs::captured_native_collateral_accounting_and_reference_only_trigger ... ok
+test phase1::conway::certificate_witnesses::native_and_key_certificates_reject_unnecessary_redeemers ... ok
+test phase1::conway::native_inputs::captured_native_inputs_reject_missing_and_invalid_payment_witnesses ... ok
+test phase1::conway::native_inputs::native_collateral_assets_and_annotations_are_checked ... ok
+test phase1::conway::certificate_witnesses::native_reference_certificate_needs_no_redeemer ... ok
+test phase1::conway::native_inputs::captured_native_inputs_pass_witness_and_balance_rules ... ok
+test phase1::conway::certificate_witnesses::native_reference_authorization_uses_original_script_hash ... ok
+test phase1::conway::native_inputs::captured_native_input_checks_original_payment_witness ... ok
+test phase1::conway::certificate_witnesses::native_certificate_timelocks_and_thresholds_are_evaluated ... ok
+test phase1::conway::native_inputs::earlier_era_key_inputs_still_verify_signatures ... ok
+test phase1::conway::native_inputs::earlier_era_and_native_outputs_share_input_inspection ... ok
+test phase1::conway::certificate_witnesses::pool_certificates_require_operator_and_registration_owners ... ok
+test phase1::conway::native_inputs::native_reference_languages_reach_integrity_hash_check ... ok
+test phase1::conway::native_inputs::native_reference_script_requires_correct_hash_and_input_role ... ok
+test phase1::conway::native_inputs::native_input_and_reference_datums_are_visible ... ok
+test phase1::conway::native_inputs::native_reference_v1_v2_v3_scripts_supply_mint_from_spending_or_reference_inputs ... ok
+test phase1::conway::native_inputs::native_collateral_rejects_script_and_malformed_addresses ... ok
+test phase1::conway::native_inputs::native_inline_datum_and_reference_script_restrict_v1_inputs ... ok
+test phase1::conway::native_inputs::native_reference_scripts_reject_v4_and_nested_guards_explicitly ... ok
+test phase1::conway::registration_deposits::absent_or_delegation_only_certificates_do_not_charge_a_deposit ... ok
+test phase1::conway::registration_deposits::all_stake_registration_forms_charge_the_protocol_deposit ... ok
+test phase1::conway::registration_deposits::removing_registration_leaves_unbalanced_value ... ok
+test phase1::conway::registration_deposits::one_lovelace_imbalance_fails_for_both_encodings ... ok
+test phase1::conway::registration_deposits::declared_deposit_cannot_override_protocol_accounting ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending ... ok
+test phase1::conway::native_inputs::native_reference_timelocks_keep_original_hash_and_need_no_redeemer ... ok
+test phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch ... ok
+test phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified ... ok
+test phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks ... ok
+test phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author ... ok
+test phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras ... ok
+test phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject ... ok
+test phase1::conway::certificate_witnesses::certificate_pointers_use_full_positions_and_distinct_purposes ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_its_key_and_valid_signature ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards ... ok
+test phase1::conway::certificate_witnesses::native_certificate_checks_authorization_without_redeemers ... ok
+test phase1::shelley_ma::tests::invalid_before ... ok
+test phase1::shelley_ma::tests::invalid_hereafter ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch ... ok
+test phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries ... ok
+test utils::registration_deposits::unrelated_certificate_deposits_are_not_stake_deposits ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance ... ok
+test phase1::shelley_ma::tests::n_of_k_threshold ... ok
+test phase1::shelley_ma::tests::nested_timelocks ... ok
+test utils::registration_deposits::adding_fees_and_deposits_cannot_overflow_produced_value ... ok
+test phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode ... ok
+test phase1::dijkstra_tests::dijkstra_validity_is_half_open ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees ... ok
+test utils::registration_deposits::deposits_preserve_native_assets ... ok
+test utils::registration_deposits::native::settings_native_dijkstra_registration_balance ... ok
+test utils::registration_deposits::native::protocol_native_dijkstra_registration_balance ... ok
+test utils::registration_deposits::stake_deposit_sum_overflow_is_rejected ... ok
+test phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly ... ok
+test phase1::dijkstra_tests::dijkstra_capture_integrity_and_certified_original_input ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+     Running tests/alonzo.rs (target/debug/deps/alonzo-5bfdd0729d181fe3)
+
+running 33 tests
+test alonzo_tests::extra_plutus_script ... ok
+test alonzo_tests::min_lovelace_unreached ... ok
+test alonzo_tests::missing_vk_witness ... ok
+test alonzo_tests::max_val_exceeded ... ok
+test alonzo_tests::minting_lacks_policy ... ok
+test alonzo_tests::min_fee_unreached ... ok
+test alonzo_tests::missing_required_signer ... ok
+test alonzo_tests::missing_plutus_script ... ok
+test alonzo_tests::extra_redeemer ... ok
+test alonzo_tests::missing_redeemer ... ok
+test alonzo_tests::missing_input_datum ... ok
+test alonzo_tests::script_integrity_hash ... ok
+test alonzo_tests::max_tx_size_exceeded ... ok
+test alonzo_tests::auxiliary_data_removed ... ok
+test alonzo_tests::collateral_with_other_assets ... ok
+test alonzo_tests::collateral_is_not_verification_key_locked ... ok
+test alonzo_tests::no_collateral_inputs ... ok
+test alonzo_tests::preservation_of_value ... ok
+test alonzo_tests::empty_ins ... ok
+test alonzo_tests::extra_input_datum ... ok
+test alonzo_tests::collateral_without_min_lovelace ... ok
+test alonzo_tests::successful_mainnet_tx_with_metadata ... ok
+test alonzo_tests::successful_mainnet_tx ... ok
+test alonzo_tests::successful_mainnet_tx_with_minting ... ok
+test alonzo_tests::too_many_collateral_inputs ... ok
+test alonzo_tests::output_network_ids ... ok
+test alonzo_tests::tx_network_id ... ok
+test alonzo_tests::validity_interval_upper_bound_surpassed ... ok
+test alonzo_tests::unfound_utxo_input ... ok
+test alonzo_tests::validity_interval_lower_bound_unreached ... ok
+test alonzo_tests::tx_ex_units_exceeded ... ok
+test alonzo_tests::wrong_signature ... ok
+test alonzo_tests::successful_mainnet_tx_with_plutus_script ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/babbage.rs (target/debug/deps/babbage-cf5934d342cfe68e)
+
+running 33 tests
+test babbage_tests::collateral_annotation ... ok
+test babbage_tests::auxiliary_data_removed ... ok
+test babbage_tests::collateral_is_not_verification_key_locked ... ok
+test babbage_tests::collateral_min_lovelace ... ok
+test babbage_tests::max_tx_size_exceeded ... ok
+test babbage_tests::extra_redeemer ... ok
+test babbage_tests::empty_ins ... ok
+test babbage_tests::max_val_exceeded ... ok
+test babbage_tests::collateral_with_other_assets ... ok
+test babbage_tests::min_lovelace_unreached ... ok
+test babbage_tests::min_fee_unreached ... ok
+test babbage_tests::extra_input_datum ... ok
+test babbage_tests::output_network_id ... ok
+test babbage_tests::minting_lacks_policy ... ok
+test babbage_tests::missing_input_datum ... ok
+test babbage_tests::script_input_lacks_script ... ok
+test babbage_tests::successful_mainnet_tx ... ok
+test babbage_tests::preservation_of_value ... ok
+test babbage_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test babbage_tests::unfound_utxo_input ... ok
+test babbage_tests::tx_network_id ... ok
+test babbage_tests::no_collateral_inputs ... ok
+test babbage_tests::validity_interval_lower_bound_unreached ... ok
+test babbage_tests::too_many_collateral_inputs ... ok
+test babbage_tests::successful_mainnet_tx_with_metadata ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v1_script ... ok
+test babbage_tests::successful_mainnet_tx_with_minting ... ok
+test babbage_tests::successful_preprod_tx_with_plutus_v2_script ... ok
+test babbage_tests::validity_interval_upper_bound_surpassed ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v2_script ... ok
+test babbage_tests::successful_preview_tx_with_plutus_v2_script ... ok
+test babbage_tests::tx_ex_units_exceeded ... ok
+test babbage_tests::script_integrity_hash ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/byron.rs (target/debug/deps/byron-b8dd535c9c009695)
+
+running 10 tests
+test byron_tests::empty_ins ... ok
+test byron_tests::empty_outs ... ok
+test byron_tests::missing_witness ... ok
+test byron_tests::not_enough_fees ... ok
+test byron_tests::successful_mainnet_tx ... ok
+test byron_tests::unfound_utxo ... ok
+test byron_tests::successful_mainnet_tx_with_genesis_utxos ... ok
+test byron_tests::tx_size_exceeds_max ... ok
+test byron_tests::wrong_signature ... ok
+test byron_tests::output_without_lovelace ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/common.rs (target/debug/deps/common-2c3edad47e801525)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conway.rs (target/debug/deps/conway-5dc2d5ff52b44d7c)
+
+running 22 tests
+test conway_tests::certificate_script_is_required_through_dispatch ... ok
+test conway_tests::collateral_annotation ... ok
+test conway_tests::collateral_is_not_verification_key_locked ... ok
+test conway_tests::max_val_exceeded ... ok
+test conway_tests::collateral_min_lovelace ... ok
+test conway_tests::mainnet_reference_script_rejects_underfunded_collateral ... ok
+test conway_tests::collateral_with_other_assets ... ok
+test conway_tests::no_collateral_inputs ... ok
+test conway_tests::validity_interval_lower_bound_unreached ... ok
+test conway_tests::validity_interval_upper_bound_surpassed ... ok
+test conway_tests::min_lovelace_unreached ... ok
+test conway_tests::preservation_of_value ... ok
+test conway_tests::min_fee_unreached ... ok
+test conway_tests::empty_ins ... ok
+test conway_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test conway_tests::max_tx_size_exceeded ... ok
+test conway_tests::registration_deposit_is_required_through_dispatch ... ok
+test conway_tests::too_many_collateral_inputs ... ok
+test conway_tests::tx_network_id ... ok
+test conway_tests::preview_reference_script_rejects_underfunded_collateral ... ok
+test conway_tests::successful_mainnet_tx ... ok
+test conway_tests::unfound_utxo_input ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/shelley_ma.rs (target/debug/deps/shelley_ma-d61794dd005ebd6e)
+
+running 25 tests
+test shelley_ma_tests::auxiliary_data_removed ... ok
+test shelley_ma_tests::fee_below_minimum ... ok
+test shelley_ma_tests::max_tx_size_exceeded ... ok
+test shelley_ma_tests::output_below_min_lovelace ... ok
+test shelley_ma_tests::empty_ins ... ok
+test shelley_ma_tests::preservation_of_value ... ok
+test shelley_ma_tests::missing_signature_native_script ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_pool_reg ... ok
+test shelley_ma_tests::missing_vk_witness ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_changed_script ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_metadata ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_script ... ok
+test shelley_ma_tests::successful_mainnet_allegra_tx_with_mir ... ok
+test shelley_ma_tests::too_late_for_mir ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_stk_deleg ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_minting ... ok
+test shelley_ma_tests::ttl_exceeded ... ok
+test shelley_ma_tests::missing_ttl ... ok
+test shelley_ma_tests::unfound_utxo ... ok
+test shelley_ma_tests::wrong_network_id ... ok
+test shelley_ma_tests::unregistered_pool ... ok
+test shelley_ma_tests::vk_witness_changed ... ok
+test shelley_ma_tests::delegation_before_registration ... ok
+test shelley_ma_tests::missing_native_script_witness ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/utils.rs (target/debug/deps/utils-0f23bcbc267673ad)
+
+running 4 tests
+test conway_add_values_rejects_lovelace_overflow ... ok
+test add_values_rejects_lovelace_overflow ... ok
+test add_minted_value_rejects_burn_below_zero ... ok
+test add_minted_value_rejects_burn_of_missing_asset ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pallas_primitives
+
+running 1 test
+test pallas-primitives/src/lib.rs - (line 18) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 2.61s; merged doctests compilation took 2.60s
+   Doc-tests pallas_traverse
+
+running 1 test
+test pallas-traverse/src/lib.rs - (line 17) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 1.28s; merged doctests compilation took 1.27s
+   Doc-tests pallas_utxorpc
+
+running 1 test
+test pallas-utxorpc/src/lib.rs - (line 10) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.99s; merged doctests compilation took 0.98s
+   Doc-tests pallas_validate
+
+running 1 test
+test pallas-validate/src/lib.rs - (line 10) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.42s; merged doctests compilation took 0.41s

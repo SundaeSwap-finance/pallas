@@ -1,0 +1,10 @@
+{
+  "classification": "synthetic phase-two-only diagnostic; signatures and transaction-size validity not claimed",
+  "integer": "2^262143",
+  "builtin": "addInteger",
+  "cli_exit_code": 1,
+  "protocol": 12,
+  "toolchain": "1.97.0",
+  "cli_revision": "afa091b4af2795d1d9c46e59145ed16127760f7b",
+  "historical_evaluator": "unknown"
+}

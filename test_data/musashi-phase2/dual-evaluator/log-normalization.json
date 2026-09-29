@@ -1,0 +1,62 @@
+[
+  {
+    "path": "baseline-dual-runtime.txt",
+    "raw_sha256": "170653e29a9cf5d517f2b753cd5edf3b15de158395a967caa17559f46ab5ce29",
+    "tracked_sha256": "170653e29a9cf5d517f2b753cd5edf3b15de158395a967caa17559f46ab5ce29",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "baseline-stable-compile.txt",
+    "raw_sha256": "b3a04fce4304e571eba72d9b3fdd2184bfabb08b81fec92ac5246e38e2462ff6",
+    "tracked_sha256": "b3a04fce4304e571eba72d9b3fdd2184bfabb08b81fec92ac5246e38e2462ff6",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-pallas-tests.txt",
+    "raw_sha256": "1cc4a48c4cf09eb65ccf3d881dd8aa385ce241e51f835be0e019ec49cff43288",
+    "tracked_sha256": "1cc4a48c4cf09eb65ccf3d881dd8aa385ce241e51f835be0e019ec49cff43288",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-pallas-clippy.txt",
+    "raw_sha256": "e3387edefdb9f0f827ea1a25076007b46b443d76250f5936111ecc7e3845fcee",
+    "tracked_sha256": "e3387edefdb9f0f827ea1a25076007b46b443d76250f5936111ecc7e3845fcee",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "baseline-amaru-integers.txt",
+    "raw_sha256": "dc0850e5d36603d4f12be9a6ca57c1141586afb599daadd4925356e64ef3a021",
+    "tracked_sha256": "dc0850e5d36603d4f12be9a6ca57c1141586afb599daadd4925356e64ef3a021",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-amaru-tests.txt",
+    "raw_sha256": "e361b98bf896d51d3c6dc8268c19f04acd4fe0944a8c8ee5ce380657fe8ae57f",
+    "tracked_sha256": "ddba48b8f360f97549d9cacb9dc7f3660c4ac4bdaf095879537f64e556559c6b",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-amaru-collections.txt",
+    "raw_sha256": "764ac15b2bb1411bec13485889475fde37a48bea062c1fe19d2bb41c3a8d4e9e",
+    "tracked_sha256": "33c4bf6afee65be792e7d3a906fbd9fb4bad37cfec0f9c22b8a9e577f965e3b9",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-amaru-clippy.txt",
+    "raw_sha256": "eb7ccb8bf06d37f180f5169adc2189e82db2e0a422c153e48226e40d8f5b9448",
+    "tracked_sha256": "eb7ccb8bf06d37f180f5169adc2189e82db2e0a422c153e48226e40d8f5b9448",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "fixed-amaru-docs.txt",
+    "raw_sha256": "94a5bb2c5f130b7e7ba0fd15b0bf15a95a5f095dd11ece0340ac4b606b2597bd",
+    "tracked_sha256": "94a5bb2c5f130b7e7ba0fd15b0bf15a95a5f095dd11ece0340ac4b606b2597bd",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "amaru-workspace-missing-libclang.txt",
+    "raw_sha256": "091c0876c8831a951d93df5a10d81b0c0e61ab3156801092f175144328743a2f",
+    "tracked_sha256": "091c0876c8831a951d93df5a10d81b0c0e61ab3156801092f175144328743a2f",
+    "normalization": "strip line-end whitespace and final blank lines"
+  }
+]
