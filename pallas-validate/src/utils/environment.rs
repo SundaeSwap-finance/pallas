@@ -18,6 +18,8 @@ pub enum MultiEraProtocolParameters {
     Alonzo(AlonzoProtParams),
     Babbage(BabbageProtParams),
     Conway(ConwayProtParams),
+    #[cfg(feature = "unstable")]
+    Dijkstra(DijkstraProtParams),
 }
 
 impl MultiEraProtocolParameters {
@@ -40,6 +42,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { system_start, .. }) => {
                 *system_start
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.system_start,
         }
     }
 
@@ -65,6 +69,8 @@ impl MultiEraProtocolParameters {
                 protocol_version: (x, ..),
                 ..
             }) => *x as usize,
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.protocol_version.0 as usize,
         }
     }
 
@@ -89,6 +95,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { epoch_length, .. }) => {
                 *epoch_length
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.epoch_length,
         }
     }
 
@@ -109,6 +117,8 @@ impl MultiEraProtocolParameters {
             MultiEraProtocolParameters::Conway(ConwayProtParams { slot_length, .. }) => {
                 *slot_length
             }
+            #[cfg(feature = "unstable")]
+            MultiEraProtocolParameters::Dijkstra(pp) => pp.slot_length,
         }
     }
 }
@@ -293,4 +303,20 @@ impl Environment {
     pub fn acnt(&self) -> &Option<AccountState> {
         &self.acnt
     }
+}
+
+/// Parameters used by the deliberately restricted native Dijkstra transfer validator.
+/// This is not a complete Dijkstra parameter set. Script and stateful features reject.
+#[cfg(feature = "unstable")]
+#[derive(Debug, Clone)]
+pub struct DijkstraProtParams {
+    pub system_start: chrono::DateTime<chrono::FixedOffset>,
+    pub epoch_length: u64,
+    pub slot_length: u64,
+    pub protocol_version: ProtocolVersion,
+    pub minfee_a: u32,
+    pub minfee_b: u32,
+    pub max_transaction_size: u32,
+    pub ada_per_utxo_byte: Coin,
+    pub max_value_size: u32,
 }
