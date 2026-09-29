@@ -4,6 +4,10 @@ pub mod alonzo;
 pub mod babbage;
 pub mod byron;
 pub mod conway;
+#[cfg(feature = "unstable")]
+pub mod dijkstra;
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_tests;
 pub mod shelley_ma;
 
 use alonzo::validate_alonzo_tx;
@@ -89,6 +93,16 @@ pub fn validate_tx(
             MultiEraTx::Conway(mtx) => {
                 validate_conway_tx(mtx, utxos, cpp, env.block_slot(), env.network_id())
             }
+            _ => Err(TxAndProtParamsDiffer),
+        },
+        #[cfg(feature = "unstable")]
+        (MultiEraProtocolParameters::Dijkstra(pp), _) => match metx {
+            MultiEraTx::Dijkstra(tx) => {
+                dijkstra::validate_dijkstra_tx(tx, utxos, pp, env.block_slot(), env.network_id())
+            }
+            MultiEraTx::DijkstraSub(..) => Err(crate::utils::ValidationError::DijkstraUnsupported(
+                "subtransactions",
+            )),
             _ => Err(TxAndProtParamsDiffer),
         },
         (_, None) => Err(EnvMissingAccountState),
