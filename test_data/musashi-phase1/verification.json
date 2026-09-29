@@ -1,0 +1,233 @@
+{
+  "date": "2026-09-29",
+  "baseline": "baafb53cab4a31a7e8e529a31aeadde953da7ed0",
+  "status": "control-transfer subset verified; S05 remains partial pending native registration phase one",
+  "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_tests -- --nocapture",
+  "baseline_preparation": "Apply baseline-preparation.patch to git archive of baseline, copy final identical dijkstra_tests.rs and fixtures. Parameter/error API and test wiring only, with a rejecting native parameter arm; no native validator.",
+  "baseline_result": "1 passed; 10 assertion failures; compilation succeeded",
+  "baseline_exit_code": 101,
+  "fixed_result": "11 passed; 0 failed",
+  "fixed_exit_code": 0,
+  "capture_assertion": {
+    "expected": "Ok(())",
+    "baseline_actual": "Err(TxAndProtParamsDiffer)",
+    "fixed_actual": "Ok(())",
+    "fixture": "unchanged native control transfer with original Dijkstra UTxO and historical epoch-64 parameters/slot"
+  },
+  "build_separation": {
+    "baseline": "/tmp/musashi-s05/baseline and /tmp/musashi-s05/baseline-target; CARGO_PROFILE_DEV_DEBUG=0",
+    "fixed": "canonical Pallas checkout and target, default dev profile"
+  },
+  "test_sources_identical": true,
+  "outcomes": {
+    "dijkstra_earlier_era_inputs_keep_their_eras": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_captured_control_passes_native_dispatch": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_typed_features_reject_explicitly": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_captured_signatures_are_required_and_all_verified": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_unsupported_fields_do_not_disappear_in_decode": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_size_fee_and_output_boundaries": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_registration_rejects_unavailable_certificate_state": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_output_subset_and_checked_arithmetic": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_balance_network_and_input_checks": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_validity_is_half_open": {
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    "dijkstra_capture_integrity_and_certified_original_input": {
+      "baseline": "ok",
+      "fixed": "ok"
+    }
+  },
+  "source_sha256": {
+    "pallas-validate/src/phase1/dijkstra.rs": "5a7bd6e492ae2e0969d2cf4c74c9343adad91114280175c111cd7550cac339fd",
+    "pallas-validate/src/phase1/dijkstra_tests.rs": "17771c238004313e7480f682d28604ab621c680ec52c720210fa95242ee5c1ee",
+    "pallas-validate/src/phase1/mod.rs": "c6b2b92da6f60254493ae28ccb097263c1c2525f4546b696720d6d540370db1f",
+    "pallas-validate/src/utils/environment.rs": "c7e19dee6567575bc693fefa08793aaf1eacc77987529a77132d566303f3ad39",
+    "pallas-validate/src/utils/validation.rs": "7a2672fea9927547b752a7f5a2f1c2d3348bd1f5c782e5e9595fedf850e78412"
+  },
+  "gates": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.62,
+      "explanation": "Seven pre-existing formatting differences only in unchanged examples/leios-testnet/src/bin/harvest.rs. Changed-file formatting passes."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 3.59
+    },
+    {
+      "name": "clippy-native",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 3.61
+    },
+    {
+      "name": "validate",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 16.06
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 11.54
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 16.11
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 9.64
+    },
+    {
+      "name": "docs",
+      "command": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 28.24
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 2.7
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 101,
+      "seconds": 4.89,
+      "explanation": "Development-only compile failure in a newly added test mutation during ongoing work; fixed and final-all-features passes. Not baseline bug reproduction or a pre-existing failure."
+    },
+    {
+      "name": "isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.47
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 3.9
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 1.54,
+      "explanation": "Sandbox denied local sockets in pallas-network; socket-enabled reruns pass. All 19 math unit tests passed in the workspace run, math doctests pass separately."
+    },
+    {
+      "name": "workspace",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 260.18,
+      "explanation": "Sandbox denied local sockets in pallas-network; socket-enabled reruns pass. All 19 math unit tests passed in the workspace run, math doctests pass separately."
+    },
+    {
+      "name": "workspace-sockets",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0,
+      "seconds": 17.3
+    },
+    {
+      "name": "blueprint-sockets",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 6.2
+    },
+    {
+      "name": "math-docs",
+      "command": "cargo test --offline -p pallas-math --doc",
+      "exit_code": 0,
+      "seconds": 0.77
+    },
+    {
+      "name": "final-validate",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 3.27
+    },
+    {
+      "name": "final-clippy-native",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.16
+    },
+    {
+      "name": "final-all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 1.41
+    },
+    {
+      "name": "final-changed-fmt",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase1/dijkstra.rs pallas-validate/src/phase1/dijkstra_tests.rs pallas-validate/src/phase1/mod.rs pallas-validate/src/utils/environment.rs pallas-validate/src/utils/validation.rs",
+      "exit_code": 0,
+      "seconds": 0.14
+    },
+    {
+      "name": "msrv-native",
+      "command": "cargo +1.88 check --offline -p pallas-validate --features unstable",
+      "exit_code": 0
+    }
+  ],
+  "math": "19 unit tests passed, 255.63 seconds; doctests passed separately",
+  "durable_logs": "baseline-validation.txt and fixed-validation.txt tracked; full gate logs and pinned ledger sources in .git/musashi-s05-evidence",
+  "revisions": {
+    "historical_S03": "9a298f8d8fdf5ed21582d4c8e3836a8e0fde9d15",
+    "rebased_S03": "0a3acde18cd4c2860b381d4e23afc3df9b3d351e",
+    "historical_S04": "cb8a51adecee775db5b9d03a7d6bfc5249bcb371",
+    "rebased_S04": "baafb53cab4a31a7e8e529a31aeadde953da7ed0",
+    "upstream_parent": "1bb5868fcf9bd2397c6e01b4862ebf71e7329995",
+    "reconciliation": "git range-diff fd67e8ff..cb8a51ad 1bb5868f..baafb53c marks both patches identical; historical tags and evidence preserved",
+    "pallas_remote_start_and_final": "baafb53cab4a31a7e8e529a31aeadde953da7ed0",
+    "dolos_local_and_remote": "c431ca8dbaa40af31a715fda498505d9a9415105",
+    "publication": "baseline S03/S04 now published; this new checkpoint not pushed; no matching remote Musashi tags returned"
+  },
+  "preserved": {
+    "Dolos_Pallas_pin": "808857af9c72b78c214486b2e11df82fc90d49d1",
+    "RealFi_read_only_reference": "3cf1483545d24d0b934673abebc9e368d0ec27a9",
+    "historical_tags": "all preserved",
+    "existing_captured_payloads": "unchanged",
+    "S06_S07": "not executed"
+  },
+  "remaining": "Native registration phase one, explicit historical certificate state supply and Reg validation plus native script witness/pointer/collateral/language/integrity/fee checks. Native evaluation/context translation remains S06, full submission/pin/workaround removal S07."
+}
