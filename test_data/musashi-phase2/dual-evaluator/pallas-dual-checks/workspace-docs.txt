@@ -1,0 +1,66 @@
+   Compiling serde v1.0.229
+   Compiling num-traits v0.2.19
+    Checking tokio v1.53.1
+   Compiling rustix v1.1.5
+ Documenting pallas-math v1.4.0 (/tmp/pallas-amaru-integration/pallas-math)
+    Checking pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+    Checking pbjson v0.7.0
+    Checking serde_urlencoded v0.7.1
+ Documenting pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+    Checking chrono v0.4.45
+    Checking num-integer v0.1.47
+    Checking num-bigint v0.4.8
+    Checking pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+ Documenting pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+    Checking pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+    Checking pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+ Documenting pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+ Documenting pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+   Compiling tempfile v3.27.0
+    Checking num-rational v0.4.2
+   Compiling prost-build v0.13.5
+   Compiling pbjson-types v0.7.0
+    Checking tokio-stream v0.1.19
+    Checking tokio-util v0.7.19
+    Checking pallas-network v1.4.0 (/tmp/pallas-amaru-integration/pallas-network)
+    Checking pallas-network2 v1.4.0 (/tmp/pallas-amaru-integration/pallas-network2)
+ Documenting pallas-network v1.4.0 (/tmp/pallas-amaru-integration/pallas-network)
+ Documenting pallas-network2 v1.4.0 (/tmp/pallas-amaru-integration/pallas-network2)
+    Checking tonic v0.12.3
+    Checking h2 v0.4.19
+    Checking tower v0.5.3
+    Checking utxorpc-spec v0.19.2
+    Checking tower-http v0.6.11
+ Documenting leios-tui v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-tui)
+ Documenting p2p-initiator v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-initiator)
+    Checking pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+    Checking pallas-configs v1.4.0 (/tmp/pallas-amaru-integration/pallas-configs)
+ Documenting pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+ Documenting pallas-configs v1.4.0 (/tmp/pallas-amaru-integration/pallas-configs)
+    Checking hyper v1.11.1
+    Checking pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Checking pallas-txbuilder v1.4.0 (/tmp/pallas-amaru-integration/pallas-txbuilder)
+ Documenting pallas-txbuilder v1.4.0 (/tmp/pallas-amaru-integration/pallas-txbuilder)
+ Documenting pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+ Documenting leios-testnet v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-testnet)
+    Checking hyper-util v0.1.21
+    Checking hyper-timeout v0.5.2
+    Checking reqwest v0.12.28
+ Documenting pallas-hardano v1.4.0 (/tmp/pallas-amaru-integration/pallas-hardano)
+    Checking tonic v0.13.1
+    Checking opentelemetry-http v0.30.0
+    Checking opentelemetry-proto v0.30.0
+    Checking opentelemetry-otlp v0.30.0
+ Documenting p2p-responder v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-responder)
+ Documenting p2p-discovery v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-discovery)
+    Checking pallas-utxorpc v1.4.0 (/tmp/pallas-amaru-integration/pallas-utxorpc)
+ Documenting pallas-utxorpc v1.4.0 (/tmp/pallas-amaru-integration/pallas-utxorpc)
+    Checking pallas v1.4.0 (/tmp/pallas-amaru-integration/pallas)
+ Documenting pallas v1.4.0 (/tmp/pallas-amaru-integration/pallas)
+ Documenting n2n-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2n-miniprotocols)
+ Documenting byron-decoder v0.1.0 (/tmp/pallas-amaru-integration/examples/block-decode)
+ Documenting crawler v0.1.0 (/tmp/pallas-amaru-integration/examples/crawler)
+ Documenting n2c-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2c-miniprotocols)
+ Documenting block-download v0.1.0 (/tmp/pallas-amaru-integration/examples/block-download)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 23.70s
+   Generated /tmp/pallas-amaru-integration/target/doc/block_download/index.html and 23 other files

@@ -1,0 +1,1606 @@
+     Locking 4 packages to latest compatible versions
+      Adding amaru-deps v0.0.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-deps)
+      Adding amaru-kernel v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-kernel)
+      Adding amaru-minicbor-extra v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-minicbor-extra)
+      Adding amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-uplc)
+ Downloading crates ...
+  Downloaded serde_with_macros v3.24.0
+  Downloaded serde_with v3.24.0
+    Blocking waiting for file lock on build directory
+   Compiling proc-macro2 v1.0.107
+   Compiling serde_core v1.0.229
+   Compiling libc v0.2.189
+   Compiling serde v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling either v1.18.0
+   Compiling quote v1.0.47
+   Compiling serde_json v1.0.151
+   Compiling smallvec v1.16.2
+   Compiling num-traits v0.2.19
+   Compiling bytes v1.12.1
+   Compiling parking_lot_core v0.9.12
+   Compiling aho-corasick v1.1.5
+   Compiling hashbrown v0.17.1
+   Compiling rustix v1.1.5
+   Compiling fastrand v2.5.0
+   Compiling chacha20 v0.10.2
+   Compiling tracing-core v0.1.36
+   Compiling itertools v0.14.0
+   Compiling byteorder v1.5.0
+   Compiling itertools v0.13.0
+   Compiling base64 v0.22.1
+   Compiling getrandom v0.3.4
+   Compiling ident_case v1.0.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling getrandom v0.4.3
+   Compiling prettyplease v0.2.37
+   Compiling indexmap v2.14.2
+   Compiling http v1.5.0
+   Compiling regex-syntax v0.8.11
+   Compiling syn v3.0.6
+   Compiling syn v2.0.119
+   Compiling fixedbitset v0.5.7
+   Compiling lazy_static v1.5.0
+   Compiling chrono v0.4.45
+   Compiling sharded-slab v0.1.7
+   Compiling tracing-log v0.2.0
+   Compiling thread_local v1.1.10
+   Compiling log v0.4.34
+   Compiling errno v0.3.14
+   Compiling mio v1.2.3
+   Compiling socket2 v0.6.5
+   Compiling signal-hook-registry v1.4.8
+   Compiling parking_lot v0.12.5
+   Compiling regex-automata v0.4.18
+   Compiling rand v0.10.3
+   Compiling http-body v1.1.0
+   Compiling http-body-util v0.1.5
+   Compiling petgraph v0.7.1
+   Compiling nu-ansi-term v0.50.3
+   Compiling rand_core v0.9.5
+   Compiling multimap v0.10.1
+   Compiling base64 v0.21.7
+   Compiling num-integer v0.1.47
+   Compiling wait-timeout v0.2.1
+   Compiling bit-vec v0.8.0
+   Compiling crossbeam-epoch v0.9.21
+   Compiling tempfile v3.27.0
+   Compiling num-bigint v0.4.8
+   Compiling quick-error v1.2.3
+   Compiling bit-set v0.8.0
+   Compiling rand_xorshift v0.4.0
+   Compiling unarray v0.1.4
+   Compiling rusty-fork v0.3.1
+   Compiling clap_builder v4.6.7
+   Compiling plotters v0.3.7
+   Compiling doc-comment v0.3.4
+   Compiling signal-hook v0.3.18
+   Compiling itertools v0.10.5
+   Compiling rustix v0.38.44
+   Compiling crossbeam-deque v0.8.8
+   Compiling is-terminal v0.4.17
+   Compiling linux-raw-sys v0.4.15
+   Compiling criterion-plot v0.6.0
+   Compiling castaway v0.2.4
+   Compiling rayon-core v1.13.0
+   Compiling yansi v1.0.1
+   Compiling unicode-width v0.1.14
+   Compiling tap v1.0.1
+   Compiling signal-hook-mio v0.2.5
+   Compiling diff v0.1.13
+   Compiling unicode-truncate v1.1.0
+   Compiling compact_str v0.8.2
+   Compiling lru v0.12.5
+   Compiling regex v1.13.1
+   Compiling num-rational v0.4.2
+   Compiling rayon v1.12.0
+   Compiling pretty_assertions v1.4.1
+   Compiling cassowary v0.3.0
+   Compiling crossterm v0.28.1
+   Compiling criterion-plot v0.5.0
+   Compiling synstructure v0.14.0
+   Compiling darling_core v0.24.1
+   Compiling test-case-core v3.4.0
+   Compiling zerocopy-derive v0.8.59
+   Compiling minicbor-derive v0.16.2
+   Compiling tracing-attributes v0.1.31
+   Compiling prost-derive v0.13.5
+   Compiling pin-project-internal v1.1.13
+   Compiling matchers v0.2.0
+   Compiling trait-variant v0.1.3
+   Compiling thiserror-impl v1.0.69
+   Compiling strum_macros v0.26.4
+   Compiling quickcheck_macros v1.2.0
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio-macros v2.7.2
+   Compiling futures-macro v0.3.34
+   Compiling zerofrom-derive v0.1.8
+   Compiling tracing v0.1.44
+   Compiling yoke-derive v0.8.3
+   Compiling tokio v1.53.1
+   Compiling async-trait v0.1.92
+   Compiling pin-project v1.1.13
+   Compiling zerovec-derive v0.11.6
+   Compiling futures-util v0.3.34
+   Compiling prost v0.13.5
+   Compiling thiserror v2.0.21
+   Compiling zerocopy v0.8.59
+   Compiling displaydoc v0.2.7
+   Compiling tracing-subscriber v0.3.23
+   Compiling prost-types v0.13.5
+   Compiling opentelemetry v0.30.0
+   Compiling zerofrom v0.1.8
+   Compiling clap_derive v4.6.7
+   Compiling yoke v0.8.3
+   Compiling thiserror v1.0.69
+   Compiling env_filter v2.0.0
+   Compiling zerovec v0.11.8
+   Compiling binary-layout v4.0.2
+   Compiling zerotrie v0.2.5
+   Compiling env_logger v0.11.11
+   Compiling test-case-macros v3.4.0
+   Compiling strum v0.26.3
+   Compiling quickcheck v1.1.0
+   Compiling pallas-math v1.4.0 (/tmp/pallas-amaru-integration/pallas-math)
+   Compiling prost-build v0.13.5
+   Compiling pbjson-build v0.7.0
+   Compiling tinystr v0.8.4
+   Compiling darling_macro v0.24.1
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling darling v0.24.1
+   Compiling serde_with_macros v3.24.0
+   Compiling icu_collections v2.3.0
+   Compiling instability v0.3.14
+   Compiling opentelemetry-appender-tracing v0.30.1
+   Compiling test-case v3.4.0
+   Compiling clap v4.6.7
+   Compiling pbjson-types v0.7.0
+   Compiling ratatui v0.29.0
+   Compiling pbjson v0.7.0
+   Compiling tinytemplate v1.2.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling serde_test v1.0.177
+   Compiling icu_provider v2.3.1
+   Compiling serde_with v3.24.0
+   Compiling futures-executor v0.3.34
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling futures v0.3.34
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling url v2.5.8
+   Compiling minicbor v0.26.5
+   Compiling ciborium-ll v0.2.2
+   Compiling tokio-stream v0.1.19
+   Compiling tokio-util v0.7.19
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium v0.2.2
+   Compiling rand v0.9.5
+   Compiling tonic v0.12.3
+   Compiling criterion v0.5.1
+   Compiling criterion v0.7.0
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling proptest v1.11.0
+   Compiling opentelemetry_sdk v0.30.0
+   Compiling pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+   Compiling utxorpc-spec v0.19.2
+   Compiling tower-http v0.6.11
+   Compiling pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+   Compiling pallas-network2 v1.4.0 (/tmp/pallas-amaru-integration/pallas-network2)
+   Compiling pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+   Compiling pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+   Compiling pallas-network v1.4.0 (/tmp/pallas-amaru-integration/pallas-network)
+   Compiling hyper v1.11.1
+   Compiling hyper-util v0.1.21
+   Compiling hyper-timeout v0.5.2
+   Compiling reqwest v0.12.28
+   Compiling tonic v0.13.1
+   Compiling p2p-initiator v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-initiator)
+   Compiling leios-tui v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-tui)
+   Compiling opentelemetry-http v0.30.0
+   Compiling opentelemetry-proto v0.30.0
+   Compiling opentelemetry-otlp v0.30.0
+   Compiling pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+   Compiling pallas-configs v1.4.0 (/tmp/pallas-amaru-integration/pallas-configs)
+   Compiling p2p-responder v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-responder)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+   Compiling pallas-txbuilder v1.4.0 (/tmp/pallas-amaru-integration/pallas-txbuilder)
+   Compiling pallas-hardano v1.4.0 (/tmp/pallas-amaru-integration/pallas-hardano)
+   Compiling pallas-utxorpc v1.4.0 (/tmp/pallas-amaru-integration/pallas-utxorpc)
+   Compiling pallas v1.4.0 (/tmp/pallas-amaru-integration/pallas)
+   Compiling p2p-discovery v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-discovery)
+   Compiling block-download v0.1.0 (/tmp/pallas-amaru-integration/examples/block-download)
+   Compiling crawler v0.1.0 (/tmp/pallas-amaru-integration/examples/crawler)
+   Compiling n2c-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2c-miniprotocols)
+   Compiling leios-testnet v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-testnet)
+   Compiling n2n-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2n-miniprotocols)
+   Compiling byron-decoder v0.1.0 (/tmp/pallas-amaru-integration/examples/block-decode)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.51s
+     Running unittests src/main.rs (target/debug/deps/block_download-cf864b16f91cae4f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/byron_decoder-0b48bd24fa55faeb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/crawler-a0d562b309c7ac73)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/leios_testnet-0adf2a0164b98aea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/leios_tui-66d62aaa97511dda)
+
+running 10 tests
+test dashboard::tests::eb_lifecycle_advances_through_all_stages ... ok
+test dashboard::tests::fetches_all_tx_windows_by_paging ... ok
+test dashboard::tests::empty_txs_response_stops_paging ... ok
+test dashboard::tests::peak_voters_tracks_max_distinct_voters ... ok
+test dashboard::tests::stage_never_regresses ... ok
+test dashboard::tests::eb_offered_after_its_rb_links_immediately ... ok
+test dashboard::tests::txs_offer_without_body_does_not_fetch ... ok
+test dashboard::tests::eb_links_to_nearest_following_rb ... ok
+test dashboard::tests::rb_strip_retains_recent_and_caps ... ok
+test ui::tests::draw_never_panics_across_sizes_and_states ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/main.rs (target/debug/deps/n2c_miniprotocols-b6874293acd29439)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/n2n_miniprotocols-a94b07d63b4a2f32)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_discovery-5020aea021b5dac9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_initiator-7d7697f10e578351)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_responder-d94db1f96c7ae7ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas-3b6b51f5c1cd7f31)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_addresses-26fc6786e05d6ce5)
+
+running 20 tests
+test byron::tests::payload_crc_matches ... ok
+test tests::construct_from_parts ... ok
+test tests::pointer_parse_accepts_noncanonical_varuint_encoding ... ok
+test byron::tests::roundtrip_cbor ... ok
+test byron::tests::roundtrip_base58 ... ok
+test tests::pointer_parse_strict_accepts_canonical_encoding ... ok
+test tests::network_matches ... ok
+test tests::pointer_parse_strict_rejects_noncanonical_varuint_encoding ... ok
+test tests::pointer_parse_strict_rejects_trailing_bytes ... ok
+test tests::test_minted_extra_bytes_base_address ... ok
+test tests::test_minted_invalid_pointed_address ... ok
+test tests::payload_matches ... ok
+test tests::test_shelley_into_stake ... ok
+test varuint::tests::read_strict_accepts_canonical_zero ... ok
+test varuint::tests::read_accepts_noncanonical_zero_for_compatibility ... ok
+test varuint::tests::read_strict_rejects_overflow ... ok
+test tests::roundtrip_bech32 ... ok
+test tests::roundtrip_string ... ok
+test tests::typeid_matches ... ok
+test varuint::tests::read_strict_rejects_noncanonical_zero ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_codec-ca68675f8eb42eac)
+
+running 15 tests
+test tests::roundtrip_codec_by_datatype ... ok
+test tree::tests::compares_structure_and_node_data ... ok
+test tree::tests::decodes_mixed_definite_and_indefinite_lists ... ok
+test tree::tests::folds_children_in_order ... ok
+test tree::tests::indexed_children_interleave_keys_and_values ... ok
+test tree::tests::maps_mixed_shapes_positionally ... ok
+test tree::tests::rejects_truncated_input ... ok
+test tree::tests::orders_like_a_derived_ord ... ok
+test tree::tests::walk_propagates_errors ... ok
+test tree::tests::walks_mixed_shapes_in_order ... ok
+test utils::tests::keep_raw_clears_original_when_mutated ... ok
+test utils::tests::keep_raw_fallbacks_to_encode ... ok
+test utils::tests::keep_raw_retains_original ... ok
+test tree::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test tree::tests::traverses_deep_nesting_on_a_small_stack ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/flat.rs (target/debug/deps/flat-49d6e2fbbb2d2863)
+
+running 12 tests
+test encode_bool ... ok
+test encode_filler ... ok
+test encode_u8 ... ok
+test encode_char ... ok
+test encode_boxed ... ok
+test encode_isize ... ok
+test encode_big_arr_u8 ... ok
+test encode_big_vec_u8 ... ok
+test encode_usize ... ok
+test encode_arr_u8 ... ok
+test encode_vec_u8 ... ok
+test encode_string ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/zigzag.rs (target/debug/deps/zigzag-ff88591113804b46)
+
+running 2 tests
+test zagzig ... ok
+test zigzag ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_configs-3d5bd287f692b81a)
+
+running 69 tests
+test alonzo::tests::a_field_spelled_both_ways_prefers_the_current_name ... ok
+test alonzo::tests::a_field_spelled_neither_way_is_refused ... ok
+test alonzo::tests::a_genesis_mixing_the_spellings_parses ... ok
+test alonzo::tests::execution_prices_parse_under_the_current_names ... ok
+test alonzo::tests::execution_units_parse_under_the_current_names ... ok
+test alonzo::tests::an_injected_model_overrides_the_top_level ... ok
+test alonzo::tests::the_older_names_still_parse ... ok
+test alonzo::tests::a_published_genesis_is_unaffected ... ok
+test injection::tests::a_current_directory_segment_is_refused ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused_before_the_read ... ok
+test alonzo::tests::a_language_only_at_the_top_level_survives ... ok
+test alonzo::tests::a_genesis_spelling_the_new_names_parses ... ok
+test byron::tests::test_preview_json_loads ... ok
+test alonzo::tests::test_mainnet_json_loads ... ok
+test alonzo::tests::test_preview_json_loads ... ok
+test alonzo::tests::a_genesis_without_extra_config_is_untouched ... ok
+test alonzo::tests::injected_cost_models_reach_the_cost_model_set ... ok
+test injection::tests::a_file_arm_needs_its_hash ... ok
+test conway::tests::test_mainnet_json_loads ... ok
+test conway::tests::test_preview_json_loads ... ok
+test injection::tests::a_file_holding_something_else_is_refused ... ok
+test injection::tests::a_hash_that_is_not_a_hash_is_refused ... ok
+test injection::tests::a_file_arm_keeps_path_and_hash ... ok
+test injection::tests::a_malformed_payload_is_refused ... ok
+test injection::tests::a_missing_file_is_refused ... ok
+test injection::tests::a_parent_segment_is_refused ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused ... ok
+test injection::tests::an_absolute_segment_is_refused ... ok
+test injection::tests::a_segment_holding_a_separator_is_refused ... ok
+test injection::tests::an_embedded_payload_is_read ... ok
+test injection::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test byron::tests::test_preview_non_avvm_utxos ... ok
+test injection::tests::an_unknown_key_is_refused ... ok
+test injection::tests::a_wrong_hash_is_refused ... ok
+test injection::tests::both_sources_populated_is_refused ... ok
+test injection::tests::both_arms_at_once_is_refused ... ok
+test injection::tests::no_injection_reads_the_top_level ... ok
+test injection::tests::an_empty_segment_is_refused ... ok
+test injection::tests::an_injection_beats_an_empty_top_level ... ok
+test shelley::tests::a_field_named_neither_way_is_refused ... ok
+test injection::tests::an_injection_file_is_read ... ok
+test shelley::tests::a_file_arm_stops_the_whole_genesis ... ok
+test injection::tests::the_text_only_path_refuses_a_file_arm ... ok
+test injection::tests::an_empty_object_names_no_injection ... ok
+test injection::tests::two_empty_sources_stay_empty ... ok
+test shelley::tests::a_pool_parses_under_the_current_names ... ok
+test shelley::tests::a_pool_parses_under_the_older_names ... ok
+test shelley::tests::both_spellings_prefer_the_current_name ... ok
+test shelley::tests::an_unmodelled_extra_config_key_is_refused ... ok
+test shelley::tests::credentials_in_both_places_are_refused ... ok
+test shelley::tests::funds_in_both_places_are_refused ... ok
+test shelley::tests::calc_address_txid ... ok
+test shelley::tests::an_absent_injection_leaves_the_top_level ... ok
+test shelley::tests::injected_staking_reaches_the_accessor ... ok
+test shelley::tests::a_genesis_without_extra_config_is_untouched ... ok
+test shelley::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test shelley::tests::an_injection_file_reaches_the_utxo_set ... ok
+test shelley::tests::injected_funds_reach_the_utxo_set ... ok
+test shelley::tests::no_staking_anywhere_means_none ... ok
+test shelley::tests::injected_staking_needs_no_staking_section ... ok
+test shelley::tests::an_empty_staking_section_survives ... ok
+test shelley::tests::pools_in_both_places_are_refused ... ok
+test shelley::tests::test_mainnet_json_loads ... ok
+test shelley::tests::test_preview_json_loads ... ok
+test shelley::tests::the_parse_path_still_refuses_an_injection_file ... ok
+test shelley::tests::test_partner_staking_parses ... ok
+test shelley::tests::test_musashi_json_loads ... ok
+test byron::tests::test_mainnet_json_loads ... ok
+test byron::tests::test_mainnet_avvm_utxos ... ok
+
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.87s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_crypto-556e512a0790d212)
+
+running 22 tests
+test hash::hash::tests::from_str ... ok
+test hash::serde::tests::output_tokens ... ok
+test hash::serde::tests::invalid_str ... ok
+test hash::hash::tests::from_str_fail_1 - should panic ... ok
+test hash::hash::tests::from_str_fail_2 - should panic ... ok
+test key::ed25519::tests::public_key_try_from_correct_size ... ok
+test memsec::tests::eq_empty - should panic ... ok
+test key::ed25519::tests::public_key_from_str ... ok
+test key::ed25519::tests::public_key_try_from_incorrect_size ... ok
+test key::ed25519::tests::signature_try_from_correct_size ... ok
+test nonce::tests::test_epoch_nonce ... ok
+test key::ed25519::tests::signature_try_from_incorrect_size ... ok
+test key::ed25519::tests::signature_from_str ... ok
+test memsec::tests::neq ... ok
+test memsec::tests::ord ... ok
+test nonce::tests::test_rolling_nonce ... ok
+test memsec::tests::ord_empty - should panic ... ok
+test memsec::tests::eq ... ok
+test memsec::tests::ord_eq ... ok
+test key::ed25519::tests::verify_random_signature_does_not_work ... ok
+test key::ed25519::tests::signing_verify_works ... ok
+test key::ed25519::tests::signing_verify_works_extended ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_hardano-de1627ea2dd335b1)
+
+running 15 tests
+test display::haskell_display::native_script_tests::negative_n_of_k_threshold_is_parenthesized ... ok
+test display::haskell_error::test_submit_api_serialization ... ok
+test display::haskell_display::tests::every_cost_model_reaches_the_rendered_string ... ok
+test storage::immutable::secondary::tests::errors_on_inconsistent_entries ... ok
+test storage::immutable::tests::chunk_binary_search_test ... ok
+test storage::immutable::tests::iterate_till_point_test ... ok
+2026-09-29T20:28:07.378375Z  WARN pallas_hardano::storage::immutable::tests: full_snapshot folder not available
+test storage::immutable::tests::read_available_full_snapshots ... ok
+2026-09-29T20:28:07.378567Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test storage::immutable::secondary::tests::can_parse_all_entries ... ok
+test storage::immutable::primary::tests::can_parse_a_real_world_file ... ok
+test storage::immutable::primary::tests::yield_occupied_correctly ... ok
+2026-09-29T20:28:07.387085Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::get_tip_test ... ok
+2026-09-29T20:28:07.397198Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-29T20:28:07.398464Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+test storage::immutable::chunk::tests::it_can_decode_all_blocks ... ok
+2026-09-29T20:28:07.408004Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-29T20:28:07.410542Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-29T20:28:07.414092Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-29T20:28:07.450558Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::can_read_multiple_chunks_from_folder ... ok
+2026-09-29T20:28:07.452300Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::can_read_multiple_chunks_from_folder_at_specific_point ... ok
+2026-09-29T20:28:07.455879Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test storage::immutable::tests::read_blocks_from_point_test ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_math-a271b4788d714b75)
+
+running 19 tests
+test math::tests::ln_of_0_should_be_undefined - should panic ... ok
+test math::tests::pow_of_zero_to_neg_power_should_be_undefined - should panic ... ok
+test math::tests::ln_of_negative_should_be_undefined - should panic ... ok
+test math::tests::test_fixed_precision ... ok
+test math::tests::test_fixed_precision_exp ... ok
+test math::tests::test_fixed_precision_eq ... ok
+test math::tests::test_fixed_precision_from_str ... ok
+test math::tests::test_fixed_precision_mul ... ok
+test math::tests::test_fixed_precision_ceil ... ok
+test math::tests::test_fixed_precision_floor ... ok
+test math::tests::test_fixed_precision_div ... ok
+test math::tests::test_fixed_precision_round ... ok
+test math::tests::test_fixed_precision_trunc ... ok
+test math::tests::test_fixed_precision_sub ... ok
+test math::tests::pow_of_zero_to_any_positive_power_should_be_zero ... ok
+test math::tests::pow_of_any_to_power_1_should_be_same ... ok
+test math::tests::pow_of_any_to_power_0_should_be_1 ... ok
+test math::tests::pow_to_positive_times_pow_to_negative_should_be_1 ... ok
+test math::tests::golden_tests has been running for over 60 seconds
+test math::tests::golden_tests ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 269.23s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_network-1ac682b83f7e5b94)
+
+running 247 tests
+test miniprotocols::chainsync::buffer::tests::roll_back_outside_scope_works ... ok
+test miniprotocols::localmsgsubmission::protocol::tests::dmq_msg_payload_bytes_to_sign_golden ... ok
+test miniprotocols::chainsync::buffer::tests::pop_from_excessive_depth_returns_empty ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_encode_decode_simple_bytes ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_encode_decode_real_bytes ... ok
+test miniprotocols::chainsync::buffer::tests::roll_forward_accumulates_points ... ok
+test miniprotocols::chainsync::buffer::tests::pop_from_valid_depth_works ... ok
+test miniprotocols::chainsync::buffer::tests::roll_back_within_scope_works ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_already_received ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_expired ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_a_cost_model_beyond_the_named_languages_round_trips ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_cost_models_with_three_languages_round_trip ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_validation_error ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_other ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_invalid ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_post_v16_block_queries_wire_shape ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_roundtrip ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_reads_a_set_pledge_leverage ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_reencodes_a_captured_reply_byte_for_byte ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_post_v16_block_queries_roundtrip ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_refuses_other_lengths ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_decodes_a_captured_reply ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0005_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0011_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0001_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0002_ConwayMempoolFailure_ConwayGovFailure_ExpirationEpochTooSmall_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0010_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0004_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0003_ConwayUtxowFailure_MissingTxBodyMetadataHash_AuxiliaryDataHash_AuxiliaryDataHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0007_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0009_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0013_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0008_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayCommitteeHasPreviouslyResigned ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0014_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0012_ConwayGovFailure_DisallowedProposalDuringBootstrap_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0006_ConwayUtxowFailure_MalformedScriptWitnesses_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0015_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0016_ConwayTxRefScriptsSizeTooBig_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0020_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0017_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0021_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0022_ConwayMempoolFailure_R_ConwayGovFailure_VotingOnExpiredGovAction ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0018_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_VotersDoNotExist_DRepVoter ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0019_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0023_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayUtxowFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0031_ConwayUtxowFailure_UtxoFailure_InsufficientCollateral_DeltaCoin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0024_ConwayGovFailure_ConflictingCommitteeUpdate_List_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0033_ConwayMempoolFailure_ConwayUtxowFailure_MalformedReferenceScripts_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0036_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0035_ConwayGovFailure_MalformedProposal_NewConstitution_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0037_ConwayTreasuryValueMismatch_Coin_Coin_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0038_ConwayGovFailure_VotersDoNotExist_DRepVoter_KeyHashObj ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0027_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0026_ConwayGovFailure_MalformedProposal_HardForkInitiation_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0028_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0039_ConwayUtxowFailure_PPViewHashesDontMatch_SJust_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0029_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0034_ConwayUtxowFailure_InvalidWitnessesUTXOW_VKey_VerKeyEd ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0025_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0030_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_DisallowedVotesDuringBootstrap_DRepVoter ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0044_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0032_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_ExpirationEpochTooSmall_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0049_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0050_ConwayMempoolFailure_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0051_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0040_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0041_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0043_ConwayCertsFailure_CertFailure_DelegFailure_DelegateeDRepNotRegisteredDELEG ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0045_ConwayTreasuryValueMismatch_Coin_Coin_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0046_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0053_ConwayMempoolFailure_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0052_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0054_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0047_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0048_ConwayUtxowFailure_MissingScriptWitnessesUTXOW_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0055_ConwayUtxowFailure_PPViewHashesDontMatch_SJust_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0042_ConwayGovFailure_ExpirationEpochTooSmall_List_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0057_ConwayMempoolFailure_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0059_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayDRepNotRegistered ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0061_ConwayTxRefScriptsSizeTooBig_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0060_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0063_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0065_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0064_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0056_ConwayUtxowFailure_MissingVKeyWitnessesUTXOW_List_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0066_ConwayGovFailure_InvalidPolicyHash_SJust_ScriptHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0067_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0069_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0068_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0070_ConwayTxRefScriptsSizeTooBig_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0062_ConwayGovFailure_InvalidPrevGovActionId_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0074_ConwayMempoolFailure_ConwayUtxowFailure_ExtraRedeemers_ConwayVoting ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0058_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0075_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0076_ConwayMempoolFailure_ConwayUtxowFailure_NotAllowedSupplementalDatums_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0082_ConwayMempoolFailure_S ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0072_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0073_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0071_ConwayUtxowFailure_MalformedReferenceScripts_List_ScriptHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0077_ConwayMempoolFailure_SO ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0079_ConwayTreasuryValueMismatch_Coin_Coin_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0078_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0087_ConwayMempoolFailure_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0083_ConwayGovFailure_ExpirationEpochTooSmall_List_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0086_ConwayUtxowFailure_UtxoFailure_OutputTooSmallUTxO_Addr ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0080_ConwayMempoolFailure_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0084_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayCommitteeIsUnknown ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0088_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0089_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0085_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0090_ConwayGovFailure_GovActionsDoNotExist_GovActionId_TxId ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0093_ConwayGovFailure_ZeroTreasuryWithdrawals_NoConfidence_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0096_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0081_ConwayMempoolFailure_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0095_ConwayUtxowFailure_NotAllowedSupplementalDatums_List_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0094_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0092_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_101 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0097_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_103 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_102 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0100_ConwayUtxowFailure_InvalidMetadata_ConwayGovFailure_DisallowedProposalDuringBootstrap ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_104 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_105 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_106 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0099_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0098_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0091_ConwayGovFailure_InvalidPrevGovActionId_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_110 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_107 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_112 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_113 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_111 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_114 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_108 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_109 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_118 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_117 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_115 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_123 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_126 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_125 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_116 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_127 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_119 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_121 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_124 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_128 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_129 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_122 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_120 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_130 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_133 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_131 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_136 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_138 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_139 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_140 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_132 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_134 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_141 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_143 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_149 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_146 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_152 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_137 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_150 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_153 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_151 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_142 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_135 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_145 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_144 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_147 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_148 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_155 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_158 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_157 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_156 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_154 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_162 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_161 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_159 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_168 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_169 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_170 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_167 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_163 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_165 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_166 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_164 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_176 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_178 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_175 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_160 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_174 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_177 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_173 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_172 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_171 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_179 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_180 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_191 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_190 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_182 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_193 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_195 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_184 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_183 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_185 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_186 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_187 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_188 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_189 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_181 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_194 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_196 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_192 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_198 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_199 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_201 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_202 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_200 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_197 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_205 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_207 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_208 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_206 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_209 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_203 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_210 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_211 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_212 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_204 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_213 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_214 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_219 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_216 ... ok
+test miniprotocols::txmonitor::codec::tests::test_empty_next_tx_response ... ok
+test miniprotocols::txmonitor::codec::tests::test_next_tx_response ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_217 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_218 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_multi ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_215 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_multi2 ... ok
+test multiplexer::tests::multiple_messages_in_same_payload ... ok
+test multiplexer::tests::fragmented_message_in_multiple_payloads ... ok
+
+test result: ok. 247 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/plexer.rs (target/debug/deps/plexer-d01bf80e07639435)
+
+running 1 test
+test one_way_small_sequence_of_payloads ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+
+     Running tests/protocols.rs (target/debug/deps/protocols-390636dc03350d7b)
+
+running 12 tests
+test blockfetch_happy_path ... ignored
+test blockfetch_server_and_client_happy_path ... ignored
+test chainsync_history_happy_path ... ignored
+test chainsync_server_and_client_happy_path_n2n ... ignored
+test chainsync_tip_happy_path ... ignored
+test txsubmission_server_and_client_happy_path_n2n ... ignored
+test txsubmission_submit_to_mainnet_peer_n2n ... ignored
+test local_message_notification_server_and_client_happy_path ... ok
+test local_message_submission_server_and_client_happy_path ... ok
+test local_state_query_server_and_client_happy_path2 ... ok
+test peer_sharing_server_and_client_happy_path ... ok
+test local_state_query_server_and_client_happy_path ... ok
+
+test result: ok. 5 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 1.03s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_network2-764ce7003f4b2c20)
+
+running 94 tests
+test behavior::initiator::connection::tests::banned_does_not_connect ... ok
+test behavior::initiator::connection::tests::cold_does_not_connect ... ok
+test behavior::initiator::connection::tests::errored_needs_disconnect ... ok
+test behavior::initiator::connection::tests::cold_initialized_needs_disconnect ... ok
+test behavior::initiator::connection::tests::already_connected_does_not_reconnect ... ok
+test behavior::initiator::connection::tests::errored_warm_does_not_reconnect ... ok
+test behavior::initiator::connection::tests::hot_disconnected_needs_connection ... ok
+test behavior::initiator::connection::tests::hot_initialized_stays_connected ... ok
+test behavior::initiator::connection::tests::warm_new_needs_connection ... ok
+test behavior::initiator::discovery::tests::high_water_mark_stops_requests ... ok
+test behavior::initiator::discovery::tests::needs_more_peers_when_below_mark ... ok
+test behavior::initiator::blockfetch::tests::dispatch_block_noop_when_idle ... ok
+test behavior::initiator::blockfetch::tests::enqueue_adds_to_queue ... ok
+test behavior::initiator::handshake::tests::non_connected_state_skips_confirmation ... ok
+test behavior::initiator::handshake::tests::accepted_handshake_sets_initialized ... ok
+test behavior::initiator::chainsync::tests::housekeeping_starts_sync_for_hot_initialized_peer ... ok
+test behavior::initiator::discovery::tests::drain_returns_up_to_count ... ok
+test behavior::initiator::blockfetch::tests::housekeeping_dispatches_request_for_available_peer ... ok
+test behavior::initiator::chainsync::tests::drain_intersection_emits_found_event ... ok
+test behavior::initiator::discovery::tests::try_take_peers_extracts_from_response ... ok
+test behavior::initiator::chainsync::tests::drain_rollback_emits_rollback_event ... ok
+test behavior::initiator::chainsync::tests::no_intersection_sets_violation ... ok
+test behavior::initiator::chainsync::tests::drain_content_emits_header_event ... ok
+test behavior::initiator::chainsync::tests::tagged_requests_next_when_continue_sync ... ok
+test behavior::initiator::leiosfetch::tests::a_confirmed_send_clears_the_unconfirmed_mark ... ok
+test behavior::initiator::handshake::tests::propose_sent_on_connect ... ok
+test behavior::initiator::chainsync::tests::housekeeping_skips_non_hot_peer ... ok
+test behavior::initiator::blockfetch::tests::dispatch_block_emits_event_when_streaming ... ok
+test behavior::initiator::promotion::tests::demote_banned_peer_is_noop ... ok
+test behavior::initiator::promotion::tests::error_count_exceeding_max_triggers_ban ... ok
+test behavior::initiator::leiosfetch::tests::disconnect_clears_the_unconfirmed_mark ... ok
+test behavior::initiator::leiosfetch::tests::disconnect_purges_queued_requests ... ok
+test behavior::initiator::promotion::tests::ban_peer_removes_from_all_sets ... ok
+test behavior::initiator::leiosfetch::tests::housekeeping_sends_request_for_available_peer ... ok
+test behavior::initiator::leiosnotify::tests::dispatch_emits_notification_event ... ok
+test behavior::initiator::leiosnotify::tests::housekeeping_requests_next_only_when_ready_and_idle ... ok
+test behavior::initiator::promotion::tests::max_hot_peers_respected ... ok
+test behavior::initiator::promotion::tests::rediscovered_banned_peer_stays_banned ... ok
+test behavior::initiator::leiosfetch::tests::dispatch_emits_fetched_event_once ... ok
+test behavior::initiator::promotion::tests::violation_triggers_ban ... ok
+test behavior::initiator::leiosfetch::tests::error_clears_the_unconfirmed_mark ... ok
+test behavior::initiator::promotion::tests::max_peers_caps_total ... ok
+test behavior::initiator::promotion::tests::peer_deficit_reflects_current_count ... ok
+test behavior::initiator::promotion::tests::max_warm_peers_respected ... ok
+test behavior::initiator::tests::blockfetch_requires_initialized_and_idle ... ok
+test behavior::initiator::tests::a_confirmed_request_is_not_repeated_until_the_peer_answers ... ok
+test behavior::initiator::tests::back_to_back_fetch_commands_send_one_at_a_time ... ok
+test behavior::initiator::tests::an_answered_request_is_asked_again_on_the_next_pass ... ok
+test behavior::initiator::tests::discovery_feeds_into_promotion ... ok
+test behavior::initiator::tests::a_closed_session_is_reported_to_the_consumer ... ok
+test behavior::initiator::tests::a_request_this_node_sent_twice_is_not_the_peers_fault ... ok
+test behavior::initiator::tests::fetch_command_sends_request_without_housekeeping ... ok
+test behavior::initiator::tests::demote_peer_returns_to_cold ... ok
+test behavior::initiator::tests::a_notification_nothing_asked_for_is_a_violation ... ok
+test behavior::initiator::tests::an_errored_session_is_reported_to_the_consumer ... ok
+test behavior::initiator::tests::a_keepalive_response_nothing_asked_for_is_a_violation ... ok
+test behavior::initiator::tests::error_count_persists_across_disconnect ... ok
+test behavior::initiator::tests::housekeeping_promotes_and_connects_in_same_pass ... ok
+test behavior::initiator::tests::banned_peer_not_reconnected ... ok
+test behavior::initiator::tests::full_peer_lifecycle_include_to_chainsync ... ok
+test behavior::initiator::tests::leios_notify_and_fetch_flow ... ok
+test behavior::initiator::tests::two_passes_before_a_confirmation_send_one_request_each ... ok
+test behavior::initiator::tests::violation_bans_and_disconnects ... ok
+test behavior::responder::connection::tests::per_ip_limit_enforced ... ok
+test behavior::responder::handshake::tests::accepted_handshake_emits_initialized_event ... ok
+test behavior::responder::handshake::tests::accepts_highest_common_version ... ok
+test behavior::responder::handshake::tests::refuses_magic_mismatch ... ok
+test behavior::responder::connection::tests::violation_leads_to_ban_on_housekeeping ... ok
+test behavior::responder::handshake::tests::refuses_no_common_version ... ok
+test behavior::responder::connection::tests::banned_peer_rejected_on_connect ... ok
+test behavior::responder::txsubmission::tests::init_not_sent_when_not_initialized ... ok
+test behavior::responder::txsubmission::tests::init_sent_when_initialized_and_init_state ... ok
+test behavior::responder::tests::inbound_keepalive_routed_to_keepalive_only ... ok
+test behavior::responder::txsubmission::tests::max_tx_request_used_in_request ... ok
+test behavior::responder::tests::txsubmission_initialized_on_housekeeping_after_handshake ... ok
+test behavior::responder::txsubmission::tests::request_tx_ids_sent_when_idle ... ok
+test behavior::responder::tests::violation_aborts_inbound_dispatch ... ok
+test behavior::responder::connection::tests::disconnect_frees_ip_slot ... ok
+test protocol::leiosfetch::tests::bitmaps_encode_is_indefinite ... ok
+test behavior::responder::tests::full_responder_lifecycle_connect_to_initialized ... ok
+test behavior::responder::tests::ban_peer_disconnects_and_prevents_reconnect ... ok
+test protocol::leiosfetch::tests::block_txs_roundtrip ... ok
+test behavior::responder::tests::chainsync_request_emits_event_for_application ... ok
+test protocol::leiosfetch::tests::message_roundtrips ... ok
+test protocol::leiosfetch::tests::state_transitions_and_drain ... ok
+test protocol::leiosfetch::tests::bitmaps_all_is_msb_first ... ok
+test protocol::leiosfetch::tests::bitmaps_decode_accepts_definite ... ok
+test protocol::leiosnotify::tests::illegal_transitions_error ... ok
+test behavior::responder::txsubmission::tests::txs_extracted_and_emitted ... ok
+test protocol::leiosnotify::tests::message_roundtrips ... ok
+test protocol::leiosfetch::tests::awaiting_states_retain_request_params ... ok
+test protocol::leiosfetch::tests::bitmaps_from_indices_is_msb_first ... ok
+test protocol::leiosnotify::tests::state_transitions_and_drain ... ok
+test protocol::leiosfetch::tests::illegal_transition_errors ... ok
+
+test result: ok. 94 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/initiator_responder.rs (target/debug/deps/initiator_responder-bcf786a1ca0e08e8)
+
+running 6 tests
+test handshake_completes ... ok
+test blockfetch_receives_blocks ... ok
+test chainsync_receives_headers ... ok
+test full_protocol_flow ... ok
+test multiple_initiators ... ok
+test connection_sustained_over_time ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.02s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_primitives-d9633391d54af00b)
+
+running 132 tests
+test alonzo::native_script::tests::malformed_arrays_are_rejected_without_reserving_claimed_length ... ok
+test alonzo::json::tests::native_script_json_preserves_mixed_shape_trees ... ok
+test alonzo::native_script::tests::preserves_permissive_array_decoding ... ok
+test alonzo::native_script::tests::equality_checks_variant_payload_order_and_arity ... ok
+test alonzo::model::tests::header_isomorphic_decoding_encoding ... ok
+test alonzo::native_script::tests::matches_ledger_cddl_wire_format ... ok
+test alonzo::json::tests::plutus_data_json_preserves_mixed_shapes ... ok
+test alonzo::native_script::tests::n_of_k_threshold_is_signed ... ok
+test alonzo::model::tests::plutus_data_isomorphic_decoding_encoding ... ok
+test byron::model::tests::header_isomorphic_decoding_encoding ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_10_drep_script_alice_drep_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_11_drep_script_alice_spo_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_12_drep_script_bob_drep_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_1_cc_script_alice_cc_script_alice_expects_ordering_equal ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_2_cc_script_alice_cc_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_3_cc_script_alice_drep_script_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_4_cc_script_alice_drep_key_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_5_cc_script_alice_spo_alice_expects_ordering_less ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_6_cc_script_bob_cc_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_7_drep_script_alice_cc_script_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_8_drep_script_alice_cc_key_alice_expects_ordering_greater ... ok
+test conway::model::tests::tests_voter::voter_ordering::test_case_9_drep_script_alice_drep_script_alice_expects_ordering_equal ... ok
+test alonzo::json::tests::test_native_scripts_serialize_as_expected ... ok
+test conway::model::tests::block_isomorphic_decoding_encoding ... ok
+test babbage::model::tests::fragments_decoding ... ok
+test byron::model::tests::main_block_isomorphic_decoding_encoding ... ok
+test conway::script_data::tests::test_script_data_hash ... ok
+test alonzo::json::tests::test_datums_serialize_as_expected ... ok
+test metadatum::tests::indefinite_arrays_encode_as_definite ... ok
+test alonzo::json::tests::native_script_json_string_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test metadatum::tests::orders_like_the_derived_ord_did ... ok
+test metadatum::tests::rejects_dangling_keys_and_foreign_types ... ok
+test babbage::model::tests::block_isomorphic_decoding_encoding ... ok
+test metadatum::tests::round_trips_leaves_and_containers ... ok
+test metadatum::tests::walks_keys_and_values_in_order ... ok
+test alonzo::native_script::tests::round_trips_through_cbor ... ok
+test alonzo::native_script::tests::malformed_deep_script_cleans_up_completed_children ... ok
+test metadatum::tests::encodes_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::clone_preserves_value_and_encoding ... ok
+test alonzo::native_script::tests::deep_script_lifecycle_on_small_stack ... ok
+test plutus_data::tests::ordering::test_case_10_bytes_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_11_bytes_array_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_12_bytes_array_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_13_bytes_int_0_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_14_int_42_int_14_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_15_int_14_int_14_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_16_int_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_17_int_0_int_1_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_18_int_2_int_1_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_19_int_0_biguint_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_1_bytes_bytes_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_20_int_14_biguint_14_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_21_int_14_biguint_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_22_biguint_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_23_biguint_42_int_14_expects_ordering_greater ... ok
+test plutus_data::tests::cbor_roundtrip ... ok
+test plutus_data::tests::ordering::test_case_24_biguint_14_255_int_42_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_25_bignint_0_int_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_26_bignint_14_255_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_27_biguint_int_0_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_29_int_0_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_28_biguint_0_0_1_int_1_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_2_bytes_1_2_3_bytes_4_5_6_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_30_int_0_map_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_31_int_0_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_32_int_0_array_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_33_int_0_array_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_34_int_0_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_35_array_def_array_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_36_array_def_array_indef_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_37_array_indef_array_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_38_array_def_int_14_int_42_array_def_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_39_array_def_int_14_int_42_array_def_int_15_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_3_bytes_1_2_3_bytes_1_2_3_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_40_array_def_int_14_int_42_array_def_int_1_int_2_int_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_41_array_def_int_14_int_42_array_indef_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_42_array_indef_int_14_int_42_array_def_int_15_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_43_array_def_int_14_int_42_array_indef_int_1_int_2_int_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_45_array_def_map_def_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_44_array_def_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_46_array_def_map_indef_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_47_array_def_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_48_array_def_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_49_map_def_map_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_4_bytes_4_5_6_bytes_1_2_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_50_map_def_map_indef_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_51_map_indef_map_def_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_53_map_def_int_14_int_41_map_def_int_14_int_42_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_52_map_def_int_14_int_42_map_def_int_14_int_41_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_54_map_def_int_14_int_42_map_def_int_14_int_42_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_55_map_def_int_14_int_42_map_indef_int_14_int_42_int_1_int_999_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_56_map_def_int_15_int_42_map_indef_int_14_int_42_int_1_int_999_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_57_map_def_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_59_map_def_array_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_58_map_def_array_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_60_map_def_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_5_bytes_1_2_3_bytes_2_2_3_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_61_map_def_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_62_constr_121_constr_121_expects_ordering_equal ... ok
+test alonzo::model::tests::block_isomorphic_decoding_encoding ... ok
+test plutus_data::tests::ordering::test_case_63_constr_122_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_64_constr_122_constr_121_int_999_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_65_constr_126_int_999_constr_1281_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_66_constr_any_0_constr_121_expects_ordering_equal ... ok
+test plutus_data::tests::ordering::test_case_67_constr_any_1_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_68_constr_any_7_int_14_constr_1280_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_69_constr_any_7_int_14_constr_1281_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_6_bytes_1_2_3_bytes_1_2_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_70_constr_any_121_map_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_71_constr_any_121_map_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_72_constr_any_121_array_def_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_73_constr_any_121_array_indef_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_74_constr_any_121_int_0_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_75_constr_any_121_bytes_expects_ordering_less ... ok
+test plutus_data::tests::ordering::test_case_7_bytes_2_2_bytes_1_2_3_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_8_bytes_constr_121_expects_ordering_greater ... ok
+test plutus_data::tests::ordering::test_case_9_bytes_map_def_expects_ordering_greater ... ok
+test plutus_data::tests::preserves_container_encodings_and_rejects_dangling_keys ... ok
+test alonzo::json::tests::native_script_json_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test alonzo::json::tests::plutus_data_json_string_handles_deeply_nested_data_on_a_small_stack ... ok
+test plutus_data::tests::json_string_matches_json_value ... ok
+test metadatum::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test metadatum::tests::clones_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::equals_list_irrespective_of_encoding ... ok
+test plutus_data::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test metadatum::tests::rejects_malformed_deep_nesting_and_cleans_up_on_a_small_stack ... ok
+test alonzo::json::tests::plutus_data_json_handles_deeply_nested_data_on_a_small_stack ... ok
+test byron::model::tests::boundary_block_isomorphic_decoding_encoding ... ok
+test plutus_data::tests::clones_and_encodes_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::rejects_malformed_deep_nesting_and_cleans_up_on_a_small_stack ... ok
+test metadatum::tests::compares_deep_nesting_on_a_small_stack ... ok
+test plutus_data::tests::compares_deep_nesting_on_a_small_stack ... ok
+
+test result: ok. 132 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_traverse-ad79388e6afb30fb)
+
+running 74 tests
+test era::tests::tag_eight_is_unknown_without_the_feature ... ok
+test cert::tests::an_era_carrying_no_certificates_reads_no_kind ... ok
+test era::tests::every_era_round_trips_through_its_tag ... ok
+test era::tests::unknown_era_tags_are_still_refused ... ok
+test block::tests::a_dijkstra_block_is_refused_without_the_feature ... ok
+test cert::tests::every_conway_certificate_is_read_through_the_certificate_view ... ok
+test cert::tests::every_conway_certificate_payload_reads_back_by_value ... ok
+test attribute_tests::stable_variants::every_listed_enum_has_a_stable_variant_list ... ok
+test attribute_tests::the_module_scan_reads_the_gate_on_a_declaration ... ok
+test cert::tests::every_alonzo_certificate_is_read_through_the_certificate_view ... ok
+test attribute_tests::the_attribute_scan_reads_every_marking_and_presence ... ok
+test cert::tests::every_alonzo_certificate_payload_reads_back_by_value ... ok
+test governance::tests::a_conway_update_leaving_key_18_alone_reads_no_cost_models ... ok
+test governance::tests::a_conway_parameter_change_carries_its_update_through_the_view ... ok
+test governance::tests::a_conway_proposal_reaches_its_parameter_update_without_the_feature ... ok
+test hashes::tests::every_fixture_block_hashes_as_the_node_recorded_it ... ok
+test governance::tests::an_info_action_proposes_no_parameter_update ... ok
+test fees::tests::known_fee_matches ... ok
+test hashes::tests::byron_transaction_hash_works ... ok
+test hashes::tests::plutus_data_hashes_as_cardano_cli ... ok
+test hashes::tests::native_script_hashes_as_cardano_cli ... ok
+test hashes::tests::test_public_key_hash ... ok
+test cert::tests::an_alonzo_pool_registration_carries_its_parameters_through_the_view ... ok
+test hashes::tests::tx_wits_plutus_v1_script_hashes_as_cli ... ok
+test hashes::tests::test_witness_datum_hash_respects_original_cbor ... ok
+test hashes::tests::babbage_transaction_hash_works ... ok
+test header::tests::a_babbage_header_carries_no_leios_certificate_flag ... ok
+test header::tests::conway_header_still_decodes ... ok
+test governance::tests::a_conway_update_writing_key_3_still_reads_no_plutus_v4 ... ok
+test header::tests::an_unknown_envelope_tag_decodes_as_babbage_without_the_feature ... ok
+test governance::tests::a_conway_update_reads_every_cost_model_it_proposes ... ok
+test governance::tests::every_conway_action_is_read_through_the_action_view ... ok
+test hashes::tests::plutus_v1_script_hashes_as_cardano_cli ... ok
+test input::tests::test_duplicate_consumed_inputs ... ok
+test governance::tests::a_conway_committee_update_carries_both_credential_lists ... ok
+test governance::tests::every_conway_action_reports_the_id_it_carries_and_no_other_reports_one ... ok
+test hashes::tests::alonzo_transaction_hash_works ... ok
+test header::tests::every_header_variant_names_its_era ... ok
+test hashes::tests::test_inline_datum_hash_respects_original_cbor ... ok
+test probe::tests::byron_block_detected ... ok
+test probe::tests::babbage_block_detected ... ok
+test redeemers::tests::a_conway_purpose_keeps_its_name_in_the_shared_tag_space ... ok
+test input::tests::test_utxo_ref_parsing ... ok
+test probe::tests::allegra_block_detected ... ok
+test redeemers::tests::a_purpose_the_redeemer_does_not_carry_is_not_reported ... ok
+test probe::tests::alonzo_block_detected ... ok
+test hashes::tests::plutus_v2_script_hashes_as_cardano_cli ... ok
+test probe::tests::shelley_block_detected ... ok
+test input::tests::test_expected_values ... ok
+test probe::tests::dijkstra_block_is_inconclusive_without_the_feature ... ok
+test probe::tests::conway_block_detected ... ok
+test script_ref::tests::a_conway_native_reference_script_is_read_in_the_shared_type ... ok
+test script_ref::tests::a_conway_output_with_no_reference_script_reports_none ... ok
+test time::tests::calc_matches_mainnet_values ... ok
+test testing::tests::the_shared_transaction_fixtures_are_what_these_builders_write ... ok
+test time::tests::calc_matches_testnet_values ... ok
+test time::tests::calc_matches_preprod_values ... ok
+test script_ref::tests::a_conway_reference_script_is_read_in_the_shared_type ... ok
+test time::tests::calc_matches_preview_values ... ok
+test witnesses::tests::a_conway_native_script_witness_is_read_in_the_shared_type ... ok
+test witnesses::tests::a_conway_transaction_with_no_script_reports_none ... ok
+test witnesses::tests::a_conway_native_script_reads_every_clause_it_can_hold ... ok
+test witnesses::tests::a_negative_n_of_k_threshold_reads_back_signed ... ok
+test time::tests::known_slot_matches ... ok
+test witnesses::tests::the_three_dijkstra_auxiliary_plutus_accessors_answer_empty_for_conway ... ok
+test witnesses::tests::conway_auxiliary_data_scripts_are_read_in_the_shared_type ... ok
+test witnesses::tests::an_auxiliary_data_script_hashes_this_crates_own_encoding ... ok
+test witnesses::tests::a_witness_set_script_hashes_the_bytes_it_arrived_in ... ok
+test witnesses::tests::a_nested_script_carries_no_bytes_of_its_own ... ok
+test size::tests::known_size_matches ... ok
+test probe::tests::mary_block_detected ... ok
+test block::tests::test_iteration ... ok
+test attribute_tests::every_public_enum_carries_the_marking_it_is_listed_with ... ok
+test probe::tests::genesis_block_detected ... ok
+
+test result: ok. 74 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/deep_native_script.rs (target/debug/deps/deep_native_script-2b50f7f307bf69dd)
+
+running 1 test
+test preprod_deep_native_script_block_on_default_sized_stack ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/musashi_registration.rs (target/debug/deps/musashi_registration-da4d5b317e71d37f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/signed_n_of_k_threshold.rs (target/debug/deps/signed_n_of_k_threshold-ebbc80f625f7ff33)
+
+running 1 test
+test preprod_negative_n_of_k_threshold_decodes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_txbuilder-b6fceeb837f3440b)
+
+running 2 tests
+test transaction::serialise::tests::built_json_roundtrip ... ok
+test transaction::serialise::tests::staging_json_roundtrip ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/build_conway.rs (target/debug/deps/build_conway-d676400d267ab258)
+
+running 24 tests
+test datum_only_sets_script_data_hash ... ignored, datum-only script_data_hash is omitted (gated on language_views); fixed in a later PR
+test multiple_datums_build_deterministically ... ignored, datum/redeemer/script ordering is non-deterministic; fixed in a later PR
+test plutus_tx_emits_map_form_redeemers ... ignored, redeemers are emitted as a list, not the Conway map form; fixed in a later PR
+test plutus_tx_sets_total_collateral ... ignored, total_collateral is hardcoded to None with no setter; fixed in a later PR
+test remove_last_signature_clears_witness_set ... ignored, remove_signature panics when emptying the witness set; fixed in a later PR
+test minimal_build_golden ... ok
+test minimal_build_is_deterministic ... ok
+test minimal_build_round_trips ... ok
+test reconstructs_real_datum_tx ... ok
+test output_asset_value_round_trips ... ok
+test mint_and_burn_round_trip ... ok
+test reconstructs_real_token_tx ... ok
+test asset_tx_golden ... ok
+test minimal_build_input_matches ... ok
+test add_signature_embeds_out_of_band_witness ... ok
+test script_data_hash_matches_recomputation ... ok
+test reconstructs_real_native_mint_tx ... ok
+test sign_embeds_one_vkey_witness ... ok
+test signing_preserves_body_hash ... ok
+test reconstructs_real_plutus_spend_burn_tx ... ok
+test signing_twice_accumulates_witnesses ... ok
+test remove_signature_leaves_remaining_witnesses ... ok
+test multi_asset_output_is_deterministic ... ok
+test mint_is_deterministic ... ok
+
+test result: ok. 19 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_utxorpc-9e47ea20dbf4366c)
+
+running 73 tests
+test cross_version_compat::pparams_wire_compatible ... ok
+test cross_version_compat::certificate_wire_compatible ... ok
+test cross_version_compat::metadata_wire_compatible ... ok
+test cross_version_compat::plutus_data_wire_compatible ... ok
+test cross_version_compat::pool_registration_cert_wire_compatible ... ok
+test v1alpha::mapper_tests::a_governance_action_carries_the_action_id_it_names ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_setting_a_key_to_zero_maps_to_that_key ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_maps_its_update_through_the_view ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_of_nothing_u5c_carries_maps_to_no_parameters ... ok
+test v1alpha::mapper_tests::a_conway_parameter_change_maps_every_key_u5c_carries ... ok
+test v1alpha::mapper_tests::every_redeemer_tag_the_eras_share_maps_to_the_purpose_it_names ... ok
+test v1alpha::mapper_tests::execution_prices_map_memory_and_steps_to_the_fields_their_names_give ... ok
+test v1alpha::cert_tests::the_era_specific_mappers_map_through_the_certificate_view ... ok
+test v1alpha::mapper_tests::an_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1alpha::cert_tests::a_certificate_carries_the_redeemer_the_transaction_indexes_at_its_position ... ok
+test v1alpha::cert_tests::every_alonzo_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1alpha::cert_tests::every_conway_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1alpha::mapper_tests::a_certificate_carries_the_redeemer_paired_with_its_own_position ... ok
+test v1alpha::mapper_tests::the_deprecated_gov_action_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::mapper_tests::every_reference_script_language_maps_to_the_field_it_names ... ok
+test v1alpha::mapper_tests::the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero ... ok
+test v1alpha::mapper_tests::the_deprecated_any_script_mapper_answers_as_v1_4_0_did ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_preserves_mixed_shape_trees ... ok
+test v1alpha::tests::an_information_action_maps_to_the_value_this_schema_names ... ok
+test v1alpha::tests::map_native_script_preserves_mixed_shape_trees ... ok
+test v1alpha::cert_tests::a_pool_registration_read_from_a_block_maps_every_parameter ... ok
+test v1alpha::tests::a_pubkey_clause_maps_to_the_member_this_schema_names ... ok
+test v1alpha::tests::negative_n_of_k_threshold_maps_to_zero ... ok
+test v1alpha::tests::oversized_n_of_k_threshold_maps_to_u32_max ... ok
+test v1alpha::tests::the_legacy_purpose_mapper_agrees_with_the_multi_era_one ... ok
+test v1beta::cert_tests::a_certificate_carries_the_redeemer_the_transaction_indexes_at_its_position ... ok
+test v1beta::cert_tests::every_conway_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1beta::mapper_tests::a_certificate_carries_the_redeemer_paired_with_its_own_position ... ok
+test v1beta::cert_tests::a_pool_registration_read_from_a_block_maps_every_parameter ... ok
+test v1beta::cert_tests::every_alonzo_certificate_maps_to_the_u5c_message_naming_it ... ok
+test v1beta::cert_tests::the_era_specific_mappers_map_through_the_certificate_view ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_maps_its_update_through_the_view ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_setting_a_key_to_zero_maps_to_that_key ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_maps_every_key_u5c_carries ... ok
+test v1beta::mapper_tests::a_governance_action_carries_the_action_id_it_names ... ok
+test v1alpha::cert_tests::a_move_instantaneous_rewards_certificate_maps_the_pot_and_every_target ... ok
+test v1alpha::mapper_tests::every_governance_action_kind_maps_the_payload_it_carries ... ok
+test v1beta::mapper_tests::an_update_setting_any_one_key_to_zero_is_still_an_update ... ok
+test v1beta::mapper_tests::a_conway_parameter_change_of_nothing_u5c_carries_maps_to_no_parameters ... ok
+test v1alpha::mapper_tests::a_conway_transaction_without_a_v3_witness_script_reports_no_v3 ... ok
+test v1alpha::mapper_tests::a_conway_transaction_maps_its_plutus_v3_witness_script ... ok
+test v1beta::mapper_tests::every_redeemer_tag_the_eras_share_maps_to_the_purpose_it_names ... ok
+test v1beta::mapper_tests::every_governance_action_kind_maps_the_payload_it_carries ... ok
+test v1beta::mapper_tests::execution_prices_map_memory_and_steps_to_the_fields_their_names_give ... ok
+test v1beta::mapper_tests::every_reference_script_language_maps_to_the_field_it_names ... ok
+test v1beta::mapper_tests::the_deprecated_any_script_mapper_answers_as_v1_4_0_did ... ok
+test v1beta::mapper_tests::the_deprecated_gov_action_mapper_answers_as_v1_4_0_did ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero ... ok
+test v1beta::mapper_tests::the_deprecated_pparams_update_mapper_answers_as_v1_4_0_did ... ok
+test v1beta::tests::a_pubkey_clause_maps_to_the_member_this_schema_names ... ok
+test v1beta::tests::an_information_action_maps_to_the_value_this_schema_names ... ok
+test v1beta::tests::map_native_script_preserves_mixed_shape_trees ... ok
+test v1beta::tests::negative_n_of_k_threshold_maps_to_zero ... ok
+test v1beta::mapper_tests::a_conway_transaction_maps_its_plutus_v3_witness_script ... ok
+test v1beta::tests::oversized_n_of_k_threshold_maps_to_u32_max ... ok
+test v1beta::tests::the_legacy_purpose_mapper_agrees_with_the_multi_era_one ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_preserves_mixed_shape_trees ... ok
+test v1beta::mapper_tests::a_conway_transaction_without_a_v3_witness_script_reports_no_v3 ... ok
+test v1beta::cert_tests::a_move_instantaneous_rewards_certificate_maps_the_pot_and_every_target ... ok
+test v1beta::mapper_tests::snapshot ... ok
+test v1alpha::tests::map_metadatum_handles_deeply_nested_metadata_on_a_small_stack ... ok
+test v1alpha::tests::map_native_script_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1alpha::mapper_tests::the_era_neutral_walk_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1beta::tests::map_native_script_handles_deeply_nested_scripts_on_a_small_stack ... ok
+test v1alpha::mapper_tests::snapshot ... ok
+test v1alpha::tests::map_plutus_datum_handles_deeply_nested_data_on_a_small_stack ... ok
+test v1beta::mapper_tests::the_era_neutral_walk_handles_deeply_nested_scripts_on_a_small_stack ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-197ea15eb5f461f6)
+
+running 24 tests
+test phase1::conway::certificate_witnesses::all_plutus_versions_can_supply_certificate_scripts ... ok
+test phase1::shelley_ma::tests::invalid_before ... ok
+test phase1::conway::registration_deposits::one_lovelace_imbalance_fails_for_both_encodings ... ok
+test phase1::shelley_ma::tests::invalid_hereafter ... ok
+test phase1::conway::registration_deposits::removing_registration_leaves_unbalanced_value ... ok
+test phase1::conway::certificate_witnesses::legacy_registration_requires_neither_key_script_nor_redeemer ... ok
+test phase1::shelley_ma::tests::n_of_k_threshold ... ok
+test utils::registration_deposits::adding_fees_and_deposits_cannot_overflow_produced_value ... ok
+test phase1::shelley_ma::tests::nested_timelocks ... ok
+test phase1::conway::registration_deposits::absent_or_delegation_only_certificates_do_not_charge_a_deposit ... ok
+test utils::registration_deposits::stake_deposit_sum_overflow_is_rejected ... ok
+test utils::registration_deposits::unrelated_certificate_deposits_are_not_stake_deposits ... ok
+test phase1::conway::registration_deposits::declared_deposit_cannot_override_protocol_accounting ... ok
+test utils::registration_deposits::deposits_preserve_native_assets ... ok
+test phase1::conway::registration_deposits::all_stake_registration_forms_charge_the_protocol_deposit ... ok
+test phase1::conway::certificate_witnesses::native_reference_authorization_uses_original_script_hash ... ok
+test phase1::conway::certificate_witnesses::native_and_key_certificates_reject_unnecessary_redeemers ... ok
+test phase1::conway::certificate_witnesses::native_reference_certificate_needs_no_redeemer ... ok
+test phase1::conway::certificate_witnesses::native_certificate_timelocks_and_thresholds_are_evaluated ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_script_and_plutus_redeemer ... ok
+test phase1::conway::certificate_witnesses::pool_certificates_require_operator_and_registration_owners ... ok
+test phase1::conway::certificate_witnesses::certificate_pointers_use_full_positions_and_distinct_purposes ... ok
+test phase1::conway::certificate_witnesses::native_certificate_checks_authorization_without_redeemers ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_its_key_and_valid_signature ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/alonzo.rs (target/debug/deps/alonzo-ef797237faa31831)
+
+running 33 tests
+test alonzo_tests::empty_ins ... ok
+test alonzo_tests::min_fee_unreached ... ok
+test alonzo_tests::max_val_exceeded ... ok
+test alonzo_tests::collateral_is_not_verification_key_locked ... ok
+test alonzo_tests::collateral_with_other_assets ... ok
+test alonzo_tests::missing_redeemer ... ok
+test alonzo_tests::minting_lacks_policy ... ok
+test alonzo_tests::max_tx_size_exceeded ... ok
+test alonzo_tests::preservation_of_value ... ok
+test alonzo_tests::output_network_ids ... ok
+test alonzo_tests::missing_vk_witness ... ok
+test alonzo_tests::collateral_without_min_lovelace ... ok
+test alonzo_tests::auxiliary_data_removed ... ok
+test alonzo_tests::extra_input_datum ... ok
+test alonzo_tests::min_lovelace_unreached ... ok
+test alonzo_tests::extra_plutus_script ... ok
+test alonzo_tests::missing_input_datum ... ok
+test alonzo_tests::missing_plutus_script ... ok
+test alonzo_tests::no_collateral_inputs ... ok
+test alonzo_tests::extra_redeemer ... ok
+test alonzo_tests::missing_required_signer ... ok
+test alonzo_tests::successful_mainnet_tx ... ok
+test alonzo_tests::successful_mainnet_tx_with_metadata ... ok
+test alonzo_tests::successful_mainnet_tx_with_minting ... ok
+test alonzo_tests::too_many_collateral_inputs ... ok
+test alonzo_tests::unfound_utxo_input ... ok
+test alonzo_tests::tx_network_id ... ok
+test alonzo_tests::validity_interval_upper_bound_surpassed ... ok
+test alonzo_tests::validity_interval_lower_bound_unreached ... ok
+test alonzo_tests::successful_mainnet_tx_with_plutus_script ... ok
+test alonzo_tests::wrong_signature ... ok
+test alonzo_tests::tx_ex_units_exceeded ... ok
+test alonzo_tests::script_integrity_hash ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/babbage.rs (target/debug/deps/babbage-f73e2d060318f3fb)
+
+running 33 tests
+test babbage_tests::empty_ins ... ok
+test babbage_tests::min_lovelace_unreached ... ok
+test babbage_tests::max_tx_size_exceeded ... ok
+test babbage_tests::collateral_is_not_verification_key_locked ... ok
+test babbage_tests::output_network_id ... ok
+test babbage_tests::max_val_exceeded ... ok
+test babbage_tests::collateral_min_lovelace ... ok
+test babbage_tests::no_collateral_inputs ... ok
+test babbage_tests::min_fee_unreached ... ok
+test babbage_tests::collateral_annotation ... ok
+test babbage_tests::collateral_with_other_assets ... ok
+test babbage_tests::preservation_of_value ... ok
+test babbage_tests::minting_lacks_policy ... ok
+test babbage_tests::extra_input_datum ... ok
+test babbage_tests::extra_redeemer ... ok
+test babbage_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test babbage_tests::missing_input_datum ... ok
+test babbage_tests::too_many_collateral_inputs ... ok
+test babbage_tests::auxiliary_data_removed ... ok
+test babbage_tests::successful_preprod_tx_with_plutus_v2_script ... ok
+test babbage_tests::script_integrity_hash ... ok
+test babbage_tests::successful_preview_tx_with_plutus_v2_script ... ok
+test babbage_tests::successful_mainnet_tx ... ok
+test babbage_tests::tx_network_id ... ok
+test babbage_tests::unfound_utxo_input ... ok
+test babbage_tests::validity_interval_upper_bound_surpassed ... ok
+test babbage_tests::tx_ex_units_exceeded ... ok
+test babbage_tests::script_input_lacks_script ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v2_script ... ok
+test babbage_tests::successful_mainnet_tx_with_metadata ... ok
+test babbage_tests::validity_interval_lower_bound_unreached ... ok
+test babbage_tests::successful_mainnet_tx_with_minting ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v1_script ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/byron.rs (target/debug/deps/byron-5b7f8c3803769da8)
+
+running 10 tests
+test byron_tests::unfound_utxo ... ok
+test byron_tests::tx_size_exceeds_max ... ok
+test byron_tests::empty_ins ... ok
+test byron_tests::empty_outs ... ok
+test byron_tests::output_without_lovelace ... ok
+test byron_tests::not_enough_fees ... ok
+test byron_tests::missing_witness ... ok
+test byron_tests::successful_mainnet_tx ... ok
+test byron_tests::successful_mainnet_tx_with_genesis_utxos ... ok
+test byron_tests::wrong_signature ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/common.rs (target/debug/deps/common-5673c59637c26588)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conway.rs (target/debug/deps/conway-bf1546b1523e58f1)
+
+running 22 tests
+test conway_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test conway_tests::empty_ins ... ok
+test conway_tests::max_val_exceeded ... ok
+test conway_tests::min_fee_unreached ... ok
+test conway_tests::collateral_min_lovelace ... ok
+test conway_tests::min_lovelace_unreached ... ok
+test conway_tests::no_collateral_inputs ... ok
+test conway_tests::max_tx_size_exceeded ... ok
+test conway_tests::collateral_annotation ... ok
+test conway_tests::certificate_script_is_required_through_dispatch ... ok
+test conway_tests::collateral_is_not_verification_key_locked ... ok
+test conway_tests::collateral_with_other_assets ... ok
+test conway_tests::preservation_of_value ... ok
+test conway_tests::mainnet_reference_script_rejects_underfunded_collateral ... ok
+test conway_tests::tx_network_id ... ok
+test conway_tests::preview_reference_script_rejects_underfunded_collateral ... ok
+test conway_tests::validity_interval_lower_bound_unreached ... ok
+test conway_tests::unfound_utxo_input ... ok
+test conway_tests::too_many_collateral_inputs ... ok
+test conway_tests::successful_mainnet_tx ... ok
+test conway_tests::registration_deposit_is_required_through_dispatch ... ok
+test conway_tests::validity_interval_upper_bound_surpassed ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/shelley_ma.rs (target/debug/deps/shelley_ma-ee89477a7e3b4de0)
+
+running 25 tests
+test shelley_ma_tests::empty_ins ... ok
+test shelley_ma_tests::missing_ttl ... ok
+test shelley_ma_tests::output_below_min_lovelace ... ok
+test shelley_ma_tests::preservation_of_value ... ok
+test shelley_ma_tests::auxiliary_data_removed ... ok
+test shelley_ma_tests::fee_below_minimum ... ok
+test shelley_ma_tests::delegation_before_registration ... ok
+test shelley_ma_tests::max_tx_size_exceeded ... ok
+test shelley_ma_tests::ttl_exceeded ... ok
+test shelley_ma_tests::unregistered_pool ... ok
+test shelley_ma_tests::wrong_network_id ... ok
+test shelley_ma_tests::unfound_utxo ... ok
+test shelley_ma_tests::missing_native_script_witness ... ok
+test shelley_ma_tests::missing_vk_witness ... ok
+test shelley_ma_tests::missing_signature_native_script ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_changed_script ... ok
+test shelley_ma_tests::vk_witness_changed ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_metadata ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_stk_deleg ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_minting ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_pool_reg ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_script ... ok
+test shelley_ma_tests::successful_mainnet_allegra_tx_with_mir ... ok
+test shelley_ma_tests::too_late_for_mir ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/utils.rs (target/debug/deps/utils-0ba88a66e5430f37)
+
+running 4 tests
+test add_values_rejects_lovelace_overflow ... ok
+test conway_add_values_rejects_lovelace_overflow ... ok
+test add_minted_value_rejects_burn_of_missing_asset ... ok
+test add_minted_value_rejects_burn_below_zero ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pallas
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pallas_addresses
+
+running 1 test
+test pallas-addresses/src/lib.rs - (line 11) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.36s; merged doctests compilation took 0.36s
+   Doc-tests pallas_codec
+
+running 3 tests
+test pallas-codec/src/utils.rs - utils::AnyCbor (line 1220) ... ok
+test pallas-codec/src/utils.rs - utils::KeepRaw (line 1088) ... ok
+test pallas-codec/src/lib.rs - (line 15) ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.37s; merged doctests compilation took 0.37s
+   Doc-tests pallas_configs
+
+running 1 test
+test pallas-configs/src/lib.rs - (line 9) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.62s; merged doctests compilation took 0.61s
+   Doc-tests pallas_crypto
+
+running 8 tests
+test pallas-crypto/src/key/ed25519.rs - key::ed25519::SecretKeyExtended::from_bytes (line 207) ... ok
+test pallas-crypto/src/key/ed25519.rs - key::ed25519::SecretKeyExtended::leak_into_bytes (line 300) ... ok
+test pallas-crypto/src/key/ed25519.rs - key::ed25519::SecretKeyExtended::from_bytes_unchecked (line 244) ... ok
+test pallas-crypto/src/hash/hasher.rs - hash::hasher::Hasher (line 33) ... ok
+test pallas-crypto/src/key/ed25519.rs - key::ed25519::SecretKey::leak_into_bytes (line 153) ... ok
+test pallas-crypto/src/lib.rs - (line 10) ... ok
+test pallas-crypto/src/lib.rs - hash (line 76) ... ok
+test pallas-crypto/src/hash/hasher.rs - hash::hasher::Hasher (line 15) ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.28s; merged doctests compilation took 0.28s
+   Doc-tests pallas_hardano
+
+running 9 tests
+test pallas-hardano/src/storage/immutable/primary.rs - storage::immutable::primary::layout (line 8) ... ignored
+test pallas-hardano/src/storage/immutable/primary.rs - storage::immutable::primary::layout::View (line 12) ... ignored
+test pallas-hardano/src/storage/immutable/secondary.rs - storage::immutable::secondary::layout (line 13) ... ignored
+test pallas-hardano/src/storage/immutable/secondary.rs - storage::immutable::secondary::layout::View (line 17) ... ignored
+test pallas-hardano/src/storage/immutable/mod.rs - storage::immutable::get_tip (line 319) - compile ... ok
+test pallas-hardano/src/storage/immutable/mod.rs - storage::immutable::read_blocks_from_point (line 203) - compile ... ok
+test pallas-hardano/src/lib.rs - (line 11) - compile ... ok
+test pallas-hardano/src/storage/immutable/secondary.rs - storage::immutable::secondary::layout::NestedView (line 15) ... ok
+test pallas-hardano/src/storage/immutable/primary.rs - storage::immutable::primary::layout::NestedView (line 10) ... ok
+
+test result: ok. 5 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 1.18s; merged doctests compilation took 1.17s
+   Doc-tests pallas_math
+
+running 1 test
+test pallas-math/src/lib.rs - (line 13) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+all doctests ran in 0.50s; merged doctests compilation took 0.48s
+   Doc-tests pallas_network
+
+running 3 tests
+test pallas-network/src/lib.rs - (line 13) - compile ... ok
+test pallas-network/src/miniprotocols/common.rs - miniprotocols::common::PROTOCOL_CLIENT (line 25) ... ok
+test pallas-network/src/miniprotocols/common.rs - miniprotocols::common::PROTOCOL_SERVER (line 33) ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.36s; merged doctests compilation took 0.35s
+   Doc-tests pallas_network2
+
+running 1 test
+test pallas-network2/src/lib.rs - (line 21) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.16s; merged doctests compilation took 0.16s
+   Doc-tests pallas_primitives
+
+running 1 test
+test pallas-primitives/src/lib.rs - (line 18) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 1.51s; merged doctests compilation took 1.51s
+   Doc-tests pallas_traverse
+
+running 1 test
+test pallas-traverse/src/lib.rs - (line 17) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.31s; merged doctests compilation took 0.31s
+   Doc-tests pallas_txbuilder
+
+running 1 test
+test pallas-txbuilder/src/lib.rs - (line 13) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.16s; merged doctests compilation took 0.16s
+   Doc-tests pallas_utxorpc
+
+running 1 test
+test pallas-utxorpc/src/lib.rs - (line 10) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.54s; merged doctests compilation took 0.54s
+   Doc-tests pallas_validate
+
+running 1 test
+test pallas-validate/src/lib.rs - (line 10) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.17s; merged doctests compilation took 0.16s

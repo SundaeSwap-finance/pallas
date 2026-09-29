@@ -16,6 +16,9 @@ pub enum Error {
     BadWithdrawalAddress,
     #[error("flat decode error: {0}")]
     FlatDecode(#[from] FlatDecodeError),
+    #[cfg(feature = "unstable")]
+    #[error("native flat decode error: {0}")]
+    NativeFlatDecode(#[from] amaru_uplc_native::flat::FlatDecodeError),
     #[error("fragment decode error: {0}")]
     FragmentDecode(#[from] pallas_primitives::Error),
     #[error(

@@ -1,0 +1,74 @@
+[
+  {
+    "case": "positive-inside",
+    "pallas": {
+      "success": true,
+      "memory": 5297,
+      "steps": 1997208,
+      "failure": null
+    },
+    "cli_exit_code": 0,
+    "cli_result": "[\n    {\n        \"executionUnits\": {\n            \"memory\": 5297,\n            \"steps\": 1997208\n        },\n        \"lovelaceCost\": 450,\n        \"scriptHash\": \"388be3139208515617ab0a8e6e81a180ec4a4f71f334be19636f3a63\"\n    }\n]",
+    "integer_range_log": false,
+    "synthetic_source_sha256": "551bcb73cb4e882246d04f0c0dd1e95223b3793284673e6b00699440f3d148b3"
+  },
+  {
+    "case": "positive-outside-fixed",
+    "pallas": {
+      "error": "DijkstraUnsupported(\"integer operand outside audited registration range\")"
+    },
+    "cli_exit_code": 1,
+    "cli_result": "",
+    "integer_range_log": true,
+    "synthetic_source_sha256": "6e14ce957e8edfbb2432578b8021ec98a8fda56139b84e3c8135d3cc1153f20b"
+  },
+  {
+    "case": "negative-inside",
+    "pallas": {
+      "success": true,
+      "memory": 5297,
+      "steps": 1997208,
+      "failure": null
+    },
+    "cli_exit_code": 0,
+    "cli_result": "[\n    {\n        \"executionUnits\": {\n            \"memory\": 5297,\n            \"steps\": 1997208\n        },\n        \"lovelaceCost\": 450,\n        \"scriptHash\": \"40ca9313c214aabedec172847806fa0c498bc845836acb731ae19ab3\"\n    }\n]",
+    "integer_range_log": false,
+    "synthetic_source_sha256": "f2f4ba19436a9b759be2de2bbc2c0160cf60b8fe2ad626a42e5a70052b37c7e3"
+  },
+  {
+    "case": "negative-outside",
+    "pallas": {
+      "error": "DijkstraUnsupported(\"integer operand outside audited registration range\")"
+    },
+    "cli_exit_code": 1,
+    "cli_result": "",
+    "integer_range_log": true,
+    "synthetic_source_sha256": "54f65583b39a0d854412f7b68650c9fbd095a623f56b880542faa41de8bdd11b"
+  },
+  {
+    "case": "equality-outside",
+    "pallas": {
+      "success": true,
+      "memory": 1501,
+      "steps": 2561443,
+      "failure": null
+    },
+    "cli_exit_code": 0,
+    "cli_result": "[\n    {\n        \"executionUnits\": {\n            \"memory\": 1501,\n            \"steps\": 2561443\n        },\n        \"lovelaceCost\": 272,\n        \"scriptHash\": \"71b97f0dde796fd354ea404f846950f987ccaa2360534a639a6d57bd\"\n    }\n]",
+    "integer_range_log": false,
+    "synthetic_source_sha256": "db9a06daca0d8eab354574e3d779c2c1cd7f9d714b648b96cfa079e1c6316e76"
+  },
+  {
+    "case": "data-outside",
+    "pallas": {
+      "success": true,
+      "memory": 1032,
+      "steps": 159399,
+      "failure": null
+    },
+    "cli_exit_code": 0,
+    "cli_result": "[\n    {\n        \"executionUnits\": {\n            \"memory\": 1032,\n            \"steps\": 159399\n        },\n        \"lovelaceCost\": 72,\n        \"scriptHash\": \"218a513eabc06ad5bf0edae72508f89cc524d5fef69841d83df39725\"\n    }\n]",
+    "integer_range_log": false,
+    "synthetic_source_sha256": "df03adf11bcfbb88a6a3980cb16120a7afb01cd2b38e9ecf0f03dfb1035de3c5"
+  }
+]
