@@ -1,0 +1,41 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.82s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-a64a894a7db7be8c)
+
+running 31 tests
+test phase2::evaluator::tests::flat_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::machine_failure_keeps_logs ... ok
+test phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context ... ok
+test phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context ... ok
+test phase2::evaluator::tests::script_cbor_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic ... ok
+test phase2::script_context::registration_scripts::captured_registration_context_has_full_certificate_position ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources ... ok
+captured builtin inventory: {"AddInteger", "AppendByteString", "BData", "Blake2b_224", "Blake2b_256", "ChooseData", "ChooseList", "ConsByteString", "ConstrData", "DivideInteger", "EqualsByteString", "EqualsData", "EqualsInteger", "FstPair", "HeadList", "IData", "IfThenElse", "LengthOfByteString", "LessThanEqualsByteString", "LessThanEqualsInteger", "LessThanInteger", "ListData", "MapData", "MkCons", "MkPairData", "ModInteger", "SerialiseData", "SndPair", "TailList", "UnBData", "UnConstrData", "UnIData", "UnListData", "UnMapData", "VerifyEd25519Signature"}
+test phase2::dijkstra_evaluation_tests::native_registration_builtin_inventory ... ok
+test phase2::dijkstra_evaluation_tests::native_and_conway_post_bootstrap_context_reaches_script ... ok
+test phase2::script_context::registration_scripts::captured_registration_requires_correct_script ... ok
+test phase2::script_context::registration_scripts::captured_registration_rejects_bad_indices_and_wrong_purpose ... ok
+test phase2::script_context::tests::a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... native historical result: [TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 18485, steps: 4805428 }, success: true, logs: [], failure_message: None }]; declared ExUnits { mem: 18485, steps: 4805428 }
+ok
+test phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget ... ok
+captured execution: TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 18485, steps: 4805428 }, success: true, logs: [], failure_message: None }
+test phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer ... ok
+test phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view ... ok
+test phase2::script_context::tests::a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... ok
+test phase2::script_context::registration_scripts::registration_position_includes_non_script_certificates ... ok
+test phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set ... ok
+test phase2::script_context::registration_scripts::registration_rejects_key_and_exempt_certificate_targets ... ok
+test phase2::script_context::registration_scripts::registration_v1_v2_context_uses_legacy_registration_encoding ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_earlier_era_inputs_keep_original_labels ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.07s
