@@ -1,6 +1,12 @@
-# Native Dijkstra phase-one transfers
+# Native Dijkstra phase-one validation
 
-## Design scope, established before implementation
+The current supported subset includes the initial key/ADA transfer path and the
+[native registration extension](registration-only.md). The sections
+below preserve the initial transfer checkpoint and its red/green evidence.
+Registration now accepts with explicit prestate and complete parameters for the
+documented subset; default state still rejects.
+
+## Initial transfer scope, established before implementation
 
 Rules follow cardano-ledger `1587f21a7d1306dc590c2749a5c66232ef66aad0`,
 not an identified historical node binary. The remote node version is unknown;
@@ -54,9 +60,9 @@ No input amounts, output eras, signed bytes or historical parameters are altered
 The registration capture and its state reconstruction remain documented in
 `../musashi-registration`. Settings means the RealFi application's settings
 validator. Its shared deposit, certificate witness and input tests are prior
-scoped proofs, not full native registration validation. The native route must
-reject it until historical certificate-state supply and remaining native
-phase-one registration rules are implemented. Native evaluation and post-bootstrap
+scoped proofs, not full native registration validation. The initial native route rejected it pending historical certificate-state supply
+and remaining native phase-one rules; the linked extension supplies those rules
+for the unchanged settings registration. Native evaluation and post-bootstrap
 V3 deposit/refund translation remain S06; submission, pins and workaround removal
 remain S07.
 

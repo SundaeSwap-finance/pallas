@@ -1,0 +1,109 @@
+--- a/pallas-validate/src/utils.rs
++++ b/pallas-validate/src/utils.rs
+@@ -885,0 +886,4 @@
++    /// Known credential prestate for native Dijkstra Reg validation. Missing entries
++    /// are unknown, not unregistered. Phase-one updates are provisional until phase two.
++    #[cfg(feature = "unstable")]
++    pub dijkstra_registrations: HashMap<StakeCredential, DijkstraRegistrationState>,
+@@ -888,0 +893,8 @@
++
++/// Explicit prestate for the currently supported Dijkstra registration rule.
++#[cfg(feature = "unstable")]
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum DijkstraRegistrationState {
++    Unregistered,
++    Registered,
++}
+--- a/pallas-validate/src/utils/environment.rs
++++ b/pallas-validate/src/utils/environment.rs
+@@ -308,2 +308,2 @@
+-/// Parameters used by the deliberately restricted native Dijkstra transfer validator.
+-/// This is not a complete Dijkstra parameter set. Script and stateful features reject.
++/// Parameters for the supported native Dijkstra transfers and registrations.
++/// This is not a complete Dijkstra parameter set; unsupported features reject.
+@@ -322 +322,20 @@
+-}
++    /// Required only for explicit registration certificates; never inferred from defaults.
++    pub key_deposit: Option<Coin>,
++    /// Required for the supported reference-script registration path.
++    pub plutus: Option<DijkstraPlutusParams>,
++}
++
++/// Parameters needed for native Plutus V3 registration phase one (not evaluation).
++#[cfg(feature = "unstable")]
++#[derive(Debug, Clone)]
++pub struct DijkstraPlutusParams {
++    pub cost_model_v3: Vec<i64>,
++    pub execution_costs: ExUnitPrices,
++    pub max_tx_ex_units: ExUnits,
++    pub collateral_percentage: u32,
++    pub max_collateral_inputs: u32,
++    pub minfee_refscript_cost_per_byte: RationalNumber,
++    pub max_ref_script_size_per_tx: u32,
++    pub ref_script_cost_stride: u32,
++    pub ref_script_cost_multiplier: RationalNumber,
++}
+--- a/pallas-validate/src/utils/validation.rs
++++ b/pallas-validate/src/utils/validation.rs
+@@ -14,0 +15,12 @@
++    #[cfg(feature = "unstable")]
++    #[error("invalid Dijkstra registration: {0}")]
++    DijkstraInvalidCertificate(&'static str),
++
++    #[cfg(feature = "unstable")]
++    #[error("missing or invalid Dijkstra protocol parameter: {0}")]
++    DijkstraMissingParameters(&'static str),
++
++    #[cfg(feature = "unstable")]
++    #[error("Dijkstra reference script size exceeds the protocol limit")]
++    DijkstraReferenceScriptsTooLarge,
++
+--- a/pallas-validate/src/phase1/mod.rs
++++ b/pallas-validate/src/phase1/mod.rs
+@@ -8,0 +9,2 @@
++#[cfg(all(test, feature = "unstable"))]
++mod dijkstra_registration_tests;
+@@ -100,3 +102,8 @@
+-            MultiEraTx::Dijkstra(tx) => {
+-                dijkstra::validate_dijkstra_tx(tx, utxos, pp, env.block_slot(), env.network_id())
+-            }
++            MultiEraTx::Dijkstra(tx) => dijkstra::validate_dijkstra_tx(
++                tx,
++                utxos,
++                pp,
++                env.block_slot(),
++                env.network_id(),
++                cert_state,
++            ),
+--- a/pallas-validate/src/phase1/dijkstra_tests.rs
++++ b/pallas-validate/src/phase1/dijkstra_tests.rs
+@@ -27,0 +28,2 @@
++        key_deposit: None,
++        plutus: None,
+@@ -42 +44 @@
+-fn env() -> Environment {
++pub(super) fn env() -> Environment {
+@@ -78 +80 @@
+-fn error(result: crate::utils::ValidationResult, expected: &str) {
++pub(super) fn error(result: crate::utils::ValidationResult, expected: &str) {
+@@ -153 +155,3 @@
+-fn synthetic(test: impl FnOnce(native::BlockTransaction<'_>, native::TransactionOutput<'_>)) {
++pub(super) fn synthetic(
++    test: impl FnOnce(native::BlockTransaction<'_>, native::TransactionOutput<'_>),
++) {
+@@ -185 +189 @@
+-fn sign(tx: &mut native::BlockTransaction<'_>) {
++pub(super) fn sign(tx: &mut native::BlockTransaction<'_>) {
+@@ -478 +482 @@
+-                    "scripts, mint, collateral or reference inputs"
++                    "script fields without script registration"
+@@ -483 +487 @@
+-                    "scripts, mint, collateral or reference inputs"
++                    "script fields without script registration"
+@@ -487 +491 @@
+-                    "scripts, mint, collateral or reference inputs"
++                    "script fields without script registration"
+--- a/pallas-validate/src/phase1/dijkstra.rs
++++ b/pallas-validate/src/phase1/dijkstra.rs
+@@ -26,0 +27 @@
++    _cert_state: &mut crate::utils::CertState,

@@ -12,6 +12,18 @@ pub enum ValidationError {
     #[error("Dijkstra certificate validation requires historical certificate state")]
     DijkstraCertificateStateUnavailable,
 
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra registration: {0}")]
+    DijkstraInvalidCertificate(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("missing or invalid Dijkstra protocol parameter: {0}")]
+    DijkstraMissingParameters(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra reference script size exceeds the protocol limit")]
+    DijkstraReferenceScriptsTooLarge,
+
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
 
