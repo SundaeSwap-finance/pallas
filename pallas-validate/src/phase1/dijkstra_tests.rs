@@ -25,6 +25,8 @@ fn params() -> DijkstraProtParams {
     ))
     .unwrap();
     DijkstraProtParams {
+        key_deposit: None,
+        plutus: None,
         system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
         epoch_length: 21600,
         slot_length: 1,
@@ -39,7 +41,7 @@ fn params() -> DijkstraProtParams {
         max_value_size: p["max_val_size"].as_str().unwrap().parse().unwrap(),
     }
 }
-fn env() -> Environment {
+pub(super) fn env() -> Environment {
     Environment {
         prot_params: MultiEraProtocolParameters::Dijkstra(params()),
         prot_magic: 164,
@@ -75,7 +77,7 @@ fn captured(test: impl FnOnce(native::BlockTransaction<'_>, MultiEraOutput<'_>))
     assert_eq!(output.era(), Era::Dijkstra);
     test(tx.as_dijkstra().unwrap().clone(), output);
 }
-fn error(result: crate::utils::ValidationResult, expected: &str) {
+pub(super) fn error(result: crate::utils::ValidationResult, expected: &str) {
     assert_eq!(format!("{:?}", result.unwrap_err()), expected);
 }
 
@@ -150,7 +152,9 @@ fn dijkstra_captured_signatures_are_required_and_all_verified() {
 
 // Re-sign synthetic body changes with a public deterministic test key, and make
 // a synthetic key-locked UTxO with the original coin. Never overwrite captures.
-fn synthetic(test: impl FnOnce(native::BlockTransaction<'_>, native::TransactionOutput<'_>)) {
+pub(super) fn synthetic(
+    test: impl FnOnce(native::BlockTransaction<'_>, native::TransactionOutput<'_>),
+) {
     captured(|mut tx, output| {
         let key = SecretKey::from([71; 32]);
         let address = ShelleyAddress::new(
@@ -182,7 +186,7 @@ fn synthetic(test: impl FnOnce(native::BlockTransaction<'_>, native::Transaction
         test(tx, input);
     });
 }
-fn sign(tx: &mut native::BlockTransaction<'_>) {
+pub(super) fn sign(tx: &mut native::BlockTransaction<'_>) {
     let key = SecretKey::from([71; 32]);
     let hash = Hasher::<256>::hash(&minicbor::to_vec(&tx.transaction_body).unwrap());
     tx.transaction_witness_set.vkeywitness =
@@ -475,16 +479,16 @@ fn dijkstra_typed_features_reject_explicitly() {
                 }
                 6 => {
                     changed.transaction_body.total_collateral = Some(0);
-                    "scripts, mint, collateral or reference inputs"
+                    "script fields without script registration"
                 }
                 7 => {
                     changed.transaction_body.reference_inputs =
                         native::NonEmptySet::from_vec(changed.transaction_body.inputs.to_vec());
-                    "scripts, mint, collateral or reference inputs"
+                    "script fields without script registration"
                 }
                 8 => {
                     changed.transaction_body.script_data_hash = Some([0; 32].into());
-                    "scripts, mint, collateral or reference inputs"
+                    "script fields without script registration"
                 }
                 _ => {
                     changed.transaction_body.auxiliary_data_hash = Some([0; 32].into());

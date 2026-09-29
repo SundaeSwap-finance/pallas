@@ -883,6 +883,18 @@ pub struct PState {
 #[non_exhaustive]
 #[derive(Default, Clone)] // for testing
 pub struct CertState {
+    /// Known credential prestate for native Dijkstra Reg validation. Missing entries
+    /// are unknown, not unregistered. Phase-one updates are provisional until phase two.
+    #[cfg(feature = "unstable")]
+    pub dijkstra_registrations: HashMap<StakeCredential, DijkstraRegistrationState>,
     pub pstate: PState,
     pub dstate: DState,
+}
+
+/// Explicit prestate for the currently supported Dijkstra registration rule.
+#[cfg(feature = "unstable")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DijkstraRegistrationState {
+    Unregistered,
+    Registered,
 }
