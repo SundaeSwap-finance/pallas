@@ -19,7 +19,7 @@ fn read(name: &str) -> Vec<u8> {
     )
     .unwrap()
 }
-fn params() -> DijkstraProtParams {
+pub(super) fn params() -> DijkstraProtParams {
     let p: serde_json::Value = serde_json::from_str(include_str!(
         "../../../test_data/musashi-phase1/historical-parameters.json"
     ))
@@ -451,14 +451,24 @@ fn dijkstra_typed_features_reject_explicitly() {
             let mut changed = tx.clone();
             let expected = match field {
                 0 => {
-                    changed.transaction_body.guards = Some(native::Guards::AddrKeyhashes(
-                        native::NonEmptySet::from_vec(vec![[1; 28].into()]).unwrap(),
+                    changed.transaction_body.guards = Some(native::Guards::Credentials(
+                        native::NonEmptySet::from_vec(vec![native::StakeCredential::ScriptHash(
+                            [1; 28].into(),
+                        )])
+                        .unwrap(),
                     ));
-                    "guards"
+                    "script guards"
                 }
                 1 => {
-                    changed.transaction_body.required_top_level_guards = Some(Default::default());
-                    "guards"
+                    changed.transaction_body.required_top_level_guards = Some(
+                        [(
+                            native::StakeCredential::ScriptHash([1; 28].into()),
+                            pallas_codec::utils::Nullable::Null,
+                        )]
+                        .into_iter()
+                        .collect(),
+                    );
+                    "script guards"
                 }
                 2 => {
                     changed.transaction_body.direct_deposits = Some(Default::default());
@@ -507,7 +517,7 @@ fn dijkstra_typed_features_reject_explicitly() {
             native::NonEmptySet::from_vec(vec![sub.clone()]);
         error(
             dispatch(&changed, &output, &env()),
-            "DijkstraUnsupported(\"subtransactions\")",
+            "PostAlonzo(TxInsEmpty)",
         );
         error(
             validate_txs(

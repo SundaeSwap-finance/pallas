@@ -1,7 +1,12 @@
 # Native Dijkstra phase-one validation
 
+The combined extension was split into two independently verified commits:
+[native registration](registration-only.md) followed by
+[key-only batches](key-batches.md). The original combined checkpoint and its
+historical verification remain preserved; the final source is unchanged.
+
 The current supported subset includes the initial key/ADA transfer path and the
-[native registration extension](registration-only.md). The sections
+[registration and key-batch extension](registration-and-batches.md). The sections
 below preserve the initial transfer checkpoint and its red/green evidence.
 Registration now accepts with explicit prestate and complete parameters for the
 documented subset; default state still rejects.
