@@ -305,8 +305,8 @@ impl Environment {
     }
 }
 
-/// Parameters used by the deliberately restricted native Dijkstra transfer validator.
-/// This is not a complete Dijkstra parameter set. Script and stateful features reject.
+/// Parameters for the supported native Dijkstra transfers and registrations.
+/// This is not a complete Dijkstra parameter set; unsupported features reject.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone)]
 pub struct DijkstraProtParams {
@@ -319,4 +319,23 @@ pub struct DijkstraProtParams {
     pub max_transaction_size: u32,
     pub ada_per_utxo_byte: Coin,
     pub max_value_size: u32,
+    /// Required only for explicit registration certificates; never inferred from defaults.
+    pub key_deposit: Option<Coin>,
+    /// Required for the supported reference-script registration path.
+    pub plutus: Option<DijkstraPlutusParams>,
+}
+
+/// Parameters needed for native Plutus V3 registration phase one (not evaluation).
+#[cfg(feature = "unstable")]
+#[derive(Debug, Clone)]
+pub struct DijkstraPlutusParams {
+    pub cost_model_v3: Vec<i64>,
+    pub execution_costs: ExUnitPrices,
+    pub max_tx_ex_units: ExUnits,
+    pub collateral_percentage: u32,
+    pub max_collateral_inputs: u32,
+    pub minfee_refscript_cost_per_byte: RationalNumber,
+    pub max_ref_script_size_per_tx: u32,
+    pub ref_script_cost_stride: u32,
+    pub ref_script_cost_multiplier: RationalNumber,
 }
