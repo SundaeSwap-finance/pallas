@@ -1,5 +1,5 @@
 {
-  "fixture_id": "musashi-native-phase1-registration",
+  "fixture_id": "musashi-native-phase1-registration-and-key-batches",
   "date": "2026-09-29",
   "baseline": "1af163ecfa94515477c24f97180dc1aaf849023c",
   "ledger_revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
@@ -43,15 +43,23 @@
   },
   "synthetic_evidence": {
     "modules": [
-      "dijkstra_registration_tests.rs"
+      "dijkstra_registration_tests.rs",
+      "dijkstra_batch_tests.rs"
     ],
-    "boundaries": "state/deposit/author, scripts/redeemers/integrity, budgets/fees/collateral"
+    "key_batches": "deterministic test keys, synthetic UTxOs and signed bodies; not captured network acceptance",
+    "boundaries": "state/deposit/author, scripts/redeemers/integrity, budgets/fees/collateral, per-level signatures/guards/validity, aggregate balance/size and original/evolving input membership"
+  },
+  "captured_unsupported_batch": {
+    "file": "../dijkstra-subtx.tx",
+    "transaction_id": "74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12",
+    "reason": "script spending in subtransaction; top references/collateral; no original UTxO set packaged for native phase-one replay",
+    "positive_acceptance_claim": false
   },
   "excluded": [
     "phase-two execution and native context translation (S06)",
     "post-bootstrap V3 deposit/refund translation (S06)",
     "submission, pin changes and workaround removal (S07)",
-    "all subtransactions and guards",
+    "script/certificate subtransactions",
     "account/governance state",
     "all certificate forms except top-level Reg",
     "script guards, script spending, mint, withdrawals, datums, witness-carried Plutus",
@@ -61,15 +69,15 @@
   "checksums_sha256": {
     "registration-dijkstra-genesis.json": "e3a0f8edd086e0c1fccc9fa04b58fa76b8f735ce1214f854072078f7c823e8be",
     "registration-certificate-state.json": "d28a6c537d0e1a07cfc091ec2bcfda341974fcc8411ba1280726edf6707fae42",
+    "registration-fixed-validation.txt": "93db6987fbd88e7eba3ffa4f7ed6acd8cbde2b6b50fa8107b62e53126d9cee94",
     "registration-shelley-genesis.json": "da8508afc546a0b1824d93629a7a5fc8c0898d85095c2cf1b25730eb99d5a151",
     "registration-certificate-history.json": "1db1fde7ef816a3d38e93bb37981417d6de42e0d48afe197c572cc6d31cfa6c3",
     "registration-parameter-history.json": "fb209022f61473b423e6973218c2d64bae7f9995ce65fd08b756c792af45b685",
+    "registration-baseline-preparation.patch": "0e87c85b8c4dbbd76f06b89957881e6aae2eab282dbf5e65b14496043a74121b",
     "registration-epoch64-parameters.json": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+    "registration-baseline-validation.txt": "64d9a2394b7cec19f65653c965034b7c886baeaf454d6199c215e4b9b808940e",
     "registration-parameter-history-scanner.rs": "8af1670cb73a6adddae6cb0fe56bca3123233f5be814f948bcc0ccb442108a3d",
-    "registration-only-verification.json": "5aec46666a9c7e11f78d35ba5ad5492b9ffe49efa8059bfbbc796ea636b69607",
-    "registration-only-baseline-preparation.patch": "8cf9e5d88d7133185e462ced5158f874483fc842d78633445744d6e8ea1a3b23",
-    "registration-only-baseline.txt": "9df3d332a306313eae931ce95a2cc40da57edc5f8027a59743446edefdc889f4",
-    "registration-only-fixed.txt": "ed71f2853d568c573b8443829e42fe22f3b9a5f93ece79e293b8df0e5090d634"
+    "registration-verification.json": "5f1bcff91bf72737dbc1c345b9c5450158550a55f345c9cf9fdca22f10fda9d9"
   },
   "ledger_sources": [
     {
@@ -155,8 +163,8 @@
     "registration-shelley-genesis.json": "context/shelley-genesis.json"
   },
   "sha256_test_modules": {
-    "dijkstra_tests.rs": "6173c9ccf07273a9077721b19bcbb58269d57cac8f21260b32e64a8041e27400",
-    "dijkstra_registration_tests.rs": "2470de799dce5aa8f5ab47ed552cb00463c2434cb941ae65cd320e4176cad68a"
-  },
-  "split_checkpoint": "registration-only; original combined checkpoint 76003a3 remains tagged"
+    "dijkstra_tests.rs": "184ccfd528bc6d954957b0250d5b34a961e9e4418a04923ed48d399082c62e1e",
+    "dijkstra_registration_tests.rs": "2470de799dce5aa8f5ab47ed552cb00463c2434cb941ae65cd320e4176cad68a",
+    "dijkstra_batch_tests.rs": "a544dbe440061160f15d4c168ebc90b01be5603ca89407a45b9abec9744a937f"
+  }
 }
