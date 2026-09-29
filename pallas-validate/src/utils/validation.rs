@@ -24,6 +24,10 @@ pub enum ValidationError {
     #[error("Dijkstra reference script size exceeds the protocol limit")]
     DijkstraReferenceScriptsTooLarge,
 
+    #[cfg(feature = "unstable")]
+    #[error("input has already been consumed within the Dijkstra batch")]
+    DijkstraInputAlreadySpent,
+
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
 

@@ -1,0 +1,33 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.31s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-288018e7ffbf4e48)
+
+running 26 tests
+test phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch ... ok
+test phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified ... ok
+test phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks ... ok
+test phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras ... ok
+test phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state ... ok
+test phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size ... ok
+test phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries ... ok
+test phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode ... ok
+test utils::registration_deposits::native::settings_native_dijkstra_registration_balance ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards ... ok
+test phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject ... ok
+test utils::registration_deposits::native::protocol_native_dijkstra_registration_balance ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees ... ok
+test phase1::dijkstra_tests::dijkstra_validity_is_half_open ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures ... ok
+test phase1::dijkstra_tests::dijkstra_capture_integrity_and_certified_original_input ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 0.16s

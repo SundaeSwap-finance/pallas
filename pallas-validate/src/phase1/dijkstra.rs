@@ -1,5 +1,5 @@
-//! Native protocol-12 phase one for the documented transfer and registration subset.
-//! See test_data/musashi-phase1/registration-only.md for rules and boundaries.
+//! Native protocol-12 phase one for the documented transfer, registration and batch subset.
+//! See test_data/musashi-phase1/registration-and-batches.md for rules and boundaries.
 use crate::utils::{
     CertState, DijkstraPlutusParams, DijkstraProtParams, DijkstraRegistrationState,
     PostAlonzoError::*, UTxOs, ValidationError, ValidationError::*, ValidationResult,
@@ -34,7 +34,9 @@ pub fn validate_dijkstra_tx(
     check_supported(tx)?;
     let b = &tx.transaction_body;
     let mut state = cert_state.dijkstra_registrations.clone();
-    let mut keys = Keys::new();
+    let mut keys = guard_keys(b.guards.as_ref())?;
+    let top_guards = keys.clone();
+    check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
     let mut scripts = BTreeMap::new();
     for (index, cert) in b.certificates.iter().flat_map(|x| x.iter()).enumerate() {
         let Certificate::Reg(credential, deposit) = cert else {
@@ -86,8 +88,37 @@ pub fn validate_dijkstra_tx(
     if b.fee < minimum_fee {
         return Err(PostAlonzo(FeeBelowMin));
     }
-    let consumed = check_inputs(&b.inputs, utxos, &mut keys)?;
-    let output_coin = check_outputs(&b.outputs, pp, network_id)?;
+    let mut spent = Spent::new();
+    let mut consumed = 0;
+    let mut output_coin = 0;
+    for sub in b.sub_transactions.iter().flat_map(|x| x.iter()) {
+        check_sub_supported(sub)?;
+        let sb = &sub.sub_transaction_body;
+        check_required_guards(sb.required_top_level_guards.as_ref(), &top_guards)?;
+        check_interval(
+            sb.validity_interval_start,
+            sb.ttl,
+            sb.network_id,
+            *block_slot,
+            *network_id,
+        )?;
+        let mut sub_keys = guard_keys(sb.guards.as_ref())?;
+        consumed = add(
+            consumed,
+            check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys)?,
+        )?;
+        output_coin = add(output_coin, check_outputs(&sb.outputs, pp, network_id)?)?;
+        check_signatures(
+            &sub.transaction_witness_set,
+            &encode(&sub.sub_transaction_body)?,
+            sub_keys,
+        )?;
+    }
+    consumed = add(
+        consumed,
+        check_inputs(&b.inputs, utxos, &mut spent, &mut keys)?,
+    )?;
+    output_coin = add(output_coin, check_outputs(&b.outputs, pp, network_id)?)?;
     // Same explicit Reg deposit semantics as Conway; no transaction/witness conversion.
     let view = MultiEraTx::from_dijkstra(tx);
     let produced = add_fee_and_stake_deposits(
@@ -129,9 +160,43 @@ fn check_interval(
     }
     Ok(())
 }
+fn guard_keys(guards: Option<&Guards>) -> Result<Keys, ValidationError> {
+    let mut keys = Keys::new();
+    match guards {
+        None => (),
+        Some(Guards::AddrKeyhashes(xs)) => keys.extend(xs.iter().copied()),
+        Some(Guards::Credentials(xs)) => {
+            for x in xs.iter() {
+                let StakeCredential::AddrKeyhash(key) = x else {
+                    return Err(DijkstraUnsupported("script guards"));
+                };
+                keys.insert(*key);
+            }
+        }
+    }
+    Ok(keys)
+}
+fn check_required_guards(
+    required: Option<&RequiredTopLevelGuards>,
+    top: &Keys,
+) -> ValidationResult {
+    for (credential, datum) in required.into_iter().flatten() {
+        let StakeCredential::AddrKeyhash(key) = credential else {
+            return Err(DijkstraUnsupported("script guards"));
+        };
+        if !matches!(datum, Nullable::Null) {
+            return Err(DijkstraUnsupported("guard datum"));
+        }
+        if !top.contains(key) {
+            return Err(PostAlonzo(ReqSignerMissing));
+        }
+    }
+    Ok(())
+}
 fn check_inputs(
     inputs: &[TransactionInput],
     utxos: &UTxOs<'_>,
+    spent: &mut Spent,
     keys: &mut Keys,
 ) -> Result<u64, ValidationError> {
     if inputs.is_empty() {
@@ -144,9 +209,13 @@ fn check_inputs(
         if !local.insert(id) {
             return Err(DijkstraUnsupported("duplicate inputs"));
         }
+        // SUBUTXO requires membership in both original and evolving UTxO.
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(InputNotInUTxO))?;
+        if !spent.insert(id) {
+            return Err(DijkstraInputAlreadySpent);
+        }
         let (coin, key) = key_coin(output)?;
         total = add(total, coin)?;
         keys.insert(key);
@@ -247,11 +316,8 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     if !tx.success {
         return Err(DijkstraUnsupported("unsuccessful block transaction"));
     }
-    if b.sub_transactions.is_some() {
-        return Err(DijkstraUnsupported("subtransactions"));
-    }
-    if b.guards.is_some() || b.required_top_level_guards.is_some() {
-        return Err(DijkstraUnsupported("guards"));
+    if b.certificates.is_some() && b.sub_transactions.is_some() {
+        return Err(DijkstraUnsupported("registration with subtransactions"));
     }
     if b.direct_deposits.is_some()
         || b.account_balance_intervals.is_some()
@@ -275,33 +341,66 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
         (4, b.certificates.is_some()),
         (11, b.script_data_hash.is_some()),
         (13, b.collateral.is_some()),
+        (14, b.guards.is_some()),
         (16, b.collateral_return.is_some()),
         (17, b.total_collateral.is_some()),
         (18, b.reference_inputs.is_some()),
+        (23, b.sub_transactions.is_some()),
+        (24, b.required_top_level_guards.is_some()),
     ] {
         if present {
             allowed.push(key);
         }
     }
     check_map_keys(&encode(b)?, &allowed, "body fields")?;
-    check_witness_fields(&tx.transaction_witness_set)
+    check_witness_fields(&tx.transaction_witness_set, true)
 }
-fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
+fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> ValidationResult {
     if w.native_script.is_some()
         || w.bootstrap_witness.is_some()
         || w.plutus_v1_script.is_some()
         || w.plutus_v2_script.is_some()
         || w.plutus_v3_script.is_some()
         || w.plutus_data.is_some()
+        || (!redeemers && w.redeemer.is_some())
     {
         return Err(DijkstraUnsupported("non-vkey witnesses"));
     }
-    let allowed = if w.redeemer.is_some() {
+    let allowed = if redeemers && w.redeemer.is_some() {
         &[0, 5][..]
     } else {
         &[0][..]
     };
     check_map_keys(&encode(w)?, allowed, "witness fields")
+}
+fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
+    let b = &tx.sub_transaction_body;
+    if b.certificates.is_some()
+        || b.withdrawals.is_some()
+        || b.mint.is_some()
+        || b.script_data_hash.is_some()
+        || b.reference_inputs.is_some()
+        || b.voting_procedures.is_some()
+        || b.proposal_procedures.is_some()
+        || b.treasury_value.is_some()
+        || b.donation.is_some()
+        || b.direct_deposits.is_some()
+        || b.account_balance_intervals.is_some()
+    {
+        return Err(DijkstraUnsupported("stateful or scripted subtransaction"));
+    }
+    if b.auxiliary_data_hash.is_some() || !matches!(tx.auxiliary_data, Nullable::Null) {
+        return Err(DijkstraUnsupported("auxiliary data"));
+    }
+    let mut allowed = vec![0, 1, 3, 8, 15];
+    if b.guards.is_some() {
+        allowed.push(14);
+    }
+    if b.required_top_level_guards.is_some() {
+        allowed.push(24);
+    }
+    check_map_keys(&encode(b)?, &allowed, "subtransaction body fields")?;
+    check_witness_fields(&tx.transaction_witness_set, false)
 }
 fn check_map_keys(raw: &[u8], allowed: &[u64], feature: &'static str) -> ValidationResult {
     let mut d = minicbor::Decoder::new(raw);
