@@ -1,0 +1,142 @@
+{
+  "comparison": "independent offline Cardano CLI ledger evaluator, not a live submission or historical node identification",
+  "cli_version": "11.2.2.0",
+  "node_version_at_same_location": "11.1.0.164",
+  "reported_git_revision": "afa091b4af2795d1d9c46e59145ed16127760f7b",
+  "cli_binary_sha256": "9bf4a2576754ff76533c387687cfb8fbe0713fac6952a0db973356b00a376e9d",
+  "historical_node_build": null,
+  "historical_plutus_version": null,
+  "local_cli_plutus_dependency_version": null,
+  "era_history": "synthetic all-era interpreter; every compared transaction has no validity bounds; cannot affect translated context; not a historical era-history capture",
+  "genesis_start": "2026-09-07T00:00:00Z",
+  "protocol_version": [
+    12,
+    0
+  ],
+  "cost_model": "full original 350-entry raw V3 vector",
+  "node_query_attempt": "local socket refused connection; no services started; offline CLI used",
+  "results": {
+    "oversized-bytes": {
+      "exit": 1,
+      "pallas": {
+        "failure": "Byte-string builtin operand exceeds 65536 bytes",
+        "memory": 32872,
+        "steps": 5686656,
+        "success": false
+      },
+      "classification": "synthetic script and in-memory certificate/redeemer/reference-script mutations; signatures not valid; phase two only"
+    },
+    "builtin-case": {
+      "exit": 0,
+      "pallas": {
+        "failure": null,
+        "memory": 700,
+        "steps": 96100,
+        "success": true
+      },
+      "classification": "synthetic script and in-memory certificate/redeemer/reference-script mutations; signatures not valid; phase two only",
+      "cli_execution_units": {
+        "memory": 700,
+        "steps": 96100
+      }
+    },
+    "negative-constructor": {
+      "exit": 1,
+      "pallas": {
+        "failure": "Constructor tag outside Word64 range",
+        "memory": 100,
+        "steps": 100,
+        "success": false
+      },
+      "classification": "synthetic script and in-memory certificate/redeemer/reference-script mutations; signatures not valid; phase two only"
+    },
+    "boundary-bytes": {
+      "exit": 0,
+      "pallas": {
+        "failure": null,
+        "memory": 28892,
+        "steps": 73488881,
+        "success": true
+      },
+      "classification": "synthetic script and in-memory certificate/redeemer/reference-script mutations; signatures not valid; phase two only",
+      "cli_execution_units": {
+        "memory": 28892,
+        "steps": 73488881
+      }
+    },
+    "pair-case": {
+      "exit": 0,
+      "pallas": {
+        "failure": null,
+        "memory": 1300,
+        "steps": 192100,
+        "success": true
+      },
+      "classification": "synthetic script and in-memory certificate/redeemer/reference-script mutations; signatures not valid; phase two only",
+      "cli_execution_units": {
+        "memory": 1300,
+        "steps": 192100
+      }
+    },
+    "captured": {
+      "classification": "extracted original native capture in node mempool envelope; original body/witness/script and UTxO contents",
+      "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+      "cli_execution_units": {
+        "memory": 18485,
+        "steps": 4805428
+      },
+      "pallas_execution_units": {
+        "memory": 18485,
+        "steps": 4805428
+      },
+      "declared_execution_units": {
+        "memory": 18485,
+        "steps": 4805428
+      }
+    }
+  },
+  "files_sha256": {
+    "boundary-bytes/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "boundary-bytes/cli.stdout": "de0970d18300c7b72b96524e5c1d369b15f1542428df1f051f7702b9fd56270f",
+    "boundary-bytes/pallas-result.json": "e0af543f7a205b127384906a24dcb144e15704169799e804eda5d4f92f58523b",
+    "boundary-bytes/settings.tx.json": "8cc793277c56ed24fb2d9159601aaf3fc6d177bb0b874108096bc305dda23de9",
+    "boundary-bytes/settings.utxos.json": "a2a030aa4eca22d4c971822ef9858c56ab3976fc19cda1ddad59a7c823e33eba",
+    "builtin-case/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "builtin-case/cli.stdout": "fb519babf22503cd22bf003aec5921e21b08b820ac7ac1863d06f3fa232ce3c4",
+    "builtin-case/pallas-result.json": "ccab2bc1168d2e3b270e58021429d2aecffc6e3ec34013490e0ac44e3dd61c8e",
+    "builtin-case/settings.tx.json": "3b54718149744e63d49aefd8fc9d9b442b7a88ea13b7d8ecfb9ae2d6e640c148",
+    "builtin-case/settings.utxos.json": "9b292ec127733061c59c1755a6df9a979c1797d9179e5af94584828f121f3158",
+    "captured-cli.stdout": "69c98e632639d714c78d2242e3a5fb6111a7c50d94696faeda9f381049f47b5f",
+    "negative-constructor/cli.stderr": "dcf3fa22383640af64bcc8418b45a5960e72c5b47c1e412d5e8618860b61a14d",
+    "negative-constructor/cli.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "negative-constructor/pallas-result.json": "67b64ab4e8aca89768a3e9e70e12db79c6c12811b5468693d152921cb4b827da",
+    "negative-constructor/settings.tx.json": "5f27500dbe3b7fca50a28f13790b5cf5e853afe099e72aa786460a04426984cf",
+    "negative-constructor/settings.utxos.json": "7c58d818b301e5bab7cf9ed303317462eed7d611e58cff106ad31bdc6862a4b6",
+    "oversized-bytes/cli.stderr": "d27ea7ff95a396f6d797353fde14bc93914708d424c62a6a083273a5f645e701",
+    "oversized-bytes/cli.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "oversized-bytes/pallas-result.json": "68f63daa8b61d56278b116f298b409bf243ef3050b25159f792fd552c7fdf700",
+    "oversized-bytes/settings.tx.json": "0fae6438de45fb20ea41d592368f2ca759378d2a789b4778b7ebc5e7d125e91d",
+    "oversized-bytes/settings.utxos.json": "0f6889ea1b225975a59eb3e7ad12a88b776cb972d9dd5a90ba1f12608d0d99f9",
+    "pair-case/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pair-case/cli.stdout": "36df28f4c4a3e698e4af58e9fe5e468738e2f8e004dc241db7cc82e96c1cbf3f",
+    "pair-case/pallas-result.json": "0221ea261c9dcecab544f13a828cf2f12867192ff55cde9bd244ab764e2d75e2",
+    "pair-case/settings.tx.json": "7547b10f9f969294504fe41dc0fc1ea4a9be38a251df3bca275b308b4314671d",
+    "pair-case/settings.utxos.json": "86b0e771b35b447cad483039a55a5bf3371e1425af3a909256efebfc0564af6d",
+    "pallas-result.json": "376e9e51b9570f1dd1a6771f8abf2bb06911d9c63b71dbbb28ed3861fca2637a",
+    "parameters.json": "573ea46eb0e3c3d2942658054621aea38bdb807b77573fbd50d51d250b9a8909",
+    "settings.tx.json": "939869db69257939acd2d7185cff76fd05a48013a41c4120eaf5bfd3ca1637de",
+    "settings.utxos.json": "0c9584efa9b3160b2e8cf5b5dd532632100b905c69e327705b0cce9dd1fdeb73",
+    "synthetic-era-history.json": "c9ac59599560f96eeb3034f52b5ed35de67e7dad1ae70d99f186b2c47939d614"
+  },
+  "diagnostic_normalization": {
+    "operation": "trailing whitespace and trailing blank lines removed from tracked stderr copies only; CBOR/JSON/script/input data unchanged",
+    "original_stderr_sha256": {
+      "negative-constructor/cli.stderr": "03ba61cbd7132618c0627804e143ee8728b15a6ef770fc7e682e14a2a1cc3aea",
+      "boundary-bytes/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pair-case/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "builtin-case/cli.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "oversized-bytes/cli.stderr": "dfade3a6f599a312d53ec1141248717d54104ffb20422dc2665fa60e74004ff2"
+    },
+    "original_byte_location": ".git/musashi-s06-continuation-evidence/cli-original-output"
+  }
+}

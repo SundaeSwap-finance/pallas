@@ -1,0 +1,723 @@
+warning: unused workspace dependency `pallas`
+  --> Cargo.toml:53:1
+   |
+53 | pallas = { version = "=1.4.0", path = "pallas" }
+   | ^^^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `pallas`
+warning: unused workspace dependency `pallas-math`
+  --> Cargo.toml:65:1
+   |
+65 | pallas-math = { version = "=1.4.0", path = "pallas-math" }
+   | ^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `pallas-math`
+warning: workspace (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-codec/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-codec/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-codec` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-addresses/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-addresses/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-addresses` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-utxorpc/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-utxorpc/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-utxorpc` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-configs/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-configs/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-configs` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-validate/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-validate/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-validate` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-hardano/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-hardano/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-hardano` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-math/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-math/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-math` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network2/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network2/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network2` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-txbuilder/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-txbuilder/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-txbuilder` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-traverse/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-traverse/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-traverse` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-crypto/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-crypto/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-crypto` (manifest) generated 2 warnings
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas` (manifest) generated 1 warning
+warning: explicit `package.readme` can be inferred
+  --> pallas-primitives/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-primitives/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-primitives` (manifest) generated 2 warnings
+    Updating crates.io index
+     Locking 547 packages to highest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding bech32 v0.11.1 (available: v0.12.0)
+      Adding cddl v0.10.6 (available: v0.10.7)
+      Adding criterion v0.5.1 (available: v0.8.2)
+      Adding criterion v0.7.0 (available: v0.8.2)
+      Adding crossterm v0.28.1 (available: v0.29.0)
+      Adding cryptoxide v0.4.4 (available: v0.6.5)
+      Adding dashu-base v0.4.3 (available: v0.6.1)
+      Adding dashu-int v0.4.3 (available: v0.6.1)
+      Adding ed25519-dalek v2.2.0 (available: v3.0.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding itertools v0.14.0 (available: v0.15.0)
+      Adding minicbor v0.26.5 (available: v2.3.0)
+      Adding minicov v0.3.8 (available: v0.3.9)
+      Adding num-bigint v0.4.8 (available: v0.5.1)
+      Adding opentelemetry v0.30.0 (available: v0.33.0)
+      Adding opentelemetry-appender-tracing v0.30.1 (available: v0.33.0)
+      Adding opentelemetry-otlp v0.30.0 (available: v0.33.0)
+      Adding opentelemetry_sdk v0.30.0 (available: v0.33.0)
+      Adding prost v0.13.5 (available: v0.14.4)
+      Adding prost-types v0.13.5 (available: v0.14.4)
+      Adding ratatui v0.29.0 (available: v0.30.2)
+      Adding unicode-width v0.2.0 (available: v0.2.2)
+ Downloading crates ...
+  Downloaded bitcoin-consensus-encoding v1.3.0
+  Downloaded bitcoin-internals v0.7.0
+  Downloaded core_detect v1.0.0
+  Downloaded console v0.16.6
+  Downloaded aws-lc-rs v1.18.1
+  Downloaded cryptoxide v0.6.5
+  Downloaded encoding_rs v0.8.42
+  Downloaded hyper-rustls v0.27.10
+  Downloaded aws-lc-sys v0.45.0
+  Downloaded hybrid-array v0.4.15
+  Downloaded lru-slab v0.1.3
+  Downloaded keccak v0.2.2
+  Downloaded multiversion_no_op v1.0.0
+  Downloaded pkg-config v0.3.34
+  Downloaded quinn v0.11.12
+  Downloaded quinn-proto v0.11.18
+  Downloaded reqwest v0.13.5
+  Downloaded rustls-platform-verifier v0.7.1
+  Downloaded tokio-rustls v0.26.6
+  Downloaded simdutf8 v0.1.5
+  Downloaded uuid v1.26.1
+   Compiling unicode-ident v1.0.26
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.14
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling portable-atomic v1.15.0
+   Compiling zerocopy v0.8.59
+   Compiling log v0.4.34
+   Compiling critical-section v1.2.0
+   Compiling pin-project-lite v0.2.17
+   Compiling itoa v1.0.18
+   Compiling equivalent v1.0.2
+   Compiling futures-core v0.3.34
+   Compiling typenum v1.20.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling foldhash v0.2.0
+   Compiling futures-sink v0.3.34
+   Compiling autocfg v1.5.1
+   Compiling dunce v1.0.5
+   Compiling libm v0.2.16
+   Compiling fs_extra v1.3.0
+   Compiling pkg-config v0.3.34
+   Compiling subtle v2.6.1
+   Compiling hashbrown v0.17.1
+   Compiling slab v0.4.12
+   Compiling futures-channel v0.3.34
+   Compiling zmij v1.0.23
+   Compiling aws-lc-rs v1.18.1
+   Compiling thiserror v2.0.21
+   Compiling bitflags v2.13.2
+   Compiling semver v1.0.28
+   Compiling smallvec v1.16.2
+   Compiling num-traits v0.2.19
+   Compiling writeable v0.6.4
+   Compiling version_check v0.9.5
+   Compiling litemap v0.8.3
+   Compiling rustc_version v0.4.1
+   Compiling rustix v1.1.5
+   Compiling icu_normalizer_data v2.3.0
+   Compiling utf8_iter v1.0.4
+   Compiling rand_core v0.10.1
+   Compiling futures-task v0.3.34
+   Compiling indexmap v2.14.2
+   Compiling serde_json v1.0.151
+   Compiling icu_properties_data v2.3.0
+   Compiling generic-array v0.14.7
+   Compiling futures-io v0.3.34
+   Compiling percent-encoding v2.3.2
+   Compiling either v1.18.0
+   Compiling once_cell v1.21.4
+   Compiling untrusted v0.9.0
+   Compiling rustversion v1.0.23
+   Compiling crossbeam-utils v0.8.23
+   Compiling object v0.39.1
+   Compiling linux-raw-sys v0.12.1
+   Compiling syn v3.0.6
+   Compiling syn v2.0.119
+   Compiling tracing-core v0.1.36
+   Compiling httparse v1.10.1
+   Compiling rustls v0.23.45
+   Compiling cmov v0.5.4
+   Compiling getrandom v0.3.4
+   Compiling crossbeam-epoch v0.9.21
+   Compiling hybrid-array v0.4.15
+   Compiling ctutils v0.4.2
+   Compiling getrandom v0.4.3
+   Compiling utf8parse v0.2.2
+   Compiling fnv v1.0.7
+   Compiling atomic-waker v1.1.2
+   Compiling const-oid v0.10.2
+   Compiling crossbeam-deque v0.8.8
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling want v0.3.1
+   Compiling anstyle-parse v1.0.0
+   Compiling form_urlencoded v1.2.2
+   Compiling same-file v1.0.6
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling jobserver v0.1.35
+   Compiling mio v1.2.3
+   Compiling socket2 v0.6.5
+   Compiling getrandom v0.2.17
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling httpdate v1.0.3
+   Compiling rayon-core v1.13.0
+   Compiling scopeguard v1.2.0
+   Compiling anstyle-query v1.1.5
+   Compiling cc v1.5.1
+   Compiling num-integer v0.1.47
+   Compiling hex v0.4.3
+   Compiling anstream v1.0.0
+   Compiling rand_core v0.9.5
+   Compiling digest v0.10.7
+   Compiling walkdir v2.5.0
+   Compiling encoding_rs v0.8.42
+   Compiling curve25519-dalek v4.1.3
+   Compiling sync_wrapper v1.0.2
+   Compiling base64 v0.23.1
+   Compiling minicbor v0.26.5
+   Compiling openssl-probe v0.2.1
+   Compiling cpufeatures v0.3.1
+   Compiling tower-layer v0.3.3
+   Compiling clap_lex v1.1.1
+   Compiling cpufeatures v0.2.17
+   Compiling ciborium-io v0.2.2
+   Compiling regex-syntax v0.8.11
+   Compiling getrandom v0.1.16
+   Compiling ipnet v2.12.2
+   Compiling strsim v0.11.1
+   Compiling plotters-backend v0.3.7
+   Compiling heck v0.5.0
+   Compiling typeid v1.0.3
+   Compiling digest v0.11.3
+   Compiling plotters-svg v0.3.7
+   Compiling num-bigint v0.4.8
+   Compiling rand_core v0.6.4
+   Compiling num_cpus v1.17.0
+   Compiling itertools v0.13.0
+   Compiling fastrand v2.5.0
+   Compiling multiversion_no_op v1.0.0
+   Compiling simdutf8 v0.1.5
+   Compiling signature v2.2.0
+   Compiling cmake v0.1.58
+   Compiling cast v0.3.0
+   Compiling erased-serde v0.4.10
+   Compiling ryu v1.0.23
+   Compiling unicode-width v0.2.0
+   Compiling core_detect v1.0.0
+   Compiling rayon v1.12.0
+   Compiling threadpool v1.8.1
+   Compiling plotters v0.3.7
+   Compiling terminal_size v0.4.4
+   Compiling console v0.16.6
+   Compiling clap_builder v4.6.7
+   Compiling tempfile v3.27.0
+   Compiling sha2 v0.11.0
+   Compiling aws-lc-sys v0.45.0
+   Compiling ring v0.17.14
+   Compiling alloca v0.4.0
+   Compiling blst v0.3.17
+   Compiling regex-automata v0.4.18
+   Compiling stacker v0.1.25
+   Compiling num-rational v0.4.2
+   Compiling criterion-plot v0.8.2
+   Compiling sha2 v0.10.9
+   Compiling num-iter v0.1.46
+   Compiling lock_api v0.4.14
+   Compiling num-complex v0.4.6
+   Compiling page_size v0.6.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling synstructure v0.14.0
+   Compiling simd-adler32 v0.3.10
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling ar_archive_writer v0.5.3
+   Compiling anyhow v1.0.104
+   Compiling minicbor v0.25.1
+   Compiling mime v0.3.17
+   Compiling adler2 v2.0.1
+   Compiling similar v2.7.0
+   Compiling crc-catalog v2.5.0
+   Compiling miniz_oxide v0.8.9
+   Compiling crc v3.4.0
+   Compiling num v0.4.3
+   Compiling spin v0.10.1
+   Compiling serde_derive_internals v0.29.1
+   Compiling rand_core v0.5.1
+   Compiling secp256k1-sys v0.10.1
+   Compiling uuid v1.26.1
+   Compiling cryptoxide v0.4.4
+   Compiling schemars v0.8.22
+   Compiling byteorder v1.5.0
+   Compiling signature v3.0.0
+   Compiling num-modular v0.6.5
+   Compiling regex-lite v0.1.9
+   Compiling psm v0.1.32
+   Compiling dashu-int v0.4.3
+   Compiling base58 v0.2.0
+   Compiling ed25519 v3.0.0
+   Compiling keccak v0.2.2
+   Compiling paste v1.0.15
+   Compiling zerocopy-derive v0.8.59
+   Compiling zeroize_derive v1.5.0
+   Compiling tracing-attributes v0.1.31
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling serde_derive v1.0.229
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.3
+   Compiling zerovec-derive v0.11.6
+   Compiling zeroize v1.9.0
+   Compiling tokio-macros v2.7.2
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.21
+   Compiling futures-macro v0.3.34
+   Compiling rustls-pki-types v1.15.1
+   Compiling clap_derive v4.6.7
+   Compiling zerofrom v0.1.8
+   Compiling tracing v0.1.44
+   Compiling yoke v0.8.3
+   Compiling minicbor-derive v0.16.2
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling rustls-native-certs v0.8.4
+   Compiling futures-util v0.3.34
+   Compiling regex v1.13.1
+   Compiling opentelemetry v0.32.0
+   Compiling minicbor-derive v0.15.3
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling clap v4.6.7
+   Compiling num-order v1.2.0
+   Compiling stacksafe-macro v1.0.3
+   Compiling schemars_derive v0.8.22
+   Compiling allocator-api2 v0.2.21
+   Compiling foldhash v0.1.5
+   Compiling icu_provider v2.3.1
+   Compiling sponge-cursor v0.1.0
+   Compiling chumsky v1.0.0-alpha.8
+   Compiling dashu-base v0.4.3
+   Compiling indoc v2.0.7
+   Compiling static_assertions v1.1.0
+   Compiling dyn-clone v1.0.20
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling hashbrown v0.15.5
+   Compiling amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru/crates/amaru-uplc)
+   Compiling ed25519-dalek v3.0.0
+   Compiling sha3 v0.12.0
+   Compiling sysinfo v0.39.6
+   Compiling bytes v1.12.1
+   Compiling ed25519 v2.2.3
+   Compiling tinytemplate v1.2.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling ed25519-dalek v2.2.0
+   Compiling insta v1.48.0
+   Compiling stacksafe v1.0.3
+   Compiling itertools v0.15.0
+   Compiling cryptoxide v0.6.5
+   Compiling bech32 v0.11.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling bech32 v0.12.0
+   Compiling tokio v1.53.1
+   Compiling http v1.5.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling futures-executor v0.3.34
+   Compiling secp256k1 v0.30.0
+   Compiling itertools v0.14.0
+   Compiling url v2.5.8
+   Compiling http-body v1.1.0
+   Compiling http-body-util v0.1.5
+   Compiling append-only-vec v0.1.8
+   Compiling iana-time-zone v0.1.65
+   Compiling hamming v0.1.3
+   Compiling bumpalo v3.20.3
+   Compiling chrono v0.4.45
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.9.0
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.9.5
+   Compiling criterion v0.8.2
+   Compiling pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+   Compiling pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+   Compiling pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+   Compiling pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+   Compiling tokio-util v0.7.19
+   Compiling tokio-stream v0.1.19
+   Compiling opentelemetry_sdk v0.32.1
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling tower-http v0.6.11
+   Compiling rustls-webpki v0.103.15
+   Compiling hyper v1.11.1
+   Compiling hyper-util v0.1.21
+   Compiling pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+   Compiling tokio-rustls v0.26.6
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling amaru-deps v0.0.0 (/home/rodrigo/projects/amaru/crates/amaru-deps)
+   Compiling amaru-minicbor-extra v0.1.2 (/home/rodrigo/projects/amaru/crates/amaru-minicbor-extra)
+   Compiling amaru-kernel v0.1.2 (/home/rodrigo/projects/amaru/crates/amaru-kernel)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 14s
+     Running unittests src/lib.rs (target/debug/build/pallas-validate/f4e2691e5b2e7cba/out/pallas_validate-f4e2691e5b2e7cba)
+
+running 42 tests
+test phase2::dijkstra_evaluation_tests::export_registration_cli_comparison ... ignored, exports public extracted CLI comparison artifacts to MUSASHI_EVAL_EXPORT
+test phase2::evaluator::tests::flat_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::machine_failure_keeps_logs ... FAILED
+test phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context ... FAILED
+test phase2::evaluator::tests::script_cbor_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic ... FAILED
+test phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_builtin_inventory ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources ... ok
+test phase2::registration_evaluator_tests::registration_builtin_case_matches_independent_cli_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_post_bootstrap_context_reaches_script ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_resolves_synthetic_earlier_era_outputs ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary ... ok
+test phase2::script_context::registration_scripts::captured_registration_context_has_full_certificate_position ... ok
+test phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos ... ok
+test phase2::script_context::registration_scripts::captured_registration_rejects_bad_indices_and_wrong_purpose ... ok
+test phase2::script_context::registration_scripts::captured_registration_requires_correct_script ... ok
+test phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set ... FAILED
+test phase2::registration_evaluator_tests::registration_cons_byte_string_keeps_v3_byte_range ... ok
+test phase2::script_context::tests::a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::script_context::tests::a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution ... FAILED
+test phase2::script_context::registration_scripts::registration_position_includes_non_script_certificates ... ok
+test phase2::script_context::registration_scripts::registration_v1_v2_context_uses_legacy_registration_encoding ... ok
+test phase2::script_context::registration_scripts::registration_rejects_key_and_exempt_certificate_targets ... ok
+test phase2::registration_evaluator_tests::registration_constructor_tags_fail_without_panicking ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated ... ok
+test phase2::registration_evaluator_tests::registration_casing_selects_and_applies_builtin_fields ... ok
+test phase2::registration_evaluator_tests::registration_casing_rejects_wrong_arity_indices_and_types ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols ... ok
+test phase2::registration_evaluator_tests::registration_checks_each_bounded_bytestring_argument ... ok
+test phase2::registration_evaluator_tests::registration_bytestring_bound_is_on_selected_operands_not_results ... ok
+test phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors ... FAILED
+
+failures:
+
+---- phase2::evaluator::tests::machine_failure_keeps_logs stdout ----
+
+thread 'phase2::evaluator::tests::machine_failure_keeps_logs' (2813915) panicked at /home/rodrigo/projects/amaru/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context stdout ----
+
+thread 'phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context' (2813917) panicked at /home/rodrigo/projects/amaru/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic stdout ----
+
+thread 'phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic' (2813919) panicked at /home/rodrigo/projects/amaru/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context stdout ----
+
+thread 'phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context' (2813916) panicked at /home/rodrigo/projects/amaru/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view stdout ----
+
+thread 'phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view' (2813929) panicked at pallas-validate/src/phase2/script_context/registration_scripts.rs:117:9:
+expected successful captured script execution, got Err(FlatDecode(TermNotAvailable(9, "case")))
+
+---- phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set stdout ----
+
+thread 'phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set' (2813932) panicked at pallas-validate/src/phase2/script_context/registration_scripts.rs:284:56:
+called `Result::unwrap()` on an `Err` value: FlatDecode(TermNotAvailable(9, "case"))
+
+---- phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution stdout ----
+
+thread 'phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution' (2813940) panicked at /home/rodrigo/projects/amaru/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors stdout ----
+
+thread 'phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors' (2813927) panicked at pallas-validate/src/phase2/registration_evaluator_tests.rs:176:27:
+unexpected acceptance
+
+
+failures:
+    phase2::evaluator::tests::machine_failure_keeps_logs
+    phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context
+    phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context
+    phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic
+    phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors
+    phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view
+    phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set
+    phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution
+
+test result: FAILED. 33 passed; 8 failed; 1 ignored; 0 measured; 73 filtered out; finished in 13.74s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

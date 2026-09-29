@@ -1,3 +1,13 @@
+# Amaru fork integration experiment — not ready to merge
+
+See [amaru-integration/README.md](amaru-integration/README.md) for the current
+experimental branch result. Native registration passes with the original budget,
+but earlier-protocol regressions, an integer subset mismatch and the Rust-version
+requirement prevent adopting this evaluator as a replacement. The report below
+records the earlier base checkpoint, not this experiment's runtime behavior.
+
+## Historical base checkpoint
+
 # S06: V3 deposit/refund translation; native evaluation incomplete
 
 **S06 is incomplete.** The production change fixes protocol-aware V3 certificate
