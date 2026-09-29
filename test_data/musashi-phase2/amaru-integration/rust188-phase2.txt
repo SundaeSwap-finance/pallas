@@ -1,0 +1,8 @@
+error: rustc 1.88.0 is not supported by the following packages:
+  amaru-deps@0.0.0 requires rustc 1.97
+  amaru-kernel@0.1.2 requires rustc 1.97
+  amaru-minicbor-extra@0.1.2 requires rustc 1.97
+  sysinfo@0.39.6 requires rustc 1.95
+Either upgrade rustc or select compatible dependency versions with
+`cargo update <name>@<current-ver> --precise <compatible-ver>`
+where `<compatible-ver>` is the latest version supporting rustc 1.88.0

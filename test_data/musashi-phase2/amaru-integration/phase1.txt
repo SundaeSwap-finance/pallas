@@ -1,0 +1,354 @@
+warning: unused workspace dependency `pallas`
+  --> Cargo.toml:53:1
+   |
+53 | pallas = { version = "=1.4.0", path = "pallas" }
+   | ^^^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `pallas`
+warning: unused workspace dependency `pallas-math`
+  --> Cargo.toml:65:1
+   |
+65 | pallas-math = { version = "=1.4.0", path = "pallas-math" }
+   | ^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `pallas-math`
+warning: workspace (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-codec/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-codec/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-codec` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-addresses/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-addresses/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-addresses` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-utxorpc/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-utxorpc/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-utxorpc` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-configs/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-configs/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-configs` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-validate/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-validate/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-validate` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-hardano/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-hardano/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-hardano` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-math/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-math/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-math` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network2/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network2/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network2` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-txbuilder/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-txbuilder/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-txbuilder` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-traverse/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-traverse/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-traverse` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-crypto/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-crypto/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-crypto` (manifest) generated 2 warnings
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas` (manifest) generated 1 warning
+warning: explicit `package.readme` can be inferred
+  --> pallas-primitives/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-primitives/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-primitives` (manifest) generated 2 warnings
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.15s
+     Running unittests src/lib.rs (target/debug/build/pallas-validate/0cb325c408e316f9/out/pallas_validate-0cb325c408e316f9)
+
+running 73 tests
+test phase1::conway::certificate_witnesses::all_plutus_versions_can_supply_certificate_scripts ... ok
+test phase1::conway::certificate_witnesses::legacy_registration_requires_neither_key_script_nor_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_requires_script_even_without_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_rejects_incorrect_reference_script ... ok
+test phase1::conway::certificate_witnesses::captured_registration_rejects_wrong_pointer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_requires_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_accepts_certificate_redeemer ... ok
+test phase1::conway::certificate_witnesses::captured_registration_checks_original_signatures_and_balance ... ok
+test phase1::conway::certificate_witnesses::native_reference_authorization_uses_original_script_hash ... ok
+test phase1::conway::certificate_witnesses::native_and_key_certificates_reject_unnecessary_redeemers ... ok
+test phase1::conway::native_inputs::captured_native_collateral_accounting_and_reference_only_trigger ... ok
+test phase1::conway::native_inputs::byron_output_inspection_preserves_existing_witness_boundary ... ok
+test phase1::conway::certificate_witnesses::native_reference_certificate_needs_no_redeemer ... ok
+test phase1::conway::native_inputs::native_collateral_assets_and_annotations_are_checked ... ok
+test phase1::conway::native_inputs::captured_native_collateral_address_and_value ... ok
+test phase1::conway::native_inputs::native_collateral_rejects_script_and_malformed_addresses ... ok
+test phase1::conway::native_inputs::native_inline_datum_and_reference_script_restrict_v1_inputs ... ok
+test phase1::conway::native_inputs::captured_native_inputs_reject_missing_and_invalid_payment_witnesses ... ok
+test phase1::conway::native_inputs::captured_native_input_checks_original_payment_witness ... ok
+test phase1::conway::registration_deposits::absent_or_delegation_only_certificates_do_not_charge_a_deposit ... ok
+test phase1::conway::native_inputs::native_input_and_reference_datums_are_visible ... ok
+test phase1::conway::native_inputs::native_reference_languages_reach_integrity_hash_check ... ok
+test phase1::conway::native_inputs::native_reference_script_requires_correct_hash_and_input_role ... ok
+test phase1::conway::native_inputs::earlier_era_and_native_outputs_share_input_inspection ... ok
+test phase1::conway::registration_deposits::declared_deposit_cannot_override_protocol_accounting ... ok
+test phase1::conway::native_inputs::captured_native_inputs_pass_witness_and_balance_rules ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_script_and_plutus_redeemer ... ok
+test phase1::conway::registration_deposits::one_lovelace_imbalance_fails_for_both_encodings ... ok
+test phase1::conway::certificate_witnesses::native_certificate_timelocks_and_thresholds_are_evaluated ... ok
+test phase1::conway::native_inputs::earlier_era_key_inputs_still_verify_signatures ... ok
+test phase1::conway::registration_deposits::removing_registration_leaves_unbalanced_value ... ok
+test phase1::conway::native_inputs::native_reference_scripts_reject_v4_and_nested_guards_explicitly ... ok
+test phase1::conway::registration_deposits::all_stake_registration_forms_charge_the_protocol_deposit ... ok
+test phase1::conway::native_inputs::native_reference_v1_v2_v3_scripts_supply_mint_from_spending_or_reference_inputs ... ok
+test phase1::conway::certificate_witnesses::pool_certificates_require_operator_and_registration_owners ... ok
+test phase1::conway::native_inputs::native_reference_timelocks_keep_original_hash_and_need_no_redeemer ... ok
+test phase1::conway::certificate_witnesses::certificate_pointers_use_full_positions_and_distinct_purposes ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch ... ok
+test phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks ... ok
+test phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters ... ok
+test phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified ... ok
+test phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch ... ok
+test phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras ... ok
+test phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly ... ok
+test phase1::shelley_ma::tests::invalid_before ... ok
+test phase1::shelley_ma::tests::invalid_hereafter ... ok
+test phase1::shelley_ma::tests::n_of_k_threshold ... ok
+test phase1::shelley_ma::tests::nested_timelocks ... ok
+test utils::registration_deposits::adding_fees_and_deposits_cannot_overflow_produced_value ... ok
+test utils::registration_deposits::deposits_preserve_native_assets ... ok
+test phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic ... ok
+test utils::registration_deposits::stake_deposit_sum_overflow_is_rejected ... ok
+test utils::registration_deposits::unrelated_certificate_deposits_are_not_stake_deposits ... ok
+test phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries ... ok
+test utils::registration_deposits::native::protocol_native_dijkstra_registration_balance ... ok
+test utils::registration_deposits::native::settings_native_dijkstra_registration_balance ... ok
+test phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards ... ok
+test phase1::dijkstra_tests::dijkstra_validity_is_half_open ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures ... ok
+test phase1::conway::certificate_witnesses::native_certificate_checks_authorization_without_redeemers ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_its_key_and_valid_signature ... ok
+test phase1::dijkstra_tests::dijkstra_capture_integrity_and_certified_original_input ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.20s

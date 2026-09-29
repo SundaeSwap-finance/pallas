@@ -1,0 +1,126 @@
+[
+  {
+    "check": "phase2-regressions",
+    "command": [
+      "cargo",
+      "+nightly-2026-09-04",
+      "test",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "phase2,unstable",
+      "--lib",
+      "phase2"
+    ],
+    "exit_code": 101
+  },
+  {
+    "check": "earlier-era-integrations",
+    "command": [
+      "cargo",
+      "+nightly-2026-09-04",
+      "test",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "phase2,unstable",
+      "--test",
+      "*"
+    ],
+    "exit_code": 101
+  },
+  {
+    "check": "validate-clippy",
+    "command": [
+      "cargo",
+      "+nightly-2026-09-04",
+      "clippy",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "phase2,unstable",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "validate-docs",
+    "command": [
+      "cargo",
+      "+nightly-2026-09-04",
+      "doc",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "phase2,unstable",
+      "--no-deps"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "rust188-phase2",
+    "command": [
+      "cargo",
+      "+1.88",
+      "check",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "phase2,unstable",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 101
+  },
+  {
+    "check": "rust188-without-phase2",
+    "command": [
+      "cargo",
+      "+1.88",
+      "check",
+      "-p",
+      "pallas-validate",
+      "--features",
+      "unstable",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "fork-native",
+    "command": "cargo +nightly-2026-09-04 test -p pallas-validate --features phase2,unstable --lib phase2::dijkstra_evaluation_tests -- --nocapture",
+    "exit_code": 0,
+    "passed": 14,
+    "ignored": 1
+  },
+  {
+    "check": "remaining-integrations",
+    "command": "cargo +nightly-2026-09-04 test -p pallas-validate --features phase2,unstable --test shelley_ma --test utils",
+    "exit_code": 0
+  },
+  {
+    "check": "phase1",
+    "command": "cargo +nightly-2026-09-04 test -p pallas-validate --features phase2,unstable --lib -- --skip phase2",
+    "exit_code": 0,
+    "passed": 73
+  },
+  {
+    "check": "workspace-format",
+    "command": "cargo +stable fmt --all --check",
+    "exit_code": 1,
+    "limitation": "pre-existing harvest.rs differences"
+  },
+  {
+    "check": "changed-format",
+    "command": "rustup run stable rustfmt --check --edition 2024 --config skip_children=true <changed phase2 Rust files>",
+    "exit_code": 0
+  },
+  {
+    "check": "storage-interruption",
+    "note": "Later test builds initially failed because /tmp was full; only experiment build cache moved to project disk, affected suites rerun successfully. Not counted as runtime reproduction."
+  }
+]
