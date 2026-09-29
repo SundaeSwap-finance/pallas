@@ -22,5 +22,14 @@ pub fn evaluate_tx(
     tx::eval_tx(tx, pparams, utxos, slot_config)
 }
 
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_evaluation_tests;
+
+#[cfg(feature = "unstable")]
+mod dijkstra;
+
 #[cfg(test)]
 mod v3_deposit_context_tests;
+
+#[cfg(all(test, feature = "unstable"))]
+mod registration_evaluator_tests;
