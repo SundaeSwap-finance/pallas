@@ -1,0 +1,4 @@
+    Blocking waiting for file lock on build directory
+ Documenting pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.41s
+   Generated /tmp/pallas-amaru-integration/target/doc/pallas_validate/index.html

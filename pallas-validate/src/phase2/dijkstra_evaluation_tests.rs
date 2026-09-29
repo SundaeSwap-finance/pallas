@@ -279,7 +279,7 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
 
 #[test]
 fn native_registration_builtin_inventory() {
-    use amaru_uplc::{arena::Arena, binder::DeBruijn, flat, program::Program, term::Term};
+    use amaru_uplc_native::{arena::Arena, binder::DeBruijn, flat, program::Program, term::Term};
     fixture(|tx, u| {
         let i = &tx.transaction_body.reference_inputs.as_ref().unwrap()[0];
         let raw = &u[&TxoRef(i.transaction_id, i.index as u32)].1;
@@ -323,7 +323,7 @@ fn native_registration_builtin_inventory() {
 }
 
 fn script(source: &str) -> n::PlutusScript<3> {
-    use amaru_uplc::{arena::Arena, flat, syn::parse_program};
+    use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
     let arena = Arena::new();
     let p = parse_program(&arena, source, amaru_kernel::ProtocolVersion::new(12, 0))
         .into_result()
@@ -771,10 +771,12 @@ fn export_registration_cli_comparison() {
             );
         }
         write("settings.utxos.json", outputs.into());
-        let report = run(&tx, &u).unwrap();
-        write(
-            "pallas-result.json",
-            serde_json::json!({"success":report[0].success,"memory":report[0].units.mem,"steps":report[0].units.steps,"failure":report[0].failure_message}),
-        );
+        let result = match run(&tx, &u) {
+            Ok(report) => {
+                serde_json::json!({"success":report[0].success,"memory":report[0].units.mem,"steps":report[0].units.steps,"failure":report[0].failure_message})
+            }
+            Err(error) => serde_json::json!({"error":format!("{error:?}")}),
+        };
+        write("pallas-result.json", result);
     });
 }
