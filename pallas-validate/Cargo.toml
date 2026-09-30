@@ -25,7 +25,7 @@ itertools.workspace = true
 tracing.workspace = true
 
 # phase2 dependencies
-# Experiment only: native backend requires Rust 1.97 and an unpublished local commit.
+# Experiment only: native backend uses an unpublished local commit.
 amaru-uplc = { version = "=0.1.0", optional = true }
 amaru-uplc-native = { package = "amaru-uplc", git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
 amaru-kernel = { git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }

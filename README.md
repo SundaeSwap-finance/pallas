@@ -181,10 +181,11 @@ common integration patterns:
 
 ## Minimum Supported Rust Version
 
-Pallas's MSRV is **Rust 1.88**. CI verifies the entire workspace builds with
-that toolchain on every change. The floor is set by transitive dependencies
-(currently `serde_with` / `darling`); edition 2024, used by `pallas-network2`,
-contributes a hard floor of 1.85.
+Pallas's MSRV is **Rust 1.97**. CI verifies the entire workspace builds with
+that toolchain on every change and runs validation tests with both `phase2` and
+`unstable` enabled. The minimum is required by the Amaru dependencies used for
+native Dijkstra script evaluation. All workspace crates declare the same minimum,
+including builds without phase two.
 
 Bumping the MSRV is treated as a breaking change: it happens only in minor
 version bumps (or in `0.x` / `1.0.0-alpha.x` while we are pre-stable), is
