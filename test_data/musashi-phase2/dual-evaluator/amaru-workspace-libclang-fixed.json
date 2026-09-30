@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-30",
+  "commit": "e122ffb2018196ba9c57f42b70b94ada603d3fbc",
+  "branch": "experiment/rust197-compat",
+  "command": "cargo +nightly-2026-09-04 test --workspace --target-dir /home/rodrigo/projects/amaru/target",
+  "exit_code": 0,
+  "platform": "Linux",
+  "toolchain": "nightly-2026-09-04",
+  "libclang": "/usr/lib/llvm-19/lib/libclang.so",
+  "compilation_time": "8m 20s",
+  "result_summaries": 87,
+  "passed": 3824,
+  "failed": 0,
+  "ignored": 29,
+  "output": "amaru-workspace-libclang-fixed.txt",
+  "raw_sha256": "c0cc75ec28587c058e9236107f59d8d53a3987b74673779581b77b674dac55cf",
+  "tracked_sha256": "e5a1883dc4ccc29095a9902f45d5f24e3fe9bef45a0c2ef4bf7805d8756f4701",
+  "normalization": "strip line-end whitespace and final blank lines",
+  "limitations": [
+    "Ignored tests were not executed",
+    "Workspace run used the repository-pinned nightly; stable 1.97 evidence applies to the previously tested Pallas integration and Amaru dependency crates",
+    "No macOS or Windows run"
+  ]
+}
