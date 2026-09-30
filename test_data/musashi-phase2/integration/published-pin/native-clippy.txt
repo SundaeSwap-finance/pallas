@@ -1,0 +1,6 @@
+    Checking amaru-deps v0.0.0 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+   Compiling amaru-uplc v0.4.0 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-minicbor-extra v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-kernel v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking pallas-validate v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-validate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.77s
