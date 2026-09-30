@@ -1,0 +1,13 @@
+    Checking amaru-deps v0.0.0 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-minicbor-extra v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-kernel v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-uplc v0.4.0 (https://github.com/rodrigomd94/amaru.git?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking pallas-validate v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-validate)
+    Checking pallas-utxorpc v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-utxorpc)
+    Checking pallas v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas)
+    Checking block-download v0.1.0 (/tmp/pallas-musashi-s06-integration/examples/block-download)
+    Checking byron-decoder v0.1.0 (/tmp/pallas-musashi-s06-integration/examples/block-decode)
+    Checking crawler v0.1.0 (/tmp/pallas-musashi-s06-integration/examples/crawler)
+    Checking n2n-miniprotocols v0.1.0 (/tmp/pallas-musashi-s06-integration/examples/n2n-miniprotocols)
+    Checking n2c-miniprotocols v0.1.0 (/tmp/pallas-musashi-s06-integration/examples/n2c-miniprotocols)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.05s

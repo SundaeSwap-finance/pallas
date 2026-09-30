@@ -1,10 +1,25 @@
-# Two-evaluator experiment — passing locally on Rust 1.97
+# S06: scoped native evaluation and protocol-aware V3 deposits/refunds
 
-See [dual-evaluator/README.md](dual-evaluator/README.md) for the current isolated
-experiment. Native registration and earlier-era tests pass together using separate
-backends and the new local Amaru candidate. Publication, compiler-policy adoption
-and reintegration remain outstanding. The prior failed single-backend result is
-preserved in [amaru-integration/README.md](amaru-integration/README.md).
+The native Dijkstra implementation uses the published Amaru fork commit
+`e122ffb2018196ba9c57f42b70b94ada603d3fbc`, with Rust 1.97 as the workspace minimum.
+Earlier eras retain the registry evaluator. See [integration/README.md](integration/README.md)
+for the current integration, checks and exact dependency lock; the
+[dual-evaluator report](dual-evaluator/README.md) preserves runtime baseline/fixed
+results and independent CLI comparisons. Earlier experiment reports below are
+historical and do not describe the current production code.
+
+Native evaluation supports only the documented protocol-12.0, top-level V3 `Reg`
+reference-script subset and its explicit builtin list. The unchanged RealFi settings
+registration succeeds at its declared 18485 memory / 4805428 CPU budget, retaining
+original native bytes/eras, UTxOs, redeemer and all 350 historical cost coefficients.
+V3 explicit registration deposits and unregistration refunds are translated according
+to the actual protocol; this general encoding support does not add native `UnReg`
+evaluation. Unsupported languages/purposes/features, including V4 and scripted
+subtransactions, remain rejected. This is not complete Dijkstra validation.
+
+S03 remains derived Conway protocol-9 evidence, S04 scoped input handling, and S05
+its documented phase-one subset. No phase-one result authorizes committing provisional
+registration state. S07, Dolos pin/workaround changes and submission remain separate.
 
 ## Historical base checkpoint
 
