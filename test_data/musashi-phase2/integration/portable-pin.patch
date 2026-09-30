@@ -1,0 +1,10 @@
+--- a/pallas-validate/Cargo.toml
++++ b/pallas-validate/Cargo.toml
+@@ -28 +28 @@
+-# Experiment only: native backend uses an unpublished local commit.
++# Earlier eras retain the registry backend; native Dijkstra uses the protocol-aware fork.
+@@ -30,2 +30,2 @@
+-amaru-uplc-native = { package = "amaru-uplc", git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
+-amaru-kernel = { git = "file:///home/rodrigo/projects/amaru", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
++amaru-uplc-native = { package = "amaru-uplc", git = "https://github.com/rodrigomd94/amaru.git", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
++amaru-kernel = { git = "https://github.com/rodrigomd94/amaru.git", rev = "e122ffb2018196ba9c57f42b70b94ada603d3fbc", optional = true }
