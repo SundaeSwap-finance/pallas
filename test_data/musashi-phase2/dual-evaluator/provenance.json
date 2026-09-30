@@ -74,7 +74,7 @@
     "cli-integer/positive-outside-fixed/settings.tx.json": "bf1debd5a5cccdd0f20913de465e1a2e7c7f667238d080095e180309f16d21e5"
   },
   "files_sha256": {
-    "README.md": "6f8837da2bbc3183f57046d26bfb16d4ebaf993f7d2c6f0ff489c557a7a4564f",
+    "README.md": "415c33abe3cea95e722fae31a43ec469c874c9caec9815cfb34f0e8e404adc6a",
     "amaru-candidate.patch": "a57c8e778dd5a2efddc600e9c24c65441bdddf0953ceba06a4b1aabc703841bd",
     "amaru-workspace-missing-libclang.txt": "091c0876c8831a951d93df5a10d81b0c0e61ab3156801092f175144328743a2f",
     "baseline-amaru-integers.txt": "dc0850e5d36603d4f12be9a6ca57c1141586afb599daadd4925356e64ef3a021",
@@ -153,6 +153,15 @@
     "pallas-dual-extra/isolated.txt": "1de8a6db17759ed57341d8ea6919858b8356b92d2f977bcd69e2ad0a5da21958",
     "pallas-dual-extra/msrv-final.txt": "4b02fe50254b2e23bbe4014bb32ba6f3fb96466ff449db29cae741fed63d7600",
     "pallas-dual-extra/msrv.txt": "1076de28fa7f333b019c197620d22b950635b043a5bef21086e6cbd45764566f",
+    "rust197-policy/validation-tests.txt": "dfced6daa6f3b3e5711310f79aef1b8a17ae7d9a82caa94a39ef0ead0370b934",
+    "rust197-policy/verification.json": "b8ee974bc164c3012fcb5a1f316634ad4d799996658c5cdf083a3ec26628f7a0",
+    "rust197-policy/workspace-check.txt": "24d4e56ea4e819f0be2018304e23316ae2f2fd605158eaf65d367d9583e24a94",
     "verification.json": "56dd93bd309abe065f74217135b57d2da8cf11756cdd673b174e2a3df81244b5"
+  },
+  "rust_policy_update": {
+    "date": "2026-09-30",
+    "workspace_msrv": "1.97",
+    "report": "rust197-policy/verification.json",
+    "scope": "experiment branch; canonical checkouts unchanged"
   }
 }
