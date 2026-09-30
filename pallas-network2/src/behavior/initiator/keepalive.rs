@@ -1,8 +1,6 @@
-use crate::protocol::keepalive as keepalive_proto;
+use crate::{InterfaceCommand, OutboundQueue, PeerId, behavior::AnyMessage};
 
-use crate::{OutboundQueue, PeerId, behavior::AnyMessage};
-
-use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor, send_to_peer};
 
 /// Sub-behavior that sends periodic keepalive messages to maintain connections.
 pub struct KeepaliveBehavior {
@@ -15,30 +13,44 @@ impl Default for KeepaliveBehavior {
     }
 }
 
-/// Returns true when `peer` can be sent a keepalive right now: it is
-/// handshaked, the keepalive protocol is ours to speak, and no earlier
-/// keepalive of ours is still waiting for the IO layer to confirm its send.
-fn peer_is_available(peer: &InitiatorState) -> bool {
-    peer.is_initialized()
-        && matches!(peer.keepalive, keepalive_proto::State::Client(_))
-        && !peer.send_unconfirmed(keepalive_proto::CHANNEL_ID)
-}
-
 impl KeepaliveBehavior {
     /// Sends a keepalive message to the peer if the protocol state allows it.
+    #[deprecated(since = "1.5.0", note = "use `request_keepalive` instead")]
     pub fn send_keepalive(
         &mut self,
         pid: &PeerId,
-        peer: &mut InitiatorState,
+        peer: &InitiatorState,
         outbound: &mut OutboundQueue<super::InitiatorBehavior>,
     ) {
-        if !peer_is_available(peer) {
-            return;
+        if let Some(msg) = self.next_keepalive(peer) {
+            outbound.push_ready(InterfaceCommand::Send(pid.clone(), msg));
+        }
+    }
+
+    /// Sends a keepalive message to the peer if its state allows it and applies it to that state.
+    pub fn request_keepalive(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
+        if let Some(msg) = self.next_keepalive(state) {
+            send_to_peer(pid, state, msg, outbound);
+        }
+    }
+
+    fn next_keepalive(&self, peer: &InitiatorState) -> Option<AnyMessage> {
+        if !peer.is_initialized() {
+            return None;
         }
 
-        let msg = keepalive_proto::Message::KeepAlive(self.token);
+        if !matches!(peer.keepalive, crate::protocol::keepalive::State::Client(_)) {
+            return None;
+        }
 
-        super::send_to_peer(pid, peer, AnyMessage::KeepAlive(msg), outbound);
+        let msg = crate::protocol::keepalive::Message::KeepAlive(self.token);
+
+        Some(AnyMessage::KeepAlive(msg))
     }
 }
 
@@ -49,6 +61,6 @@ impl PeerVisitor for KeepaliveBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        self.send_keepalive(pid, state, outbound);
+        self.request_keepalive(pid, state, outbound);
     }
 }

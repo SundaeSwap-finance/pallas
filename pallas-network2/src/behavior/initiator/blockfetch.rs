@@ -7,7 +7,7 @@ use crate::{
     behavior::{AnyMessage, BlockRange, ConnectionState},
 };
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, send_to_peer};
 
 /// Configuration for the block-fetch sub-behavior (currently unused).
 pub type BlockFetchConfig = ();
@@ -42,6 +42,7 @@ impl BlockFetchBehavior {
     }
 
     /// Sends a block range request to the specified peer.
+    #[deprecated(since = "1.5.0", note = "use `request_range` instead")]
     pub fn request_block_batch(
         &self,
         pid: &PeerId,
@@ -54,6 +55,37 @@ impl BlockFetchBehavior {
             pid.clone(),
             AnyMessage::BlockFetch(blockfetch_proto::Message::RequestRange(range)),
         )));
+    }
+
+    /// Sends a block range request to the specified peer and applies it to its state.
+    pub fn request_range(
+        &self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        range: BlockRange,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
+        tracing::info!("requesting block batch");
+
+        let msg = blockfetch_proto::Message::RequestRange(range);
+        send_to_peer(pid, state, AnyMessage::BlockFetch(msg), outbound);
+    }
+
+    /// Sends the first queued range to `pid` when that peer is available.
+    pub(super) fn serve_next(
+        &mut self,
+        pid: &PeerId,
+        state: &mut InitiatorState,
+        outbound: &mut OutboundQueue<super::InitiatorBehavior>,
+    ) {
+        if !peer_is_available(state) {
+            return;
+        }
+
+        if let Some(request) = self.requests.pop_front() {
+            tracing::debug!("granting request to peer");
+            self.request_range(pid, state, request, outbound);
+        }
     }
 
     /// Emits a [`BlockBodyReceived`](super::InitiatorEvent::BlockBodyReceived)
@@ -85,6 +117,7 @@ impl PeerVisitor for BlockFetchBehavior {
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
         self.dispatch_block(pid, state, outbound);
+        self.serve_next(pid, state, outbound);
     }
 
     fn visit_housekeeping(
@@ -93,21 +126,7 @@ impl PeerVisitor for BlockFetchBehavior {
         state: &mut InitiatorState,
         outbound: &mut OutboundQueue<InitiatorBehavior>,
     ) {
-        if self.requests.is_empty() {
-            tracing::trace!("no requests pending");
-            return;
-        }
-
-        if peer_is_available(state) {
-            tracing::debug!("peer looks available");
-
-            if let Some(request) = self.requests.pop_front() {
-                tracing::debug!("granting request to peer");
-                self.request_block_batch(pid, request, outbound);
-            }
-        } else {
-            tracing::warn!("no peer available");
-        }
+        self.serve_next(pid, state, outbound);
     }
 }
 
@@ -168,6 +187,25 @@ mod tests {
 
         let outputs = drain_outputs(&mut outbound);
         assert!(outputs.is_empty());
+    }
+
+    #[test]
+    fn inbound_while_busy_keeps_the_next_range_queued() {
+        let mut bf = BlockFetchBehavior::new(());
+        let pid = PeerId::test(1);
+        let mut state = InitiatorState::new();
+        let mut outbound = OutboundQueue::new();
+
+        state.connection = ConnectionState::Initialized;
+        state.blockfetch = bf::State::Busy((Point::Origin, Point::Origin));
+        bf.enqueue((Point::Origin, Point::Origin));
+
+        bf.visit_inbound_msg(&pid, &mut state, &mut outbound);
+        assert!(
+            drain_outputs(&mut outbound).is_empty(),
+            "nothing is sent while Busy"
+        );
+        assert_eq!(bf.requests.len(), 1, "the range stays queued");
     }
 
     #[test]

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{OutboundQueue, PeerId, behavior::AnyMessage};
 
-use super::{InitiatorBehavior, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorState, PeerVisitor, send_to_peer};
 
 /// Configuration for the peer discovery sub-behavior.
 pub struct DiscoveryConfig {
@@ -22,9 +22,6 @@ fn peer_supports_peer_sharing(peer: &InitiatorState) -> bool {
     peer.is_initialized() && peer.supports_peer_sharing()
 }
 
-/// Returns true when `peer` can be asked for peers right now: it is handshaked,
-/// it offers peer sharing, it has shared nothing yet, and no earlier request of
-/// ours is still waiting for the IO layer to confirm its send.
 fn peer_is_available(peer: &InitiatorState) -> bool {
     peer_supports_peer_sharing(peer)
         && matches!(
@@ -33,7 +30,6 @@ fn peer_is_available(peer: &InitiatorState) -> bool {
                 crate::protocol::peersharing::IdleState::Empty
             )
         )
-        && !peer.send_unconfirmed(crate::protocol::peersharing::CHANNEL_ID)
 }
 
 /// Sub-behavior that discovers new peers via the peer-sharing mini-protocol.
@@ -56,7 +52,7 @@ impl DiscoveryBehavior {
 
         let msg = crate::protocol::peersharing::Message::ShareRequest(amount as u8);
 
-        super::send_to_peer(pid, state, AnyMessage::PeerSharing(msg), outbound);
+        send_to_peer(pid, state, AnyMessage::PeerSharing(msg), outbound);
     }
 
     /// Extracts discovered peer addresses from the peer-sharing response, if

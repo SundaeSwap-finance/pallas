@@ -2,7 +2,7 @@ use crate::protocol::leiosnotify as notify_proto;
 
 use crate::{BehaviorOutput, OutboundQueue, PeerId, behavior::AnyMessage};
 
-use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor};
+use super::{InitiatorBehavior, InitiatorEvent, InitiatorState, PeerVisitor, send_to_peer};
 
 /// Sub-behavior that drives the leios-notify pull loop and surfaces EB
 /// announcements/offers received from peers.
@@ -22,12 +22,8 @@ impl LeiosNotifyBehavior {
     ) {
         tracing::debug!("requesting next leios notification");
 
-        super::send_to_peer(
-            pid,
-            state,
-            AnyMessage::LeiosNotify(notify_proto::Message::RequestNext),
-            outbound,
-        );
+        let msg = AnyMessage::LeiosNotify(notify_proto::Message::RequestNext);
+        send_to_peer(pid, state, msg, outbound);
     }
 
     /// Drains a pending notification from the peer state and emits the
@@ -46,13 +42,8 @@ impl LeiosNotifyBehavior {
     }
 }
 
-/// Returns true when `state` can be sent a request right now: it is
-/// handshaked, it speaks Leios, and no earlier request of ours is still waiting
-/// for the IO layer to confirm its send.
 fn peer_ready(state: &InitiatorState) -> bool {
-    state.is_initialized()
-        && state.supports_leios()
-        && !state.send_unconfirmed(notify_proto::CHANNEL_ID)
+    state.is_initialized() && state.supports_leios()
 }
 
 impl PeerVisitor for LeiosNotifyBehavior {
