@@ -1,17 +1,25 @@
 {
   "date": "2026-09-30",
-  "stage": "merge prepared; user publication and portable dependency verification pending",
-  "parents": [
+  "status": "published dependency verified; scoped S06 integration complete",
+  "merge_commit": "f93997869bca2fa40940f89d3c0bf362fccff191",
+  "merge_parents": [
     "fee0fac2cf7ad3fde2e19eae96d618ec1d4f52ca",
     "a5f93ea58900020058ae22f5108f97b7d69f9373"
   ],
-  "s06_diff_base": "4be4fb2171a73bdb04994c8472e76f601d41318f",
-  "s06_patch_sha256": "52074f2fa04dddccbf1acdabc956ebde07cabfd8d342df0bca6eded62c40a030",
-  "branch": "integration/musashi-s06-amaru",
-  "amaru_commit": "e122ffb2018196ba9c57f42b70b94ada603d3fbc",
-  "amaru_publication": "not visible on last read-only check",
-  "dependency": "local Git URI; portable-pin.patch is prepared but not applied",
-  "completed_checks": [
+  "amaru": {
+    "url": "https://github.com/rodrigomd94/amaru.git",
+    "rev": "e122ffb2018196ba9c57f42b70b94ada603d3fbc",
+    "published_branch": "fix/uplc-protocol-semantics",
+    "publisher": "user",
+    "verified_via": "git ls-remote read-only"
+  },
+  "remote_tips": {
+    "pallas": "a5f93ea58900020058ae22f5108f97b7d69f9373",
+    "dolos": "abe2642391006e7e5439a00493d41db5da280a02"
+  },
+  "rust": "1.97.0",
+  "platform": "Linux x86_64",
+  "checks": [
     {
       "name": "native-and-legacy",
       "command": [
@@ -24,7 +32,8 @@
         "phase2,unstable"
       ],
       "exit_code": 0,
-      "output": "native-and-legacy.txt"
+      "output": "merged-local/native-and-legacy.txt",
+      "stage": "merged-local"
     },
     {
       "name": "workspace-build",
@@ -36,30 +45,431 @@
         "--all-targets"
       ],
       "exit_code": 0,
-      "output": "workspace-build.txt"
+      "output": "merged-local/workspace-build.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "--workspace"
+      ],
+      "exit_code": 101,
+      "output": "merged-local/workspace-tests.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/workspace-clippy.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "workspace-docs",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/workspace-docs.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "all-features",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/all-features.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "no-default",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/no-default.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "isolated",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "-p",
+        "pallas-primitives",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/isolated.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "unstable",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-primitives",
+        "-p",
+        "pallas-traverse",
+        "-p",
+        "pallas-utxorpc",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "unstable"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/unstable.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "blueprint",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-network",
+        "-p",
+        "pallas-network2",
+        "--features",
+        "blueprint"
+      ],
+      "exit_code": 101,
+      "output": "merged-local/blueprint.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "phase2-only",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/phase2-only.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "clippy",
+        "-p",
+        "pallas-validate",
+        "--all-targets",
+        "--features",
+        "phase2,unstable",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "output": "merged-local/native-clippy.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 1,
+      "output": "merged-local/format.txt",
+      "stage": "merged-local"
+    },
+    {
+      "name": "workspace-socket-retry",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "--workspace",
+        "--exclude",
+        "pallas-math"
+      ],
+      "exit_code": 0,
+      "output": "socket-retry/workspace-socket-retry.txt",
+      "stage": "socket-retry"
+    },
+    {
+      "name": "math-docs",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-math",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "output": "socket-retry/math-docs.txt",
+      "stage": "socket-retry"
+    },
+    {
+      "name": "blueprint-socket-retry",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-network",
+        "-p",
+        "pallas-network2",
+        "--features",
+        "blueprint"
+      ],
+      "exit_code": 0,
+      "output": "socket-retry/blueprint-socket-retry.txt",
+      "stage": "socket-retry"
+    },
+    {
+      "name": "native-and-legacy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2,unstable"
+      ],
+      "exit_code": 0,
+      "output": "published-pin/native-and-legacy.txt",
+      "stage": "published-pin"
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "clippy",
+        "-p",
+        "pallas-validate",
+        "--all-targets",
+        "--features",
+        "phase2,unstable",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "output": "published-pin/native-clippy.txt",
+      "stage": "published-pin"
+    },
+    {
+      "name": "native-docs",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "doc",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2,unstable",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "output": "published-pin/native-docs.txt",
+      "stage": "published-pin"
+    },
+    {
+      "name": "all-features",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "exit_code": 0,
+      "output": "published-pin/all-features.txt",
+      "stage": "published-pin"
     }
   ],
-  "pending_checks": [
-    "workspace-tests",
-    "workspace-clippy",
-    "workspace-docs",
-    "all-features",
-    "no-default",
-    "isolated",
-    "unstable",
-    "blueprint",
-    "phase2-only",
-    "native-clippy",
-    "format"
+  "exceptions": [
+    "workspace/blueprint initial sandbox socket PermissionDenied; retries passed with sockets enabled",
+    "19 math unit tests passed before the sandbox failure; socket retry excluded those units and ran math doctests separately",
+    "seven pre-existing harvest.rs format differences remain",
+    "macOS, Windows and hosted CI not run",
+    "offline full Cargo metadata diagnostic requested an uncached unrelated crate; final dependency source verification uses the resolved lockfile and successful remote-pin builds"
   ],
-  "running_session": 29563,
-  "tag_refs_sha256": "1216c4b68ad8134d0dd35583265ec69662dfebfaa8652d1ccc924bb673773538",
-  "history": "merge preserves existing commits and tags; remote changes retained exactly outside S06",
+  "normalization": "strip line-end whitespace and final blank lines",
+  "log_hashes": [
+    {
+      "file": "merged-local/native-and-legacy.txt",
+      "raw_sha256": "432a6a89bd49e3a1e23c1fc998cd06077957e59cbec919c4ca13cd2696a09d7a",
+      "tracked_sha256": "432a6a89bd49e3a1e23c1fc998cd06077957e59cbec919c4ca13cd2696a09d7a"
+    },
+    {
+      "file": "merged-local/workspace-build.txt",
+      "raw_sha256": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3",
+      "tracked_sha256": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3"
+    },
+    {
+      "file": "merged-local/workspace-tests.txt",
+      "raw_sha256": "af604742b3990c959c5c5ff9923b995ad344ffe6d64c77dd8d48266baaf2d6bb",
+      "tracked_sha256": "af604742b3990c959c5c5ff9923b995ad344ffe6d64c77dd8d48266baaf2d6bb"
+    },
+    {
+      "file": "merged-local/workspace-clippy.txt",
+      "raw_sha256": "cd9e443879027a82b43f400eb81a1321ce25db2cd14c1828836220f161a77b0b",
+      "tracked_sha256": "cd9e443879027a82b43f400eb81a1321ce25db2cd14c1828836220f161a77b0b"
+    },
+    {
+      "file": "merged-local/workspace-docs.txt",
+      "raw_sha256": "afa511fad8b3b8bced1efa01d1e2fad3dcb18bb284433173db1eea008018e19f",
+      "tracked_sha256": "afa511fad8b3b8bced1efa01d1e2fad3dcb18bb284433173db1eea008018e19f"
+    },
+    {
+      "file": "merged-local/all-features.txt",
+      "raw_sha256": "45f45031ad17061d5bd7472e3cff82b975c15f5b03618e7df6e28133a440182e",
+      "tracked_sha256": "45f45031ad17061d5bd7472e3cff82b975c15f5b03618e7df6e28133a440182e"
+    },
+    {
+      "file": "merged-local/no-default.txt",
+      "raw_sha256": "b6d4fe9ff8815e2c8710ae262ae8c5fbac67dfe0acbfabacb999bc3d85ec58ec",
+      "tracked_sha256": "b6d4fe9ff8815e2c8710ae262ae8c5fbac67dfe0acbfabacb999bc3d85ec58ec"
+    },
+    {
+      "file": "merged-local/isolated.txt",
+      "raw_sha256": "e441764839d230d1a9f37ea804d6037f6b9b0fc7ad68cd4d26476d1c534d8dae",
+      "tracked_sha256": "e441764839d230d1a9f37ea804d6037f6b9b0fc7ad68cd4d26476d1c534d8dae"
+    },
+    {
+      "file": "merged-local/unstable.txt",
+      "raw_sha256": "ff297da8286fad30ed5f31bb40cbf58cc497f11ec91fd3e3b587c026ea2d5713",
+      "tracked_sha256": "ff297da8286fad30ed5f31bb40cbf58cc497f11ec91fd3e3b587c026ea2d5713"
+    },
+    {
+      "file": "merged-local/blueprint.txt",
+      "raw_sha256": "43bb614fb09e8700a328a8a2f25dddcc8c0d1d74cba2223434fb9c6d7c220e71",
+      "tracked_sha256": "43bb614fb09e8700a328a8a2f25dddcc8c0d1d74cba2223434fb9c6d7c220e71"
+    },
+    {
+      "file": "merged-local/phase2-only.txt",
+      "raw_sha256": "71c2242a999fdaa825d66ed799797d2c81123897a8c80c1bc56d70ef7b45e5eb",
+      "tracked_sha256": "71c2242a999fdaa825d66ed799797d2c81123897a8c80c1bc56d70ef7b45e5eb"
+    },
+    {
+      "file": "merged-local/native-clippy.txt",
+      "raw_sha256": "47255820e18173accaf977e8547d2783bac00318e947f13d549cce6f38d952e8",
+      "tracked_sha256": "47255820e18173accaf977e8547d2783bac00318e947f13d549cce6f38d952e8"
+    },
+    {
+      "file": "merged-local/format.txt",
+      "raw_sha256": "d2cc0ba1ea6137b02ffee23958e9867333ac638e1c100cecd5f3d7676630cb88",
+      "tracked_sha256": "3304348fae86206a2eb02679e716fb6a90544892c952786f079fc4f4cce6b5d7"
+    },
+    {
+      "file": "socket-retry/workspace-socket-retry.txt",
+      "raw_sha256": "aad5df6e20f18d60fa73c46a2f884904e4e88e573be99c51b7823bd33600a25b",
+      "tracked_sha256": "aad5df6e20f18d60fa73c46a2f884904e4e88e573be99c51b7823bd33600a25b"
+    },
+    {
+      "file": "socket-retry/math-docs.txt",
+      "raw_sha256": "c9097240c83a809ed5577d0fb3b07d7f0160826b070bcec148bd48eb0b64afd9",
+      "tracked_sha256": "c9097240c83a809ed5577d0fb3b07d7f0160826b070bcec148bd48eb0b64afd9"
+    },
+    {
+      "file": "socket-retry/blueprint-socket-retry.txt",
+      "raw_sha256": "a3d6533e8f22d344893f11accc33615f2ff20c02f40660ba820c9e955baa6f5b",
+      "tracked_sha256": "a3d6533e8f22d344893f11accc33615f2ff20c02f40660ba820c9e955baa6f5b"
+    },
+    {
+      "file": "published-pin/native-and-legacy.txt",
+      "raw_sha256": "7c97f56b73702ed69078dafbbb1ba33c4c96221185bafc2d88bcf594af48b8b1",
+      "tracked_sha256": "7c97f56b73702ed69078dafbbb1ba33c4c96221185bafc2d88bcf594af48b8b1"
+    },
+    {
+      "file": "published-pin/native-clippy.txt",
+      "raw_sha256": "ed5d2bfde7d27d0ad694437e63526e1fd47211fc08e352f94d4080fabbdd809a",
+      "tracked_sha256": "ed5d2bfde7d27d0ad694437e63526e1fd47211fc08e352f94d4080fabbdd809a"
+    },
+    {
+      "file": "published-pin/native-docs.txt",
+      "raw_sha256": "cf0a1dee77ec3b1221be249c30c3898ff167c2d4365b06ef36db769533b38a66",
+      "tracked_sha256": "cf0a1dee77ec3b1221be249c30c3898ff167c2d4365b06ef36db769533b38a66"
+    },
+    {
+      "file": "published-pin/all-features.txt",
+      "raw_sha256": "05c5d3467d8b70dc8c797409e61fb736023064f1fc3f2a9f98903e30af3fa987",
+      "tracked_sha256": "05c5d3467d8b70dc8c797409e61fb736023064f1fc3f2a9f98903e30af3fa987"
+    }
+  ],
+  "ledger_spec_revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+  "historical_evaluator": "unknown",
+  "capture_unchanged": true,
+  "local_tags_unchanged": true,
+  "assistant_remote_writes": false,
+  "s07_executed": false,
   "files_sha256": {
-    "portable-pin.patch": "3409342fd48718d9ac5f64c8e363c7ca04507b73146da50003bdaae61d1f7387",
+    "README.md": "090e837eca2ee50e54152ac331374f502063b7d2c6e3b290bdb8e0f86d6daaf2",
     "dependency-lock-local.txt": "534d2bb78b069a8941c2eb40da3ab396996821c424ac70046184b879ef631ab0",
-    "workspace-build.txt": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3",
+    "dependency-lock-published.txt": "8f90b3fe3544745a4424bb37e7f45b012fe8c39266f58ec10011b22911e5b4c1",
+    "merged-local/all-features.txt": "45f45031ad17061d5bd7472e3cff82b975c15f5b03618e7df6e28133a440182e",
+    "merged-local/blueprint.txt": "43bb614fb09e8700a328a8a2f25dddcc8c0d1d74cba2223434fb9c6d7c220e71",
+    "merged-local/format.txt": "3304348fae86206a2eb02679e716fb6a90544892c952786f079fc4f4cce6b5d7",
+    "merged-local/isolated.txt": "e441764839d230d1a9f37ea804d6037f6b9b0fc7ad68cd4d26476d1c534d8dae",
+    "merged-local/native-and-legacy.txt": "432a6a89bd49e3a1e23c1fc998cd06077957e59cbec919c4ca13cd2696a09d7a",
+    "merged-local/native-clippy.txt": "47255820e18173accaf977e8547d2783bac00318e947f13d549cce6f38d952e8",
+    "merged-local/no-default.txt": "b6d4fe9ff8815e2c8710ae262ae8c5fbac67dfe0acbfabacb999bc3d85ec58ec",
+    "merged-local/phase2-only.txt": "71c2242a999fdaa825d66ed799797d2c81123897a8c80c1bc56d70ef7b45e5eb",
+    "merged-local/unstable.txt": "ff297da8286fad30ed5f31bb40cbf58cc497f11ec91fd3e3b587c026ea2d5713",
+    "merged-local/workspace-build.txt": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3",
+    "merged-local/workspace-clippy.txt": "cd9e443879027a82b43f400eb81a1321ce25db2cd14c1828836220f161a77b0b",
+    "merged-local/workspace-docs.txt": "afa511fad8b3b8bced1efa01d1e2fad3dcb18bb284433173db1eea008018e19f",
+    "merged-local/workspace-tests.txt": "af604742b3990c959c5c5ff9923b995ad344ffe6d64c77dd8d48266baaf2d6bb",
     "native-and-legacy.txt": "432a6a89bd49e3a1e23c1fc998cd06077957e59cbec919c4ca13cd2696a09d7a",
-    "README.md": "80da839eac8f8eef5622eb0ec01700f5be2fd34823747d97dd807daee93c9a1c"
+    "portable-pin.patch": "3409342fd48718d9ac5f64c8e363c7ca04507b73146da50003bdaae61d1f7387",
+    "preparation-verification.json": "85a81cdb567ae3bf0563cbb88a907749ae6ab930746510e9b4760f03cba86687",
+    "published-pin/all-features.txt": "05c5d3467d8b70dc8c797409e61fb736023064f1fc3f2a9f98903e30af3fa987",
+    "published-pin/native-and-legacy.txt": "7c97f56b73702ed69078dafbbb1ba33c4c96221185bafc2d88bcf594af48b8b1",
+    "published-pin/native-clippy.txt": "ed5d2bfde7d27d0ad694437e63526e1fd47211fc08e352f94d4080fabbdd809a",
+    "published-pin/native-docs.txt": "cf0a1dee77ec3b1221be249c30c3898ff167c2d4365b06ef36db769533b38a66",
+    "resolved-evaluators.json": "b7914580933b186494de80ca4705185476d9776f2bdb146e01f5a24fdcc82b29",
+    "socket-retry/blueprint-socket-retry.txt": "a3d6533e8f22d344893f11accc33615f2ff20c02f40660ba820c9e955baa6f5b",
+    "socket-retry/math-docs.txt": "c9097240c83a809ed5577d0fb3b07d7f0160826b070bcec148bd48eb0b64afd9",
+    "socket-retry/workspace-socket-retry.txt": "aad5df6e20f18d60fa73c46a2f884904e4e88e573be99c51b7823bd33600a25b",
+    "workspace-build.txt": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3"
   }
 }

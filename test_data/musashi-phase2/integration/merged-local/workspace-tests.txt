@@ -1,0 +1,590 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
+     Running unittests src/main.rs (target/debug/deps/block_download-cf864b16f91cae4f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/byron_decoder-0b48bd24fa55faeb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/crawler-a0d562b309c7ac73)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/leios_testnet-0adf2a0164b98aea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/leios_tui-66d62aaa97511dda)
+
+running 10 tests
+test dashboard::tests::empty_txs_response_stops_paging ... ok
+test dashboard::tests::eb_lifecycle_advances_through_all_stages ... ok
+test dashboard::tests::fetches_all_tx_windows_by_paging ... ok
+test dashboard::tests::eb_offered_after_its_rb_links_immediately ... ok
+test dashboard::tests::eb_links_to_nearest_following_rb ... ok
+test dashboard::tests::peak_voters_tracks_max_distinct_voters ... ok
+test dashboard::tests::stage_never_regresses ... ok
+test dashboard::tests::txs_offer_without_body_does_not_fetch ... ok
+test dashboard::tests::rb_strip_retains_recent_and_caps ... ok
+test ui::tests::draw_never_panics_across_sizes_and_states ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running unittests src/main.rs (target/debug/deps/n2c_miniprotocols-b6874293acd29439)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/n2n_miniprotocols-a94b07d63b4a2f32)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_discovery-5020aea021b5dac9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_initiator-7d7697f10e578351)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/p2p_responder-d94db1f96c7ae7ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas-3b6b51f5c1cd7f31)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_addresses-26fc6786e05d6ce5)
+
+running 20 tests
+test byron::tests::roundtrip_base58 ... ok
+test byron::tests::payload_crc_matches ... ok
+test tests::pointer_parse_strict_accepts_canonical_encoding ... ok
+test byron::tests::roundtrip_cbor ... ok
+test tests::pointer_parse_strict_rejects_trailing_bytes ... ok
+test tests::pointer_parse_strict_rejects_noncanonical_varuint_encoding ... ok
+test tests::pointer_parse_accepts_noncanonical_varuint_encoding ... ok
+test tests::construct_from_parts ... ok
+test tests::test_minted_extra_bytes_base_address ... ok
+test tests::network_matches ... ok
+test tests::test_shelley_into_stake ... ok
+test varuint::tests::read_accepts_noncanonical_zero_for_compatibility ... ok
+test tests::test_minted_invalid_pointed_address ... ok
+test varuint::tests::read_strict_rejects_noncanonical_zero ... ok
+test varuint::tests::read_strict_rejects_overflow ... ok
+test varuint::tests::read_strict_accepts_canonical_zero ... ok
+test tests::roundtrip_bech32 ... ok
+test tests::typeid_matches ... ok
+test tests::roundtrip_string ... ok
+test tests::payload_matches ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_codec-ca68675f8eb42eac)
+
+running 15 tests
+test tests::roundtrip_codec_by_datatype ... ok
+test tree::tests::compares_structure_and_node_data ... ok
+test tree::tests::decodes_mixed_definite_and_indefinite_lists ... ok
+test tree::tests::folds_children_in_order ... ok
+test tree::tests::indexed_children_interleave_keys_and_values ... ok
+test tree::tests::maps_mixed_shapes_positionally ... ok
+test tree::tests::orders_like_a_derived_ord ... ok
+test tree::tests::walk_propagates_errors ... ok
+test tree::tests::rejects_truncated_input ... ok
+test tree::tests::walks_mixed_shapes_in_order ... ok
+test utils::tests::keep_raw_clears_original_when_mutated ... ok
+test utils::tests::keep_raw_retains_original ... ok
+test utils::tests::keep_raw_fallbacks_to_encode ... ok
+test tree::tests::decodes_deep_nesting_on_a_small_stack ... ok
+test tree::tests::traverses_deep_nesting_on_a_small_stack ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/flat.rs (target/debug/deps/flat-49d6e2fbbb2d2863)
+
+running 12 tests
+test encode_bool ... ok
+test encode_u8 ... ok
+test encode_filler ... ok
+test encode_boxed ... ok
+test encode_usize ... ok
+test encode_char ... ok
+test encode_big_vec_u8 ... ok
+test encode_big_arr_u8 ... ok
+test encode_isize ... ok
+test encode_arr_u8 ... ok
+test encode_vec_u8 ... ok
+test encode_string ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/zigzag.rs (target/debug/deps/zigzag-ff88591113804b46)
+
+running 2 tests
+test zigzag ... ok
+test zagzig ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_configs-3d5bd287f692b81a)
+
+running 69 tests
+test alonzo::tests::a_field_spelled_both_ways_prefers_the_current_name ... ok
+test alonzo::tests::a_field_spelled_neither_way_is_refused ... ok
+test alonzo::tests::a_genesis_mixing_the_spellings_parses ... ok
+test alonzo::tests::execution_prices_parse_under_the_current_names ... ok
+test alonzo::tests::execution_units_parse_under_the_current_names ... ok
+test alonzo::tests::a_language_only_at_the_top_level_survives ... ok
+test alonzo::tests::the_older_names_still_parse ... ok
+test alonzo::tests::a_published_genesis_is_unaffected ... ok
+test alonzo::tests::test_preview_json_loads ... ok
+test alonzo::tests::a_genesis_spelling_the_new_names_parses ... ok
+test byron::tests::test_preview_json_loads ... ok
+test alonzo::tests::a_genesis_without_extra_config_is_untouched ... ok
+test conway::tests::test_preview_json_loads ... ok
+test alonzo::tests::an_injected_model_overrides_the_top_level ... ok
+test injection::tests::a_current_directory_segment_is_refused ... ok
+test alonzo::tests::test_mainnet_json_loads ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused ... ok
+test injection::tests::a_file_arm_needs_its_hash ... ok
+test injection::tests::a_hash_that_is_not_a_hash_is_refused ... ok
+test alonzo::tests::injected_cost_models_reach_the_cost_model_set ... ok
+test injection::tests::a_malformed_payload_is_refused ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused_before_the_read ... ok
+test injection::tests::a_file_arm_keeps_path_and_hash ... ok
+test byron::tests::test_preview_non_avvm_utxos ... ok
+test injection::tests::a_missing_file_is_refused ... ok
+test injection::tests::a_parent_segment_is_refused ... ok
+test injection::tests::a_segment_holding_a_separator_is_refused ... ok
+test injection::tests::an_unknown_key_is_refused ... ok
+test injection::tests::a_file_holding_something_else_is_refused ... ok
+test injection::tests::an_absolute_segment_is_refused ... ok
+test conway::tests::test_mainnet_json_loads ... ok
+test injection::tests::a_wrong_hash_is_refused ... ok
+test injection::tests::an_embedded_payload_is_read ... ok
+test injection::tests::an_empty_object_names_no_injection ... ok
+test injection::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test injection::tests::an_empty_segment_is_refused ... ok
+test injection::tests::an_injection_beats_an_empty_top_level ... ok
+test injection::tests::both_arms_at_once_is_refused ... ok
+test injection::tests::both_sources_populated_is_refused ... ok
+test injection::tests::no_injection_reads_the_top_level ... ok
+test injection::tests::two_empty_sources_stay_empty ... ok
+test injection::tests::the_text_only_path_refuses_a_file_arm ... ok
+test injection::tests::an_injection_file_is_read ... ok
+test shelley::tests::a_field_named_neither_way_is_refused ... ok
+test shelley::tests::a_file_arm_stops_the_whole_genesis ... ok
+test shelley::tests::a_pool_parses_under_the_current_names ... ok
+test shelley::tests::a_pool_parses_under_the_older_names ... ok
+test shelley::tests::a_genesis_without_extra_config_is_untouched ... ok
+test shelley::tests::both_spellings_prefer_the_current_name ... ok
+test shelley::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test shelley::tests::an_empty_staking_section_survives ... ok
+test shelley::tests::an_unmodelled_extra_config_key_is_refused ... ok
+test shelley::tests::an_absent_injection_leaves_the_top_level ... ok
+test shelley::tests::calc_address_txid ... ok
+test shelley::tests::credentials_in_both_places_are_refused ... ok
+test shelley::tests::an_injection_file_reaches_the_utxo_set ... ok
+test shelley::tests::no_staking_anywhere_means_none ... ok
+test shelley::tests::test_preview_json_loads ... ok
+test shelley::tests::test_partner_staking_parses ... ok
+test shelley::tests::the_parse_path_still_refuses_an_injection_file ... ok
+test shelley::tests::funds_in_both_places_are_refused ... ok
+test shelley::tests::test_musashi_json_loads ... ok
+test shelley::tests::injected_funds_reach_the_utxo_set ... ok
+test shelley::tests::injected_staking_needs_no_staking_section ... ok
+test shelley::tests::test_mainnet_json_loads ... ok
+test shelley::tests::pools_in_both_places_are_refused ... ok
+test shelley::tests::injected_staking_reaches_the_accessor ... ok
+test byron::tests::test_mainnet_json_loads ... ok
+test byron::tests::test_mainnet_avvm_utxos ... ok
+
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.64s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_crypto-556e512a0790d212)
+
+running 22 tests
+test hash::hash::tests::from_str ... ok
+test hash::serde::tests::invalid_str ... ok
+test hash::serde::tests::output_tokens ... ok
+test hash::hash::tests::from_str_fail_1 - should panic ... ok
+test hash::hash::tests::from_str_fail_2 - should panic ... ok
+test key::ed25519::tests::public_key_try_from_correct_size ... ok
+test key::ed25519::tests::public_key_from_str ... ok
+test key::ed25519::tests::signature_try_from_incorrect_size ... ok
+test key::ed25519::tests::public_key_try_from_incorrect_size ... ok
+test memsec::tests::eq_empty - should panic ... ok
+test key::ed25519::tests::signature_try_from_correct_size ... ok
+test key::ed25519::tests::signature_from_str ... ok
+test memsec::tests::eq ... ok
+test memsec::tests::ord ... ok
+test memsec::tests::ord_empty - should panic ... ok
+test nonce::tests::test_epoch_nonce ... ok
+test memsec::tests::ord_eq ... ok
+test nonce::tests::test_rolling_nonce ... ok
+test memsec::tests::neq ... ok
+test key::ed25519::tests::verify_random_signature_does_not_work ... ok
+test key::ed25519::tests::signing_verify_works ... ok
+test key::ed25519::tests::signing_verify_works_extended ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_hardano-de1627ea2dd335b1)
+
+running 15 tests
+2026-09-30T02:02:42.445977Z  WARN pallas_hardano::storage::immutable::tests: full_snapshot folder not available
+2026-09-30T02:02:42.445992Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test display::haskell_display::native_script_tests::negative_n_of_k_threshold_is_parenthesized ... ok
+test display::haskell_error::test_submit_api_serialization ... ok
+test display::haskell_display::tests::every_cost_model_reaches_the_rendered_string ... ok
+test storage::immutable::tests::chunk_binary_search_test ... ok
+test storage::immutable::secondary::tests::errors_on_inconsistent_entries ... ok
+test storage::immutable::tests::read_available_full_snapshots ... ok
+2026-09-30T02:02:42.446746Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+2026-09-30T02:02:42.446781Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test storage::immutable::tests::iterate_till_point_test ... ok
+2026-09-30T02:02:42.448003Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test storage::immutable::primary::tests::can_parse_a_real_world_file ... ok
+test storage::immutable::primary::tests::yield_occupied_correctly ... ok
+test storage::immutable::secondary::tests::can_parse_all_entries ... ok
+2026-09-30T02:02:42.455611Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::get_tip_test ... ok
+2026-09-30T02:02:42.466137Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-30T02:02:42.467583Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-30T02:02:42.474198Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+test storage::immutable::chunk::tests::it_can_decode_all_blocks ... ok
+2026-09-30T02:02:42.478116Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-30T02:02:42.483091Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01836"
+2026-09-30T02:02:42.512629Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::can_read_multiple_chunks_from_folder_at_specific_point ... ok
+2026-09-30T02:02:42.517189Z DEBUG pallas_hardano::storage::immutable: switched to new chunk
+test storage::immutable::tests::can_read_multiple_chunks_from_folder ... ok
+2026-09-30T02:02:42.523402Z DEBUG pallas_hardano::storage::immutable: switched to new chunk name="01285"
+test storage::immutable::tests::read_blocks_from_point_test ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_math-a271b4788d714b75)
+
+running 19 tests
+test math::tests::ln_of_0_should_be_undefined - should panic ... ok
+test math::tests::ln_of_negative_should_be_undefined - should panic ... ok
+test math::tests::pow_of_zero_to_neg_power_should_be_undefined - should panic ... ok
+test math::tests::test_fixed_precision ... ok
+test math::tests::test_fixed_precision_eq ... ok
+test math::tests::test_fixed_precision_exp ... ok
+test math::tests::test_fixed_precision_ceil ... ok
+test math::tests::test_fixed_precision_div ... ok
+test math::tests::test_fixed_precision_sub ... ok
+test math::tests::test_fixed_precision_from_str ... ok
+test math::tests::test_fixed_precision_trunc ... ok
+test math::tests::test_fixed_precision_mul ... ok
+test math::tests::test_fixed_precision_round ... ok
+test math::tests::test_fixed_precision_floor ... ok
+test math::tests::pow_of_any_to_power_0_should_be_1 ... ok
+test math::tests::pow_of_any_to_power_1_should_be_same ... ok
+test math::tests::pow_of_zero_to_any_positive_power_should_be_zero ... ok
+test math::tests::pow_to_positive_times_pow_to_negative_should_be_1 ... ok
+test math::tests::golden_tests has been running for over 60 seconds
+test math::tests::golden_tests ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 263.11s
+
+     Running unittests src/lib.rs (target/debug/deps/pallas_network-1ac682b83f7e5b94)
+
+running 247 tests
+test miniprotocols::chainsync::buffer::tests::roll_back_outside_scope_works ... ok
+test miniprotocols::chainsync::buffer::tests::pop_from_valid_depth_works ... ok
+test miniprotocols::chainsync::buffer::tests::pop_from_excessive_depth_returns_empty ... ok
+test miniprotocols::chainsync::buffer::tests::roll_back_within_scope_works ... ok
+test miniprotocols::chainsync::buffer::tests::roll_forward_accumulates_points ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_encode_decode_simple_bytes ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_encode_decode_real_bytes ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_already_received ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_invalid ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_expired ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_reject_reason_other ... ok
+test miniprotocols::localmsgsubmission::codec::tests::dmq_msg_validation_error ... ok
+test miniprotocols::localmsgsubmission::protocol::tests::dmq_msg_payload_bytes_to_sign_golden ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_a_cost_model_beyond_the_named_languages_round_trips ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_cost_models_with_three_languages_round_trip ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_refuses_other_lengths ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_roundtrip ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_reads_a_set_pledge_leverage ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_post_v16_block_queries_roundtrip ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0002_ConwayMempoolFailure_ConwayGovFailure_ExpirationEpochTooSmall_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0004_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0003_ConwayUtxowFailure_MissingTxBodyMetadataHash_AuxiliaryDataHash_AuxiliaryDataHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0006_ConwayUtxowFailure_MalformedScriptWitnesses_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0010_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0007_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0009_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_post_v16_block_queries_wire_shape ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0013_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0001_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0016_ConwayTxRefScriptsSizeTooBig_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0011_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0012_ConwayGovFailure_DisallowedProposalDuringBootstrap_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0019_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0008_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayCommitteeHasPreviouslyResigned ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0005_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0014_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0021_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_reencodes_a_captured_reply_byte_for_byte ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0015_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0017_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localstate::queries_v16::codec::tests::test_dijkstra_protocol_param_decodes_a_captured_reply ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0023_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayUtxowFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0022_ConwayMempoolFailure_R_ConwayGovFailure_VotingOnExpiredGovAction ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0024_ConwayGovFailure_ConflictingCommitteeUpdate_List_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0018_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_VotersDoNotExist_DRepVoter ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0020_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0025_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0026_ConwayGovFailure_MalformedProposal_HardForkInitiation_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0027_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0028_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0031_ConwayUtxowFailure_UtxoFailure_InsufficientCollateral_DeltaCoin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0029_ConwayTreasuryValueMismatch_Coin_Coin_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0034_ConwayUtxowFailure_InvalidWitnessesUTXOW_VKey_VerKeyEd ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0036_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0037_ConwayTreasuryValueMismatch_Coin_Coin_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0035_ConwayGovFailure_MalformedProposal_NewConstitution_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0041_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0038_ConwayGovFailure_VotersDoNotExist_DRepVoter_KeyHashObj ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0030_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_DisallowedVotesDuringBootstrap_DRepVoter ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0032_ConwayTxRefScriptsSizeTooBig_ConwayGovFailure_ExpirationEpochTooSmall_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0044_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0042_ConwayGovFailure_ExpirationEpochTooSmall_List_ConwayWdrlNotDelegatedToDRep ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0045_ConwayTreasuryValueMismatch_Coin_Coin_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0046_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0039_ConwayUtxowFailure_PPViewHashesDontMatch_SJust_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0040_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0047_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0043_ConwayCertsFailure_CertFailure_DelegFailure_DelegateeDRepNotRegisteredDELEG ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0048_ConwayUtxowFailure_MissingScriptWitnessesUTXOW_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0033_ConwayMempoolFailure_ConwayUtxowFailure_MalformedReferenceScripts_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0050_ConwayMempoolFailure_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0051_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0049_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0063_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0052_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0065_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0053_ConwayMempoolFailure_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0054_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0064_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0066_ConwayGovFailure_InvalidPolicyHash_SJust_ScriptHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0055_ConwayUtxowFailure_PPViewHashesDontMatch_SJust_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0056_ConwayUtxowFailure_MissingVKeyWitnessesUTXOW_List_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0057_ConwayMempoolFailure_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0058_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0059_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayDRepNotRegistered ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0061_ConwayTxRefScriptsSizeTooBig_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0068_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List_RewardAccount ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0060_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0069_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0067_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0062_ConwayGovFailure_InvalidPrevGovActionId_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0070_ConwayTxRefScriptsSizeTooBig_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0072_ConwayTreasuryValueMismatch_Coin_Coin_ConwayTreasuryValueMismatch ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0071_ConwayUtxowFailure_MalformedReferenceScripts_List_ScriptHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0073_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0077_ConwayMempoolFailure_SO ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0074_ConwayMempoolFailure_ConwayUtxowFailure_ExtraRedeemers_ConwayVoting ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0078_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0076_ConwayMempoolFailure_ConwayUtxowFailure_NotAllowedSupplementalDatums_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0075_ConwayTreasuryValueMismatch_Coin_Coin_ConwayCertsFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0081_ConwayMempoolFailure_ConwayCertsFailure_WithdrawalsNotInRewardsCERTS_List ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0079_ConwayTreasuryValueMismatch_Coin_Coin_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0082_ConwayMempoolFailure_S ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0080_ConwayMempoolFailure_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0084_ConwayCertsFailure_CertFailure_GovCertFailure_ConwayCommitteeIsUnknown ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0083_ConwayGovFailure_ExpirationEpochTooSmall_List_ConwayGovFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0085_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0087_ConwayMempoolFailure_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0090_ConwayGovFailure_GovActionsDoNotExist_GovActionId_TxId ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0092_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0094_ConwayTxRefScriptsSizeTooBig ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0093_ConwayGovFailure_ZeroTreasuryWithdrawals_NoConfidence_SJust ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0096_ConwayTreasuryValueMismatch_Coin_Coin ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0095_ConwayUtxowFailure_NotAllowedSupplementalDatums_List_SafeHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0098_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_ConwayMempoolFailure ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0088_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0086_ConwayUtxowFailure_UtxoFailure_OutputTooSmallUTxO_Addr ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0099_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_101 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_102 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_103 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_104 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_105 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0100_ConwayUtxowFailure_InvalidMetadata_ConwayGovFailure_DisallowedProposalDuringBootstrap ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_106 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0097_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0089_ConwayWdrlNotDelegatedToDRep_KeyHash_KeyHash ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_0091_ConwayGovFailure_InvalidPrevGovActionId_ProposalProcedure_ProcDeposit ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_107 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_108 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_109 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_110 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_114 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_111 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_115 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_116 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_118 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_117 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_122 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_113 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_125 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_126 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_119 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_127 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_120 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_112 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_130 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_123 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_132 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_124 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_133 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_128 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_135 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_134 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_121 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_136 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_129 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_131 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_137 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_139 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_141 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_143 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_144 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_138 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_140 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_145 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_147 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_142 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_146 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_151 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_150 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_153 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_148 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_154 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_155 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_157 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_158 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_161 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_152 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_162 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_156 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_163 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_166 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_165 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_159 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_160 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_167 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_149 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_168 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_164 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_171 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_172 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_169 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_173 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_179 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_181 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_182 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_185 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_183 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_180 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_170 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_178 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_176 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_184 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_188 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_177 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_190 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_186 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_189 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_174 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_175 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_187 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_191 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_196 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_195 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_198 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_197 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_192 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_199 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_194 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_200 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_207 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_203 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_204 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_206 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_205 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_208 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_201 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_193 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_202 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_209 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_210 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_211 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_212 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_213 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_214 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_215 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_216 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_219 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_multi ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_217 ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_218 ... ok
+test miniprotocols::txmonitor::codec::tests::test_empty_next_tx_response ... ok
+test multiplexer::tests::fragmented_message_in_multiple_payloads ... ok
+test multiplexer::tests::multiple_messages_in_same_payload ... ok
+test miniprotocols::localtxsubmission::codec::tests::test_cbor_multi2 ... ok
+test miniprotocols::txmonitor::codec::tests::test_next_tx_response ... ok
+
+test result: ok. 247 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/plexer.rs (target/debug/deps/plexer-d01bf80e07639435)
+
+running 1 test
+test one_way_small_sequence_of_payloads ... FAILED
+
+failures:
+
+---- one_way_small_sequence_of_payloads stdout ----
+
+thread 'one_way_small_sequence_of_payloads' (10964) panicked at pallas-network/tests/plexer.rs:10:10:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'one_way_small_sequence_of_payloads' (10964) panicked at pallas-network/tests/plexer.rs:22:10:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+
+failures:
+    one_way_small_sequence_of_payloads
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+error: test failed, to rerun pass `-p pallas-network --test plexer`
