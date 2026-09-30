@@ -6,6 +6,16 @@ This supersedes the failed single-evaluator experiment in
 `experiment/amaru-uplc-integration`; it is not merged into `leios-musashi` and is
 not a Dolos integration or submission result.
 
+## Rust requirement adopted on the experiment branch, 2026-09-30
+
+The user approved adopting Rust 1.97. The workspace manifest, README and CI now
+declare/enforce that minimum, including native phase-two tests at Rust 1.97.0.
+The breaking build requirement is recorded under Unreleased in the changelog for
+the next minor release. All 24 workspace packages inherit the new minimum.
+`rust197-policy/verification.json` and adjacent logs record the focused recheck.
+The local dependency URI still prevents a portable CI checkout; publishing the
+Amaru candidate and selecting its exact remote pin remain outstanding.
+
 ## Implementation and dependency status
 
 Earlier eras retain registry `amaru-uplc =0.1.0` and their existing evaluator.
@@ -26,8 +36,9 @@ unchanged; the candidate is in `/home/rodrigo/projects/amaru-stable-compat`.
 Stable Rust 1.97 originally failed on two compact-collection mutable-borrow loops.
 The candidate promotes their storage before returning the mutable tree borrow.
 Its evaluator also enforces the selected D/E integer operands described below.
-Pallas's root Rust policy remains 1.88; this experiment's phase-two dependency
-requires 1.97. No main-branch compiler-policy change has been made.
+At the original September 29 checkpoint, Pallas's root Rust policy remained 1.88
+while phase two required 1.97. The September 30 update above resolves that mismatch
+on the experiment branch. No canonical-branch change has been made.
 
 ## Evidence and supported subset
 
@@ -156,8 +167,8 @@ Windows support. Workspace formatting has seven pre-existing harvest.rs differen
 Amaru workspace tests remain blocked by missing `libclang.so` in RocksDB, while
 changed-crate tests, Clippy and docs pass.
 
-**Next:** review/adopt the 1.97 phase-two requirement and publish the new Amaru
-candidate only with explicit authorization (or user publication); replace the local
+**Next:** publish the new Amaru candidate only with explicit authorization (or
+user publication); replace the local
 URI with a portable exact pin, then reintegrate the tested Pallas change. S06
 remains partial on `leios-musashi` until that integration. Dolos pin/workarounds,
 S07, submission and the private reference remain untouched.
