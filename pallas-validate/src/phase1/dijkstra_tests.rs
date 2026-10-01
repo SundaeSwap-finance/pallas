@@ -383,10 +383,24 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
                 "DijkstraUnsupported(\"body fields\")",
             );
         }
-        let mut raw_output = minicbor::to_vec(&tx.transaction_body.outputs[0]).unwrap();
-        assert_eq!(raw_output[0], 0x82);
-        raw_output[0] = 0x83;
-        raw_output.push(0xf6); // a synthetic ignored/null legacy datum field
+        // A synthetic unknown map field must not disappear in typed decoding.
+        let view = MultiEraOutput::from_dijkstra(&tx.transaction_body.outputs[0]);
+        let mut enc = minicbor::Encoder::new(Vec::new());
+        enc.map(3)
+            .unwrap()
+            .u8(0)
+            .unwrap()
+            .bytes(&view.address().unwrap().to_vec())
+            .unwrap()
+            .u8(1)
+            .unwrap()
+            .encode(view.value().into_alonzo())
+            .unwrap()
+            .u8(99)
+            .unwrap()
+            .null()
+            .unwrap();
+        let raw_output = enc.into_writer();
         let mut changed = tx.clone();
         changed.transaction_body.outputs =
             MaybeIndefArray::Def(vec![minicbor::decode(&raw_output).unwrap()]);
@@ -405,7 +419,7 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
         changed.auxiliary_data = pallas_codec::utils::Nullable::Undefined;
         error(
             dispatch(&changed, &output, &env()),
-            "DijkstraUnsupported(\"auxiliary data\")",
+            "PostAlonzo(MetadataHash)",
         );
         changed = tx.clone();
         changed.success = false;
@@ -489,12 +503,12 @@ fn dijkstra_typed_features_reject_explicitly() {
                 }
                 6 => {
                     changed.transaction_body.total_collateral = Some(0);
-                    "script fields without script registration"
+                    "collateral without Plutus"
                 }
                 7 => {
                     changed.transaction_body.reference_inputs =
                         native::NonEmptySet::from_vec(changed.transaction_body.inputs.to_vec());
-                    "script fields without script registration"
+                    "overlapping spending and reference inputs"
                 }
                 8 => {
                     changed.transaction_body.script_data_hash = Some([0; 32].into());
@@ -505,10 +519,12 @@ fn dijkstra_typed_features_reject_explicitly() {
                     "auxiliary data"
                 }
             };
-            error(
-                dispatch(&changed, &output, &env()),
-                &format!("DijkstraUnsupported({expected:?})"),
-            );
+            let expected = match field {
+                8 => "PostAlonzo(ScriptIntegrityHash)".to_owned(),
+                9 => "PostAlonzo(MetadataHash)".to_owned(),
+                _ => format!("DijkstraUnsupported({expected:?})"),
+            };
+            error(dispatch(&changed, &output, &env()), &expected);
         }
         let sub_bytes = hex::decode("83a200800180a0f6").unwrap();
         let sub: native::SubTransaction = minicbor::decode(&sub_bytes).unwrap();
@@ -538,7 +554,7 @@ fn dijkstra_typed_features_reject_explicitly() {
         ));
         error(
             dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
-            "DijkstraUnsupported(\"output datum or reference script\")",
+            "PostAlonzo(UnsupportedPlutusLanguage)",
         );
     });
 }
@@ -700,10 +716,13 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
                     "pointer address"
                 }
             };
-            error(
-                dispatch(&tx, &MultiEraOutput::from_dijkstra(&changed), &env()),
-                &format!("DijkstraUnsupported({expected:?})"),
-            );
+            let result = dispatch(&tx, &MultiEraOutput::from_dijkstra(&changed), &env());
+            match feature {
+                0 => assert!(result.is_ok(), "a key input may carry a datum"),
+                1 => error(result, "PostAlonzo(PreservationOfValue)"),
+                2 => error(result, "DijkstraMissingParameters(\"Plutus parameters\")"),
+                _ => error(result, &format!("DijkstraUnsupported({expected:?})")),
+            }
         }
         let output = MultiEraOutput::from_dijkstra(&input);
         let mut e = env();

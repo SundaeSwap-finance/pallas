@@ -20,7 +20,7 @@ fn read(name: &str) -> Vec<u8> {
     )
     .unwrap()
 }
-fn params() -> Environment {
+pub(super) fn params() -> Environment {
     let mut e = env();
     e.block_slot = 1401365;
     let p: serde_json::Value = serde_json::from_str(include_str!(
@@ -481,7 +481,7 @@ fn dijkstra_registration_other_certificates_and_script_forms_reject() {
             &utxos,
             &params(),
             &state,
-            "DijkstraUnsupported(\"non-vkey witnesses\")",
+            "PostAlonzo(UnneededPlutusV3Script)",
         );
         changed = tx.clone();
         changed.transaction_body.validity_interval_start = Some(1401366);
@@ -497,7 +497,13 @@ fn dijkstra_registration_other_certificates_and_script_forms_reject() {
             unreachable!()
         };
         pp.plutus.as_mut().unwrap().cost_model_v3.truncate(297);
-        fail(&tx, &utxos, &e, &state, "PostAlonzo(ScriptIntegrityHash)");
+        fail(
+            &tx,
+            &utxos,
+            &e,
+            &state,
+            "DijkstraMissingParameters(\"protocol-12 V3 cost model requires 350 entries\")",
+        );
     });
 }
 
