@@ -321,11 +321,11 @@ pub struct DijkstraProtParams {
     pub max_value_size: u32,
     /// Required only for explicit registration certificates; never inferred from defaults.
     pub key_deposit: Option<Coin>,
-    /// Required for the supported reference-script registration path.
+    /// Required for native V3 execution fees, budgets, collateral and reference scripts.
     pub plutus: Option<DijkstraPlutusParams>,
 }
 
-/// Parameters needed for native Plutus V3 registration phase one (not evaluation).
+/// Parameters needed for native Plutus V3 validation and evaluation.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone)]
 pub struct DijkstraPlutusParams {

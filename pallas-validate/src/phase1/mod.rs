@@ -117,3 +117,6 @@ pub fn validate_tx(
         (_, None) => Err(EnvMissingAccountState),
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_transaction_tests;

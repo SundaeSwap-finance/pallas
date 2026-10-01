@@ -1,5 +1,9 @@
 # Native registration and key-authorized batches
 
+For the subsequent native metadata, multiasset and Plutus V3 extension, see
+[native Dijkstra validation](../musashi-dijkstra-validation/README.md). The subset below describes this
+historical checkpoint, not the current complete supported subset.
+
 This report preserves combined checkpoint `76003a3` and its original verification.
 Its implementation is now split into [registration](registration-only.md) and
 [key-only batches](key-batches.md), with separate red/green reports. Final source

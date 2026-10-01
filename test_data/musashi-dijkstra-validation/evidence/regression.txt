@@ -1,0 +1,38 @@
+Baseline output excerpts (compilation succeeded):
+    Finished `test` profile [unoptimized] target(s) in 7.79s
+
+thread 'phase1::dijkstra_transaction_tests::dijkstra_observed_metadata_reaches_input_validation' (1152) panicked at pallas-validate/src/phase1/dijkstra_transaction_tests.rs:20:5:
+assertion `left == right` failed
+  left: "Err(DijkstraUnsupported(\"auxiliary data\"))"
+ right: "Err(PostAlonzo(InputNotInUTxO))"
+
+thread 'phase1::dijkstra_transaction_tests::scripts::dijkstra_captured_mint_batch_phase_one' (1156) panicked at pallas-validate/src/phase1/dijkstra_transaction_tests.rs:842:13:
+phase one: Err(DijkstraUnsupported("account or governance state"))
+
+thread 'phase1::dijkstra_transaction_tests::scripts::dijkstra_captured_mint_batch_phase_two' (1157) panicked at pallas-validate/src/phase1/dijkstra_transaction_tests.rs:848:55:
+native Plutus V3 evaluation: DijkstraUnsupported("mint, withdrawals or governance")
+
+test result: FAILED. 0 passed; 19 failed; 1 ignored; 0 measured; 115 filtered out; finished in 0.07s
+
+Fixed output excerpts:
+test phase1::dijkstra_transaction_tests::dijkstra_observed_metadata_reaches_input_validation ... ok
+test phase1::dijkstra_transaction_tests::dijkstra_observed_order_valid_context ... ok
+test phase1::dijkstra_transaction_tests::dijkstra_multiasset_conservation_and_script_output ... ok
+test phase1::dijkstra_transaction_tests::dijkstra_preserves_original_auxiliary_bytes ... ok
+test phase1::dijkstra_transaction_tests::scripts::export_dijkstra_cli_comparison ... ignored, exports public offline CLI comparison inputs to DIJKSTRA_FIXTURE_EXPORT
+test phase1::dijkstra_transaction_tests::dijkstra_invalid_multiasset_encodings ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_mint_without_policy_rejects ... ok
+test phase1::dijkstra_transaction_tests::dijkstra_metadata_commitment_and_limits ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_missing_state_and_script_authorization ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_captured_mint_batch_phase_one ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_exact_redeemer_pointers ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_collateral_assets_and_annotations ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_datums_and_integrity_are_independent ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_new_scripts_are_checked ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_budget_and_failing_scripts ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_fee_budget_and_reference_boundaries ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_reward_order_and_explicit_account_balance ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_v3_purpose_and_optional_datum_context ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_spend_mint_reward_both_script_sources ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_captured_mint_batch_phase_two ... ok
+test result: ok. 19 passed; 0 failed; 1 ignored; 0 measured; 115 filtered out; finished in 0.12s

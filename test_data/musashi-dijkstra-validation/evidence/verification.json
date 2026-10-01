@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-01",
+  "baseline": "dc2c81dcced2a316c8aacb8155b8b90fee428e08",
+  "cleanup_parent": "dd9bfcb0c611e2d3c2229a2324e043c4149292b2",
+  "test_module_sha256": "bb906ae776f860d855db8d825fbeb7c6cd054a885b58f3a6707b8eceb5223e32",
+  "results": {
+    "baseline-tests": {
+      "passed": 0,
+      "failed": 19,
+      "ignored": 1
+    },
+    "fixed-tests": {
+      "passed": 19,
+      "failed": 0,
+      "ignored": 1
+    },
+    "native-tests": {
+      "passed": 260,
+      "failed": 0,
+      "ignored": 3
+    },
+    "unstable-tests": {
+      "passed": 206,
+      "failed": 0,
+      "ignored": 1
+    },
+    "export-test": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "commands": [
+    "cargo test --offline -p pallas-validate --features phase2,unstable dijkstra_transaction_tests -- --nocapture",
+    "cargo test --offline -p pallas-validate --features phase2,unstable",
+    "cargo test --offline -p pallas-validate --features unstable",
+    "cargo clippy --offline -p pallas-validate --all-targets --features phase2,unstable -- -D warnings",
+    "cargo test --offline -p pallas-validate --features phase2,unstable export_dijkstra_cli_comparison -- --ignored",
+    "cargo fmt --all --check"
+  ],
+  "clippy": "passed; warnings denied",
+  "formatting": "seven pre-existing hunks in unchanged examples/leios-testnet/src/bin/harvest.rs; changed Rust files formatted",
+  "fixture_integrity": "all retained CBOR files byte-identical to cleanup parent",
+  "full_logs_local": "/home/rodrigo/projects/dolos/target/dijkstra-validation-cleanup",
+  "historical_checks": "workspace/MSRV and earlier full replay evidence remain in cleanup_parent commit",
+  "cli_comparison": "repeated with renamed exporter; all five execution costs match retained cardano-cli comparison"
+}

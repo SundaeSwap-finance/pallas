@@ -887,6 +887,10 @@ pub struct CertState {
     /// are unknown, not unregistered. Phase-one updates are provisional until phase two.
     #[cfg(feature = "unstable")]
     pub dijkstra_registrations: HashMap<StakeCredential, DijkstraRegistrationState>,
+    /// Original account balances at the validation slot. Missing means unknown;
+    /// `None` means known unregistered. Updates remain provisional until phase two.
+    #[cfg(feature = "unstable")]
+    pub dijkstra_account_balances: HashMap<StakeCredential, Option<Coin>>,
     pub pstate: PState,
     pub dstate: DState,
 }

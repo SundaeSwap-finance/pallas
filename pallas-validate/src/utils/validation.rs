@@ -28,6 +28,22 @@ pub enum ValidationError {
     #[error("input has already been consumed within the Dijkstra batch")]
     DijkstraInputAlreadySpent,
 
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra withdrawal requires the original account balance for {0}")]
+    DijkstraAccountStateUnavailable(String),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra withdrawal: {0}")]
+    DijkstraInvalidWithdrawal(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra metadata")]
+    DijkstraInvalidMetadata,
+
+    #[cfg(feature = "unstable")]
+    #[error("malformed Dijkstra Plutus V3 script")]
+    DijkstraMalformedScript,
+
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
 

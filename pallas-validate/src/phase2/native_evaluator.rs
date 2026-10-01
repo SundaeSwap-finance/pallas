@@ -18,9 +18,9 @@ use amaru_uplc_native::{
 use pallas_codec::minicbor;
 use pallas_primitives::conway::{ExUnits, PlutusData};
 
-/// Evaluate only the documented protocol-12 native registration subset.
-/// Pass all 350 coefficients unchanged to the local Amaru evaluator.
-/// All builtins outside the registration subset reject statically.
+/// Evaluate the documented protocol-12 Plutus V3 builtin subset.
+/// Pass all 350 coefficients unchanged to the pinned Amaru evaluator.
+/// Other builtins remain explicitly unsupported.
 pub(crate) fn eval_native_v3(
     script_bytes: &[u8],
     context: &PlutusData,
@@ -32,6 +32,7 @@ pub(crate) fn eval_native_v3(
     let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
     let (program, remainder): (&Program<DeBruijn>, _) =
         flat::decode(&arena, &flat_bytes, ProtocolVersion::new(12, 0))?;
+    check_program_version(program.version)?;
     if remainder > 0 {
         return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
     }
@@ -40,6 +41,9 @@ pub(crate) fn eval_native_v3(
         match term {
             Term::Builtin(f) => match f {
                 F::AddInteger
+                | F::SubtractInteger
+                | F::MultiplyInteger
+                | F::LessThanByteString
                 | F::AppendByteString
                 | F::BData
                 | F::Blake2b_224
@@ -76,7 +80,7 @@ pub(crate) fn eval_native_v3(
                 | F::VerifyEd25519Signature => (),
                 _ => {
                     return Err(Error::DijkstraUnsupported(
-                        "V3 builtin outside audited registration subset",
+                        "V3 builtin outside audited protocol-12 subset",
                     ));
                 }
             },
@@ -148,4 +152,28 @@ fn budget_to_ex_units(budget: ExBudget) -> ExUnits {
         mem: budget.mem.max(0) as u64,
         steps: budget.cpu.max(0) as u64,
     }
+}
+
+/// Decode introduced script bytes at the native protocol version, without execution.
+pub(crate) fn check_v3_script(script: &[u8]) -> Result<(), Error> {
+    let arena = Arena::from_bump(Bump::new());
+    let mut decoder = minicbor::Decoder::new(script);
+    let flat_bytes: minicbor::bytes::ByteVec = decoder.decode()?;
+    if decoder.position() != script.len() {
+        return Err(Error::DijkstraInvalid("trailing script CBOR"));
+    }
+    let (program, remainder): (&Program<DeBruijn>, _) =
+        flat::decode(&arena, &flat_bytes, ProtocolVersion::new(12, 0))?;
+    check_program_version(program.version)?;
+    if remainder != 0 {
+        return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
+    }
+    Ok(())
+}
+
+fn check_program_version(version: amaru_uplc_native::machine::MachineVersion) -> Result<(), Error> {
+    if !matches!((version.major, version.minor, version.patch), (1, 0 | 1, 0)) {
+        return Err(Error::DijkstraInvalid("unsupported V3 UPLC version"));
+    }
+    Ok(())
 }

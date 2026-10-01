@@ -173,7 +173,7 @@ fn native_registration_redeemer_presence_purpose_and_position() {
         for index in [1, u32::MAX] {
             let mut bad = tx.clone();
             change_redeemer(&mut bad, |k, _| k.index = index);
-            error(run(&bad, &u), "MissingScriptForRedeemer");
+            error(run(&bad, &u), "ExtraneousRedeemer");
         }
         for tag in [
             n::RedeemerTag::Spend,
@@ -185,7 +185,7 @@ fn native_registration_redeemer_presence_purpose_and_position() {
         ] {
             let mut bad = tx.clone();
             change_redeemer(&mut bad, |k, _| k.tag = tag);
-            error(run(&bad, &u), "redeemer purpose (requires Cert)");
+            error(run(&bad, &u), "ExtraneousRedeemer");
         }
         let mut shifted = tx.clone();
         let mut b = (*shifted.transaction_body).clone();
@@ -201,7 +201,7 @@ fn native_registration_redeemer_presence_purpose_and_position() {
         assert!(result[0].success);
         assert_eq!(result[0].index, 1);
         change_redeemer(&mut shifted, |k, _| k.index = 0);
-        error(run(&shifted, &u), "NonScriptStakeCredential");
+        error(run(&shifted, &u), "ExtraneousRedeemer");
     });
 }
 #[test]
@@ -419,7 +419,7 @@ fn native_registration_script_presence_language_and_machine_failures() {
         );
         error(
             run(&tx, &u),
-            "V3 builtin outside audited registration subset",
+            "V3 builtin outside audited protocol-12 subset",
         );
     });
 }
@@ -482,11 +482,11 @@ fn native_registration_rejects_unsupported_features_and_protocols() {
                 }
                 5 => {
                     b.treasury_value = Some(1);
-                    "mint, withdrawals or governance"
+                    "governance"
                 }
                 6 => {
                     b.donation = Some(1.try_into().unwrap());
-                    "mint, withdrawals or governance"
+                    "governance"
                 }
                 7 => {
                     b.certificates = Some(
@@ -509,15 +509,15 @@ fn native_registration_rejects_unsupported_features_and_protocols() {
                 }
                 10 => {
                     b.mint = Some(Default::default());
-                    "mint, withdrawals or governance"
+                    "governance"
                 }
                 11 => {
                     b.withdrawals = Some(Default::default());
-                    "mint, withdrawals or governance"
+                    "governance"
                 }
                 12 => {
                     b.voting_procedures = Some(Default::default());
-                    "mint, withdrawals or governance"
+                    "governance"
                 }
                 13 => {
                     b.validity_interval_start = Some(u64::MAX);
@@ -529,7 +529,11 @@ fn native_registration_rejects_unsupported_features_and_protocols() {
                 }
             };
             changed.transaction_body = b.into();
-            error(run(&changed, &u), expected);
+            if matches!(feature, 10 | 11) {
+                assert!(run(&changed, &u).unwrap()[0].success);
+            } else {
+                error(run(&changed, &u), expected);
+            }
         }
         let bytes =
             hex::decode(include_str!("../../../test_data/dijkstra-subtx.tx").trim()).unwrap();
@@ -667,7 +671,14 @@ fn native_registration_invalid_script_encoding_and_witness_scripts() {
                 }
             };
             tx.transaction_witness_set = w.into();
-            error(run(&tx, &u), "witness scripts");
+            error(
+                run(&tx, &u),
+                if language == 3 {
+                    "DecodeError"
+                } else {
+                    "witness scripts"
+                },
+            );
         }
     });
 }

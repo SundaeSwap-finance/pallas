@@ -1,18 +1,18 @@
-//! Native protocol-12 phase one for the documented transfer, registration and batch subset.
-//! See test_data/musashi-phase1/registration-and-batches.md for rules and boundaries.
+//! Native protocol-12 phase one for transfers, registrations, key batches and Plutus V3.
+//! Rules and evidence boundaries: test_data/musashi-dijkstra-validation/README.md.
 use crate::utils::{
     CertState, DijkstraPlutusParams, DijkstraProtParams, DijkstraRegistrationState,
     PostAlonzoError::*, UTxOs, ValidationError, ValidationError::*, ValidationResult,
     add_fee_and_stake_deposits, verify_signature,
 };
-use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart};
+use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
 use pallas_codec::{
     minicbor,
     utils::{KeepRaw, Nullable},
 };
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway::LanguageViews, dijkstra::*};
-use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx};
+use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx};
 use std::collections::{BTreeMap, HashSet};
 
 type Keys = HashSet<Hash<28>>;
@@ -33,11 +33,98 @@ pub fn validate_dijkstra_tx(
     }
     check_supported(tx)?;
     let b = &tx.transaction_body;
+    for sub in b.sub_transactions.iter().flatten() {
+        check_sub_supported(sub)?;
+    }
     let mut state = cert_state.dijkstra_registrations.clone();
     let mut keys = guard_keys(b.guards.as_ref())?;
     let top_guards = keys.clone();
     check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
     let mut scripts = BTreeMap::new();
+    let mut accounts = cert_state.dijkstra_account_balances.clone();
+    let mut withdrawals = 0;
+    let mut ordered_withdrawals: Vec<_> = b.withdrawals.iter().flat_map(|x| x.iter()).collect();
+    // Ledger RewardAccount ordering: network, Script credential before Key, hash.
+    ordered_withdrawals.sort_by_key(|(raw, _)| {
+        (
+            raw.first().map(|x| x & 15),
+            raw.first().map(|x| 15 - (x >> 4)),
+            raw.get(1..),
+        )
+    });
+    for (index, (raw_address, amount)) in ordered_withdrawals.into_iter().enumerate() {
+        let Address::Stake(address) =
+            Address::from_bytes(raw_address).map_err(|_| PostAlonzo(AddressDecoding))?
+        else {
+            return Err(PostAlonzo(AddressDecoding));
+        };
+        if address.network().value() != *network_id {
+            return Err(PostAlonzo(TxWrongNetworkID));
+        }
+        let credential = match address.payload() {
+            StakePayload::Stake(key) => {
+                keys.insert(*key);
+                StakeCredential::AddrKeyhash(*key)
+            }
+            StakePayload::Script(hash) => {
+                scripts.insert(
+                    RedeemersKey {
+                        tag: RedeemerTag::Reward,
+                        index: index as u32,
+                    },
+                    *hash,
+                );
+                StakeCredential::ScriptHash(*hash)
+            }
+        };
+        let balance = accounts
+            .get_mut(&credential)
+            .ok_or_else(|| DijkstraAccountStateUnavailable(hex::encode(raw_address.as_slice())))?;
+        let Some(balance) = balance else {
+            return Err(DijkstraInvalidWithdrawal("unregistered account"));
+        };
+        // ENTITIES uses draining withdrawals in legacy mode (any V1-V3 script).
+        // Without Plutus, Dijkstra permits partial withdrawals.
+        if *amount > *balance {
+            return Err(DijkstraInvalidWithdrawal(
+                "amount does not match available account balance",
+            ));
+        }
+        *balance -= *amount;
+        withdrawals = add(withdrawals, *amount)?;
+    }
+    for (index, input) in b
+        .inputs
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+    {
+        let output = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
+        if let ShelleyPaymentPart::Script(hash) = payment(output)? {
+            scripts.insert(
+                RedeemersKey {
+                    tag: RedeemerTag::Spend,
+                    index: index as u32,
+                },
+                hash,
+            );
+        }
+    }
+    for (index, (hash, assets)) in b.mint.iter().flat_map(|x| x.iter()).enumerate() {
+        if assets.is_empty() || assets.keys().any(|x| x.len() > 32) {
+            return Err(PostAlonzo(NegativeValue));
+        }
+        scripts.insert(
+            RedeemersKey {
+                tag: RedeemerTag::Mint,
+                index: index as u32,
+            },
+            *hash,
+        );
+    }
     for (index, cert) in b.certificates.iter().flat_map(|x| x.iter()).enumerate() {
         let Certificate::Reg(credential, deposit) = cert else {
             return Err(DijkstraUnsupported("certificate kind"));
@@ -60,10 +147,51 @@ pub fn validate_dijkstra_tx(
                 keys.insert(*key);
             }
             StakeCredential::ScriptHash(hash) => {
-                scripts.insert(index as u32, *hash);
+                scripts.insert(
+                    RedeemersKey {
+                        tag: RedeemerTag::Cert,
+                        index: index as u32,
+                    },
+                    *hash,
+                );
             }
         }
+        if accounts
+            .get(credential)
+            .is_some_and(|balance| balance.is_some())
+        {
+            return Err(DijkstraInvalidCertificate("inconsistent account prestate"));
+        }
+        accounts.insert(credential.clone(), Some(0));
         state.insert(credential.clone(), DijkstraRegistrationState::Registered);
+    }
+    // Zero withdrawals also require a zero original balance in legacy mode.
+    if !scripts.is_empty() {
+        if b.sub_transactions.is_some() {
+            return Err(DijkstraUnsupported("scripted or stateful batch"));
+        }
+        if b.required_top_level_guards
+            .as_ref()
+            .is_some_and(|x| !x.is_empty())
+        {
+            return Err(DijkstraUnsupported("Plutus required top-level guards"));
+        }
+        for (raw, _) in b.withdrawals.iter().flat_map(|x| x.iter()) {
+            let Address::Stake(address) =
+                Address::from_bytes(raw).map_err(|_| PostAlonzo(AddressDecoding))?
+            else {
+                unreachable!()
+            };
+            let credential = match address.payload() {
+                StakePayload::Script(h) => StakeCredential::ScriptHash(*h),
+                StakePayload::Stake(h) => StakeCredential::AddrKeyhash(*h),
+            };
+            if accounts.get(&credential) != Some(&Some(0)) {
+                return Err(DijkstraInvalidWithdrawal(
+                    "legacy Plutus withdrawals must drain the account",
+                ));
+            }
+        }
     }
     check_interval(
         b.validity_interval_start,
@@ -89,11 +217,14 @@ pub fn validate_dijkstra_tx(
         return Err(PostAlonzo(FeeBelowMin));
     }
     let mut spent = Spent::new();
-    let mut consumed = 0;
+    let mut consumed = withdrawals;
     let mut output_coin = 0;
     for sub in b.sub_transactions.iter().flat_map(|x| x.iter()) {
         check_sub_supported(sub)?;
         let sb = &sub.sub_transaction_body;
+        for output in sb.outputs.iter() {
+            key_coin(&MultiEraOutput::from_dijkstra(output))?;
+        }
         check_required_guards(sb.required_top_level_guards.as_ref(), &top_guards)?;
         check_interval(
             sb.validity_interval_start,
@@ -105,7 +236,7 @@ pub fn validate_dijkstra_tx(
         let mut sub_keys = guard_keys(sb.guards.as_ref())?;
         consumed = add(
             consumed,
-            check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys)?,
+            check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys, false)?,
         )?;
         output_coin = add(output_coin, check_outputs(&sb.outputs, pp, network_id)?)?;
         check_signatures(
@@ -116,7 +247,7 @@ pub fn validate_dijkstra_tx(
     }
     consumed = add(
         consumed,
-        check_inputs(&b.inputs, utxos, &mut spent, &mut keys)?,
+        check_inputs(&b.inputs, utxos, &mut spent, &mut keys, true)?,
     )?;
     output_coin = add(output_coin, check_outputs(&b.outputs, pp, network_id)?)?;
     // Same explicit Reg deposit semantics as Conway; no transaction/witness conversion.
@@ -130,8 +261,10 @@ pub fn validate_dijkstra_tx(
     if produced != Value::Coin(consumed) {
         return Err(PostAlonzo(PreservationOfValue));
     }
+    check_assets(tx, utxos)?;
     check_signatures(&tx.transaction_witness_set, &encode(b)?, keys)?;
     cert_state.dijkstra_registrations = state;
+    cert_state.dijkstra_account_balances = accounts;
     Ok(())
 }
 
@@ -198,6 +331,7 @@ fn check_inputs(
     utxos: &UTxOs<'_>,
     spent: &mut Spent,
     keys: &mut Keys,
+    native: bool,
 ) -> Result<u64, ValidationError> {
     if inputs.is_empty() {
         return Err(PostAlonzo(TxInsEmpty));
@@ -216,9 +350,16 @@ fn check_inputs(
         if !spent.insert(id) {
             return Err(DijkstraInputAlreadySpent);
         }
-        let (coin, key) = key_coin(output)?;
-        total = add(total, coin)?;
-        keys.insert(key);
+        if native {
+            total = add(total, output.value().coin())?;
+            if let ShelleyPaymentPart::Key(key) = payment(output)? {
+                keys.insert(key);
+            }
+        } else {
+            let (coin, key) = key_coin(output)?;
+            total = add(total, coin)?;
+            keys.insert(key);
+        }
     }
     Ok(total)
 }
@@ -246,7 +387,11 @@ fn check_outputs(
     let mut total = 0;
     for output in outputs {
         let view = MultiEraOutput::from_dijkstra(output);
-        let (coin, _) = key_coin(&view)?;
+        let coin = view.value().coin();
+        payment(&view)?;
+        if let Some(script) = view.multi_era_script_ref() {
+            check_new_script(&script)?;
+        }
         let Address::Shelley(address) = view.address().map_err(|_| PostAlonzo(AddressDecoding))?
         else {
             return Err(DijkstraUnsupported("output address"));
@@ -258,19 +403,21 @@ fn check_outputs(
         let output_bytes = minicbor::to_vec(output).map_err(|_| PostAlonzo(UnknownTxSize))?;
         match output {
             TransactionOutput::PostAlonzo(_) => {
-                check_map_keys(&output_bytes, &[0, 1], "output fields")?;
+                check_map_keys(&output_bytes, &[0, 1, 2, 3], "output fields")?;
             }
             TransactionOutput::Legacy(_) => {
                 let mut decoder = minicbor::Decoder::new(&output_bytes);
-                if decoder
-                    .array()
-                    .map_err(|_| DijkstraUnsupported("output fields"))?
-                    != Some(2)
-                {
+                if !matches!(
+                    decoder
+                        .array()
+                        .map_err(|_| DijkstraUnsupported("output fields"))?,
+                    Some(2 | 3)
+                ) {
                     return Err(DijkstraUnsupported("output fields"));
                 }
             }
         }
+        check_output_value_encoding(&output_bytes)?;
         let minimum = pp
             .ada_per_utxo_byte
             .checked_mul(160 + output_bytes.len() as u64)
@@ -278,7 +425,8 @@ fn check_outputs(
         if coin < minimum {
             return Err(PostAlonzo(MinLovelaceUnreached));
         }
-        let value_bytes = minicbor::to_vec(coin).map_err(|_| PostAlonzo(UnknownTxSize))?;
+        let value_bytes =
+            minicbor::to_vec(view.value().into_alonzo()).map_err(|_| PostAlonzo(UnknownTxSize))?;
         if value_bytes.len() > pp.max_value_size as usize {
             return Err(PostAlonzo(MaxValSizeExceeded));
         }
@@ -322,7 +470,6 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     if b.direct_deposits.is_some()
         || b.account_balance_intervals.is_some()
         || b.starting_account_balance_intervals.is_some()
-        || b.withdrawals.is_some()
         || b.voting_procedures.is_some()
         || b.proposal_procedures.is_some()
         || b.treasury_value.is_some()
@@ -330,15 +477,18 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     {
         return Err(DijkstraUnsupported("account or governance state"));
     }
-    if b.mint.is_some() {
-        return Err(DijkstraUnsupported("mint"));
-    }
-    if b.auxiliary_data_hash.is_some() || !matches!(tx.auxiliary_data, Nullable::Null) {
-        return Err(DijkstraUnsupported("auxiliary data"));
+    check_auxiliary(b.auxiliary_data_hash, &tx.auxiliary_data)?;
+    if b.sub_transactions.is_some()
+        && (b.mint.is_some() || b.withdrawals.is_some() || b.script_data_hash.is_some())
+    {
+        return Err(DijkstraUnsupported("scripted or stateful batch"));
     }
     let mut allowed = vec![0, 1, 2, 3, 8, 15];
     for (key, present) in [
         (4, b.certificates.is_some()),
+        (5, b.withdrawals.is_some()),
+        (7, b.auxiliary_data_hash.is_some()),
+        (9, b.mint.is_some()),
         (11, b.script_data_hash.is_some()),
         (13, b.collateral.is_some()),
         (14, b.guards.is_some()),
@@ -352,7 +502,23 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
             allowed.push(key);
         }
     }
-    check_map_keys(&encode(b)?, &allowed, "body fields")?;
+    let raw = encode(b)?;
+    check_map_keys(&raw, &allowed, "body fields")?;
+    let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
+        minicbor::decode(&raw).map_err(|_| DijkstraUnsupported("body fields"))?;
+    for (key, value) in fields.iter() {
+        if *key == 9 {
+            check_asset_encoding(value, true)?;
+        }
+        if *key == 5 {
+            let withdrawals: pallas_codec::utils::KeyValuePairs<Bytes, u64> =
+                minicbor::decode(value).map_err(|_| DijkstraInvalidWithdrawal("encoding"))?;
+            let mut seen = HashSet::new();
+            if withdrawals.iter().any(|(a, _)| !seen.insert(a.to_vec())) {
+                return Err(DijkstraInvalidWithdrawal("duplicate account"));
+            }
+        }
+    }
     check_witness_fields(&tx.transaction_witness_set, true)
 }
 fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> ValidationResult {
@@ -360,14 +526,13 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> Val
         || w.bootstrap_witness.is_some()
         || w.plutus_v1_script.is_some()
         || w.plutus_v2_script.is_some()
-        || w.plutus_v3_script.is_some()
-        || w.plutus_data.is_some()
-        || (!redeemers && w.redeemer.is_some())
+        || (!redeemers
+            && (w.redeemer.is_some() || w.plutus_v3_script.is_some() || w.plutus_data.is_some()))
     {
         return Err(DijkstraUnsupported("non-vkey witnesses"));
     }
-    let allowed = if redeemers && w.redeemer.is_some() {
-        &[0, 5][..]
+    let allowed = if redeemers {
+        &[0, 4, 5, 7][..]
     } else {
         &[0][..]
     };
@@ -434,38 +599,19 @@ fn check_scripts(
     tx: &BlockTransaction<'_>,
     utxos: &UTxOs<'_>,
     pp: &DijkstraProtParams,
-    scripts: &BTreeMap<u32, Hash<28>>,
+    scripts: &BTreeMap<RedeemersKey, Hash<28>>,
     keys: &mut Keys,
     network: u8,
 ) -> Result<u64, ValidationError> {
     let b = &tx.transaction_body;
     let w = &tx.transaction_witness_set;
-    if scripts.is_empty() {
-        if w.redeemer.is_some() {
-            return Err(PostAlonzo(UnneededRedeemer));
-        }
-        if b.script_data_hash.is_some()
-            || b.reference_inputs.is_some()
-            || b.collateral.is_some()
-            || b.collateral_return.is_some()
-            || b.total_collateral.is_some()
-        {
-            return Err(DijkstraUnsupported(
-                "script fields without script registration",
-            ));
-        }
-        return Ok(0);
-    }
-    let p = pp
-        .plutus
-        .as_ref()
-        .ok_or(DijkstraMissingParameters("Plutus parameters"))?;
-    if b.ttl.is_some() {
+    if !scripts.is_empty() && b.ttl.is_some() {
         return Err(DijkstraUnsupported(
             "Plutus validity upper bound requires forecast state",
         ));
     }
     let mut available = HashSet::new();
+    let mut reference_scripts = HashSet::new();
     let mut refs = Spent::new();
     let mut bytes = 0;
     for input in b.reference_inputs.iter().flat_map(|x| x.iter()) {
@@ -477,6 +623,13 @@ fn check_scripts(
                 "overlapping spending and reference inputs",
             ));
         }
+    }
+    for input in b
+        .reference_inputs
+        .iter()
+        .flat_map(|x| x.iter())
+        .chain(b.inputs.iter())
+    {
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(ReferenceInputNotInUTxO))?;
@@ -497,8 +650,49 @@ fn check_scripts(
             bytes = add(bytes, raw.len() as u64)?;
             let mut payload = vec![3];
             payload.extend_from_slice(raw);
-            available.insert(Hasher::<224>::hash(&payload));
+            let hash = Hasher::<224>::hash(&payload);
+            available.insert(hash);
+            reference_scripts.insert(hash);
         }
+    }
+    for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
+        let hash = script.compute_hash();
+        if !scripts.values().any(|x| *x == hash) || reference_scripts.contains(&hash) {
+            return Err(PostAlonzo(UnneededPlutusV3Script));
+        }
+        well_formed_v3(script.as_ref())?;
+        available.insert(hash);
+    }
+    check_datums(tx, utxos, scripts)?;
+    if scripts.is_empty() {
+        if b.collateral.is_some() || b.collateral_return.is_some() || b.total_collateral.is_some() {
+            return Err(DijkstraUnsupported("collateral without Plutus"));
+        }
+        if w.redeemer.as_ref().is_some_and(|x| !x.is_empty()) {
+            return Err(PostAlonzo(UnneededRedeemer));
+        }
+        // An empty redeemer map and language view still participate when datums exist.
+        check_integrity(tx, None)?;
+        if bytes == 0 {
+            return Ok(0);
+        }
+        let p = pp
+            .plutus
+            .as_ref()
+            .ok_or(DijkstraMissingParameters("reference script fee parameters"))?;
+        if bytes > u64::from(p.max_ref_script_size_per_tx) {
+            return Err(DijkstraReferenceScriptsTooLarge);
+        }
+        return reference_fee(bytes, p);
+    }
+    let p = pp
+        .plutus
+        .as_ref()
+        .ok_or(DijkstraMissingParameters("Plutus parameters"))?;
+    if p.cost_model_v3.len() != 350 {
+        return Err(DijkstraMissingParameters(
+            "protocol-12 V3 cost model requires 350 entries",
+        ));
     }
     if bytes > u64::from(p.max_ref_script_size_per_tx) {
         return Err(DijkstraReferenceScriptsTooLarge);
@@ -521,17 +715,14 @@ fn check_scripts(
         }
     }
     for index in scripts.keys() {
-        if !redeemers.contains_key(&RedeemersKey {
-            tag: RedeemerTag::Cert,
-            index: *index,
-        }) {
+        if !redeemers.contains_key(index) {
             return Err(PostAlonzo(RedeemerMissing));
         }
     }
     let mut mem = 0;
     let mut steps = 0;
     for (key, value) in redeemers.iter() {
-        if key.tag != RedeemerTag::Cert || !scripts.contains_key(&key.index) {
+        if !scripts.contains_key(key) {
             return Err(PostAlonzo(UnneededRedeemer));
         }
         mem = add(mem, value.ex_units.mem)?;
@@ -540,16 +731,7 @@ fn check_scripts(
     if mem > p.max_tx_ex_units.mem || steps > p.max_tx_ex_units.steps {
         return Err(PostAlonzo(TxExUnitsExceeded));
     }
-    // Dijkstra retains Alonzo's memoized redeemer bytes and Conway's V3 language
-    // view encoding. No datum set is admitted by this subset.
-    let mut integrity = raw;
-    integrity.extend(encode(LanguageViews(BTreeMap::from([(
-        2,
-        p.cost_model_v3.clone(),
-    )])))?);
-    if b.script_data_hash != Some(Hasher::<256>::hash(&integrity)) {
-        return Err(PostAlonzo(ScriptIntegrityHash));
-    }
+    check_integrity(tx, Some(&p.cost_model_v3))?;
     let collateral = b.collateral.as_ref().ok_or(PostAlonzo(CollateralMissing))?;
     if collateral.is_empty() {
         return Err(PostAlonzo(CollateralMissing));
@@ -558,6 +740,7 @@ fn check_scripts(
         return Err(PostAlonzo(TooManyCollaterals));
     }
     let mut collateral_ids = Spent::new();
+    let mut collateral_assets = BTreeMap::new();
     let mut total = 0;
     for input in collateral.iter() {
         if !collateral_ids.insert((input.transaction_id, input.index)) {
@@ -566,14 +749,27 @@ fn check_scripts(
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(CollateralNotInUTxO))?;
-        let (coin, key) = key_coin(output)?;
+        let ShelleyPaymentPart::Key(key) = payment(output)? else {
+            return Err(PostAlonzo(CollateralNotVKeyLocked));
+        };
         keys.insert(key);
-        total = add(total, coin)?;
+        total = add(total, output.value().coin())?;
+        accumulate_assets(&mut collateral_assets, output, 1)?;
     }
     let returned = match &b.collateral_return {
         Some(output) => check_outputs(std::slice::from_ref(output), pp, &network)?,
         None => 0,
     };
+    if let Some(output) = &b.collateral_return {
+        accumulate_assets(
+            &mut collateral_assets,
+            &MultiEraOutput::from_dijkstra(output),
+            -1,
+        )?;
+    }
+    if collateral_assets.values().any(|x| *x != 0) {
+        return Err(PostAlonzo(NonLovelaceCollateral));
+    }
     let paid = total
         .checked_sub(returned)
         .ok_or(PostAlonzo(NegativeValue))?;
@@ -650,4 +846,327 @@ fn reference_fee(mut bytes: u64, p: &DijkstraPlutusParams) -> Result<u64, Valida
         }
     }
     u64::try_from(total.0 / total.1).map_err(|_| PostAlonzo(NegativeValue))
+}
+
+fn payment(output: &MultiEraOutput<'_>) -> Result<ShelleyPaymentPart, ValidationError> {
+    let Address::Shelley(address) = output.address().map_err(|_| PostAlonzo(AddressDecoding))?
+    else {
+        return Err(DijkstraUnsupported("bootstrap or reward address"));
+    };
+    if matches!(address.delegation(), ShelleyDelegationPart::Pointer(_)) {
+        return Err(DijkstraUnsupported("pointer address"));
+    }
+    Ok(address.payment().clone())
+}
+
+fn check_auxiliary(
+    hash: Option<Hash<32>>,
+    auxiliary: &Nullable<KeepRaw<'_, AuxiliaryData>>,
+) -> ValidationResult {
+    let data = match auxiliary {
+        Nullable::Null if hash.is_none() => return Ok(()),
+        Nullable::Some(data) if hash == Some(Hasher::<256>::hash(&encode(data)?)) => data,
+        _ => return Err(PostAlonzo(MetadataHash)),
+    };
+    let metadata = match &**data {
+        AuxiliaryData::Shelley(m) => Some(m),
+        AuxiliaryData::ShelleyMa(m) => {
+            if m.auxiliary_scripts.as_ref().is_some_and(|x| !x.is_empty()) {
+                return Err(DijkstraUnsupported("auxiliary scripts"));
+            }
+            Some(&m.transaction_metadata)
+        }
+        AuxiliaryData::PostAlonzo(m) => {
+            if m.native_scripts.is_some()
+                || m.plutus_v1_scripts.is_some()
+                || m.plutus_v2_scripts.is_some()
+                || m.plutus_v3_scripts.is_some()
+                || m.plutus_v4_scripts.is_some()
+            {
+                return Err(DijkstraUnsupported("auxiliary scripts"));
+            }
+            m.metadata.as_ref()
+        }
+    };
+    // Map decoding into BTreeMap must not hide duplicate metadata labels.
+    let raw = encode(data)?;
+    let mut decoder = minicbor::Decoder::new(&raw);
+    let metadata_bytes = match &**data {
+        AuxiliaryData::Shelley(_) => Some(raw.clone()),
+        AuxiliaryData::ShelleyMa(_) => {
+            decoder.array().map_err(|_| DijkstraInvalidMetadata)?;
+            let value: pallas_codec::utils::AnyCbor =
+                decoder.decode().map_err(|_| DijkstraInvalidMetadata)?;
+            Some(value.to_vec())
+        }
+        AuxiliaryData::PostAlonzo(_) => {
+            decoder.tag().map_err(|_| DijkstraInvalidMetadata)?;
+            check_map_keys(&raw[decoder.position()..], &[0], "auxiliary fields")?;
+            let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
+                decoder.decode().map_err(|_| DijkstraInvalidMetadata)?;
+            fields
+                .iter()
+                .find(|(key, _)| *key == 0)
+                .map(|(_, value)| value.to_vec())
+        }
+    };
+    if let Some(bytes) = metadata_bytes {
+        let entries: pallas_codec::utils::KeyValuePairs<u64, Metadatum> =
+            minicbor::decode(&bytes).map_err(|_| DijkstraInvalidMetadata)?;
+        let mut labels = HashSet::new();
+        if entries.iter().any(|(label, _)| !labels.insert(*label)) {
+            return Err(DijkstraInvalidMetadata);
+        }
+    }
+    let mut pending: Vec<_> = metadata.into_iter().flat_map(|m| m.values()).collect();
+    while let Some(item) = pending.pop() {
+        match item {
+            Metadatum::Text(x) if x.len() > 64 => return Err(DijkstraInvalidMetadata),
+            Metadatum::Bytes(x) if x.len() > 64 => return Err(DijkstraInvalidMetadata),
+            Metadatum::Array(xs) => pending.extend(xs),
+            Metadatum::Map(xs) => {
+                for (k, v) in xs.iter() {
+                    pending.extend([k, v]);
+                }
+            }
+            _ => (),
+        }
+    }
+    Ok(())
+}
+
+type AssetBalance = BTreeMap<(Hash<28>, Vec<u8>), i128>;
+fn accumulate_assets(
+    total: &mut AssetBalance,
+    output: &MultiEraOutput<'_>,
+    sign: i128,
+) -> ValidationResult {
+    if let pallas_primitives::alonzo::Value::Multiasset(_, assets) = output.value().into_alonzo() {
+        for (policy, assets) in assets {
+            for (name, quantity) in assets {
+                if name.len() > 32 {
+                    return Err(PostAlonzo(NegativeValue));
+                }
+                let entry = total.entry((policy, name.to_vec())).or_default();
+                *entry = entry
+                    .checked_add(i128::from(quantity) * sign)
+                    .ok_or(PostAlonzo(NegativeValue))?;
+            }
+        }
+    }
+    Ok(())
+}
+fn check_assets(tx: &BlockTransaction<'_>, utxos: &UTxOs<'_>) -> ValidationResult {
+    let b = &tx.transaction_body;
+    let mut balance = AssetBalance::new();
+    for input in b.inputs.iter().chain(
+        b.sub_transactions
+            .iter()
+            .flatten()
+            .flat_map(|s| s.sub_transaction_body.inputs.iter()),
+    ) {
+        let output = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(PostAlonzo(InputNotInUTxO))?;
+        accumulate_assets(&mut balance, output, 1)?;
+    }
+    for output in b.outputs.iter().chain(
+        b.sub_transactions
+            .iter()
+            .flatten()
+            .flat_map(|s| s.sub_transaction_body.outputs.iter()),
+    ) {
+        accumulate_assets(&mut balance, &MultiEraOutput::from_dijkstra(output), -1)?;
+    }
+    for (policy, assets) in b.mint.iter().flat_map(|m| m.iter()) {
+        for (name, quantity) in assets {
+            let entry = balance.entry((*policy, name.to_vec())).or_default();
+            *entry = entry
+                .checked_add(i128::from(i64::from(quantity)))
+                .ok_or(PostAlonzo(NegativeValue))?;
+        }
+    }
+    if balance.values().any(|x| *x != 0) {
+        return Err(PostAlonzo(PreservationOfValue));
+    }
+    Ok(())
+}
+
+fn check_datums(
+    tx: &BlockTransaction<'_>,
+    utxos: &UTxOs<'_>,
+    scripts: &BTreeMap<RedeemersKey, Hash<28>>,
+) -> ValidationResult {
+    let mut allowed = HashSet::new();
+    let mut required = HashSet::new();
+    let b = &tx.transaction_body;
+    for (index, input) in b
+        .inputs
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+    {
+        if scripts.contains_key(&RedeemersKey {
+            tag: RedeemerTag::Spend,
+            index: index as u32,
+        }) {
+            let output = utxos
+                .get(&MultiEraInput::from_alonzo_compatible(input))
+                .ok_or(PostAlonzo(InputNotInUTxO))?;
+            match output.datum() {
+                Some(DatumOption::Hash(hash)) => {
+                    required.insert(hash);
+                    allowed.insert(hash);
+                }
+                Some(DatumOption::Data(_)) => (),
+                // CIP-0069: V3 may spend an output without a datum. A present
+                // hash still requires its matching witness datum.
+                None => (),
+            }
+        }
+    }
+    for output in b.outputs.iter().map(MultiEraOutput::from_dijkstra) {
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            allowed.insert(hash);
+        }
+    }
+    for input in b.reference_inputs.iter().flatten() {
+        let output = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(PostAlonzo(ReferenceInputNotInUTxO))?;
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            allowed.insert(hash);
+        }
+    }
+    for datum in tx
+        .transaction_witness_set
+        .plutus_data
+        .iter()
+        .flat_map(|x| x.iter())
+    {
+        let hash = Hasher::<256>::hash(&encode(datum)?);
+        if !allowed.contains(&hash) {
+            return Err(PostAlonzo(UnneededDatum));
+        }
+        required.remove(&hash);
+    }
+    if !required.is_empty() {
+        return Err(PostAlonzo(DatumMissing));
+    }
+    Ok(())
+}
+
+fn check_integrity(tx: &BlockTransaction<'_>, model: Option<&Vec<i64>>) -> ValidationResult {
+    let w = &tx.transaction_witness_set;
+    let has_data = w.plutus_data.as_ref().is_some_and(|x| !x.is_empty());
+    let has_redeemers = w.redeemer.as_ref().is_some_and(|x| !x.is_empty());
+    let expected = if model.is_none() && !has_data && !has_redeemers {
+        None
+    } else {
+        let mut bytes = match &w.redeemer {
+            Some(r) => encode(r)?,
+            None => vec![0xa0],
+        };
+        if has_data {
+            bytes.extend(encode(w.plutus_data.as_ref().unwrap())?);
+        }
+        let views = model
+            .map(|m| BTreeMap::from([(2, m.clone())]))
+            .unwrap_or_default();
+        bytes.extend(encode(LanguageViews(views))?);
+        Some(Hasher::<256>::hash(&bytes))
+    };
+    if tx.transaction_body.script_data_hash != expected {
+        return Err(PostAlonzo(ScriptIntegrityHash));
+    }
+    Ok(())
+}
+
+fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
+    match script {
+        MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
+            ScriptRef::PlutusV3Script(s) => well_formed_v3(s.as_ref()),
+            _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
+        },
+        _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
+    }
+}
+fn well_formed_v3(script: &[u8]) -> ValidationResult {
+    #[cfg(feature = "phase2")]
+    {
+        crate::phase2::native_evaluator::check_v3_script(script)
+            .map_err(|_| DijkstraMalformedScript)
+    }
+    #[cfg(not(feature = "phase2"))]
+    {
+        let _ = script;
+        Err(DijkstraUnsupported(
+            "new Plutus script validation requires phase2 feature",
+        ))
+    }
+}
+
+// Ledger v12 Mary.Value requires nonempty policy/name maps, nonzero quantities,
+// <=32-byte names and duplicate-free maps even in the legacy TxOut representation.
+fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
+    use pallas_codec::utils::KeyValuePairs;
+    let assets: KeyValuePairs<Hash<28>, KeyValuePairs<Bytes, minicbor::data::Int>> =
+        minicbor::decode(raw).map_err(|_| PostAlonzo(NegativeValue))?;
+    let mut policies = HashSet::new();
+    if assets.is_empty() {
+        return Err(PostAlonzo(NegativeValue));
+    }
+    for (policy, names) in assets.iter() {
+        if !policies.insert(*policy) || names.is_empty() {
+            return Err(PostAlonzo(NegativeValue));
+        }
+        let mut seen = HashSet::new();
+        for (name, quantity) in names.iter() {
+            let quantity = i128::from(*quantity);
+            if name.len() > 32
+                || !seen.insert(name.to_vec())
+                || quantity == 0
+                || (mint && i64::try_from(quantity).is_err())
+                || (!mint && u64::try_from(quantity).is_err())
+            {
+                return Err(PostAlonzo(NegativeValue));
+            }
+        }
+    }
+    Ok(())
+}
+fn check_output_value_encoding(raw: &[u8]) -> ValidationResult {
+    use pallas_codec::utils::{AnyCbor, KeyValuePairs};
+    let mut decoder = minicbor::Decoder::new(raw);
+    let value = match decoder.datatype().map_err(|_| PostAlonzo(NegativeValue))? {
+        minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
+            let fields: KeyValuePairs<u64, AnyCbor> =
+                decoder.decode().map_err(|_| PostAlonzo(NegativeValue))?;
+            fields
+                .iter()
+                .find(|(k, _)| *k == 1)
+                .map(|(_, v)| v.clone())
+                .ok_or(PostAlonzo(NegativeValue))?
+        }
+        _ => {
+            decoder.array().map_err(|_| PostAlonzo(NegativeValue))?;
+            decoder.skip().map_err(|_| PostAlonzo(NegativeValue))?;
+            decoder
+                .decode::<AnyCbor>()
+                .map_err(|_| PostAlonzo(NegativeValue))?
+        }
+    };
+    let mut d = minicbor::Decoder::new(&value);
+    if matches!(
+        d.datatype(),
+        Ok(minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef)
+    ) {
+        let values: Vec<AnyCbor> = d.decode().map_err(|_| PostAlonzo(NegativeValue))?;
+        if values.len() != 2 {
+            return Err(PostAlonzo(NegativeValue));
+        }
+        check_asset_encoding(&values[1], false)?;
+    }
+    Ok(())
 }

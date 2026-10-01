@@ -199,7 +199,7 @@ fn dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch() {
     // scripted sub. It is not evidence for positive key-only batch acceptance.
     error(
         validate_txs(&[tx], &env(), &UTxOs::new(), &mut CertState::default()),
-        "DijkstraUnsupported(\"script fields without script registration\")",
+        "DijkstraUnsupported(\"stateful or scripted subtransaction\")",
     );
 }
 

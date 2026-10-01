@@ -1,5 +1,5 @@
-//! Deliberately scoped native protocol-12 V3 registration evaluation.
-//! Ledger rules and exclusions: test_data/musashi-phase2/README.md.
+//! Native protocol-12 V3 spending, minting, withdrawals and registration evaluation.
+//! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
     error::Error,
     evaluator,
@@ -8,10 +8,10 @@ use super::{
     tx::TxEvalResult,
 };
 use crate::utils::{MultiEraProtocolParameters, TxoRef, UtxoMap};
-use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart};
+use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
 use pallas_codec::utils::CborWrap;
 use pallas_primitives::{conway as c, dijkstra as n};
-use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
+use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx};
 use std::collections::BTreeMap;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
@@ -24,17 +24,12 @@ fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
 /// address/value/datum/script-hash fields.
 fn context_output(
     output: &MultiEraOutput<'_>,
-    reference: bool,
+    _reference: bool,
 ) -> Result<c::TransactionOutput<'static>, Error> {
     let address = output.address()?;
     match &address {
-        Address::Shelley(a)
-            if (reference || matches!(a.payment(), ShelleyPaymentPart::Key(_)))
-                && !matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {}
-        _ => return unsupported("output address (requires Shelley payment key, no pointer)"),
-    }
-    if output.datum().is_some() || !output.value().assets().is_empty() {
-        return unsupported("output datum or multiasset");
+        Address::Shelley(a) if !matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {}
+        _ => return unsupported("output address (requires Shelley, no pointer)"),
     }
     let script = match output.multi_era_script_ref() {
         None => None,
@@ -51,8 +46,14 @@ fn context_output(
     Ok(c::TransactionOutput::PostAlonzo(
         c::PostAlonzoTransactionOutput {
             address: address.to_vec().into(),
-            value: c::Value::Coin(output.value().coin()),
-            datum_option: None,
+            value: output.value().into_conway(),
+            datum_option: output
+                .datum()
+                .map(|d| match d {
+                    c::DatumOption::Hash(h) => c::DatumOption::Hash(h),
+                    c::DatumOption::Data(d) => c::DatumOption::Data(CborWrap(d.0.unwrap().into())),
+                })
+                .map(Into::into),
             script_ref: script.map(|s| CborWrap(c::ScriptRef::PlutusV3Script(s))),
         }
         .into(),
@@ -112,26 +113,22 @@ pub(super) fn eval_tx(
     {
         return unsupported("account features or required top-level guards");
     }
-    if b.mint.is_some()
-        || b.withdrawals.is_some()
-        || b.voting_procedures.is_some()
+    if b.voting_procedures.is_some()
         || b.proposal_procedures.is_some()
         || b.treasury_value.is_some()
         || b.donation.is_some()
     {
-        return unsupported("mint, withdrawals or governance");
+        return unsupported("governance");
     }
     if b.ttl.is_some() {
         return unsupported("upper validity bound requires forecast state");
     }
     if w.plutus_v1_script.is_some()
         || w.plutus_v2_script.is_some()
-        || w.plutus_v3_script.is_some()
         || w.native_script.is_some()
         || w.bootstrap_witness.is_some()
-        || w.plutus_data.is_some()
     {
-        return unsupported("witness scripts, bootstrap witnesses or datums");
+        return unsupported("unsupported witness scripts or bootstrap witnesses");
     }
     let mut signatories = match &b.guards {
         None => vec![],
@@ -178,6 +175,10 @@ pub(super) fn eval_tx(
     // Collateral is a phase-one concern and is not part of the V3 context or
     // script lookup.
     let mut scripts = BTreeMap::new();
+    for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
+        super::native_evaluator::check_v3_script(script.as_ref())?;
+        scripts.insert(script.compute_hash(), script.clone());
+    }
     for i in inputs.iter().chain(&reference_inputs) {
         if let c::TransactionOutput::PostAlonzo(o) = &i.resolved
             && let Some(CborWrap(c::ScriptRef::PlutusV3Script(s))) = &o.script_ref
@@ -186,33 +187,119 @@ pub(super) fn eval_tx(
         }
     }
     let mut expected = BTreeMap::new();
+    let mut purposes_by_pointer = BTreeMap::new();
+    let mut spending_datums = BTreeMap::new();
+    let datums: BTreeMap<_, _> = w
+        .plutus_data
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|d| {
+            (
+                pallas_crypto::hash::Hasher::<256>::hash_cbor(d),
+                (**d).clone(),
+            )
+        })
+        .collect();
+    for (index, input) in inputs.iter().enumerate() {
+        let view = MultiEraOutput::from_conway(&input.resolved);
+        if let Address::Shelley(address) = view.address()?
+            && let ShelleyPaymentPart::Script(hash) = address.payment()
+        {
+            let key = n::RedeemersKey {
+                tag: n::RedeemerTag::Spend,
+                index: index as u32,
+            };
+            let datum = match view.datum() {
+                Some(c::DatumOption::Data(d)) => Some(d.0.unwrap()),
+                Some(c::DatumOption::Hash(hash)) => Some(datums.get(&hash).cloned().ok_or_else(
+                    || Error::MissingRequiredDatum {
+                        hash: hash.to_string(),
+                    },
+                )?),
+                None => None,
+            };
+            if let Some(datum) = datum {
+                spending_datums.insert(key.clone(), datum);
+            }
+            expected.insert(key.clone(), *hash);
+            purposes_by_pointer.insert(key, ScriptPurpose::Spending(input.out_ref.clone(), ()));
+        }
+    }
+    for (index, (hash, _)) in b.mint.iter().flat_map(|x| x.iter()).enumerate() {
+        let key = n::RedeemersKey {
+            tag: n::RedeemerTag::Mint,
+            index: index as u32,
+        };
+        expected.insert(key.clone(), *hash);
+        purposes_by_pointer.insert(key, ScriptPurpose::Minting(*hash));
+    }
     for (index, cert) in certificates.iter().enumerate() {
         if let c::Certificate::Reg(n::StakeCredential::ScriptHash(hash), _) = cert {
-            if !scripts.contains_key(hash) {
-                return Err(Error::MissingRequiredScript {
-                    hash: hash.to_string(),
-                });
+            let key = n::RedeemersKey {
+                tag: n::RedeemerTag::Cert,
+                index: index as u32,
+            };
+            expected.insert(key.clone(), *hash);
+            purposes_by_pointer.insert(key, ScriptPurpose::Certifying(index, cert.clone()));
+        }
+    }
+    let mut withdrawals = b
+        .withdrawals
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|(raw, amount)| {
+            let address = Address::from_bytes(raw)?;
+            if !matches!(address, Address::Stake(_)) {
+                return Err(Error::BadWithdrawalAddress);
             }
-            expected.insert(index as u32, *hash);
+            Ok((raw, address, *amount))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    withdrawals.sort_by(|a, b| super::script_context::sort_reward_accounts(a.0, b.0));
+    for (index, (_, address, _)) in withdrawals.iter().enumerate() {
+        if let Address::Stake(address) = address
+            && let StakePayload::Script(hash) = address.payload()
+        {
+            let key = n::RedeemersKey {
+                tag: n::RedeemerTag::Reward,
+                index: index as u32,
+            };
+            expected.insert(key.clone(), *hash);
+            purposes_by_pointer.insert(
+                key,
+                ScriptPurpose::Rewarding(n::StakeCredential::ScriptHash(*hash)),
+            );
+        }
+    }
+    for hash in expected.values() {
+        if !scripts.contains_key(hash) {
+            return Err(Error::MissingRequiredScript {
+                hash: hash.to_string(),
+            });
         }
     }
     let redeemers = tx.redeemers();
     let mut purposes = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
     for r in &redeemers {
         let (key, value) = r.as_dijkstra().ok_or(Error::WrongEra())?;
-        if key.tag != n::RedeemerTag::Cert {
-            return unsupported("redeemer purpose (requires Cert)");
+        let purpose = purposes_by_pointer
+            .get(key)
+            .ok_or(Error::ExtraneousRedeemer)?;
+        if !seen.insert(key.clone()) {
+            return Err(Error::ExtraneousRedeemer);
         }
-        let cert = certificates
-            .get(key.index as usize)
-            .ok_or(Error::MissingScriptForRedeemer)?;
-        if !expected.contains_key(&key.index) {
-            return Err(Error::NonScriptStakeCredential);
-        }
+        let tag = match key.tag {
+            n::RedeemerTag::Spend => c::RedeemerTag::Spend,
+            n::RedeemerTag::Mint => c::RedeemerTag::Mint,
+            n::RedeemerTag::Cert => c::RedeemerTag::Cert,
+            n::RedeemerTag::Reward => c::RedeemerTag::Reward,
+            _ => return unsupported("redeemer purpose"),
+        };
         purposes.push((
-            ScriptPurpose::Certifying(key.index as usize, cert.clone()),
+            purpose.clone(),
             c::Redeemer {
-                tag: c::RedeemerTag::Cert,
+                tag,
                 index: key.index,
                 data: value.data.clone(),
                 ex_units: value.ex_units,
@@ -223,11 +310,14 @@ pub(super) fn eval_tx(
         return Err(Error::RequiredRedeemersMismatch {
             missing: expected
                 .keys()
-                .filter(|i| !purposes.iter().any(|(_, r)| r.index == **i))
-                .map(|i| format!("Cert[{i}]"))
+                .filter(|key| !seen.contains(key))
+                .map(|key| format!("{:?}[{}]", key.tag, key.index))
                 .collect(),
             extra: vec![],
         });
+    }
+    if purposes.is_empty() {
+        return Ok(vec![]);
     }
     let lower_bound = b
         .validity_interval_start
@@ -249,18 +339,22 @@ pub(super) fn eval_tx(
         outputs,
         fee: b.fee,
         mint: MintValue {
-            mint_value: Default::default(),
+            mint_value: b.mint.clone().unwrap_or_default(),
         },
         certificates,
-        withdrawals: vec![].into(),
+        withdrawals: withdrawals
+            .into_iter()
+            .map(|(_, a, n)| (a, n))
+            .collect::<Vec<_>>()
+            .into(),
         valid_range: TimeRange {
             lower_bound,
             upper_bound: None,
         },
         signatories,
         redeemers: purposes.clone().into(),
-        data: vec![].into(),
-        id: b.original_hash(),
+        data: datums.into_iter().collect::<Vec<_>>().into(),
+        id: pallas_crypto::hash::Hasher::<256>::hash_cbor(b),
         votes: vec![].into(),
         proposal_procedures: vec![],
         current_treasury_amount: None,
@@ -291,13 +385,24 @@ pub(super) fn eval_tx(
     purposes
         .iter()
         .map(|(_, r)| {
+            let tag = match r.tag {
+                c::RedeemerTag::Spend => n::RedeemerTag::Spend,
+                c::RedeemerTag::Mint => n::RedeemerTag::Mint,
+                c::RedeemerTag::Cert => n::RedeemerTag::Cert,
+                c::RedeemerTag::Reward => n::RedeemerTag::Reward,
+                _ => return unsupported("redeemer purpose"),
+            };
+            let key = n::RedeemersKey {
+                tag,
+                index: r.index,
+            };
             let context = info
                 .clone()
-                .into_script_context(r, None)
+                .into_script_context(r, spending_datums.get(&key))
                 .ok_or(Error::ScriptContextBuildError)?;
             let data = context.to_plutus_data_with_protocol(12);
             let result = evaluator::eval_native_v3(
-                scripts[&expected[&r.index]].as_ref(),
+                scripts[&expected[&key]].as_ref(),
                 &data,
                 &plutus.cost_model_v3,
                 r.ex_units,
