@@ -1,0 +1,20 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.77s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-d9c1d3bfb4fecdc2)
+
+running 13 tests
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_earlier_era_is_explicitly_unsupported ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_ignores_excessive_declared_budgets ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_preserves_context_hash_and_redeemer_data ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_unsigned_capture ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_unsigned_zero_budgets ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_missing_inputs_scripts_redeemers ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_script_failures_and_unsupported ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_aggregate_boundaries_and_indices ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_zero_budgets ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_unchanged_capture ... ok
+test phase1::dijkstra_transaction_tests::scripts::estimation_tests_spend_mint_reward_reporting ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_insufficient_budgets ... ok
+test phase2::dijkstra_evaluation_tests::estimation_tests::estimation_execution_limits ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 135 filtered out; finished in 0.07s

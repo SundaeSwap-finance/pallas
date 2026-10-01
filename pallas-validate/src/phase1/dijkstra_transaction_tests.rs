@@ -379,6 +379,64 @@ mod scripts {
     }
     const PASS: &str = "(program 1.1.0 (lam ctx (con unit ())))";
     #[test]
+    fn estimation_tests_spend_mint_reward_reporting() {
+        for reference in [false, true] {
+            case(reference, PASS, |mut tx, inputs, env, state| {
+                assert!(run(&tx, &inputs, &env, &state).is_ok());
+                let expected = evaluate(&tx, &inputs, &env).unwrap();
+                for value in tx
+                    .transaction_witness_set
+                    .redeemer
+                    .as_mut()
+                    .unwrap()
+                    .0
+                    .values_mut()
+                {
+                    value.ex_units = n::ExUnits { mem: 0, steps: 0 };
+                }
+                tx.transaction_witness_set.vkeywitness = None;
+                assert!(
+                    evaluate(&tx, &inputs, &env)
+                        .unwrap()
+                        .iter()
+                        .all(|r| !r.success)
+                );
+                let map: UtxoMap = inputs
+                    .iter()
+                    .map(|(i, o)| {
+                        (
+                            TxoRef(i.transaction_id, i.index as u32),
+                            EraCbor(Era::Dijkstra, minicbor::to_vec(o).unwrap()),
+                        )
+                    })
+                    .collect();
+                let report = crate::phase2::estimate_tx(
+                    &MultiEraTx::from_dijkstra(&tx),
+                    &env.prot_params,
+                    &map,
+                    &crate::phase2::script_context::SlotConfig::default(),
+                )
+                .unwrap();
+                assert_eq!(report.len(), 3);
+                for ((entry, (tag, index)), original) in report
+                    .iter()
+                    .zip([
+                        (c::RedeemerTag::Spend, 1),
+                        (c::RedeemerTag::Mint, 0),
+                        (c::RedeemerTag::Reward, 0),
+                    ])
+                    .zip(&expected)
+                {
+                    assert_eq!((entry.tag, entry.index), (tag, index));
+                    assert!(entry.success, "{report:?}");
+                    assert_eq!(entry.units, original.units);
+                    assert_eq!(entry.logs, original.logs);
+                    assert!(entry.failure_message.is_none());
+                }
+            });
+        }
+    }
+    #[test]
     fn dijkstra_spend_mint_reward_both_script_sources() {
         for reference in [false, true] {
             case(reference, PASS, |mut tx, inputs, env, state| {

@@ -791,3 +791,6 @@ fn export_registration_cli_comparison() {
         write("pallas-result.json", result);
     });
 }
+
+#[path = "dijkstra_estimation_tests.rs"]
+mod estimation_tests;

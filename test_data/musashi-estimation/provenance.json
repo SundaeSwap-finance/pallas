@@ -1,0 +1,165 @@
+{
+  "fixture_id": "musashi-dijkstra-estimation-20261002",
+  "baseline": "952167c57fff4433dbdc0fac40e145e8dae32795",
+  "dolos_head": "b26c8a7cc547e2242b6698b634300acd40fb7a04",
+  "read_only_remote_tips": {
+    "pallas": "952167c57fff4433dbdc0fac40e145e8dae32795",
+    "dolos": "11d8ede20209db4156f8d055d007f37bb77646a0"
+  },
+  "network": {
+    "magic": 164,
+    "genesis_start": "2026-09-07T00:00:00Z",
+    "shelley_genesis_blake2b_256": "1944510a4fd91415444285231058f6f6ff0f6f3ff3d0356c76c00c5a77f29567",
+    "node_version": "unknown; N2N handshake version 15 only"
+  },
+  "capture": {
+    "date": "2026-09-25",
+    "peer": "52.58.138.208:3001",
+    "tool": "Pallas harvest",
+    "pallas_revision": "385599890cda4c6384dbfc102849709f7adc9d97",
+    "method": "block-fetch, with header hashes from a separate chain-sync index"
+  },
+  "transaction": {
+    "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "slot": 1401365,
+    "transaction_index": 0,
+    "body": "test_data/musashi-registration/settings.body.hex",
+    "fee": 233167,
+    "registration_count": 1,
+    "input": {
+      "file": "test_data/musashi-registration/settings.input.hex",
+      "era": "Dijkstra",
+      "encoding": "legacy array",
+      "transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+      "output_index": 1,
+      "slot": 1401345,
+      "transaction_index": 0
+    }
+  },
+  "historical_context": {
+    "epoch": 64,
+    "protocol_version": [
+      12,
+      0
+    ],
+    "cost_model": "all 350 raw PlutusV3 coefficients in registration-epoch64-parameters.json; unchanged",
+    "source": {
+      "epoch": 64,
+      "protocol_major": 12,
+      "key_deposit": 2000000,
+      "source": "GET /epochs/64/parameters on a frozen copy of the deployment Dolos archive",
+      "source_response_sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+      "source_archive_tip": "07399d647197d33694958cc730daa9dd5517b456bec7cbbd4b4d53093c5026f1",
+      "query_binary_sha256": "4ca5a2fe3b56eed75fc19dfa0517a903212c06f778812cfd2402847cd88ffdad",
+      "limits": "Only fields needed for this rule are retained; this is an excerpt of the historical Dolos response, not independent node parameter verification."
+    },
+    "certificate_state": "not needed by phase-two API; unchanged phase-one fixture suite separately run"
+  },
+  "expected": {
+    "tag": "Cert",
+    "index": 0,
+    "memory": 18485,
+    "steps": 4805428,
+    "success": true,
+    "logs": [],
+    "source": "test_data/musashi-phase2/amaru-integration/prior-independent-cli-result.txt and prior-independent-cli-provenance.json; unchanged capture; no new independent node run"
+  },
+  "synthetic_derivatives": [
+    "remove vkey witnesses only",
+    "zero, insufficient-memory, insufficient-CPU and u64::MAX declared budgets",
+    "remove vkeys and zero budgets",
+    "replace referenced V3 script and certificate hash: explicit error and non-unit return",
+    "remove spending/reference input, reference script, or redeemer; change redeemer index",
+    "vary protocol transaction execution limit: exact, one below memory/CPU, zero, unrepresentable",
+    "two synthetic script certificates at indices 1 and 2 after key certificate; cumulative exact and one-below limits",
+    "script compares original body hash in TxInfo to redeemer data; correct and incorrect hashes, unsigned and zero budgets",
+    "existing synthetic phase-one helper creates Spend[1], Mint[0], Reward[0] with witness/reference scripts; then removes vkeys and zeros budgets",
+    "wrong protocol version and unsupported builtin; Conway API boundary"
+  ],
+  "limits": [
+    "Synthetic mutations are phase-two-only, not signed, integrity-sealed or ledger-valid transaction claims.",
+    "Historical accepting node/evaluator build unknown. No new live comparison or submission.",
+    "Native feature/builtin subset unchanged; Trace builtin remains unsupported, so supported native scripts produce empty traces.",
+    "Earlier-era estimation is unsupported; existing evaluate_tx behavior and earlier-era suites remain unchanged.",
+    "No Dolos production/dependency/RPC changes; integration remains next work."
+  ],
+  "files": {
+    "test_data/musashi-registration/blocks/1401365.block": {
+      "encoding": "hex",
+      "sha256_decoded_cbor": "fb6d1e959d5f64aff41f8c932baa4a94050d14b74d62c97558e41b70de84d0b4",
+      "bytes": 1292
+    },
+    "test_data/musashi-registration/blocks/1401345.block": {
+      "encoding": "hex",
+      "sha256_decoded_cbor": "3fd9508c06aeb45c8bd55fff119356ce48b268da9bd27d452f87a5f952deda44",
+      "bytes": 4951
+    },
+    "test_data/musashi-phase1/registration-epoch64-parameters.json": {
+      "encoding": "json",
+      "sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6",
+      "bytes": 50968
+    },
+    "test_data/musashi-registration/provenance.json": {
+      "encoding": "json",
+      "sha256": "c6b34fbf9e24439daed1abe5353a4653883403704be12bc806889e887d58215b",
+      "bytes": 3851
+    },
+    "test_data/musashi-phase2/provenance.json": {
+      "encoding": "json",
+      "sha256": "1952e9146afc3f3393956954ee7f7d9b66c268a0fb4aba17001940924e3d2327",
+      "bytes": 6835
+    },
+    "test_data/musashi-phase2/amaru-integration/prior-independent-cli-result.txt": {
+      "encoding": "json",
+      "sha256": "69c98e632639d714c78d2242e3a5fb6111a7c50d94696faeda9f381049f47b5f",
+      "bytes": 224
+    },
+    "test_data/musashi-phase2/amaru-integration/prior-independent-cli-provenance.json": {
+      "encoding": "json",
+      "sha256": "a8589945605cc4f89f3f44b03d16dbddebce9ad7d5b129d312ae507a0a7d5648",
+      "bytes": 7429
+    }
+  },
+  "build_lock_sha256": "9ebe36b5ccf569af68f588852627d6565730918eb103269b47c7ec99594f9f1f",
+  "test_sources": {
+    "pallas-validate/src/phase2/dijkstra_estimation_tests.rs": "10ee88c1cdb0b7632dbdaf5c175da8af65b6128f2a648e1fe2a3a3b91b8b9e99",
+    "pallas-validate/src/phase2/dijkstra_evaluation_tests.rs": "f1c2b574e080ec292a204bea11db4d7bd5a396de337a67d5236e14b8f22a818a",
+    "pallas-validate/src/phase1/dijkstra_transaction_tests.rs": "6388d3ff0a3829139db54fb849f2f2ae214d76e2ae3504cd2d2ec05e70460963"
+  },
+  "baseline_adapter": "baseline-adapter.patch delegates estimate_tx directly to unchanged evaluate_tx; copy identical test sources; no production changes in baseline",
+  "build_targets": {
+    "baseline": "target/musashi-estimation-baseline-build (CARGO_PROFILE_DEV_DEBUG=0)",
+    "fixed": "target/debug"
+  },
+  "regression_results": {
+    "baseline": {
+      "passed": 3,
+      "runtime_failed": 10
+    },
+    "fixed": {
+      "passed": 13,
+      "failed": 0
+    }
+  },
+  "development_notes": "Initial baseline archive lacked ignored Cargo.lock; copied the same lock used by fixed build before reproduction. An intermediate synthetic hash test was corrected to decode generated body CBOR before using OriginalHash; neither development issue counts as reproduction.",
+  "preexisting_fmt": {
+    "file": "examples/leios-testnet/src/bin/harvest.rs",
+    "sha256": "42ffc1444225b9d53d91cfd1864400290f416ee4aa5a28910b4bf6605413d8ee",
+    "unchanged_from_baseline": true,
+    "diff_count": 7,
+    "evidence": "pre-existing-fmt.txt"
+  },
+  "diagnostic_reference": {
+    "path": "/home/rodrigo/projects/dolos/target/eval-path-investigation/investigation.json",
+    "sha256": "bd2d1ffd6623ae3280de57064818b926ac191ae7c4254fc59c434ef572d2bb76",
+    "role": "prior diagnostic only; this directory retains independent baseline/fixed tests"
+  },
+  "build_identity": {
+    "fixed_and_baseline_rustc": "1.98.1 (48a229cea 2026-09-01)",
+    "msrv_verification": "1.97.0",
+    "native_backend_git_revision": "e122ffb2018196ba9c57f42b70b94ada603d3fbc",
+    "native_backend_package": "amaru-uplc 0.4.0",
+    "platform": "Linux x86_64"
+  },
+  "retained_log_normalization": "ANSI formatting and trailing whitespace/blank EOF lines removed from tracked logs; original raw logs remain in target/musashi-estimation-checks/raw-*; runtime content unchanged"
+}
