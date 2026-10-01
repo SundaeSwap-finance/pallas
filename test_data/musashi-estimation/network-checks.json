@@ -1,0 +1,26 @@
+[
+  {
+    "name": "network-default",
+    "command": "cargo test --offline --locked -p pallas-network --test plexer --test protocols",
+    "exit_code": 0,
+    "seconds": 25.47,
+    "log": "target/musashi-estimation-checks/network-default.log",
+    "environment": "local loopback sockets enabled"
+  },
+  {
+    "name": "network2-default",
+    "command": "cargo test --offline --locked -p pallas-network2 --test initiator_responder",
+    "exit_code": 0,
+    "seconds": 14.69,
+    "log": "target/musashi-estimation-checks/network2-default.log",
+    "environment": "local loopback sockets enabled"
+  },
+  {
+    "name": "blueprint-sockets",
+    "command": "cargo test --offline --locked -p pallas-network -p pallas-network2 --features blueprint",
+    "exit_code": 0,
+    "seconds": 43.74,
+    "log": "target/musashi-estimation-checks/blueprint-sockets.log",
+    "environment": "local loopback sockets enabled"
+  }
+]

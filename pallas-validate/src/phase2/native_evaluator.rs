@@ -121,7 +121,7 @@ pub(crate) fn eval_native_v3(
     }
     let units = budget_to_ex_units(result.info.consumed_budget);
     let logs = result.info.logs;
-    let failure = result.term.as_ref().err().map(|err| MachineFailure {
+    let mut failure = result.term.as_ref().err().map(|err| MachineFailure {
         message: err.to_string(),
         budget: units,
         logs: logs.clone(),
@@ -129,6 +129,13 @@ pub(crate) fn eval_native_v3(
     let success = matches!(result.term, Ok(Term::Constant(c)) if matches!(**c, Constant::Unit))
         && units.mem <= budget.mem
         && units.steps <= budget.steps;
+    if !success && failure.is_none() {
+        failure = Some(MachineFailure {
+            message: "Plutus V3 script did not return unit".into(),
+            budget: units,
+            logs: logs.clone(),
+        });
+    }
     Ok(ScriptEvalResult {
         success,
         units,

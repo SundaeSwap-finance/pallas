@@ -94,6 +94,25 @@ pub(super) fn eval_tx(
     utxos: &UtxoMap,
     slots: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
+    eval_tx_with_mode(tx, pparams, utxos, slots, false)
+}
+
+pub(super) fn estimate_tx(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    slots: &SlotConfig,
+) -> Result<Vec<TxEvalResult>, Error> {
+    eval_tx_with_mode(tx, pparams, utxos, slots, true)
+}
+
+fn eval_tx_with_mode(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    slots: &SlotConfig,
+    estimate: bool,
+) -> Result<Vec<TxEvalResult>, Error> {
     let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
     let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
         return unsupported("protocol parameters require Dijkstra");
@@ -367,19 +386,27 @@ pub(super) fn eval_tx(
     if plutus.cost_model_v3.len() != 350 {
         return unsupported("protocol-12 V3 cost model requires 350 entries");
     }
-    let mut total_mem = 0u64;
-    let mut total_steps = 0u64;
-    for (_, r) in &purposes {
-        total_mem = total_mem
-            .checked_add(r.ex_units.mem)
-            .ok_or(Error::DijkstraInvalid("budget overflow"))?;
-        total_steps = total_steps
-            .checked_add(r.ex_units.steps)
-            .ok_or(Error::DijkstraInvalid("budget overflow"))?;
+    if !estimate {
+        let mut total_mem = 0u64;
+        let mut total_steps = 0u64;
+        for (_, r) in &purposes {
+            total_mem = total_mem
+                .checked_add(r.ex_units.mem)
+                .ok_or(Error::DijkstraInvalid("budget overflow"))?;
+            total_steps = total_steps
+                .checked_add(r.ex_units.steps)
+                .ok_or(Error::DijkstraInvalid("budget overflow"))?;
+        }
+        if total_mem > plutus.max_tx_ex_units.mem || total_steps > plutus.max_tx_ex_units.steps {
+            return Err(Error::DijkstraInvalid(
+                "declared transaction budget exceeds maximum",
+            ));
+        }
     }
-    if total_mem > plutus.max_tx_ex_units.mem || total_steps > plutus.max_tx_ex_units.steps {
+    let mut remaining = plutus.max_tx_ex_units;
+    if estimate && (remaining.mem > i64::MAX as u64 || remaining.steps > i64::MAX as u64) {
         return Err(Error::DijkstraInvalid(
-            "declared transaction budget exceeds maximum",
+            "transaction execution limit overflow",
         ));
     }
     purposes
@@ -405,8 +432,15 @@ pub(super) fn eval_tx(
                 scripts[&expected[&key]].as_ref(),
                 &data,
                 &plutus.cost_model_v3,
-                r.ex_units,
+                if estimate { remaining } else { r.ex_units },
             )?;
+            if estimate {
+                // Include failed executions. The CEK machine can report the charge
+                // that exhausted a limit; retain those units, but never wrap or
+                // replenish the transaction budget for subsequent redeemers.
+                remaining.mem = remaining.mem.saturating_sub(result.units.mem);
+                remaining.steps = remaining.steps.saturating_sub(result.units.steps);
+            }
             Ok(TxEvalResult {
                 tag: r.tag,
                 index: r.index,
