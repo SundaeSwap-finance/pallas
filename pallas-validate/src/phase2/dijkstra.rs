@@ -403,8 +403,10 @@ fn eval_tx_with_mode(
             ));
         }
     }
-    let mut remaining = plutus.max_tx_ex_units;
-    if estimate && (remaining.mem > i64::MAX as u64 || remaining.steps > i64::MAX as u64) {
+    let execution_limit = plutus.max_tx_ex_units;
+    if estimate
+        && (execution_limit.mem > i64::MAX as u64 || execution_limit.steps > i64::MAX as u64)
+    {
         return Err(Error::DijkstraInvalid(
             "transaction execution limit overflow",
         ));
@@ -432,15 +434,12 @@ fn eval_tx_with_mode(
                 scripts[&expected[&key]].as_ref(),
                 &data,
                 &plutus.cost_model_v3,
-                if estimate { remaining } else { r.ex_units },
+                if estimate {
+                    execution_limit
+                } else {
+                    r.ex_units
+                },
             )?;
-            if estimate {
-                // Include failed executions. The CEK machine can report the charge
-                // that exhausted a limit; retain those units, but never wrap or
-                // replenish the transaction budget for subsequent redeemers.
-                remaining.mem = remaining.mem.saturating_sub(result.units.mem);
-                remaining.steps = remaining.steps.saturating_sub(result.units.steps);
-            }
             Ok(TxEvalResult {
                 tag: r.tag,
                 index: r.index,

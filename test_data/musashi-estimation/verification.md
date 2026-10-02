@@ -1,3 +1,7 @@
+Historical verification for the initial shared-allowance commit
+`2fafb1a40f8b9e6a24b6de5e97a92195a913a6db`. Current per-script verification is
+in [per-script/verification.md](per-script/verification.md).
+
 # Verification — 2026-10-02
 
 Baseline: Pallas `952167c57fff4433dbdc0fac40e145e8dae32795`, clean

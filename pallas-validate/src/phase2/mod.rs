@@ -27,13 +27,15 @@ pub fn evaluate_tx(
 /// Estimate native Dijkstra execution units without checking key witnesses or
 /// enforcing declared redeemer budgets. Earlier eras return [`Error::WrongEra`].
 ///
-/// Uses the active protocol's maximum transaction execution units as a shared
-/// finite limit. Redeemers execute in native pointer order, each with the remaining
-/// memory/steps after all preceding executions (including failures). Equality with
-/// either limit is allowed. Exhaustion is a failed entry in the ordinary report;
-/// its units include the machine charge that crossed the limit, so failed reports
-/// may exceed the limit. Later entries still execute with the remaining budget.
-/// A successful estimate requires every report entry to succeed.
+/// Each redeemer independently receives the active protocol's maximum transaction
+/// execution units as a finite limit. Earlier executions, including failures, do
+/// not reduce later allowances. Equality with either limit is allowed. Exhaustion
+/// is a failed report entry whose units include the charge that crossed the limit.
+///
+/// Successful estimates may sum to more than the transaction maximum. Callers
+/// must check the aggregate before building a valid transaction; estimation does
+/// not certify admission. [`evaluate_tx`] still checks aggregate declared budgets
+/// and enforces each redeemer's declared allowance.
 ///
 /// The transaction, script context, redeemer data and cost model are unchanged.
 /// This is phase two only, not admission validation. Existing native feature and

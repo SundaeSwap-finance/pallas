@@ -122,9 +122,9 @@
   },
   "build_lock_sha256": "9ebe36b5ccf569af68f588852627d6565730918eb103269b47c7ec99594f9f1f",
   "test_sources": {
-    "pallas-validate/src/phase2/dijkstra_estimation_tests.rs": "10ee88c1cdb0b7632dbdaf5c175da8af65b6128f2a648e1fe2a3a3b91b8b9e99",
     "pallas-validate/src/phase2/dijkstra_evaluation_tests.rs": "f1c2b574e080ec292a204bea11db4d7bd5a396de337a67d5236e14b8f22a818a",
-    "pallas-validate/src/phase1/dijkstra_transaction_tests.rs": "6388d3ff0a3829139db54fb849f2f2ae214d76e2ae3504cd2d2ec05e70460963"
+    "pallas-validate/src/phase1/dijkstra_transaction_tests.rs": "6388d3ff0a3829139db54fb849f2f2ae214d76e2ae3504cd2d2ec05e70460963",
+    "test_data/musashi-estimation/initial-estimation-tests.rs": "10ee88c1cdb0b7632dbdaf5c175da8af65b6128f2a648e1fe2a3a3b91b8b9e99"
   },
   "baseline_adapter": "baseline-adapter.patch delegates estimate_tx directly to unchanged evaluate_tx; copy identical test sources; no production changes in baseline",
   "build_targets": {
@@ -161,5 +161,7 @@
     "native_backend_package": "amaru-uplc 0.4.0",
     "platform": "Linux x86_64"
   },
-  "retained_log_normalization": "ANSI formatting and trailing whitespace/blank EOF lines removed from tracked logs; original raw logs remain in target/musashi-estimation-checks/raw-*; runtime content unchanged"
+  "retained_log_normalization": "ANSI formatting and trailing whitespace/blank EOF lines removed from tracked logs; original raw logs remain in target/musashi-estimation-checks/raw-*; runtime content unchanged",
+  "status": "Historical initial shared-allowance implementation; superseded by per-script/provenance.json. Initial assertion source is preserved unchanged in initial-estimation-tests.rs.",
+  "fixed_revision": "2fafb1a40f8b9e6a24b6de5e97a92195a913a6db"
 }
