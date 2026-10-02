@@ -182,49 +182,6 @@ fn estimation_execution_limits() {
         );
     });
 }
-// Synthetic key certificate followed by two copies of the script registration.
-fn duplicate_script_certificates(tx: &mut n::BlockTransaction<'_>) {
-    let mut b = (*tx.transaction_body).clone();
-    let cert = b.certificates.as_ref().unwrap()[0].clone();
-    b.certificates = Some(
-        vec![
-            n::Certificate::Reg(n::StakeCredential::AddrKeyhash([0; 28].into()), 2_000_000),
-            cert.clone(),
-            cert,
-        ]
-        .try_into()
-        .unwrap(),
-    );
-    tx.transaction_body = b.into();
-    let mut w = (*tx.transaction_witness_set).clone();
-    let value = w
-        .redeemer
-        .as_ref()
-        .unwrap()
-        .0
-        .values()
-        .next()
-        .unwrap()
-        .clone();
-    w.redeemer = Some(
-        n::Redeemers(
-            [1, 2]
-                .into_iter()
-                .map(|index| {
-                    (
-                        n::RedeemersKey {
-                            tag: n::RedeemerTag::Cert,
-                            index,
-                        },
-                        value.clone(),
-                    )
-                })
-                .collect(),
-        )
-        .into(),
-    );
-    tx.transaction_witness_set = w.into();
-}
 #[test]
 fn estimation_aggregate_boundaries_and_indices() {
     fixture(|mut tx, mut u| {
@@ -240,24 +197,66 @@ fn estimation_aggregate_boundaries_and_indices() {
         let single = estimate(&tx, &u).unwrap();
         assert!(single[0].success, "{single:?}");
         let units = single[0].units;
-        duplicate_script_certificates(&mut tx);
+        let mut b = (*tx.transaction_body).clone();
+        let cert = b.certificates.as_ref().unwrap()[0].clone();
+        b.certificates = Some(
+            vec![
+                n::Certificate::Reg(n::StakeCredential::AddrKeyhash([0; 28].into()), 2_000_000),
+                cert.clone(),
+                cert,
+            ]
+            .try_into()
+            .unwrap(),
+        );
+        tx.transaction_body = b.into();
+        let mut w = (*tx.transaction_witness_set).clone();
+        let value = w
+            .redeemer
+            .as_ref()
+            .unwrap()
+            .0
+            .values()
+            .next()
+            .unwrap()
+            .clone();
+        w.redeemer = Some(
+            n::Redeemers(
+                [1, 2]
+                    .into_iter()
+                    .map(|index| {
+                        (
+                            n::RedeemersKey {
+                                tag: n::RedeemerTag::Cert,
+                                index,
+                            },
+                            value.clone(),
+                        )
+                    })
+                    .collect(),
+            )
+            .into(),
+        );
+        tx.transaction_witness_set = w.into();
         let max = n::ExUnits {
             mem: units.mem * 2,
             steps: units.steps * 2,
         };
-        // All estimates fit independently, even when their sum exceeds the
-        // transaction maximum. Exact per-script equality is allowed.
-        for limit in [
-            max,
-            n::ExUnits {
-                mem: max.mem - 1,
-                ..max
-            },
-            n::ExUnits {
-                steps: max.steps - 1,
-                ..max
-            },
-            units,
+        for (limit, succeeds) in [
+            (max, true),
+            (
+                n::ExUnits {
+                    mem: max.mem - 1,
+                    ..max
+                },
+                false,
+            ),
+            (
+                n::ExUnits {
+                    steps: max.steps - 1,
+                    ..max
+                },
+                false,
+            ),
         ] {
             let r = with_limit(&tx, &u, limit).unwrap();
             assert_eq!(r.len(), 2);
@@ -266,66 +265,19 @@ fn estimation_aggregate_boundaries_and_indices() {
                     (entry.tag, entry.index),
                     (c::RedeemerTag::Cert, i as u32 + 1)
                 );
-                assert!(entry.success, "independent budgets: {r:?}");
-                assert_eq!(entry.units, units);
-                assert!(entry.failure_message.is_none());
             }
-        }
-        for limit in [
-            n::ExUnits {
-                mem: units.mem - 1,
-                ..units
-            },
-            n::ExUnits {
-                steps: units.steps - 1,
-                ..units
-            },
-        ] {
-            let r = with_limit(&tx, &u, limit).unwrap();
-            assert!(
-                r.iter().all(|entry| !entry.success
-                    && entry
-                        .failure_message
+            assert!(r[0].success, "{r:?}");
+            assert_eq!(r[0].units, units);
+            assert_eq!(r[1].success, succeeds, "{r:?}");
+            if succeeds {
+                assert_eq!(r[1].units, units);
+            } else {
+                assert!(
+                    r[1].failure_message
                         .as_ref()
                         .unwrap()
-                        .contains("Out of budget")),
-                "{r:?}"
-            );
-        }
-        // Declaring the measured units is still rejected by evaluate_tx if the
-        // aggregate exceeds the transaction limit. Estimates are not admission.
-        let mut declared = tx.clone();
-        for value in declared
-            .transaction_witness_set
-            .redeemer
-            .as_mut()
-            .unwrap()
-            .0
-            .values_mut()
-        {
-            value.ex_units = units;
-        }
-        for limit in [
-            max,
-            n::ExUnits {
-                mem: max.mem - 1,
-                ..max
-            },
-            n::ExUnits {
-                steps: max.steps - 1,
-                ..max
-            },
-        ] {
-            let mut pp = params();
-            let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
-                unreachable!()
-            };
-            p.plutus.as_mut().unwrap().max_tx_ex_units = limit;
-            let result = evaluate_tx(&MultiEraTx::from_dijkstra(&declared), &pp, &u, &slots());
-            if limit == max {
-                assert!(result.unwrap().iter().all(|r| r.success));
-            } else {
-                error(result, "declared transaction budget exceeds maximum");
+                        .contains("Out of budget")
+                );
             }
         }
         let r = with_limit(&tx, &u, n::ExUnits { mem: 0, steps: 0 }).unwrap();
@@ -453,50 +405,4 @@ fn estimation_earlier_era_is_explicitly_unsupported() {
         estimate_tx(&tx, &params(), &UtxoMap::new(), &slots()),
         "WrongEra",
     );
-}
-
-#[test]
-fn estimation_per_script_failure_does_not_reduce_later_budget() {
-    fixture(|mut tx, mut u| {
-        replace_script(
-            &mut tx,
-            &mut u,
-            Some(n::ScriptRef::PlutusV3Script(integer_validator(
-                &field("ctx", 1),
-                42,
-            ))),
-            true,
-        );
-        change_redeemer(&mut tx, |_, v| {
-            v.data = crate::phase2::data::Data::integer(n::BigInt::Int(42.into()));
-            v.ex_units = n::ExUnits { mem: 0, steps: 0 };
-        });
-        duplicate_script_certificates(&mut tx);
-        let successful = estimate(&tx, &u).unwrap();
-        assert!(successful.iter().all(|r| r.success));
-        assert_eq!(successful[0].units, successful[1].units);
-        let limit = successful[1].units;
-        change_redeemer(&mut tx, |_, v| {
-            v.data = crate::phase2::data::Data::integer(n::BigInt::Int(41.into()));
-        });
-        let r = with_limit(&tx, &u, limit).unwrap();
-        assert_eq!(r.len(), 2);
-        assert_eq!((r[0].tag, r[0].index), (c::RedeemerTag::Cert, 1));
-        assert!(!r[0].success);
-        assert!(r[0].units.mem > 0 && r[0].units.steps > 0);
-        assert!(
-            r[0].failure_message
-                .as_ref()
-                .unwrap()
-                .contains("Explicit error"),
-            "{r:?}"
-        );
-        assert_eq!((r[1].tag, r[1].index), (c::RedeemerTag::Cert, 2));
-        assert!(
-            r[1].success,
-            "earlier failure must not reduce the next allowance: {r:?}"
-        );
-        assert_eq!(r[1].units, limit);
-        assert!(r[1].failure_message.is_none());
-    });
 }

@@ -1,0 +1,114 @@
+[
+  {
+    "name": "native-tests",
+    "command": "cargo test --offline --locked -p pallas-validate --features phase2,unstable",
+    "exit_code": 0,
+    "seconds": 27.87,
+    "log": "target/musashi-estimation-per-script-checks/native-tests.log"
+  },
+  {
+    "name": "native-clippy",
+    "command": "cargo clippy --offline --locked -p pallas-validate --all-targets --features phase2,unstable -- -D warnings",
+    "exit_code": 0,
+    "seconds": 2.34,
+    "log": "target/musashi-estimation-per-script-checks/native-clippy.log"
+  },
+  {
+    "name": "native-docs",
+    "command": "cargo doc --offline --locked -p pallas-validate --features phase2,unstable --no-deps",
+    "exit_code": 0,
+    "seconds": 5.86,
+    "log": "target/musashi-estimation-per-script-checks/native-docs.log"
+  },
+  {
+    "name": "fmt",
+    "command": "cargo fmt --all --check",
+    "exit_code": 1,
+    "seconds": 1.65,
+    "log": "target/musashi-estimation-per-script-checks/fmt.log"
+  },
+  {
+    "name": "clippy",
+    "command": "cargo clippy --offline --locked --workspace --all-targets -- -D warnings",
+    "exit_code": 0,
+    "seconds": 1.24,
+    "log": "target/musashi-estimation-per-script-checks/clippy.log"
+  },
+  {
+    "name": "build",
+    "command": "cargo build --offline --locked --workspace --all-targets",
+    "exit_code": 0,
+    "seconds": 0.89,
+    "log": "target/musashi-estimation-per-script-checks/build.log"
+  },
+  {
+    "name": "test",
+    "command": "cargo test --offline --locked --workspace --no-fail-fast",
+    "exit_code": 0,
+    "seconds": 294.68,
+    "log": "target/musashi-estimation-per-script-checks/test.log"
+  },
+  {
+    "name": "blueprint",
+    "command": "cargo test --offline --locked -p pallas-network -p pallas-network2 --features blueprint",
+    "exit_code": 0,
+    "seconds": 6.24,
+    "log": "target/musashi-estimation-per-script-checks/blueprint.log"
+  },
+  {
+    "name": "unstable",
+    "command": "cargo test --offline --locked -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+    "exit_code": 0,
+    "seconds": 6.93,
+    "log": "target/musashi-estimation-per-script-checks/unstable.log"
+  },
+  {
+    "name": "phase2",
+    "command": "cargo test --offline --locked -p pallas-validate --features phase2",
+    "exit_code": 0,
+    "seconds": 3.89,
+    "log": "target/musashi-estimation-per-script-checks/phase2.log"
+  },
+  {
+    "name": "no-default",
+    "command": "cargo check --offline --locked --workspace --all-targets --no-default-features",
+    "exit_code": 0,
+    "seconds": 0.56,
+    "log": "target/musashi-estimation-per-script-checks/no-default.log"
+  },
+  {
+    "name": "all-features",
+    "command": "cargo check --offline --locked --workspace --all-targets --all-features",
+    "exit_code": 0,
+    "seconds": 1.88,
+    "log": "target/musashi-estimation-per-script-checks/all-features.log"
+  },
+  {
+    "name": "isolated",
+    "command": "cargo check --offline --locked -p pallas-primitives --no-default-features",
+    "exit_code": 0,
+    "seconds": 0.3,
+    "log": "target/musashi-estimation-per-script-checks/isolated.log"
+  },
+  {
+    "name": "docs",
+    "command": "cargo doc --offline --locked --workspace --no-deps",
+    "exit_code": 0,
+    "seconds": 4.38,
+    "log": "target/musashi-estimation-per-script-checks/docs.log"
+  },
+  {
+    "name": "msrv-check",
+    "command": "cargo +1.97.0 check --offline --locked --workspace --all-targets",
+    "exit_code": 0,
+    "seconds": 0.49,
+    "log": "target/musashi-estimation-per-script-checks/msrv-check.log"
+  },
+  {
+    "name": "msrv-native",
+    "command": "cargo +1.97.0 test --offline --locked -p pallas-validate --features phase2,unstable",
+    "exit_code": 0,
+    "seconds": 23.76,
+    "log": "target/musashi-estimation-per-script-checks/msrv-native.log"
+  }
+]

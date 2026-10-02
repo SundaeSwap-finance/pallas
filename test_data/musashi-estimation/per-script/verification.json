@@ -1,0 +1,260 @@
+{
+  "platform": "Linux x86_64",
+  "rustc": "1.98.1 (48a229cea 2026-09-01)",
+  "msrv": "1.97.0",
+  "loopback": "Local sockets enabled for repository test fixtures; Cargo offline; no production service/submission.",
+  "checks": [
+    {
+      "name": "native-tests",
+      "command": "cargo test --offline --locked -p pallas-validate --features phase2,unstable",
+      "exit_code": 0,
+      "seconds": 27.87,
+      "log": "target/musashi-estimation-per-script-checks/native-tests.log",
+      "tests": {
+        "passed": 274,
+        "failed": 0,
+        "ignored": 3
+      },
+      "log_sha256": "dc0e7d3b6dfec1d9522fbab5f991825689e5119df58b1c60f686e3cf77be1963",
+      "diagnostics": []
+    },
+    {
+      "name": "native-clippy",
+      "command": "cargo clippy --offline --locked -p pallas-validate --all-targets --features phase2,unstable -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.34,
+      "log": "target/musashi-estimation-per-script-checks/native-clippy.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "34a9798e28fb3bb20f824d344be406ab54e297231647b7f8273b0c7155e22f87",
+      "diagnostics": []
+    },
+    {
+      "name": "native-docs",
+      "command": "cargo doc --offline --locked -p pallas-validate --features phase2,unstable --no-deps",
+      "exit_code": 0,
+      "seconds": 5.86,
+      "log": "target/musashi-estimation-per-script-checks/native-docs.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "67d3d4b2785bce40fca4db481a9f096adb62783008f7feee01dd04b78865dc3c",
+      "diagnostics": [],
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.65,
+      "log": "target/musashi-estimation-per-script-checks/fmt.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "8af5d229a43e6cbcc3e26e545baeb1f4a16be1e37b8b29e34e500ff6f3496564",
+      "diagnostics": [
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:294:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:544:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:567:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:581:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:688:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:732:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:741:"
+      ],
+      "classification": "Pre-existing seven diffs in unchanged examples/leios-testnet/src/bin/harvest.rs."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --locked --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.24,
+      "log": "target/musashi-estimation-per-script-checks/clippy.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "a113781de65540b4cd3aa2a4cc5d6f77f4bed35e9ab0e988cc44a7a412373342",
+      "diagnostics": []
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --locked --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 0.89,
+      "log": "target/musashi-estimation-per-script-checks/build.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "c233b69c85159f775af8791a1449ae968c0b20b465c62c47eeb99697f8b92e65",
+      "diagnostics": []
+    },
+    {
+      "name": "test",
+      "command": "cargo test --offline --locked --workspace --no-fail-fast",
+      "exit_code": 0,
+      "seconds": 294.68,
+      "log": "target/musashi-estimation-per-script-checks/test.log",
+      "tests": {
+        "passed": 1036,
+        "failed": 0,
+        "ignored": 19
+      },
+      "log_sha256": "ea4e57922df2ecf82e4b9e2eca7fb1f0b9d219648917bf58a174af526c2313ff",
+      "diagnostics": []
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline --locked -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 6.24,
+      "log": "target/musashi-estimation-per-script-checks/blueprint.log",
+      "tests": {
+        "passed": 392,
+        "failed": 0,
+        "ignored": 8
+      },
+      "log_sha256": "816fab70693ea914ab788963d0a3c71a02ad7b6c0c36eecf85b098d111cb5168",
+      "diagnostics": []
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline --locked -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 6.93,
+      "log": "target/musashi-estimation-per-script-checks/unstable.log",
+      "tests": {
+        "passed": 669,
+        "failed": 0,
+        "ignored": 1
+      },
+      "log_sha256": "269681945c30747979488f874921e3a3ae886abed1412ea05cec87f3ae2e238f",
+      "diagnostics": []
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline --locked -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 3.89,
+      "log": "target/musashi-estimation-per-script-checks/phase2.log",
+      "tests": {
+        "passed": 162,
+        "failed": 0,
+        "ignored": 1
+      },
+      "log_sha256": "d10bc9226f51488432037e61b6a57a1dbe15f8686bf4e74925e8ff86c5298d19",
+      "diagnostics": []
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --locked --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.56,
+      "log": "target/musashi-estimation-per-script-checks/no-default.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "a8dd5b4f852b782842253d071162bc7c3c44c3a9a07131cd1159e45bbb802a10",
+      "diagnostics": []
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --locked --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 1.88,
+      "log": "target/musashi-estimation-per-script-checks/all-features.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "5d52f751c45560b820ca2a7043cd8ef6ffe11a6c347410f759d5e9878df45049",
+      "diagnostics": []
+    },
+    {
+      "name": "isolated",
+      "command": "cargo check --offline --locked -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.3,
+      "log": "target/musashi-estimation-per-script-checks/isolated.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "9d892c5778d0c975f64a671e66ea5a753502353da3addd1dfdf3825225e406a2",
+      "diagnostics": []
+    },
+    {
+      "name": "docs",
+      "command": "cargo doc --offline --locked --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 4.38,
+      "log": "target/musashi-estimation-per-script-checks/docs.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "dc3748d326005f70e3d8db6aeb5692759b64a94854e9c8d23d21df900942cf10",
+      "diagnostics": [],
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "msrv-check",
+      "command": "cargo +1.97.0 check --offline --locked --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 0.49,
+      "log": "target/musashi-estimation-per-script-checks/msrv-check.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "6d982f82f533d8d80f700f4952cc773013a451c68f1e72f50affd3e0482b255a",
+      "diagnostics": []
+    },
+    {
+      "name": "msrv-native",
+      "command": "cargo +1.97.0 test --offline --locked -p pallas-validate --features phase2,unstable",
+      "exit_code": 0,
+      "seconds": 23.76,
+      "log": "target/musashi-estimation-per-script-checks/msrv-native.log",
+      "tests": {
+        "passed": 274,
+        "failed": 0,
+        "ignored": 3
+      },
+      "log_sha256": "989debc92599f2c5e80d8bb6cdfba19665d1cc4f582ac3df5fbe13f268a8b24c",
+      "diagnostics": []
+    }
+  ],
+  "additional_checks": {
+    "changed_rust_formatting": "passed: rustfmt --check --edition 2024 pallas-validate/src/phase2/{mod.rs,dijkstra.rs,dijkstra_estimation_tests.rs}",
+    "source_and_fixture_verifier": "passed: python3 test_data/musashi-estimation/per-script/verify.py",
+    "existing_fixture_verifier": "passed: python3 test_data/musashi-dijkstra-validation/verify-fixtures.py",
+    "baseline_source": "Exact test source copied; baseline production matches git archive 2fafb1a; no adapter.",
+    "build_lock": "Root Cargo.lock, baseline Cargo.lock and retained snapshot are byte-identical.",
+    "whitespace": "git diff --check passed"
+  },
+  "unavailable": [
+    "macOS/Windows CI",
+    "new independent node evaluation",
+    "Dolos integration (deferred by user)"
+  ]
+}
