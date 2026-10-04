@@ -13,5 +13,8 @@
   {"name": "n2n s0", "id": "d174c21891f071f8a6b2bfee61ce4883e95f6588810c3702e4d1f5026738d95e"},
   {"name": "n1 failed with sub", "id": "2de11481d8ff00d2195c0801a440d6feb33f23e2278ce98c898769df292dccb2"},
   {"name": "n1 sub", "id": "07f6c06348ddd70277fc220b9a7b37d19b3bde80bb4ce04c6eadff4b29348426"},
-  {"name": "n2 failed with sub", "id": "5c2a50a1ed150518aa27171e1157a8db6367858a2288629fb00c566c69cb6e68"}
+  {"name": "n2 failed with sub", "id": "5c2a50a1ed150518aa27171e1157a8db6367858a2288629fb00c566c69cb6e68"},
+  {"name": "guard setup", "id": "59be07f745ab6c736b353e8a8f375ae64aa13baf1aa9ecd661c10163dddd849f"},
+  {"name": "g1 guard native clause", "id": "040eaed5954e8154427b5dfec71fde4d0f1148ebaed9a3fe02a1744d03b2ae45"},
+  {"name": "r1 guarding redeemer", "id": "5095bc497783bc4b1dc7431758fffa58762e68564c3baa3f630314b214a2629f"}
 ]

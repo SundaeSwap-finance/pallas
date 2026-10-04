@@ -27,6 +27,8 @@ const C2: &str = "6be37198a765e2078f1e15555bebe1a230a9594ec32821e0f5db0c76cae283
 const C2_SUB: &str = "729149650a2469af59b1ea8be819c72010d71389683b6a1f0706879c8982d51f";
 const A1: &str = "43827b78039ee71003f79eda9cbe50c44e7101195cd7a4e13fba290bbfc11faa";
 const N1: &str = "2de11481d8ff00d2195c0801a440d6feb33f23e2278ce98c898769df292dccb2";
+const G1: &str = "040eaed5954e8154427b5dfec71fde4d0f1148ebaed9a3fe02a1744d03b2ae45";
+const R1: &str = "5095bc497783bc4b1dc7431758fffa58762e68564c3baa3f630314b214a2629f";
 
 struct Mapped {
     number: u64,
@@ -202,7 +204,7 @@ fn failing(c: &Coverage) -> Vec<Location> {
 
 #[test]
 fn coverage_holds_every_location_of_the_fixture_blocks() {
-    for number in [104949, 104960, 104966, 105475, 105486, 4277] {
+    for number in [104949, 104960, 104966, 105475, 105486, 106412, 4277] {
         let c = mapped(number).coverage();
         assert_eq!(failing(&c), vec![], "block {number}");
     }
@@ -231,6 +233,48 @@ fn coverage_holds_the_dijkstra_transaction_fields() {
             .unwrap_or_else(|| panic!("{l:?} in the block"));
         assert!(t.occurrences > 0 && !t.fails(), "{l:?} {t:?}");
     }
+}
+
+#[test]
+fn coverage_holds_the_guarding_redeemer_and_the_guard_clause() {
+    let c = mapped(106412).coverage();
+    for l in [Location::RedeemerTag(6), Location::NativeClause(6)] {
+        let t = c
+            .tallies
+            .get(&l)
+            .unwrap_or_else(|| panic!("{l:?} in the block"));
+        assert!(t.occurrences == 1 && !t.fails(), "{l:?} {t:?}");
+    }
+}
+
+#[test]
+fn coverage_fails_a_planted_guarding_purpose_drop() {
+    let mut m = mapped(106412);
+    let wits = m.tx_mut(R1).witnesses.as_mut().expect("a witness set");
+    assert_eq!(wits.redeemers.len(), 1);
+    wits.redeemers[0].purpose = u5c::RedeemerPurpose::Unspecified as i32;
+    let after = m.coverage();
+    assert_eq!(after.tallies[&Location::RedeemerTag(6)].disagreements, 1);
+    let f = failing(&after);
+    assert!(f.contains(&Location::RedeemerTag(6)), "{f:?}");
+}
+
+#[test]
+fn coverage_fails_a_planted_guard_clause_drop() {
+    let mut m = mapped(106412);
+    let wits = m.tx_mut(G1).witnesses.as_mut().expect("a witness set");
+    let mut dropped = 0;
+    for s in &mut wits.script {
+        if let Some(u5c::script::Script::Native(n)) = s.script.as_mut() {
+            n.native_script = None;
+            dropped += 1;
+        }
+    }
+    assert_eq!(dropped, 1);
+    let after = m.coverage();
+    assert_eq!(after.tallies[&Location::NativeClause(6)].disagreements, 1);
+    let f = failing(&after);
+    assert!(f.contains(&Location::NativeClause(6)), "{f:?}");
 }
 
 #[test]
