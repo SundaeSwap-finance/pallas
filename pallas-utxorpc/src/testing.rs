@@ -473,6 +473,225 @@ pub fn ratio(numerator: u64, denominator: u64) -> pallas_primitives::RationalNum
     }
 }
 
+/// The maximum pool retirement epoch of the parameter sets built here.
+pub const MAXIMUM_EPOCH: u64 = 18;
+
+/// A Conway parameter set whose every cost model is present and whose every
+/// number differs from every other.
+pub fn conway_params() -> pallas_validate::utils::ConwayProtParams {
+    use pallas_primitives::ExUnits;
+
+    pallas_validate::utils::ConwayProtParams {
+        system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
+        epoch_length: 21_600,
+        slot_length: 1,
+        minfee_a: 44,
+        minfee_b: 155_381,
+        max_block_body_size: 90_112,
+        max_transaction_size: 16_384,
+        max_block_header_size: 1_100,
+        key_deposit: 2_000_000,
+        pool_deposit: 500_000_000,
+        desired_number_of_stake_pools: 150,
+        protocol_version: (12, 1),
+        min_pool_cost: 170_000_000,
+        ada_per_utxo_byte: 4_310,
+        cost_models_for_script_languages: conway::CostModels {
+            plutus_v1: Some(vec![101, 102]),
+            plutus_v2: Some(vec![201, 202]),
+            plutus_v3: Some(vec![301, 302]),
+            unknown: Default::default(),
+        },
+        execution_costs: pallas_primitives::ExUnitPrices {
+            mem_price: ratio(577, 10_000),
+            step_price: ratio(721, 10_000_000),
+        },
+        max_tx_ex_units: ExUnits {
+            mem: 14_000_000,
+            steps: 10_000_000_000,
+        },
+        max_block_ex_units: ExUnits {
+            mem: 62_000_000,
+            steps: 20_000_000_000,
+        },
+        max_value_size: 5_000,
+        collateral_percentage: 151,
+        max_collateral_inputs: 3,
+        expansion_rate: ratio(3, 1_000),
+        treasury_growth_rate: ratio(1, 5),
+        maximum_epoch: MAXIMUM_EPOCH,
+        pool_pledge_influence: ratio(3, 10),
+        pool_voting_thresholds: conway::PoolVotingThresholds {
+            motion_no_confidence: ratio(1, 51),
+            committee_normal: ratio(1, 52),
+            committee_no_confidence: ratio(1, 53),
+            hard_fork_initiation: ratio(1, 54),
+            security_voting_threshold: ratio(1, 55),
+        },
+        drep_voting_thresholds: conway::DRepVotingThresholds {
+            motion_no_confidence: ratio(1, 61),
+            committee_normal: ratio(1, 62),
+            committee_no_confidence: ratio(1, 63),
+            update_constitution: ratio(1, 64),
+            hard_fork_initiation: ratio(1, 65),
+            pp_network_group: ratio(1, 66),
+            pp_economic_group: ratio(1, 67),
+            pp_technical_group: ratio(1, 68),
+            pp_governance_group: ratio(1, 69),
+            treasury_withdrawal: ratio(1, 70),
+        },
+        min_committee_size: 7,
+        committee_term_limit: 293,
+        governance_action_validity_period: 120,
+        governance_action_deposit: 100_000_000_000,
+        drep_deposit: 500_000_001,
+        drep_inactivity_period: 20,
+        minfee_refscript_cost_per_byte: ratio(15, 1),
+    }
+}
+
+/// The Shelley, Alonzo, Babbage and Conway parameter sets that share the
+/// values of `conway_params`, by era name.
+pub fn shelley_based_params() -> Vec<(
+    &'static str,
+    pallas_validate::utils::MultiEraProtocolParameters,
+)> {
+    use pallas_primitives::{Nonce, NonceVariant, alonzo, babbage};
+    use pallas_validate::utils::{
+        AlonzoProtParams, BabbageProtParams, MultiEraProtocolParameters, ShelleyProtParams,
+    };
+
+    let c = conway_params();
+    let neutral = || Nonce {
+        variant: NonceVariant::NeutralNonce,
+        hash: None,
+    };
+
+    let shelley = ShelleyProtParams {
+        system_start: c.system_start,
+        epoch_length: c.epoch_length,
+        slot_length: c.slot_length,
+        minfee_a: c.minfee_a,
+        minfee_b: c.minfee_b,
+        max_block_body_size: c.max_block_body_size,
+        max_transaction_size: c.max_transaction_size,
+        max_block_header_size: c.max_block_header_size,
+        key_deposit: c.key_deposit,
+        pool_deposit: c.pool_deposit,
+        desired_number_of_stake_pools: c.desired_number_of_stake_pools,
+        protocol_version: c.protocol_version,
+        min_utxo_value: 1_000_000,
+        min_pool_cost: c.min_pool_cost,
+        expansion_rate: c.expansion_rate.clone(),
+        treasury_growth_rate: c.treasury_growth_rate.clone(),
+        maximum_epoch: c.maximum_epoch,
+        pool_pledge_influence: c.pool_pledge_influence.clone(),
+        decentralization_constant: ratio(1, 2),
+        extra_entropy: neutral(),
+    };
+
+    let alonzo = AlonzoProtParams {
+        system_start: c.system_start,
+        epoch_length: c.epoch_length,
+        slot_length: c.slot_length,
+        minfee_a: c.minfee_a,
+        minfee_b: c.minfee_b,
+        max_block_body_size: c.max_block_body_size,
+        max_transaction_size: c.max_transaction_size,
+        max_block_header_size: c.max_block_header_size,
+        key_deposit: c.key_deposit,
+        pool_deposit: c.pool_deposit,
+        desired_number_of_stake_pools: c.desired_number_of_stake_pools,
+        protocol_version: c.protocol_version,
+        min_pool_cost: c.min_pool_cost,
+        ada_per_utxo_byte: c.ada_per_utxo_byte,
+        cost_models_for_script_languages: [(
+            alonzo::Language::PlutusV1,
+            c.cost_models_for_script_languages
+                .plutus_v1
+                .clone()
+                .unwrap_or_default(),
+        )]
+        .into_iter()
+        .collect(),
+        execution_costs: c.execution_costs.clone(),
+        max_tx_ex_units: c.max_tx_ex_units,
+        max_block_ex_units: c.max_block_ex_units,
+        max_value_size: c.max_value_size,
+        collateral_percentage: c.collateral_percentage,
+        max_collateral_inputs: c.max_collateral_inputs,
+        expansion_rate: c.expansion_rate.clone(),
+        treasury_growth_rate: c.treasury_growth_rate.clone(),
+        maximum_epoch: c.maximum_epoch,
+        pool_pledge_influence: c.pool_pledge_influence.clone(),
+        decentralization_constant: ratio(1, 2),
+        extra_entropy: neutral(),
+    };
+
+    let babbage = BabbageProtParams {
+        system_start: c.system_start,
+        epoch_length: c.epoch_length,
+        slot_length: c.slot_length,
+        minfee_a: c.minfee_a,
+        minfee_b: c.minfee_b,
+        max_block_body_size: c.max_block_body_size,
+        max_transaction_size: c.max_transaction_size,
+        max_block_header_size: c.max_block_header_size,
+        key_deposit: c.key_deposit,
+        pool_deposit: c.pool_deposit,
+        desired_number_of_stake_pools: c.desired_number_of_stake_pools,
+        protocol_version: c.protocol_version,
+        min_pool_cost: c.min_pool_cost,
+        ada_per_utxo_byte: c.ada_per_utxo_byte,
+        cost_models_for_script_languages: babbage::CostModels {
+            plutus_v1: c.cost_models_for_script_languages.plutus_v1.clone(),
+            plutus_v2: c.cost_models_for_script_languages.plutus_v2.clone(),
+        },
+        execution_costs: c.execution_costs.clone(),
+        max_tx_ex_units: c.max_tx_ex_units,
+        max_block_ex_units: c.max_block_ex_units,
+        max_value_size: c.max_value_size,
+        collateral_percentage: c.collateral_percentage,
+        max_collateral_inputs: c.max_collateral_inputs,
+        expansion_rate: c.expansion_rate.clone(),
+        treasury_growth_rate: c.treasury_growth_rate.clone(),
+        maximum_epoch: c.maximum_epoch,
+        pool_pledge_influence: c.pool_pledge_influence.clone(),
+        decentralization_constant: ratio(1, 2),
+        extra_entropy: neutral(),
+    };
+
+    vec![
+        ("Shelley", MultiEraProtocolParameters::Shelley(shelley)),
+        ("Alonzo", MultiEraProtocolParameters::Alonzo(alonzo)),
+        ("Babbage", MultiEraProtocolParameters::Babbage(babbage)),
+        ("Conway", MultiEraProtocolParameters::Conway(c)),
+    ]
+}
+
+/// A Byron parameter set, an era with no pool retirement bound.
+pub fn byron_params() -> pallas_validate::utils::ByronProtParams {
+    pallas_validate::utils::ByronProtParams {
+        block_version: (0, 2, 0),
+        start_time: 1_506_203_091,
+        script_version: 0,
+        slot_duration: 20_000,
+        max_block_size: 2_000_000,
+        max_header_size: 2_000,
+        max_tx_size: 4_096,
+        max_proposal_size: 700,
+        mpc_thd: 20_000_000_000_000,
+        heavy_del_thd: 300_000_000_000,
+        update_vote_thd: 1_000_000_000_000,
+        update_proposal_thd: 100_000_000_000_000,
+        update_implicit: 10_000,
+        soft_fork_rule: (900_000_000_000_000, 600_000_000_000_000, 50_000_000_000_000),
+        summand: 155_381_000_000_000,
+        multiplier: 43_946_000_000,
+        unlock_stake_epoch: 18_446_744_073_709_551_615,
+    }
+}
+
 /// The number of keys the parameter update mapper reads, one per key it passes
 /// through its read helper.
 pub const KEYS_THE_UPDATE_MAPPER_READS: usize = 30;

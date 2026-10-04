@@ -2446,6 +2446,31 @@ macro_rules! impl_cardano_mapper_shared {
                 );
             }
 
+            #[test]
+            fn a_byron_parameter_set_maps_no_pool_retirement_bound() {
+                let mapped = Mapper::new(NoLedger).map_pparams(
+                    pallas_validate::utils::MultiEraProtocolParameters::Byron(byron_params()),
+                );
+
+                assert_eq!(
+                    mapped.pool_retirement_epoch_bound, 0,
+                    "Byron has no pool retirement bound to report"
+                );
+            }
+
+            #[test]
+            fn every_shelley_based_parameter_set_maps_its_pool_retirement_bound() {
+                for (era, params) in shelley_based_params() {
+                    assert_eq!(
+                        Mapper::new(NoLedger)
+                            .map_pparams(params)
+                            .pool_retirement_epoch_bound,
+                        MAXIMUM_EPOCH,
+                        "a {era} set reports its maximum pool retirement epoch"
+                    );
+                }
+            }
+
             /// The parameters an update of every key must map to, written from what
             /// each key means rather than from what the mapper does. The V4 cost model
             /// is the one entry only a Dijkstra update can propose, so the caller says
@@ -3325,6 +3350,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -3366,6 +3392,7 @@ macro_rules! impl_cardano_mapper_shared {
                         min_fee_constant: u64_to_bigint(params.minfee_b.into()),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -3388,6 +3415,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
@@ -3430,6 +3458,8 @@ macro_rules! impl_cardano_mapper_shared {
                         max_block_header_size: params.max_header_size,
                         ..Default::default()
                     },
+                    // In v1alpha this literal names every field of the message.
+                    #[allow(clippy::needless_update)]
                     MultiEraProtocolParameters::Conway(params) => u5c::PParams {
                         max_tx_size: params.max_transaction_size.into(),
                         max_block_body_size: params.max_block_body_size.into(),
@@ -3439,6 +3469,7 @@ macro_rules! impl_cardano_mapper_shared {
                         coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
                         stake_key_deposit: u64_to_bigint(params.key_deposit),
                         pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
                         desired_number_of_pools: params.desired_number_of_stake_pools.into(),
                         pool_influence: Some(rational_number_to_u5c(params.pool_pledge_influence)),
                         monetary_expansion: Some(rational_number_to_u5c(params.expansion_rate)),
