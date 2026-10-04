@@ -49,6 +49,39 @@ macro_rules! impl_cardano_mapper_shared {
             }
         }
 
+        fn pool_voting_thresholds_to_u5c(
+            value: pallas_primitives::conway::PoolVotingThresholds,
+        ) -> u5c::VotingThresholds {
+            u5c::VotingThresholds {
+                thresholds: vec![
+                    rational_number_to_u5c(value.motion_no_confidence),
+                    rational_number_to_u5c(value.committee_normal),
+                    rational_number_to_u5c(value.committee_no_confidence),
+                    rational_number_to_u5c(value.hard_fork_initiation),
+                    rational_number_to_u5c(value.security_voting_threshold),
+                ],
+            }
+        }
+
+        fn drep_voting_thresholds_to_u5c(
+            value: pallas_primitives::conway::DRepVotingThresholds,
+        ) -> u5c::VotingThresholds {
+            u5c::VotingThresholds {
+                thresholds: vec![
+                    rational_number_to_u5c(value.motion_no_confidence),
+                    rational_number_to_u5c(value.committee_normal),
+                    rational_number_to_u5c(value.committee_no_confidence),
+                    rational_number_to_u5c(value.update_constitution),
+                    rational_number_to_u5c(value.hard_fork_initiation),
+                    rational_number_to_u5c(value.pp_network_group),
+                    rational_number_to_u5c(value.pp_economic_group),
+                    rational_number_to_u5c(value.pp_technical_group),
+                    rational_number_to_u5c(value.pp_governance_group),
+                    rational_number_to_u5c(value.treasury_withdrawal),
+                ],
+            }
+        }
+
         /// Wrap one script of a named language in the u5c envelope.
         fn envelope(inner: u5c::script::Script) -> u5c::Script {
             u5c::Script {
@@ -3219,90 +3252,98 @@ macro_rules! impl_cardano_mapper_shared {
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_dijkstra_parameter_set_maps_the_fields_every_era_names() {
+            // In v1alpha the expected literal names every field of the message.
+            #[allow(clippy::needless_update)]
+            fn a_dijkstra_parameter_set_maps_every_field_every_era_names() {
+                let params = dijkstra_params();
                 let mapped = Mapper::new(NoLedger).map_pparams(
-                    pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(
-                        dijkstra_params(),
-                    ),
+                    pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(params.clone()),
                 );
+                let r = |n, d| Some(rational_number_to_u5c(ratio(n, d)));
+                let thresholds = |n: &[u64]| {
+                    Some(u5c::VotingThresholds {
+                        thresholds: n
+                            .iter()
+                            .map(|d| rational_number_to_u5c(ratio(1, *d)))
+                            .collect(),
+                    })
+                };
+                let model = |values: Vec<i64>| Some(u5c::CostModel { values });
 
                 assert_eq!(
-                    (
-                        mapped.max_tx_size,
-                        mapped.min_fee_coefficient,
-                        mapped.min_fee_constant,
-                        mapped.coins_per_utxo_byte,
-                        mapped.stake_key_deposit,
-                        mapped.max_value_size,
-                        mapped.protocol_version,
-                    ),
-                    (
-                        16_384,
-                        u64_to_bigint(44),
-                        u64_to_bigint(155_381),
-                        u64_to_bigint(4_310),
-                        u64_to_bigint(2_000_000),
-                        5_000,
-                        Some(u5c::ProtocolVersion {
-                            major: 12,
-                            minor: 1
+                    mapped,
+                    u5c::PParams {
+                        coins_per_utxo_byte: u64_to_bigint(4_310),
+                        max_tx_size: 16_384,
+                        min_fee_coefficient: u64_to_bigint(44),
+                        min_fee_constant: u64_to_bigint(155_381),
+                        max_block_body_size: 90_112,
+                        max_block_header_size: 1_100,
+                        stake_key_deposit: u64_to_bigint(2_000_000),
+                        pool_deposit: u64_to_bigint(500_000_000),
+                        pool_retirement_epoch_bound: 18,
+                        desired_number_of_pools: 150,
+                        pool_influence: r(3, 10),
+                        monetary_expansion: r(3, 1_000),
+                        treasury_expansion: r(1, 5),
+                        min_pool_cost: u64_to_bigint(170_000_000),
+                        protocol_version: Some(u5c::ProtocolVersion { major: 12, minor: 1 }),
+                        max_value_size: 5_000,
+                        collateral_percentage: 151,
+                        max_collateral_inputs: 3,
+                        cost_models: Some(u5c::CostModels {
+                            plutus_v1: model(vec![101, 102]),
+                            plutus_v2: model(vec![201, 202]),
+                            plutus_v3: model(vec![301, 302]),
+                            plutus_v4: model(vec![401, 402]),
                         }),
-                    ),
-                    "each field the set holds outside its Plutus parameters reaches the u5c field it means"
-                );
-
-                assert_eq!(
-                    (
-                        mapped.collateral_percentage,
-                        mapped.max_collateral_inputs,
-                        mapped.prices,
-                        mapped.max_execution_units_per_transaction,
-                        mapped.min_fee_script_ref_cost_per_byte,
-                        mapped.cost_models,
-                    ),
-                    (
-                        150,
-                        3,
-                        Some(u5c::ExPrices {
-                            steps: Some(rational_number_to_u5c(ratio(721, 10_000_000))),
-                            memory: Some(rational_number_to_u5c(ratio(577, 10_000))),
+                        prices: Some(u5c::ExPrices {
+                            steps: r(721, 10_000_000),
+                            memory: r(577, 10_000),
                         }),
-                        Some(u5c::ExUnits {
+                        max_execution_units_per_transaction: Some(u5c::ExUnits {
                             memory: 14_000_000,
                             steps: 10_000_000_000,
                         }),
-                        Some(rational_number_to_u5c(ratio(15, 1))),
-                        Some(u5c::CostModels {
-                            plutus_v3: Some(u5c::CostModel {
-                                values: vec![301, 302]
-                            }),
-                            ..Default::default()
+                        max_execution_units_per_block: Some(u5c::ExUnits {
+                            memory: 62_000_000,
+                            steps: 20_000_000_000,
                         }),
-                    ),
-                    "each Plutus parameter the set holds reaches the u5c field it means, and the one cost model it holds reaches the V3 field"
+                        min_fee_script_ref_cost_per_byte: r(15, 1),
+                        pool_voting_thresholds: thresholds(&[51, 52, 53, 54, 55]),
+                        drep_voting_thresholds: thresholds(&[61, 62, 63, 64, 65, 66, 67, 68, 69, 70]),
+                        min_committee_size: 7,
+                        committee_term_limit: 293,
+                        governance_action_validity_period: 120,
+                        governance_action_deposit: u64_to_bigint(100_000_000_000),
+                        drep_deposit: u64_to_bigint(500_000_001),
+                        drep_inactivity_period: 20,
+                        ..dijkstra_pparams(&params)
+                    },
+                    "each field every era names reaches the u5c field it means, and the keys this era adds are the ones the schema version maps"
                 );
             }
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_dijkstra_parameter_set_without_plutus_parameters_maps_none_of_them() {
+            fn a_dijkstra_parameter_set_without_cost_models_maps_none_of_them() {
                 let mut params = dijkstra_params();
-                params.plutus = None;
-                params.key_deposit = None;
+                params.cost_models_for_script_languages = pallas_primitives::dijkstra::CostModels {
+                    plutus_v1: None,
+                    plutus_v2: None,
+                    plutus_v3: None,
+                    plutus_v4: None,
+                    unknown: Default::default(),
+                };
 
                 let mapped = Mapper::new(NoLedger).map_pparams(
                     pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(params),
                 );
 
                 assert_eq!(
-                    (
-                        mapped.stake_key_deposit,
-                        mapped.prices,
-                        mapped.cost_models,
-                        mapped.max_tx_size
-                    ),
-                    (None, None, None, 16_384),
-                    "a field the set leaves absent is absent in u5c, while the fields it holds still reach theirs"
+                    (mapped.cost_models, mapped.max_tx_size),
+                    (Some(u5c::CostModels::default()), 16_384),
+                    "a cost model the set leaves absent is absent in u5c, while the fields it holds still reach theirs"
                 );
             }
         }
@@ -3471,59 +3512,12 @@ macro_rules! impl_cardano_mapper_shared {
                         min_fee_script_ref_cost_per_byte: Some(rational_number_to_u5c(
                             params.minfee_refscript_cost_per_byte,
                         )),
-                        pool_voting_thresholds: Some(u5c::VotingThresholds {
-                            thresholds: vec![
-                                rational_number_to_u5c(
-                                    params.pool_voting_thresholds.motion_no_confidence,
-                                ),
-                                rational_number_to_u5c(
-                                    params.pool_voting_thresholds.committee_normal,
-                                ),
-                                rational_number_to_u5c(
-                                    params.pool_voting_thresholds.committee_no_confidence,
-                                ),
-                                rational_number_to_u5c(
-                                    params.pool_voting_thresholds.hard_fork_initiation,
-                                ),
-                                rational_number_to_u5c(
-                                    params.pool_voting_thresholds.security_voting_threshold,
-                                ),
-                            ],
-                        }),
-                        drep_voting_thresholds: Some(u5c::VotingThresholds {
-                            thresholds: vec![
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.motion_no_confidence,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.committee_normal,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.committee_no_confidence,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.update_constitution,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.hard_fork_initiation,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.pp_network_group,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.pp_economic_group,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.pp_technical_group,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.pp_governance_group,
-                                ),
-                                rational_number_to_u5c(
-                                    params.drep_voting_thresholds.treasury_withdrawal,
-                                ),
-                            ],
-                        }),
+                        pool_voting_thresholds: Some(pool_voting_thresholds_to_u5c(
+                            params.pool_voting_thresholds,
+                        )),
+                        drep_voting_thresholds: Some(drep_voting_thresholds_to_u5c(
+                            params.drep_voting_thresholds,
+                        )),
                         min_committee_size: params.min_committee_size as u32,
                         committee_term_limit: params.committee_term_limit,
                         governance_action_validity_period: params.governance_action_validity_period,
@@ -3549,42 +3543,73 @@ macro_rules! impl_cardano_mapper_shared {
                         ..Default::default()
                     },
                     #[cfg(feature = "unstable")]
-                    MultiEraProtocolParameters::Dijkstra(params) => {
-                        let plutus = params.plutus.as_ref();
-                        u5c::PParams {
-                            max_tx_size: params.max_transaction_size.into(),
-                            min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
-                            min_fee_constant: u64_to_bigint(params.minfee_b.into()),
-                            coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
-                            stake_key_deposit: params.key_deposit.and_then(u64_to_bigint),
-                            protocol_version: u5c::ProtocolVersion {
-                                major: params.protocol_version.0 as u32,
-                                minor: params.protocol_version.1 as u32,
-                            }
-                            .into(),
-                            max_value_size: params.max_value_size.into(),
-                            collateral_percentage: plutus
-                                .map(|p| p.collateral_percentage.into())
-                                .unwrap_or_default(),
-                            max_collateral_inputs: plutus
-                                .map(|p| p.max_collateral_inputs.into())
-                                .unwrap_or_default(),
-                            prices: plutus
-                                .map(|p| execution_prices_to_u5c(p.execution_costs.clone())),
-                            max_execution_units_per_transaction: plutus
-                                .map(|p| execution_units_to_u5c(p.max_tx_ex_units)),
-                            min_fee_script_ref_cost_per_byte: plutus.map(|p| {
-                                rational_number_to_u5c(p.minfee_refscript_cost_per_byte.clone())
-                            }),
-                            cost_models: plutus.map(|p| u5c::CostModels {
-                                plutus_v3: Some(u5c::CostModel {
-                                    values: p.cost_model_v3.clone(),
-                                }),
-                                ..Default::default()
-                            }),
-                            ..dijkstra_pparams(&params)
+                    // In v1alpha this literal names every field of the message.
+                    #[allow(clippy::needless_update)]
+                    MultiEraProtocolParameters::Dijkstra(params) => u5c::PParams {
+                        max_tx_size: params.max_transaction_size.into(),
+                        max_block_body_size: params.max_block_body_size.into(),
+                        max_block_header_size: params.max_block_header_size.into(),
+                        min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                        min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                        coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
+                        stake_key_deposit: u64_to_bigint(params.key_deposit),
+                        pool_deposit: u64_to_bigint(params.pool_deposit),
+                        pool_retirement_epoch_bound: params.maximum_epoch,
+                        desired_number_of_pools: params.desired_number_of_stake_pools.into(),
+                        pool_influence: Some(rational_number_to_u5c(
+                            params.pool_pledge_influence.clone(),
+                        )),
+                        monetary_expansion: Some(rational_number_to_u5c(
+                            params.expansion_rate.clone(),
+                        )),
+                        treasury_expansion: Some(rational_number_to_u5c(
+                            params.treasury_growth_rate.clone(),
+                        )),
+                        min_pool_cost: u64_to_bigint(params.min_pool_cost),
+                        protocol_version: u5c::ProtocolVersion {
+                            major: params.protocol_version.0 as u32,
+                            minor: params.protocol_version.1 as u32,
                         }
-                    }
+                        .into(),
+                        max_value_size: params.max_value_size.into(),
+                        collateral_percentage: params.collateral_percentage.into(),
+                        max_collateral_inputs: params.max_collateral_inputs.into(),
+                        prices: Some(execution_prices_to_u5c(params.execution_costs.clone())),
+                        max_execution_units_per_transaction: Some(execution_units_to_u5c(
+                            params.max_tx_ex_units,
+                        )),
+                        max_execution_units_per_block: Some(execution_units_to_u5c(
+                            params.max_block_ex_units,
+                        )),
+                        min_fee_script_ref_cost_per_byte: Some(rational_number_to_u5c(
+                            params.minfee_refscript_cost_per_byte.clone(),
+                        )),
+                        pool_voting_thresholds: Some(pool_voting_thresholds_to_u5c(
+                            params.pool_voting_thresholds.clone(),
+                        )),
+                        drep_voting_thresholds: Some(drep_voting_thresholds_to_u5c(
+                            params.drep_voting_thresholds.clone(),
+                        )),
+                        min_committee_size: params.min_committee_size as u32,
+                        committee_term_limit: params.committee_term_limit,
+                        governance_action_validity_period: params.governance_action_validity_period,
+                        governance_action_deposit: u64_to_bigint(params.governance_action_deposit),
+                        drep_deposit: u64_to_bigint(params.drep_deposit),
+                        drep_inactivity_period: params.drep_inactivity_period,
+                        cost_models: Some({
+                            let models = &params.cost_models_for_script_languages;
+                            let model = |values: &Option<Vec<i64>>| {
+                                values.clone().map(|values| u5c::CostModel { values })
+                            };
+                            u5c::CostModels {
+                                plutus_v1: model(&models.plutus_v1),
+                                plutus_v2: model(&models.plutus_v2),
+                                plutus_v3: model(&models.plutus_v3),
+                                plutus_v4: model(&models.plutus_v4),
+                            }
+                        }),
+                        ..dijkstra_pparams(&params)
+                    },
                     _ => {
                         unimplemented!("map_pparams has no arm for this era's protocol parameters")
                     }
@@ -3660,33 +3685,10 @@ macro_rules! impl_cardano_mapper_shared {
                         x.minfee_refscript_cost_per_byte(),
                     )
                     .map(rational_number_to_u5c),
-                    pool_voting_thresholds: read_key(seen, x.pool_voting_thresholds()).map(|t| {
-                        u5c::VotingThresholds {
-                            thresholds: vec![
-                                rational_number_to_u5c(t.motion_no_confidence),
-                                rational_number_to_u5c(t.committee_normal),
-                                rational_number_to_u5c(t.committee_no_confidence),
-                                rational_number_to_u5c(t.hard_fork_initiation),
-                                rational_number_to_u5c(t.security_voting_threshold),
-                            ],
-                        }
-                    }),
-                    drep_voting_thresholds: read_key(seen, x.drep_voting_thresholds()).map(|t| {
-                        u5c::VotingThresholds {
-                            thresholds: vec![
-                                rational_number_to_u5c(t.motion_no_confidence),
-                                rational_number_to_u5c(t.committee_normal),
-                                rational_number_to_u5c(t.committee_no_confidence),
-                                rational_number_to_u5c(t.update_constitution),
-                                rational_number_to_u5c(t.hard_fork_initiation),
-                                rational_number_to_u5c(t.pp_network_group),
-                                rational_number_to_u5c(t.pp_economic_group),
-                                rational_number_to_u5c(t.pp_technical_group),
-                                rational_number_to_u5c(t.pp_governance_group),
-                                rational_number_to_u5c(t.treasury_withdrawal),
-                            ],
-                        }
-                    }),
+                    pool_voting_thresholds: read_key(seen, x.pool_voting_thresholds())
+                        .map(pool_voting_thresholds_to_u5c),
+                    drep_voting_thresholds: read_key(seen, x.drep_voting_thresholds())
+                        .map(drep_voting_thresholds_to_u5c),
                     min_committee_size: read_key(seen, x.min_committee_size()).unwrap_or_default()
                         as u32,
                     committee_term_limit: read_key(seen, x.committee_term_limit())

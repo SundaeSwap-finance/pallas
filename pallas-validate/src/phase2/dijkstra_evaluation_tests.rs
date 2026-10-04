@@ -1,6 +1,6 @@
 //! Unchanged native capture and synthetic phase-two boundaries; no submission.
 use super::*;
-use crate::utils::{DijkstraPlutusParams, DijkstraProtParams, EraCbor, TxoRef};
+use crate::utils::{EraCbor, TxoRef};
 use pallas_codec::minicbor;
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{Era, MultiEraBlock, MultiEraTx};
@@ -13,52 +13,7 @@ fn slots() -> SlotConfig {
     }
 }
 fn params() -> MultiEraProtocolParameters {
-    let p: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../test_data/musashi-phase1/registration-epoch64-parameters.json"
-    ))
-    .unwrap();
-    MultiEraProtocolParameters::Dijkstra(DijkstraProtParams {
-        system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
-        epoch_length: 21600,
-        slot_length: 1,
-        protocol_version: (12, 0),
-        minfee_a: 44,
-        minfee_b: 155381,
-        max_transaction_size: 16384,
-        ada_per_utxo_byte: 4310,
-        max_value_size: 5000,
-        key_deposit: Some(2000000),
-        plutus: Some(DijkstraPlutusParams {
-            cost_model_v3: serde_json::from_value(p["cost_models_raw"]["PlutusV3"].clone())
-                .unwrap(),
-            execution_costs: pallas_primitives::ExUnitPrices {
-                mem_price: n::RationalNumber {
-                    numerator: 577,
-                    denominator: 10000,
-                },
-                step_price: n::RationalNumber {
-                    numerator: 721,
-                    denominator: 10000000,
-                },
-            },
-            max_tx_ex_units: n::ExUnits {
-                mem: p["max_tx_ex_mem"].as_str().unwrap().parse().unwrap(),
-                steps: p["max_tx_ex_steps"].as_str().unwrap().parse().unwrap(),
-            },
-            collateral_percentage: 150,
-            max_collateral_inputs: 3,
-            minfee_refscript_cost_per_byte: n::RationalNumber {
-                numerator: 15,
-                denominator: 1,
-            },
-            max_ref_script_size_per_tx: 204800,
-            ref_script_cost_stride: 25600,
-            ref_script_cost_multiplier: n::RationalNumber {
-                numerator: 6,
-                denominator: 5,
-            },
-        }),
-    })
+    crate::phase1::dijkstra_registration_tests::params().prot_params
 }
 fn fixture(test: impl FnOnce(n::BlockTransaction<'_>, UtxoMap)) {
     let read = |name| {
@@ -245,7 +200,11 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
         let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
             unreachable!()
         };
-        let costs = &mut p.plutus.as_mut().unwrap().cost_model_v3;
+        let costs = p
+            .cost_models_for_script_languages
+            .plutus_v3
+            .as_mut()
+            .unwrap();
         assert_eq!(costs.len(), 350);
         costs[29] += 1000; // V3 cekStartupCost-exBudgetCPU, a used historical coefficient.
         let changed = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()).unwrap();
@@ -259,7 +218,11 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
             let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
                 unreachable!()
             };
-            p.plutus.as_mut().unwrap().cost_model_v3.resize(len, 0);
+            p.cost_models_for_script_languages
+                .plutus_v3
+                .as_mut()
+                .unwrap()
+                .resize(len, 0);
             error(
                 evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
                 "requires 350 entries",
@@ -269,7 +232,7 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
         let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
             unreachable!()
         };
-        p.plutus = None;
+        p.cost_models_for_script_languages.plutus_v3 = None;
         error(
             evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
             "CostModelNotFound",

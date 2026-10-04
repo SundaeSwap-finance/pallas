@@ -305,37 +305,58 @@ impl Environment {
     }
 }
 
-/// Parameters for the supported native Dijkstra transfers, batches and registrations.
-/// This is not a complete Dijkstra parameter set; unsupported features reject.
+/// The protocol parameters of the Dijkstra era.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone)]
 pub struct DijkstraProtParams {
     pub system_start: chrono::DateTime<chrono::FixedOffset>,
     pub epoch_length: u64,
     pub slot_length: u64,
-    pub protocol_version: ProtocolVersion,
     pub minfee_a: u32,
     pub minfee_b: u32,
+    pub max_block_body_size: u32,
     pub max_transaction_size: u32,
+    pub max_block_header_size: u32,
+    pub key_deposit: Coin,
+    pub pool_deposit: Coin,
+    pub desired_number_of_stake_pools: u32,
+    pub protocol_version: ProtocolVersion,
+    pub min_pool_cost: Coin,
     pub ada_per_utxo_byte: Coin,
-    pub max_value_size: u32,
-    /// Required only for explicit registration certificates; never inferred from defaults.
-    pub key_deposit: Option<Coin>,
-    /// Required for native V3 execution fees, budgets, collateral and reference scripts.
-    pub plutus: Option<DijkstraPlutusParams>,
-}
-
-/// Parameters needed for native Plutus V3 validation and evaluation.
-#[cfg(feature = "unstable")]
-#[derive(Debug, Clone)]
-pub struct DijkstraPlutusParams {
-    pub cost_model_v3: Vec<i64>,
+    pub cost_models_for_script_languages: pallas_primitives::dijkstra::CostModels,
     pub execution_costs: ExUnitPrices,
     pub max_tx_ex_units: ExUnits,
+    pub max_block_ex_units: ExUnits,
+    pub max_value_size: u32,
     pub collateral_percentage: u32,
     pub max_collateral_inputs: u32,
-    pub minfee_refscript_cost_per_byte: RationalNumber,
+    pub expansion_rate: UnitInterval,
+    pub treasury_growth_rate: UnitInterval,
+    pub maximum_epoch: Epoch,
+    pub pool_pledge_influence: RationalNumber,
+    pub pool_voting_thresholds: pallas_primitives::conway::PoolVotingThresholds,
+    pub drep_voting_thresholds: pallas_primitives::conway::DRepVotingThresholds,
+    pub min_committee_size: u64,
+    pub committee_term_limit: Epoch,
+    pub governance_action_validity_period: Epoch,
+    pub governance_action_deposit: Coin,
+    pub drep_deposit: Coin,
+    pub drep_inactivity_period: Epoch,
+    pub minfee_refscript_cost_per_byte: UnitInterval,
+    pub max_ref_script_size_per_block: u32,
     pub max_ref_script_size_per_tx: u32,
     pub ref_script_cost_stride: u32,
     pub ref_script_cost_multiplier: RationalNumber,
+    /// The cap on pledge leverage, `None` when the ledger sets no cap.
+    pub max_pledge_leverage: Option<RationalNumber>,
+    pub min_pool_margin: UnitInterval,
+    pub leios_announcement_period_length: u32,
+    pub leios_vote_period_length: u32,
+    pub leios_diffusion_period_length: u32,
+    pub leios_committee_size: u16,
+    pub leios_quorum_stake_threshold: UnitInterval,
+    pub max_endorser_block_references_size: u32,
+    pub max_endorser_block_txs_size: u32,
+    pub max_endorser_block_ex_units: ExUnits,
+    pub max_ref_script_size_per_endorser_block: u32,
 }

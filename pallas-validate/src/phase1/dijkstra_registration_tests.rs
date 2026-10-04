@@ -3,7 +3,7 @@ use super::{
     dijkstra_tests::{env, error, sign, synthetic},
     *,
 };
-use crate::utils::{DijkstraPlutusParams, DijkstraRegistrationState};
+use crate::utils::DijkstraRegistrationState;
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_primitives::dijkstra as n;
 use pallas_traverse::{MultiEraBlock, MultiEraInput, MultiEraOutput};
@@ -20,7 +20,7 @@ fn read(name: &str) -> Vec<u8> {
     )
     .unwrap()
 }
-pub(super) fn params() -> Environment {
+pub(crate) fn params() -> Environment {
     let mut e = env();
     e.block_slot = 1401365;
     let p: serde_json::Value = serde_json::from_str(include_str!(
@@ -34,37 +34,36 @@ pub(super) fn params() -> Environment {
     let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
         unreachable!()
     };
-    pp.key_deposit = Some(p["key_deposit"].as_str().unwrap().parse().unwrap());
-    pp.plutus = Some(DijkstraPlutusParams {
-        cost_model_v3: serde_json::from_value(p["cost_models_raw"]["PlutusV3"].clone()).unwrap(),
-        // Exact rational representations of the archived decimal prices.
-        execution_costs: pallas_primitives::ExUnitPrices {
-            mem_price: n::RationalNumber {
-                numerator: 577,
-                denominator: 10000,
-            },
-            step_price: n::RationalNumber {
-                numerator: 721,
-                denominator: 10000000,
-            },
+    pp.key_deposit = p["key_deposit"].as_str().unwrap().parse().unwrap();
+    pp.cost_models_for_script_languages.plutus_v3 =
+        Some(serde_json::from_value(p["cost_models_raw"]["PlutusV3"].clone()).unwrap());
+    // Exact rational representations of the archived decimal prices.
+    pp.execution_costs = pallas_primitives::ExUnitPrices {
+        mem_price: n::RationalNumber {
+            numerator: 577,
+            denominator: 10000,
         },
-        max_tx_ex_units: n::ExUnits {
-            mem: p["max_tx_ex_mem"].as_str().unwrap().parse().unwrap(),
-            steps: p["max_tx_ex_steps"].as_str().unwrap().parse().unwrap(),
+        step_price: n::RationalNumber {
+            numerator: 721,
+            denominator: 10000000,
         },
-        collateral_percentage: p["collateral_percent"].as_u64().unwrap() as u32,
-        max_collateral_inputs: p["max_collateral_inputs"].as_u64().unwrap() as u32,
-        minfee_refscript_cost_per_byte: n::RationalNumber {
-            numerator: 15,
-            denominator: 1,
-        },
-        max_ref_script_size_per_tx: g["maxRefScriptSizePerTx"].as_u64().unwrap() as u32,
-        ref_script_cost_stride: g["refScriptCostStride"].as_u64().unwrap() as u32,
-        ref_script_cost_multiplier: n::RationalNumber {
-            numerator: 6,
-            denominator: 5,
-        },
-    });
+    };
+    pp.max_tx_ex_units = n::ExUnits {
+        mem: p["max_tx_ex_mem"].as_str().unwrap().parse().unwrap(),
+        steps: p["max_tx_ex_steps"].as_str().unwrap().parse().unwrap(),
+    };
+    pp.collateral_percentage = p["collateral_percent"].as_u64().unwrap() as u32;
+    pp.max_collateral_inputs = p["max_collateral_inputs"].as_u64().unwrap() as u32;
+    pp.minfee_refscript_cost_per_byte = n::RationalNumber {
+        numerator: 15,
+        denominator: 1,
+    };
+    pp.max_ref_script_size_per_tx = g["maxRefScriptSizePerTx"].as_u64().unwrap() as u32;
+    pp.ref_script_cost_stride = g["refScriptCostStride"].as_u64().unwrap() as u32;
+    pp.ref_script_cost_multiplier = n::RationalNumber {
+        numerator: 6,
+        denominator: 5,
+    };
     assert_eq!(p["price_mem"], 0.0577);
     assert_eq!(p["price_step"], 0.0000721);
     assert_eq!(p["min_fee_ref_script_cost_per_byte"], 15.0);
@@ -184,7 +183,7 @@ fn dijkstra_registration_state_deposit_and_parameters() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.key_deposit = Some(2000001);
+        pp.key_deposit = 2000001;
         fail(
             &tx,
             &utxos,
@@ -195,25 +194,14 @@ fn dijkstra_registration_state_deposit_and_parameters() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.key_deposit = None;
+        pp.key_deposit = 2000000;
+        pp.cost_models_for_script_languages.plutus_v3 = None;
         fail(
             &tx,
             &utxos,
             &e,
             &state,
-            "DijkstraMissingParameters(\"key deposit\")",
-        );
-        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
-            unreachable!()
-        };
-        pp.key_deposit = Some(2000000);
-        pp.plutus = None;
-        fail(
-            &tx,
-            &utxos,
-            &e,
-            &state,
-            "DijkstraMissingParameters(\"Plutus parameters\")",
+            "DijkstraMissingParameters(\"PlutusV3 cost model\")",
         );
     });
 }
@@ -317,13 +305,13 @@ fn dijkstra_registration_collateral_budgets_and_fees() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus.as_mut().unwrap().max_tx_ex_units.mem = 18484;
+        pp.max_tx_ex_units.mem = 18484;
         fail(&tx, &utxos, &e, &state, "PostAlonzo(TxExUnitsExceeded)");
         e = params();
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus.as_mut().unwrap().max_ref_script_size_per_tx = 1;
+        pp.max_ref_script_size_per_tx = 1;
         fail(&tx, &utxos, &e, &state, "DijkstraReferenceScriptsTooLarge");
         let mut changed = tx.clone();
         changed.transaction_body.collateral = None;
@@ -347,17 +335,13 @@ fn dijkstra_registration_collateral_budgets_and_fees() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus.as_mut().unwrap().collateral_percentage = 151;
+        pp.collateral_percentage = 151;
         fail(&tx, &utxos, &e, &state, "PostAlonzo(CollateralMinLovelace)");
         e = params();
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus
-            .as_mut()
-            .unwrap()
-            .minfee_refscript_cost_per_byte
-            .numerator = 10000;
+        pp.minfee_refscript_cost_per_byte.numerator = 10000;
         fail(&tx, &utxos, &e, &state, "PostAlonzo(FeeBelowMin)");
     });
 }
@@ -432,7 +416,7 @@ fn dijkstra_registration_fee_rounding_and_reference_accounting() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus.as_mut().unwrap().ref_script_cost_stride = (bytes - 1) as u32;
+        pp.ref_script_cost_stride = (bytes - 1) as u32;
         let tiered = (bytes - 1) * 15 + 18;
         pp.minfee_b += (tx.transaction_body.fee - (427 * 44 + 155381 + execution + tiered)) as u32;
         assert!(run(&tx, &utxos, &e, &mut state.clone()).is_ok());
@@ -496,7 +480,11 @@ fn dijkstra_registration_other_certificates_and_script_forms_reject() {
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
-        pp.plutus.as_mut().unwrap().cost_model_v3.truncate(297);
+        pp.cost_models_for_script_languages
+            .plutus_v3
+            .as_mut()
+            .unwrap()
+            .truncate(297);
         fail(
             &tx,
             &utxos,

@@ -407,11 +407,12 @@ fn eval_tx_with_mode(
         current_treasury_amount: None,
         treasury_donation: None,
     });
-    let plutus = pp
-        .plutus
+    let cost_model_v3 = pp
+        .cost_models_for_script_languages
+        .plutus_v3
         .as_ref()
         .ok_or(Error::CostModelNotFound(c::Language::PlutusV3))?;
-    if plutus.cost_model_v3.len() != 350 {
+    if cost_model_v3.len() != 350 {
         return unsupported("protocol-12 V3 cost model requires 350 entries");
     }
     if !estimate {
@@ -425,13 +426,13 @@ fn eval_tx_with_mode(
                 .checked_add(r.ex_units.steps)
                 .ok_or(Error::DijkstraInvalid("budget overflow"))?;
         }
-        if total_mem > plutus.max_tx_ex_units.mem || total_steps > plutus.max_tx_ex_units.steps {
+        if total_mem > pp.max_tx_ex_units.mem || total_steps > pp.max_tx_ex_units.steps {
             return Err(Error::DijkstraInvalid(
                 "declared transaction budget exceeds maximum",
             ));
         }
     }
-    let execution_limit = plutus.max_tx_ex_units;
+    let execution_limit = pp.max_tx_ex_units;
     if estimate
         && (execution_limit.mem > i64::MAX as u64 || execution_limit.steps > i64::MAX as u64)
     {
@@ -461,7 +462,7 @@ fn eval_tx_with_mode(
             let result = evaluator::eval_native_v3(
                 scripts[&expected[&key]].as_ref(),
                 &data,
-                &plutus.cost_model_v3,
+                cost_model_v3,
                 if estimate {
                     execution_limit
                 } else {

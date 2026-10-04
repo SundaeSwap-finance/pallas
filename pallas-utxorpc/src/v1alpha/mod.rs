@@ -412,6 +412,16 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     #[test]
+    fn a_dijkstra_parameter_set_maps_none_of_the_keys_this_schema_cannot_carry() {
+        assert_eq!(
+            dijkstra_pparams(&crate::testing::dijkstra_params()),
+            u5c::PParams::default(),
+            "this schema has no field for a key the era adds, so none of them reaches a field"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
     fn a_dijkstra_parameter_change_of_a_carried_key_and_an_era_key_maps_the_carried_one() {
         // Key 16 is min_pool_cost, key 48 is max_ref_script_size_per_endorser_block.
         let update =

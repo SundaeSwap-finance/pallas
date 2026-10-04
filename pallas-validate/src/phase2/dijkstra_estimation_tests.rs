@@ -119,7 +119,7 @@ fn with_limit(
     let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
         unreachable!()
     };
-    p.plutus.as_mut().unwrap().max_tx_ex_units = limit;
+    p.max_tx_ex_units = limit;
     estimate_tx(&MultiEraTx::from_dijkstra(tx), &pp, u, &slots())
 }
 #[test]
@@ -320,7 +320,7 @@ fn estimation_aggregate_boundaries_and_indices() {
             let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
                 unreachable!()
             };
-            p.plutus.as_mut().unwrap().max_tx_ex_units = limit;
+            p.max_tx_ex_units = limit;
             let result = evaluate_tx(&MultiEraTx::from_dijkstra(&declared), &pp, &u, &slots());
             if limit == max {
                 assert!(result.unwrap().iter().all(|r| r.success));

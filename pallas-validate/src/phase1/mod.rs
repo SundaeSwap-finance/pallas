@@ -11,7 +11,7 @@ mod dijkstra_batch_tests;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_native_tests;
 #[cfg(all(test, feature = "unstable"))]
-mod dijkstra_registration_tests;
+pub(crate) mod dijkstra_registration_tests;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_tests;
 pub mod shelley_ma;

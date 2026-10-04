@@ -1,9 +1,9 @@
 //! Native protocol-12 phase one for transfers, registrations, key batches and Plutus V3.
 //! Rules and evidence boundaries: test_data/musashi-dijkstra-validation/README.md.
 use crate::utils::{
-    CertState, DijkstraPlutusParams, DijkstraProtParams, DijkstraRegistrationState,
-    PostAlonzoError::*, UTxOs, ValidationError, ValidationError::*, ValidationResult,
-    add_fee_and_stake_deposits, verify_signature,
+    CertState, DijkstraProtParams, DijkstraRegistrationState, PostAlonzoError::*, UTxOs,
+    ValidationError, ValidationError::*, ValidationResult, add_fee_and_stake_deposits,
+    verify_signature,
 };
 use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
 use pallas_codec::{
@@ -138,10 +138,7 @@ pub fn validate_dijkstra_tx(
             }
             Some(DijkstraRegistrationState::Unregistered) => (),
         }
-        let expected = pp
-            .key_deposit
-            .ok_or(DijkstraMissingParameters("key deposit"))?;
-        if *deposit != expected {
+        if *deposit != pp.key_deposit {
             return Err(DijkstraInvalidCertificate("registration deposit"));
         }
         match credential {
@@ -256,7 +253,7 @@ pub fn validate_dijkstra_tx(
         &Value::Coin(output_coin),
         b.fee,
         &view.certs(),
-        pp.key_deposit.unwrap_or(0),
+        pp.key_deposit,
     )?;
     if produced != Value::Coin(consumed) {
         return Err(PostAlonzo(PreservationOfValue));
@@ -722,25 +719,22 @@ fn check_scripts(
         if bytes == 0 {
             return Ok((0, false));
         }
-        let p = pp
-            .plutus
-            .as_ref()
-            .ok_or(DijkstraMissingParameters("reference script fee parameters"))?;
-        if bytes > u64::from(p.max_ref_script_size_per_tx) {
+        if bytes > u64::from(pp.max_ref_script_size_per_tx) {
             return Err(DijkstraReferenceScriptsTooLarge);
         }
-        return Ok((reference_fee(bytes, p)?, false));
+        return Ok((reference_fee(bytes, pp)?, false));
     }
-    let p = pp
-        .plutus
+    let cost_model_v3 = pp
+        .cost_models_for_script_languages
+        .plutus_v3
         .as_ref()
-        .ok_or(DijkstraMissingParameters("Plutus parameters"))?;
-    if p.cost_model_v3.len() != 350 {
+        .ok_or(DijkstraMissingParameters("PlutusV3 cost model"))?;
+    if cost_model_v3.len() != 350 {
         return Err(DijkstraMissingParameters(
             "protocol-12 V3 cost model requires 350 entries",
         ));
     }
-    if bytes > u64::from(p.max_ref_script_size_per_tx) {
+    if bytes > u64::from(pp.max_ref_script_size_per_tx) {
         return Err(DijkstraReferenceScriptsTooLarge);
     }
     let redeemers = w.redeemer.as_ref().ok_or(PostAlonzo(RedeemerMissing))?;
@@ -771,15 +765,15 @@ fn check_scripts(
         mem = add(mem, value.ex_units.mem)?;
         steps = add(steps, value.ex_units.steps)?;
     }
-    if mem > p.max_tx_ex_units.mem || steps > p.max_tx_ex_units.steps {
+    if mem > pp.max_tx_ex_units.mem || steps > pp.max_tx_ex_units.steps {
         return Err(PostAlonzo(TxExUnitsExceeded));
     }
-    check_integrity(tx, Some(&p.cost_model_v3))?;
+    check_integrity(tx, Some(cost_model_v3))?;
     let collateral = b.collateral.as_ref().ok_or(PostAlonzo(CollateralMissing))?;
     if collateral.is_empty() {
         return Err(PostAlonzo(CollateralMissing));
     }
-    if collateral.len() > p.max_collateral_inputs as usize {
+    if collateral.len() > pp.max_collateral_inputs as usize {
         return Err(PostAlonzo(TooManyCollaterals));
     }
     let mut collateral_ids = Spent::new();
@@ -819,17 +813,17 @@ fn check_scripts(
     if b.total_collateral.is_some_and(|x| x != paid) {
         return Err(PostAlonzo(CollateralAnnotation));
     }
-    if u128::from(paid) * 100 < u128::from(b.fee) * u128::from(p.collateral_percentage) {
+    if u128::from(paid) * 100 < u128::from(b.fee) * u128::from(pp.collateral_percentage) {
         return Err(PostAlonzo(CollateralMinLovelace));
     }
     let execution = fraction_add(
-        fraction_scale(price(&p.execution_costs.mem_price)?, mem)?,
-        fraction_scale(price(&p.execution_costs.step_price)?, steps)?,
+        fraction_scale(price(&pp.execution_costs.mem_price)?, mem)?,
+        fraction_scale(price(&pp.execution_costs.step_price)?, steps)?,
     )?;
     let execution_fee = execution.0 / execution.1 + u128::from(execution.0 % execution.1 != 0);
     add(
         u64::try_from(execution_fee).map_err(|_| PostAlonzo(NegativeValue))?,
-        reference_fee(bytes, p)?,
+        reference_fee(bytes, pp)?,
     )
     .map(|fee| (fee, true))
 }
@@ -867,7 +861,7 @@ fn fraction_add((a, b): Fraction, (c, d): Fraction) -> Result<Fraction, Validati
         b.checked_mul(d).ok_or(PostAlonzo(NegativeValue))?,
     )))
 }
-fn reference_fee(mut bytes: u64, p: &DijkstraPlutusParams) -> Result<u64, ValidationError> {
+fn reference_fee(mut bytes: u64, p: &DijkstraProtParams) -> Result<u64, ValidationError> {
     if p.ref_script_cost_stride == 0 {
         return Err(DijkstraMissingParameters("reference fee stride"));
     }

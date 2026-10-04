@@ -661,38 +661,97 @@ pub fn dijkstra_updates_of_one_zero_era_key() -> Vec<(
     ]
 }
 
-/// A Dijkstra parameter set whose Plutus parameters are present and whose
+/// A Dijkstra parameter set whose every cost model is present and whose
 /// every number differs from every other.
 #[cfg(feature = "unstable")]
 pub fn dijkstra_params() -> pallas_validate::utils::DijkstraProtParams {
+    use pallas_primitives::{ExUnits, conway};
+
     pallas_validate::utils::DijkstraProtParams {
         system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
         epoch_length: 21_600,
         slot_length: 1,
-        protocol_version: (12, 1),
         minfee_a: 44,
         minfee_b: 155_381,
+        max_block_body_size: 90_112,
         max_transaction_size: 16_384,
+        max_block_header_size: 1_100,
+        key_deposit: 2_000_000,
+        pool_deposit: 500_000_000,
+        desired_number_of_stake_pools: 150,
+        protocol_version: (12, 1),
+        min_pool_cost: 170_000_000,
         ada_per_utxo_byte: 4_310,
+        cost_models_for_script_languages: pallas_primitives::dijkstra::CostModels {
+            plutus_v1: Some(vec![101, 102]),
+            plutus_v2: Some(vec![201, 202]),
+            plutus_v3: Some(vec![301, 302]),
+            plutus_v4: Some(vec![401, 402]),
+            unknown: Default::default(),
+        },
+        execution_costs: pallas_primitives::ExUnitPrices {
+            mem_price: ratio(577, 10_000),
+            step_price: ratio(721, 10_000_000),
+        },
+        max_tx_ex_units: ExUnits {
+            mem: 14_000_000,
+            steps: 10_000_000_000,
+        },
+        max_block_ex_units: ExUnits {
+            mem: 62_000_000,
+            steps: 20_000_000_000,
+        },
         max_value_size: 5_000,
-        key_deposit: Some(2_000_000),
-        plutus: Some(pallas_validate::utils::DijkstraPlutusParams {
-            cost_model_v3: vec![301, 302],
-            execution_costs: pallas_primitives::ExUnitPrices {
-                mem_price: ratio(577, 10_000),
-                step_price: ratio(721, 10_000_000),
-            },
-            max_tx_ex_units: pallas_primitives::ExUnits {
-                mem: 14_000_000,
-                steps: 10_000_000_000,
-            },
-            collateral_percentage: 150,
-            max_collateral_inputs: 3,
-            minfee_refscript_cost_per_byte: ratio(15, 1),
-            max_ref_script_size_per_tx: 204_800,
-            ref_script_cost_stride: 25_600,
-            ref_script_cost_multiplier: ratio(6, 5),
-        }),
+        collateral_percentage: 151,
+        max_collateral_inputs: 3,
+        expansion_rate: ratio(3, 1_000),
+        treasury_growth_rate: ratio(1, 5),
+        maximum_epoch: 18,
+        pool_pledge_influence: ratio(3, 10),
+        pool_voting_thresholds: conway::PoolVotingThresholds {
+            motion_no_confidence: ratio(1, 51),
+            committee_normal: ratio(1, 52),
+            committee_no_confidence: ratio(1, 53),
+            hard_fork_initiation: ratio(1, 54),
+            security_voting_threshold: ratio(1, 55),
+        },
+        drep_voting_thresholds: conway::DRepVotingThresholds {
+            motion_no_confidence: ratio(1, 61),
+            committee_normal: ratio(1, 62),
+            committee_no_confidence: ratio(1, 63),
+            update_constitution: ratio(1, 64),
+            hard_fork_initiation: ratio(1, 65),
+            pp_network_group: ratio(1, 66),
+            pp_economic_group: ratio(1, 67),
+            pp_technical_group: ratio(1, 68),
+            pp_governance_group: ratio(1, 69),
+            treasury_withdrawal: ratio(1, 70),
+        },
+        min_committee_size: 7,
+        committee_term_limit: 293,
+        governance_action_validity_period: 120,
+        governance_action_deposit: 100_000_000_000,
+        drep_deposit: 500_000_001,
+        drep_inactivity_period: 20,
+        minfee_refscript_cost_per_byte: ratio(15, 1),
+        max_ref_script_size_per_block: 1_048_576,
+        max_ref_script_size_per_tx: 204_800,
+        ref_script_cost_stride: 25_600,
+        ref_script_cost_multiplier: ratio(6, 5),
+        max_pledge_leverage: Some(ratio(38, 1)),
+        min_pool_margin: ratio(1, 39),
+        leios_announcement_period_length: 1_000,
+        leios_vote_period_length: 4_000,
+        leios_diffusion_period_length: 7_000,
+        leios_committee_size: 900,
+        leios_quorum_stake_threshold: ratio(3, 4),
+        max_endorser_block_references_size: 100_000,
+        max_endorser_block_txs_size: 1_000_000,
+        max_endorser_block_ex_units: ExUnits {
+            mem: 310_000_000,
+            steps: 100_000_000_000,
+        },
+        max_ref_script_size_per_endorser_block: 4_000_000,
     }
 }
 

@@ -224,7 +224,10 @@ mod scripts {
         raw.extend(
             minicbor::to_vec(c::LanguageViews(BTreeMap::from([(
                 2,
-                pp.plutus.as_ref().unwrap().cost_model_v3.clone(),
+                pp.cost_models_for_script_languages
+                    .plutus_v3
+                    .clone()
+                    .unwrap(),
             )])))
             .unwrap(),
         );
@@ -885,8 +888,8 @@ mod scripts {
             let MultiEraProtocolParameters::Dijkstra(pp) = &mut env.prot_params else {
                 panic!()
             };
-            pp.plutus = None;
-            // Missing reference still takes precedence over fee parameters.
+            pp.cost_models_for_script_languages.plutus_v3 = None;
+            // Missing reference still takes precedence over the cost model.
             assert!(run(&tx, &inputs, &env, &state).is_err());
         });
     }

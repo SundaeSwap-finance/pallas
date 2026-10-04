@@ -192,7 +192,7 @@ fn dijkstra_native_mint_registration_and_partial_withdrawal() {
         let MultiEraProtocolParameters::Dijkstra(pp) = &mut env.prot_params else {
             panic!()
         };
-        pp.key_deposit = Some(2_000_000);
+        pp.key_deposit = 2_000_000;
         // One script authorizes four different purposes; none needs a redeemer.
         tx.transaction_body.mint = Some(BTreeMap::from([(
             hash,
@@ -419,9 +419,8 @@ fn dijkstra_native_reference_fee_size_and_scope() {
         };
         inputs.push((reference.clone(), inputs[0].1.clone()));
         tx.transaction_body.reference_inputs = n::NonEmptySet::from_vec(vec![reference.clone()]);
-        let p = pp.plutus.as_mut().unwrap();
-        p.cost_model_v3.clear(); // Native reference scripts need fee parameters, not a cost model.
-        p.max_ref_script_size_per_tx = 6;
+        pp.cost_models_for_script_languages.plutus_v3 = None; // Native reference scripts need fee parameters, not a cost model.
+        pp.max_ref_script_size_per_tx = 6;
         pp.minfee_a = 0;
         pp.minfee_b = tx.transaction_body.fee as u32 - 90; // six bytes * 15 lovelace
         dijkstra_tests::sign(&mut tx);
@@ -443,7 +442,7 @@ fn dijkstra_native_reference_fee_size_and_scope() {
             panic!()
         };
         pp.minfee_b -= 1;
-        pp.plutus.as_mut().unwrap().max_ref_script_size_per_tx = 5;
+        pp.max_ref_script_size_per_tx = 5;
         dijkstra_tests::error(
             run(&tx, &inputs, &bad, &mut CertState::default()),
             "DijkstraReferenceScriptsTooLarge",
