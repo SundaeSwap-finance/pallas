@@ -2160,6 +2160,31 @@ macro_rules! impl_cardano_mapper_shared {
                 );
             }
 
+            #[test]
+            fn a_byron_parameter_set_maps_no_pool_retirement_bound() {
+                let mapped = Mapper::new(NoLedger).map_pparams(
+                    pallas_validate::utils::MultiEraProtocolParameters::Byron(byron_params()),
+                );
+
+                assert_eq!(
+                    mapped.pool_retirement_epoch_bound, 0,
+                    "Byron has no pool retirement bound to report"
+                );
+            }
+
+            #[test]
+            fn every_shelley_based_parameter_set_maps_its_pool_retirement_bound() {
+                for (era, params) in shelley_based_params() {
+                    assert_eq!(
+                        Mapper::new(NoLedger)
+                            .map_pparams(params)
+                            .pool_retirement_epoch_bound,
+                        MAXIMUM_EPOCH,
+                        "a {era} set reports its maximum pool retirement epoch"
+                    );
+                }
+            }
+
             /// The parameters an update of every key must map to, written from what
             /// each key means rather than from what the mapper does. The V4 cost model
             /// is the one entry only a Dijkstra update can propose, so the caller says
