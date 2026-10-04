@@ -302,6 +302,62 @@ pub fn body_with_output(output: &[u8]) -> Vec<u8> {
     e.into_writer()
 }
 
+/// Builds a transaction body with one input, a fee, a deposit and an exact
+/// balance interval on the account given, and a sub transaction over each sub
+/// body given.
+pub fn body_with_account_fields(account: &[u8], coin: u64, sub_bodies: &[&[u8]]) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(if sub_bodies.is_empty() { 5 } else { 6 }).unwrap();
+    write_mandatory_keys(&mut e);
+
+    if !sub_bodies.is_empty() {
+        e.u8(23).unwrap();
+        e.tag(Tag::new(258)).unwrap();
+        e.array(sub_bodies.len() as u64).unwrap();
+        for body in sub_bodies {
+            e.array(3).unwrap();
+            e.writer_mut().extend_from_slice(body);
+            e.map(0).unwrap();
+            e.null().unwrap();
+        }
+    }
+
+    write_account_fields(&mut e, account, coin);
+    e.into_writer()
+}
+
+/// Builds a sub transaction body with one input, a deposit and an exact
+/// balance interval on the account given.
+pub fn sub_body_with_account_fields(account: &[u8], coin: u64) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(4).unwrap();
+
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+
+    write_account_fields(&mut e, account, coin);
+    e.into_writer()
+}
+
+fn write_account_fields(e: &mut minicbor::Encoder<Vec<u8>>, account: &[u8], coin: u64) {
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+
+    e.u8(26).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

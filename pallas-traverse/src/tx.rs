@@ -920,6 +920,34 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Returns the deposits into reward accounts at body key 25.
+    #[cfg(feature = "unstable")]
+    pub fn direct_deposits(&self) -> Option<&dijkstra::DirectDeposits> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.direct_deposits.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.direct_deposits.as_ref(),
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
+    /// Returns the reward account balance intervals at body key 26.
+    #[cfg(feature = "unstable")]
+    pub fn account_balance_intervals(&self) -> Option<&dijkstra::AccountBalanceIntervals> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.account_balance_intervals.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => {
+                x.sub_transaction_body.account_balance_intervals.as_ref()
+            }
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
     /// Returns the sub transactions at body key 23, each read as a transaction
     /// of its own. Empty for every era before Dijkstra, none of which has the
     /// field, and empty for a sub transaction, whose own body has no key 23.
@@ -1141,6 +1169,75 @@ mod tests {
         );
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
         assert!(tx.voting_procedures().is_none());
+    }
+
+    #[test]
+    fn a_transaction_without_account_fields_reports_none() {
+        let dijkstra = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let conway = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+
+        for (era, cbor) in [(Era::Dijkstra, dijkstra), (Era::Conway, conway)] {
+            let tx = MultiEraTx::decode_for_era(era, &cbor).unwrap();
+            assert_eq!(
+                (tx.direct_deposits(), tx.account_balance_intervals()),
+                (None, None),
+                "a {era:?} body without keys 25 and 26 reports neither"
+            );
+        }
+    }
+
+    #[test]
+    fn each_transaction_reports_the_account_fields_of_its_own_body() {
+        let sub = testing::sub_body_with_account_fields(&[0xe2; 29], 12);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::body_with_account_fields(&[0xe1; 29], 7, &[&sub]),
+            &testing::empty_witness_set(),
+            None,
+            true,
+        );
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+        let subs = tx.sub_transactions();
+        let sub = subs.first().expect("body key 23 holds one sub transaction");
+
+        let read = |tx: &MultiEraTx| {
+            (
+                tx.direct_deposits().cloned(),
+                tx.account_balance_intervals().cloned(),
+            )
+        };
+        let written = |account: [u8; 29], coin: u64| {
+            (
+                Some(dijkstra::DirectDeposits::from([(
+                    account.to_vec().into(),
+                    coin,
+                )])),
+                Some(dijkstra::AccountBalanceIntervals::from([(
+                    account.to_vec().into(),
+                    dijkstra::AccountBalanceInterval::Exact(coin),
+                )])),
+            )
+        };
+
+        assert_eq!(
+            read(&tx),
+            written([0xe1; 29], 7),
+            "the transaction reports keys 25 and 26 of its own body"
+        );
+        assert_eq!(
+            read(sub),
+            written([0xe2; 29], 12),
+            "the sub transaction reports keys 25 and 26 of the sub body, not of the body carrying it"
+        );
     }
 
     fn dijkstra_block_bytes() -> Vec<u8> {
