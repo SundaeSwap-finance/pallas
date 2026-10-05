@@ -4,8 +4,9 @@ use pallas_traverse::MultiEraBlock;
 use pallas_utxorpc::v1beta::spec::cardano as u5c;
 use u5c_chain_oracle::coverage::{Coverage, EXCLUDED, Location};
 use u5c_chain_oracle::effects;
-use u5c_chain_oracle::fields::{self, Case, GuardReport, IdVerdict};
+use u5c_chain_oracle::fields::{self, Case, IdVerdict};
 use u5c_chain_oracle::model::AccountOp;
+use u5c_chain_oracle::values::{self, Values};
 use u5c_chain_oracle::{inner_block, mapper};
 
 fn raw(number: u64) -> Vec<u8> {
@@ -201,45 +202,145 @@ fn the_bls_check_holds_a_key_only_in_the_u5c_bls_field() {
 const G1_GUARD: &str = "26ef2714badd53e3477ca0aa94443e3522c4e4e895a67efb90ff427c";
 const R1_GUARD: &str = "31a78786b5989dc6fd2d4ab15b297069e94106ecacceb8eb29e1b681";
 
-fn guard_report(m: &Mapped) -> GuardReport {
+const B1: &str = "f701e0201667bab62c1b9b04c3cfafaa1afba2b88284c0e36d04322a6bd0fd5b";
+const B2: &str = "0e218b84ed1762aedcd483d2783a0149793fece8a14fa4eaac5e49c97d24d9cc";
+const K3: &str = "20ecf94dd1d563096b73ad5527bae96bdde602d1d2b91510e4f3441d57ae8ccd";
+const K3_SUB: &str = "7a8da831abf56f902a1f30b31b4fcfff4d2a5efadf88f5c58f7b2b1ff914685b";
+
+type Fired = Vec<(&'static str, Vec<(u64, [u8; 32])>)>;
+
+fn values(m: &Mapped) -> Values {
     let block = MultiEraBlock::decode(&m.raw).expect("a block");
-    let mut report = GuardReport::default();
-    report.add(block.as_dijkstra().expect("Dijkstra"), m.number, &m.u5c);
-    report
+    let mut v = Values::default();
+    v.add(block.as_dijkstra().expect("Dijkstra"), m.number, &m.u5c);
+    v
+}
+
+fn fired(v: &Values) -> Fired {
+    v.reports()
+        .into_iter()
+        .filter(|(_, r)| !r.differences.is_empty())
+        .map(|(name, r)| (name, r.differences.clone()))
+        .collect()
+}
+
+fn holding(v: &Values, name: &str) -> usize {
+    v.reports()
+        .into_iter()
+        .find(|(n, _)| *n == name)
+        .unwrap_or_else(|| panic!("a report named {name}"))
+        .1
+        .holding
+}
+
+fn swap_tag(c: &mut u5c::StakeCredential) {
+    use u5c::stake_credential::StakeCredential as C;
+    c.stake_credential = match c.stake_credential.take() {
+        Some(C::AddrKeyHash(h)) => Some(C::ScriptHash(h)),
+        Some(C::ScriptHash(h)) => Some(C::AddrKeyHash(h)),
+        None => panic!("a credential"),
+    };
+}
+
+fn bump(b: &mut Option<u5c::BigInt>) {
+    use u5c::big_int::BigInt as B;
+    match b.as_mut().and_then(|b| b.big_int.as_mut()) {
+        Some(B::Int(i)) => *i += 1,
+        other => panic!("a small coin, got {other:?}"),
+    }
+}
+
+fn bump_interval(x: &mut u5c::AccountBalanceInterval) {
+    use u5c::account_balance_interval::Interval as I;
+    match x.interval.as_mut().expect("an interval") {
+        I::Exact(c) => {
+            let mut c2 = Some(c.clone());
+            bump(&mut c2);
+            *c = c2.expect("a coin");
+        }
+        I::Range(r) if r.inclusive_lower_bound.is_some() => bump(&mut r.inclusive_lower_bound),
+        I::Range(r) => bump(&mut r.exclusive_upper_bound),
+    }
+}
+
+fn guard_clause(s: &mut u5c::NativeScript) -> Option<&mut u5c::StakeCredential> {
+    use u5c::native_script::NativeScript as N;
+    match s.native_script.as_mut()? {
+        N::ScriptRequireGuard(c) => Some(c),
+        N::ScriptAll(l) | N::ScriptAny(l) => l.items.iter_mut().find_map(guard_clause),
+        N::ScriptNOfK(k) => k.scripts.iter_mut().find_map(guard_clause),
+        _ => None,
+    }
+}
+
+fn guarding_redeemer(tx: &mut u5c::Tx) -> &mut u5c::Redeemer {
+    tx.witnesses
+        .as_mut()
+        .expect("witnesses")
+        .redeemers
+        .iter_mut()
+        .find(|r| r.purpose == u5c::RedeemerPurpose::Guarding as i32)
+        .expect("a guarding redeemer")
 }
 
 #[test]
 fn the_chain_guards_reach_u5c_with_their_key_or_script_tag() {
     let m = mapped(106412);
-    let guards = |tx: &str| fields::u5c_guards(Some(&m.txs()[m.position(tx)]));
+    let guards = |tx: &str| values::u5c_guards(Some(&m.txs()[m.position(tx)]));
     let hash = |h: &str| hex::decode(h).expect("hex");
     assert_eq!(guards(G1), vec![Some((false, hash(G1_GUARD)))]);
     assert_eq!(guards(R1), vec![Some((true, hash(R1_GUARD)))]);
-    let report = guard_report(&m);
-    assert_eq!((report.with_guards, report.differences.len()), (2, 0));
-    assert!(report.agrees());
+    let v = values(&m);
+    assert_eq!((v.guards.holding, v.guards.values), (2, 2));
+    assert_eq!(fired(&v), vec![]);
+    assert!(v.guards.agrees());
 }
 
 #[test]
-fn the_guard_check_holds_a_block_without_guards() {
-    let report = guard_report(&mapped(104960));
-    assert!(report.bodies > 0);
-    assert_eq!((report.with_guards, report.differences.len()), (0, 0));
+fn the_value_checks_hold_each_fixture_block() {
+    for number in [104949, 104960, 104966, 105475, 105486, 106412, 112090, 4277] {
+        let v = values(&mapped(number));
+        assert!(v.guards.bodies > 0, "block {number}");
+        assert_eq!(fired(&v), vec![], "block {number}");
+    }
+}
+
+#[test]
+fn the_value_checks_hold_the_blocks_that_carry_each_field() {
+    for (number, name) in [
+        (106412, "key 14 guards"),
+        (104960, "key 26 intervals"),
+        (104966, "key 26 intervals"),
+        (104960, "key 27 starting intervals"),
+        (104966, "key 27 starting intervals"),
+        (106412, "guard native clauses"),
+        (106412, "guarding redeemers"),
+        (112090, "key 24 top level guards"),
+    ] {
+        let v = values(&mapped(number));
+        assert!(holding(&v, name) > 0, "block {number} holds {name}");
+        assert_eq!(fired(&v), vec![], "block {number}");
+    }
+}
+
+#[test]
+fn a_report_that_held_no_value_does_not_agree() {
+    let v = values(&mapped(104960));
+    assert!(v.top_level_guards.bodies > 0);
+    assert_eq!(v.top_level_guards.values, 0);
+    assert!(v.top_level_guards.differences.is_empty());
+    assert!(!v.top_level_guards.agrees());
+    assert!(!v.agrees());
 }
 
 #[test]
 fn the_guard_check_fails_a_planted_tag_swap() {
-    use u5c::stake_credential::StakeCredential as C;
     let mut m = mapped(106412);
-    let guard = &mut m.tx_mut(R1).guards[0];
-    let Some(C::ScriptHash(h)) = guard.stake_credential.clone() else {
-        panic!("R1 is guarded by a script, got {guard:?}");
-    };
-    guard.stake_credential = Some(C::AddrKeyHash(h));
-    let report = guard_report(&m);
-    assert_eq!(report.with_guards, 2);
-    assert_eq!(report.differences, vec![(106412, id(R1))]);
-    assert!(!report.agrees());
+    swap_tag(&mut m.tx_mut(R1).guards[0]);
+    let v = values(&m);
+    assert_eq!(v.guards.holding, 2);
+    assert_eq!(fired(&v), vec![("key 14 guards", vec![(106412, id(R1))])]);
+    assert!(!v.guards.agrees());
 }
 
 #[test]
@@ -249,8 +350,150 @@ fn the_guard_check_fails_a_planted_guard_on_a_body_without_one() {
     m.tx_mut(C2).guards.push(u5c::StakeCredential {
         stake_credential: Some(C::AddrKeyHash(vec![0; 28].into())),
     });
-    let report = guard_report(&m);
-    assert_eq!(report.differences, vec![(104960, id(C2))]);
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 14 guards", vec![(104960, id(C2))])]
+    );
+}
+
+#[test]
+fn the_interval_check_fails_a_planted_bound_change() {
+    let mut m = mapped(104960);
+    bump_interval(&mut m.tx_mut(B1).account_balance_intervals[0]);
+    let v = values(&m);
+    assert_eq!(
+        fired(&v),
+        vec![("key 26 intervals", vec![(104960, id(B1))])]
+    );
+    assert!(!v.intervals.agrees());
+}
+
+#[test]
+fn the_interval_check_fails_a_planted_account_change() {
+    let mut m = mapped(104960);
+    let account = &mut m.tx_mut(B1).account_balance_intervals[0].reward_account;
+    let mut bytes = account.to_vec();
+    *bytes.last_mut().expect("an account") ^= 1;
+    *account = bytes.into();
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 26 intervals", vec![(104960, id(B1))])]
+    );
+}
+
+#[test]
+fn the_starting_interval_check_fails_a_planted_bound_change() {
+    let mut m = mapped(104960);
+    bump_interval(&mut m.tx_mut(B2).starting_account_balance_intervals[0]);
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 27 starting intervals", vec![(104960, id(B2))])]
+    );
+}
+
+#[test]
+fn the_starting_interval_check_fails_a_planted_interval_on_a_sub_transaction() {
+    let mut m = mapped(104960);
+    let planted = m.tx_mut(B2).starting_account_balance_intervals[0].clone();
+    m.tx_mut(C2).sub_transactions[0]
+        .starting_account_balance_intervals
+        .push(planted);
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 27 starting intervals", vec![(104960, id(C2_SUB))])]
+    );
+}
+
+#[test]
+fn the_guard_clause_check_fails_a_planted_tag_swap() {
+    use u5c::script::Script as S;
+    let mut m = mapped(106412);
+    let clause = m
+        .tx_mut(G1)
+        .witnesses
+        .as_mut()
+        .expect("witnesses")
+        .script
+        .iter_mut()
+        .find_map(|s| match s.script.as_mut() {
+            Some(S::Native(n)) => guard_clause(n),
+            _ => None,
+        })
+        .expect("a guard clause");
+    swap_tag(clause);
+    let v = values(&m);
+    assert_eq!(v.guards.holding, 2);
+    assert_eq!(
+        fired(&v),
+        vec![("guard native clauses", vec![(106412, id(G1))])]
+    );
+}
+
+#[test]
+fn the_guarding_redeemer_check_fails_a_planted_index_change() {
+    let mut m = mapped(106412);
+    guarding_redeemer(m.tx_mut(R1)).index += 1;
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("guarding redeemers", vec![(106412, id(R1))])]
+    );
+}
+
+#[test]
+fn the_guarding_redeemer_check_fails_a_planted_payload_change() {
+    use u5c::plutus_data::PlutusData as P;
+    let mut m = mapped(106412);
+    let r = guarding_redeemer(m.tx_mut(R1));
+    let planted = Some(u5c::PlutusData {
+        plutus_data: Some(P::BoundedBytes(vec![0xee; 3].into())),
+    });
+    assert_ne!(r.payload, planted);
+    r.payload = planted;
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("guarding redeemers", vec![(106412, id(R1))])]
+    );
+}
+
+#[test]
+fn the_top_level_guard_check_fails_a_planted_datum() {
+    use u5c::plutus_data::PlutusData as P;
+    let mut m = mapped(112090);
+    let guard = &mut m.tx_mut(K3).sub_transactions[0].required_top_level_guards[0];
+    assert_eq!(guard.datum, None);
+    guard.datum = Some(u5c::PlutusData {
+        plutus_data: Some(P::Array(u5c::PlutusDataArray { items: vec![] })),
+    });
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 24 top level guards", vec![(112090, id(K3_SUB))])]
+    );
+}
+
+#[test]
+fn the_top_level_guard_check_fails_a_planted_tag_swap() {
+    let mut m = mapped(112090);
+    let guard = &mut m.tx_mut(K3).sub_transactions[0].required_top_level_guards[0];
+    swap_tag(guard.credential.as_mut().expect("a credential"));
+    assert_eq!(
+        fired(&values(&m)),
+        vec![("key 24 top level guards", vec![(112090, id(K3_SUB))])]
+    );
+}
+
+#[test]
+fn coverage_holds_the_top_level_guards_and_fails_a_planted_drop() {
+    let mut m = mapped(112090);
+    let before = m.coverage();
+    let t = &before.tallies[&Location::Body(24)];
+    assert!(t.occurrences > 0 && !t.fails(), "{t:?}");
+    m.tx_mut(K3).sub_transactions[0]
+        .required_top_level_guards
+        .clear();
+    let after = m.coverage();
+    assert_eq!(after.tallies[&Location::Body(24)].disagreements, 1);
+    let f = failing(&after);
+    assert!(f.contains(&Location::Body(24)), "{f:?}");
 }
 
 #[test]
@@ -270,7 +513,7 @@ fn failing(c: &Coverage) -> Vec<Location> {
 
 #[test]
 fn coverage_holds_every_location_of_the_fixture_blocks() {
-    for number in [104949, 104960, 104966, 105475, 105486, 106412, 4277] {
+    for number in [104949, 104960, 104966, 105475, 105486, 106412, 112090, 4277] {
         let c = mapped(number).coverage();
         assert_eq!(failing(&c), vec![], "block {number}");
     }
@@ -397,10 +640,22 @@ fn coverage_fails_a_planted_output_drop() {
 fn the_exclusion_list_names_the_conway_positions_u5c_never_held() {
     let mut want: Vec<Location> = (2..=11).map(Location::HeaderBody).collect();
     want.extend([1, 2].map(Location::BlockBody));
-    want.extend([7, 11, 15, 21, 22, 24].map(Location::Body));
+    want.extend([7, 11, 15, 21, 22].map(Location::Body));
     let mut have: Vec<Location> = EXCLUDED.iter().map(|(l, _)| *l).collect();
     have.sort();
     want.sort();
     assert_eq!(have, want);
     assert!(EXCLUDED.iter().all(|(_, reason)| !reason.is_empty()));
+}
+
+#[test]
+fn the_in_items_name_the_top_level_guards() {
+    let items = u5c_chain_oracle::coverage::in_items();
+    assert!(
+        items.contains(&(
+            "13 body key 24 required_top_level_guards".to_owned(),
+            Location::Body(24)
+        )),
+        "{items:?}"
+    );
 }

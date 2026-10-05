@@ -31,7 +31,7 @@ pub enum Held {
 }
 
 /// The locations the scope leaves out of u5c, each with its reason.
-pub const EXCLUDED: [(Location, &str); 18] = [
+pub const EXCLUDED: [(Location, &str); 17] = [
     (
         Location::HeaderBody(2),
         "header prev_hash, u5c BlockHeader holds slot, hash and height only",
@@ -100,10 +100,6 @@ pub const EXCLUDED: [(Location, &str); 18] = [
         Location::Body(22),
         "body key 22 donation, u5c Tx holds no donation",
     ),
-    (
-        Location::Body(24),
-        "body key 24 required_top_level_guards, u5c Tx holds no guard data",
-    ),
 ];
 
 /// The scope rows u5c is to hold, each with the location the source shows it at.
@@ -113,6 +109,10 @@ pub fn in_items() -> Vec<(String, Location)> {
         (
             "12 body key 23 sub_transactions".to_owned(),
             Location::Body(23),
+        ),
+        (
+            "13 body key 24 required_top_level_guards".to_owned(),
+            Location::Body(24),
         ),
         (
             "14 body key 25 direct_deposits".to_owned(),
@@ -611,6 +611,7 @@ fn tx_agrees(location: Location, held: Held, tx: &u5c::Tx) -> Option<bool> {
         Location::Body(19) => count(tx.votes.len() as u64),
         Location::Body(20) => count(tx.proposals.len() as u64),
         Location::Body(23) => count(tx.sub_transactions.len() as u64),
+        Location::Body(24) => count(tx.required_top_level_guards.len() as u64),
         Location::Body(25) => count(tx.direct_deposits.len() as u64),
         Location::Body(26) => count(tx.account_balance_intervals.len() as u64),
         Location::Body(27) => count(tx.starting_account_balance_intervals.len() as u64),

@@ -305,17 +305,20 @@ fn run(dir: &Path, cases_path: &Path) {
         "  blocks with a bls registration {:?}",
         &bls_blocks[..bls_blocks.len().min(SHOWN)]
     );
-    let guards = &replay.guards;
-    println!(
-        "check2 guards bodies {} with key 14 {} differences {}",
-        guards.bodies,
-        guards.with_guards,
-        guards.differences.len()
-    );
-    for (b, id) in guards.differences.iter().take(SHOWN) {
-        println!("  block {b} tx {}", hex::encode(id));
+    for (name, r) in replay.values.reports() {
+        println!(
+            "check2 {name} bodies {} holding {} values {} differences {}",
+            r.bodies,
+            r.holding,
+            r.values,
+            r.differences.len()
+        );
+        for (b, id) in r.differences.iter().take(SHOWN) {
+            println!("  block {b} tx {}", hex::encode(id));
+        }
     }
-    let check2_green = fields::ids_agree(&ids) && params_green && pools.agrees() && guards.agrees();
+    let check2_green =
+        fields::ids_agree(&ids) && params_green && pools.agrees() && replay.values.agrees();
     println!(
         "check2 verdict {}",
         if check2_green { "GREEN" } else { "RED" }

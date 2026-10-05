@@ -8,6 +8,7 @@ pub mod fixtures;
 pub mod ledger;
 pub mod model;
 pub mod node;
+pub mod values;
 
 use std::collections::{HashMap, HashSet};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -18,9 +19,10 @@ use pallas_utxorpc::v1beta::spec::cardano as u5c;
 use pallas_utxorpc::{LedgerContext, TxoRef, UtxoMap};
 
 use crate::coverage::Coverage;
-use crate::fields::{Found, GuardReport, Registration};
+use crate::fields::{Found, Registration};
 use crate::ledger::Ledger;
 use crate::model::Effects;
+use crate::values::Values;
 
 /// A ledger context that resolves nothing, so the mapper reads only the block.
 #[derive(Clone, Default)]
@@ -60,7 +62,7 @@ pub struct Replay {
     pub u5c: Ledger,
     pub coverage: Coverage,
     pub registrations: Vec<Registration>,
-    pub guards: GuardReport,
+    pub values: Values,
     pub mapper_panics: Vec<(u64, String)>,
     pub wanted: HashSet<[u8; 32]>,
     pub found: HashMap<[u8; 32], Found>,
@@ -76,7 +78,7 @@ impl Replay {
             u5c: Ledger::default(),
             coverage: Coverage::default(),
             registrations: Vec::new(),
-            guards: GuardReport::default(),
+            values: Values::default(),
             mapper_panics: Vec::new(),
             wanted,
             found: HashMap::new(),
@@ -115,7 +117,7 @@ impl Replay {
             self.coverage.add(inner_block(raw), number, &mapped);
             self.registrations
                 .extend(fields::registrations(b, number, &mapped));
-            self.guards.add(b, number, &mapped);
+            self.values.add(b, number, &mapped);
             let mut keep = false;
             for (id, at) in fields::source_ids(b, number) {
                 if self.wanted.contains(&id) {
