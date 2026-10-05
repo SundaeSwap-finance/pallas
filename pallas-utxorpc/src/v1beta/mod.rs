@@ -181,16 +181,32 @@ fn map_direct_deposit(
     }
 }
 
+/// A key hash at body key 14 as a key credential.
+fn map_key_hash(x: &pallas_primitives::AddrKeyhash) -> u5c::StakeCredential {
+    map_credential(&pallas_primitives::StakeCredential::AddrKeyhash(*x))
+}
+
+/// The credentials at body key 14, the required signers of every era before Dijkstra.
+fn map_signers(x: &trv::MultiEraSigners) -> Vec<u5c::StakeCredential> {
+    if let Some(x) = x.as_alonzo() {
+        return x.iter().map(map_key_hash).collect();
+    }
+
+    #[cfg(feature = "unstable")]
+    if let Some(x) = x.as_dijkstra() {
+        return map_guards(x);
+    }
+
+    vec![]
+}
+
 /// The credentials that guard a transaction, a bare key hash as a key credential.
 #[cfg(feature = "unstable")]
 fn map_guards(x: &pallas_primitives::dijkstra::Guards) -> Vec<u5c::StakeCredential> {
-    use pallas_primitives::{StakeCredential, dijkstra::Guards};
+    use pallas_primitives::dijkstra::Guards;
 
     match x {
-        Guards::AddrKeyhashes(x) => x
-            .iter()
-            .map(|h| map_credential(&StakeCredential::AddrKeyhash(*h)))
-            .collect(),
+        Guards::AddrKeyhashes(x) => x.iter().map(map_key_hash).collect(),
         Guards::Credentials(x) => x.iter().map(map_credential).collect(),
     }
 }
@@ -405,6 +421,7 @@ impl<C: LedgerContext> Mapper<C> {
                 scripts: self.collect_all_aux_scripts(tx),
             }
             .into(),
+            guards: map_signers(&tx.required_signers()),
             ..self.map_dijkstra_tx_fields(tx)
         }
     }
@@ -441,12 +458,33 @@ impl<C: LedgerContext> Mapper<C> {
                 .flatten()
                 .map(map_account_balance_interval)
                 .collect(),
-            guards: tx
-                .required_signers()
-                .as_dijkstra()
-                .map(map_guards)
-                .unwrap_or_default(),
+            required_top_level_guards: tx
+                .required_top_level_guards()
+                .into_iter()
+                .flatten()
+                .map(|x| self.map_required_top_level_guard(x))
+                .collect(),
             ..Default::default()
+        }
+    }
+
+    /// One credential required of the top level transaction, with no datum for a nil one.
+    #[cfg(feature = "unstable")]
+    fn map_required_top_level_guard(
+        &self,
+        (credential, datum): (
+            &pallas_primitives::StakeCredential,
+            &pallas_primitives::Nullable<pallas_primitives::PlutusData>,
+        ),
+    ) -> u5c::RequiredTopLevelGuard {
+        use pallas_primitives::Nullable;
+
+        u5c::RequiredTopLevelGuard {
+            credential: Some(map_credential(credential)),
+            datum: match datum {
+                Nullable::Some(x) => Some(self.map_plutus_datum(x)),
+                Nullable::Null | Nullable::Undefined => None,
+            },
         }
     }
 
@@ -906,6 +944,95 @@ mod tests {
                 SUB_GUARD_KEY_HASH.to_vec().into()
             ))],
             "a sub body's bare key hash reaches the sub transaction as a key credential"
+        );
+    }
+
+    #[test]
+    fn a_conway_body_without_required_signers_maps_no_guards() {
+        let mapped = Mapper::new(NoLedger).map_tx(&conway_tx_with_certificate_redeemers());
+
+        assert!(
+            mapped.guards.is_empty(),
+            "a Conway body without key 14 maps to no guards"
+        );
+    }
+
+    #[test]
+    fn conway_required_signers_map_to_key_credentials() {
+        use u5c::stake_credential::StakeCredential;
+
+        let key = |hash: [u8; 28]| u5c::StakeCredential {
+            stake_credential: Some(StakeCredential::AddrKeyHash(hash.to_vec().into())),
+        };
+        let mapped = Mapper::new(NoLedger).map_tx(&conway_tx_with_required_signers());
+
+        assert_eq!(
+            mapped.guards,
+            vec![key(FIRST_REQUIRED_SIGNER), key(SECOND_REQUIRED_SIGNER)],
+            "each required signer reaches the guards as a key credential, in body order"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_body_without_required_top_level_guards_maps_none() {
+        let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_guards());
+
+        assert_eq!(
+            (
+                mapped.required_top_level_guards.len(),
+                mapped.sub_transactions[0].required_top_level_guards.len()
+            ),
+            (0, 0),
+            "a body and a sub body without key 24 map to no required top level guards"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn required_top_level_guards_map_with_their_credential_and_datum() {
+        use u5c::stake_credential::StakeCredential;
+
+        let guard = |inner: StakeCredential, datum: Option<u5c::plutus_data::PlutusData>| {
+            u5c::RequiredTopLevelGuard {
+                credential: Some(u5c::StakeCredential {
+                    stake_credential: Some(inner),
+                }),
+                datum: datum.map(|x| u5c::PlutusData {
+                    plutus_data: Some(x),
+                }),
+            }
+        };
+        let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_required_top_level_guards());
+
+        assert_eq!(
+            mapped.required_top_level_guards,
+            vec![
+                guard(
+                    StakeCredential::ScriptHash(TOP_LEVEL_GUARD_SCRIPT_HASH.to_vec().into()),
+                    None,
+                ),
+                guard(
+                    StakeCredential::AddrKeyHash(TOP_LEVEL_GUARD_KEY_HASH.to_vec().into()),
+                    Some(u5c::plutus_data::PlutusData::BigInt(u5c::BigInt {
+                        big_int: Some(u5c::big_int::BigInt::Int(TOP_LEVEL_GUARD_DATUM)),
+                    })),
+                ),
+            ],
+            "each entry of the body's key 24 reaches u5c with its credential, a nil datum as none, in the ledger's credential order with script credentials first"
+        );
+
+        assert_eq!(
+            mapped.sub_transactions[0].required_top_level_guards,
+            vec![guard(
+                StakeCredential::AddrKeyHash(SUB_TOP_LEVEL_GUARD_KEY_HASH.to_vec().into()),
+                Some(u5c::plutus_data::PlutusData::Constr(u5c::Constr {
+                    tag: 121,
+                    any_constructor: 0,
+                    fields: vec![],
+                })),
+            )],
+            "a sub body's key 24 reaches the sub transaction"
         );
     }
 

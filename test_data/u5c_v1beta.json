@@ -25,6 +25,11 @@
         "fee": {
           "int": "563497"
         },
+        "guards": [
+          {
+            "addrKeyHash": "sfLyCoeBo7qWfYx7UGjSHXmegJ3M4i9lFnnWYQ=="
+          }
+        ],
         "hash": "f2+5xs5tbcDzXGQlY2aofkCQCgG+2jHBMZJGak8Mlnw=",
         "inputs": [
           {
@@ -1564,6 +1569,11 @@
         "fee": {
           "int": "315744"
         },
+        "guards": [
+          {
+            "addrKeyHash": "28g7VlEPsIUagX+4g6yhXoBu9H0+YuyXVz5M7Q=="
+          }
+        ],
         "hash": "DyjVTKHeL/3r5CW3/4HSAHgiXmcqkof5YjW+5ELSdRI=",
         "inputs": [
           {

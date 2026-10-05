@@ -920,6 +920,21 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
+    /// Returns the guards required of the top level transaction at body key 24.
+    #[cfg(feature = "unstable")]
+    pub fn required_top_level_guards(&self) -> Option<&dijkstra::RequiredTopLevelGuards> {
+        match self {
+            MultiEraTx::Dijkstra(x) => x.transaction_body.required_top_level_guards.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => {
+                x.sub_transaction_body.required_top_level_guards.as_ref()
+            }
+            MultiEraTx::Byron(_)
+            | MultiEraTx::AlonzoCompatible(..)
+            | MultiEraTx::Babbage(_)
+            | MultiEraTx::Conway(_) => None,
+        }
+    }
+
     /// Returns the deposits into reward accounts at body key 25.
     #[cfg(feature = "unstable")]
     pub fn direct_deposits(&self) -> Option<&dijkstra::DirectDeposits> {

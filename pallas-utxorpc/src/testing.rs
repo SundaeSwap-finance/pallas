@@ -208,6 +208,42 @@ pub fn conway_tx_with_certificate_redeemers() -> trv::MultiEraTx<'static> {
     trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
 }
 
+/// The first key hash of the required signers in `conway_tx_with_required_signers`.
+pub const FIRST_REQUIRED_SIGNER: [u8; 28] = [0x41; 28];
+
+/// The second key hash of the required signers in `conway_tx_with_required_signers`.
+pub const SECOND_REQUIRED_SIGNER: [u8; 28] = [0x42; 28];
+
+/// A Conway transaction whose body requires two signers.
+pub fn conway_tx_with_required_signers() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&FIRST_REQUIRED_SIGNER).unwrap();
+    e.bytes(&SECOND_REQUIRED_SIGNER).unwrap();
+
+    e.map(0).unwrap();
+    e.bool(true).unwrap();
+    e.null().unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
+}
+
 /// The DRep key hash that casts the vote in `dijkstra_tx_with_one_vote`.
 #[cfg(feature = "unstable")]
 pub const VOTING_DREP_KEY_HASH: [u8; 28] = [0x77; 28];
@@ -612,6 +648,84 @@ pub fn dijkstra_tx_with_guards() -> trv::MultiEraTx<'static> {
     e.array(1).unwrap();
     e.bytes(&SUB_GUARD_KEY_HASH).unwrap();
     e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// The key credential the top body requires of the top level guards, with a datum.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x34; 28];
+
+/// The integer datum the top body gives its key credential.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_DATUM: i64 = 7;
+
+/// The script credential the top body requires of the top level guards, with no datum.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_SCRIPT_HASH: [u8; 28] = [0x35; 28];
+
+/// The key credential the sub body requires of the top level guards.
+#[cfg(feature = "unstable")]
+pub const SUB_TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x36; 28];
+
+/// A Dijkstra transaction whose body requires a key credential with an integer
+/// datum and a script credential with none, and whose one sub body requires a
+/// key credential with a constructor datum.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_required_top_level_guards() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(5).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x15; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(3).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x16; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(24).unwrap();
+    e.map(1).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&SUB_TOP_LEVEL_GUARD_KEY_HASH).unwrap();
+    e.tag(Tag::new(121)).unwrap();
+    e.array(0).unwrap();
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.u8(24).unwrap();
+    e.map(2).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&TOP_LEVEL_GUARD_KEY_HASH).unwrap();
+    e.i64(TOP_LEVEL_GUARD_DATUM).unwrap();
+    e.array(2).unwrap();
+    e.u8(1).unwrap();
+    e.bytes(&TOP_LEVEL_GUARD_SCRIPT_HASH).unwrap();
     e.null().unwrap();
 
     e.map(0).unwrap();
