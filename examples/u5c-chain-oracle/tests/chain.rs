@@ -4,7 +4,7 @@ use pallas_traverse::MultiEraBlock;
 use pallas_utxorpc::v1beta::spec::cardano as u5c;
 use u5c_chain_oracle::coverage::{Coverage, EXCLUDED, Location};
 use u5c_chain_oracle::effects;
-use u5c_chain_oracle::fields::{self, Case, IdVerdict};
+use u5c_chain_oracle::fields::{self, Case, GuardReport, IdVerdict};
 use u5c_chain_oracle::model::AccountOp;
 use u5c_chain_oracle::{inner_block, mapper};
 
@@ -198,6 +198,72 @@ fn the_bls_check_holds_a_key_only_in_the_u5c_bls_field() {
     assert!(!fields::u5c_holds_bls(r));
 }
 
+const G1_GUARD: &str = "26ef2714badd53e3477ca0aa94443e3522c4e4e895a67efb90ff427c";
+const R1_GUARD: &str = "31a78786b5989dc6fd2d4ab15b297069e94106ecacceb8eb29e1b681";
+
+fn guard_report(m: &Mapped) -> GuardReport {
+    let block = MultiEraBlock::decode(&m.raw).expect("a block");
+    let mut report = GuardReport::default();
+    report.add(block.as_dijkstra().expect("Dijkstra"), m.number, &m.u5c);
+    report
+}
+
+#[test]
+fn the_chain_guards_reach_u5c_with_their_key_or_script_tag() {
+    let m = mapped(106412);
+    let guards = |tx: &str| fields::u5c_guards(Some(&m.txs()[m.position(tx)]));
+    let hash = |h: &str| hex::decode(h).expect("hex");
+    assert_eq!(guards(G1), vec![Some((false, hash(G1_GUARD)))]);
+    assert_eq!(guards(R1), vec![Some((true, hash(R1_GUARD)))]);
+    let report = guard_report(&m);
+    assert_eq!((report.with_guards, report.differences.len()), (2, 0));
+    assert!(report.agrees());
+}
+
+#[test]
+fn the_guard_check_holds_a_block_without_guards() {
+    let report = guard_report(&mapped(104960));
+    assert!(report.bodies > 0);
+    assert_eq!((report.with_guards, report.differences.len()), (0, 0));
+}
+
+#[test]
+fn the_guard_check_fails_a_planted_tag_swap() {
+    use u5c::stake_credential::StakeCredential as C;
+    let mut m = mapped(106412);
+    let guard = &mut m.tx_mut(R1).guards[0];
+    let Some(C::ScriptHash(h)) = guard.stake_credential.clone() else {
+        panic!("R1 is guarded by a script, got {guard:?}");
+    };
+    guard.stake_credential = Some(C::AddrKeyHash(h));
+    let report = guard_report(&m);
+    assert_eq!(report.with_guards, 2);
+    assert_eq!(report.differences, vec![(106412, id(R1))]);
+    assert!(!report.agrees());
+}
+
+#[test]
+fn the_guard_check_fails_a_planted_guard_on_a_body_without_one() {
+    use u5c::stake_credential::StakeCredential as C;
+    let mut m = mapped(104960);
+    m.tx_mut(C2).guards.push(u5c::StakeCredential {
+        stake_credential: Some(C::AddrKeyHash(vec![0; 28].into())),
+    });
+    let report = guard_report(&m);
+    assert_eq!(report.differences, vec![(104960, id(C2))]);
+}
+
+#[test]
+fn coverage_fails_a_planted_guard_drop() {
+    let mut m = mapped(106412);
+    assert_eq!(m.coverage().tallies[&Location::Body(14)].occurrences, 2);
+    m.tx_mut(G1).guards.clear();
+    let after = m.coverage();
+    assert_eq!(after.tallies[&Location::Body(14)].disagreements, 1);
+    let f = failing(&after);
+    assert!(f.contains(&Location::Body(14)), "{f:?}");
+}
+
 fn failing(c: &Coverage) -> Vec<Location> {
     c.failing().into_iter().map(|(l, _)| l).collect()
 }
@@ -331,7 +397,7 @@ fn coverage_fails_a_planted_output_drop() {
 fn the_exclusion_list_names_the_conway_positions_u5c_never_held() {
     let mut want: Vec<Location> = (2..=11).map(Location::HeaderBody).collect();
     want.extend([1, 2].map(Location::BlockBody));
-    want.extend([7, 11, 14, 15, 21, 22, 24].map(Location::Body));
+    want.extend([7, 11, 15, 21, 22, 24].map(Location::Body));
     let mut have: Vec<Location> = EXCLUDED.iter().map(|(l, _)| *l).collect();
     have.sort();
     want.sort();

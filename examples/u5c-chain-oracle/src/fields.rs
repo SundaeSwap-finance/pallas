@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pallas_codec::utils::Nullable;
-use pallas_primitives::{ExUnitPrices, ExUnits, RationalNumber, conway, dijkstra};
+use pallas_primitives::{ExUnitPrices, ExUnits, RationalNumber, StakeCredential, conway, dijkstra};
 use pallas_traverse::OriginalHash;
 use pallas_utxorpc::v1beta::spec::cardano as u5c;
 use pallas_validate::utils::{ConwayProtParams, DijkstraProtParams};
@@ -733,6 +733,87 @@ pub fn node_keys_without_field(x: &Value) -> Vec<String> {
         .filter(|k| !NODE_KEYS_WITH_FIELD.contains(&k.as_str()))
         .cloned()
         .collect()
+}
+
+/// One guard credential, its script flag and its hash, or None for a u5c credential with neither.
+pub type Guard = Option<(bool, Vec<u8>)>;
+
+/// The guard credentials of one source body, in body order.
+fn source_guards(x: Option<&dijkstra::Guards>) -> Vec<Guard> {
+    match x {
+        None => vec![],
+        Some(dijkstra::Guards::AddrKeyhashes(x)) => {
+            x.iter().map(|h| Some((false, h.to_vec()))).collect()
+        }
+        Some(dijkstra::Guards::Credentials(x)) => x
+            .iter()
+            .map(|c| match c {
+                StakeCredential::AddrKeyhash(h) => Some((false, h.to_vec())),
+                StakeCredential::ScriptHash(h) => Some((true, h.to_vec())),
+            })
+            .collect(),
+    }
+}
+
+/// The guard credentials of one u5c transaction, in field order.
+pub fn u5c_guards(tx: Option<&u5c::Tx>) -> Vec<Guard> {
+    use u5c::stake_credential::StakeCredential as C;
+    tx.into_iter()
+        .flat_map(|t| &t.guards)
+        .map(|c| match c.stake_credential.as_ref() {
+            Some(C::AddrKeyHash(h)) => Some((false, h.to_vec())),
+            Some(C::ScriptHash(h)) => Some((true, h.to_vec())),
+            None => None,
+        })
+        .collect()
+}
+
+/// How the guards of every source body compare with the u5c guards of the transaction at the same place.
+#[derive(Clone, Debug, Default)]
+pub struct GuardReport {
+    pub bodies: usize,
+    pub with_guards: usize,
+    pub differences: Vec<(u64, [u8; 32])>,
+}
+
+impl GuardReport {
+    /// Tells whether a body has guards and u5c holds the guards of every body, none where the source has none.
+    pub fn agrees(&self) -> bool {
+        self.with_guards > 0 && self.differences.is_empty()
+    }
+
+    /// Counts one body and notes it when u5c holds other guards than the source.
+    fn compare(&mut self, number: u64, id: [u8; 32], source: Vec<Guard>, mapped: Option<&u5c::Tx>) {
+        self.bodies += 1;
+        if !source.is_empty() {
+            self.with_guards += 1;
+        }
+        if source != u5c_guards(mapped) {
+            self.differences.push((number, id));
+        }
+    }
+
+    /// Compares each body of a Dijkstra block, top level and sub transactions, with the u5c transaction at the same place.
+    pub fn add(&mut self, block: &dijkstra::Block, number: u64, mapped: &u5c::Block) {
+        let txs = mapped.body.as_ref().map(|b| b.tx.as_slice()).unwrap_or(&[]);
+        for (i, tx) in block.block_body.transactions.iter().enumerate() {
+            let body = &tx.transaction_body;
+            let u5c_tx = txs.get(i);
+            let source = source_guards(body.guards.as_ref());
+            self.compare(number, *body.original_hash(), source, u5c_tx);
+            for (j, sub) in body
+                .sub_transactions
+                .iter()
+                .flat_map(|s| s.iter())
+                .enumerate()
+            {
+                let sub_body = &sub.sub_transaction_body;
+                let source = source_guards(sub_body.guards.as_ref());
+                let u5c_sub = u5c_tx.and_then(|t| t.sub_transactions.get(j));
+                self.compare(number, *sub_body.original_hash(), source, u5c_sub);
+            }
+        }
+    }
 }
 
 /// One pool registration of a Dijkstra block beside its u5c mapping.

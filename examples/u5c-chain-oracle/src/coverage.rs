@@ -31,7 +31,7 @@ pub enum Held {
 }
 
 /// The locations the scope leaves out of u5c, each with its reason.
-pub const EXCLUDED: [(Location, &str); 19] = [
+pub const EXCLUDED: [(Location, &str); 18] = [
     (
         Location::HeaderBody(2),
         "header prev_hash, u5c BlockHeader holds slot, hash and height only",
@@ -89,10 +89,6 @@ pub const EXCLUDED: [(Location, &str); 19] = [
         "body key 11 script_data_hash, u5c Tx holds no script integrity hash",
     ),
     (
-        Location::Body(14),
-        "body key 14 guards, u5c Tx has no required signers field to extend",
-    ),
-    (
         Location::Body(15),
         "body key 15 network_id, u5c Tx holds no network id",
     ),
@@ -106,13 +102,14 @@ pub const EXCLUDED: [(Location, &str); 19] = [
     ),
     (
         Location::Body(24),
-        "body key 24 required_top_level_guards, u5c Tx has no required signers field to extend",
+        "body key 24 required_top_level_guards, u5c Tx holds no guard data",
     ),
 ];
 
 /// The scope rows u5c is to hold, each with the location the source shows it at.
 pub fn in_items() -> Vec<(String, Location)> {
     let mut items = vec![
+        ("11 body key 14 guards".to_owned(), Location::Body(14)),
         (
             "12 body key 23 sub_transactions".to_owned(),
             Location::Body(23),
@@ -607,6 +604,7 @@ fn tx_agrees(location: Location, held: Held, tx: &u5c::Tx) -> Option<bool> {
         Location::Body(8) => uint(validity.start),
         Location::Body(9) => count(tx.mint.len() as u64),
         Location::Body(13) => count(collateral.collateral.len() as u64),
+        Location::Body(14) => count(tx.guards.len() as u64),
         Location::Body(16) => Some(collateral.collateral_return.is_some()),
         Location::Body(17) => uint(natural(collateral.total_collateral.as_ref())),
         Location::Body(18) => count(tx.reference_inputs.len() as u64),
