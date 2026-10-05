@@ -1,5 +1,7 @@
 //! Base types used for validating transactions in each era.
 
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_native;
 pub mod environment;
 pub mod validation;
 

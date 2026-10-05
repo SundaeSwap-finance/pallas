@@ -1,0 +1,18 @@
+{
+  "mint": {
+    "archive_success": true,
+    "block_hash": "5806625f83cb6b50508d92e29b47c5bd4e3f69cff08ecc579802e976929ea699",
+    "frame": 7032,
+    "segment": "000002.segment",
+    "slot": 1025002,
+    "transaction_id": "ca60ffd71d5dc8fa94ad7d0103183511004e0d42efd7b3a07e1aa6bfc19e5f69"
+  },
+  "producer": {
+    "archive_success": true,
+    "block_hash": "581ecc428804ea8bbc96aa6812900c43c03014f6e40101f11255dd472b968fb3",
+    "frame": 7017,
+    "segment": "000002.segment",
+    "slot": 1024709,
+    "transaction_id": "f615fb416d70838b965ff08ae99a60d59e0f723a17918ff7dd1c921f376da52d"
+  }
+}

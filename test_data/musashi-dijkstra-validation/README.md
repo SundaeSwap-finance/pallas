@@ -69,7 +69,10 @@ is not admission validation. The audited protocol-12 backend adds
 and integer-operand restrictions remain. The retained transaction matches the
 independent CLI for all five purposes (`cli-comparison.json`).
 
-Explicit exclusions remain: other script languages, script guards, governance,
+Guard-free native scripts are additionally supported; see
+[the native-script fixtures](../dijkstra-native-scripts/README.md).
+
+Explicit exclusions remain: other Plutus languages, script guards, governance,
 direct deposits/account intervals, non-Reg certificates, scripted/stateful
 subtransactions, bootstrap/pointer addresses, auxiliary scripts and Plutus upper
 validity bounds without forecast state. This is not full Dijkstra conformance.
