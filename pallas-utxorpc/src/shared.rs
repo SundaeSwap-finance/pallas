@@ -2894,9 +2894,9 @@ macro_rules! impl_cardano_mapper_shared {
 
             #[test]
             fn the_era_neutral_walk_clamps_a_negative_n_of_k_threshold_to_zero() {
-                let negative = pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(
-                    &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
-                );
+                let negative = pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]);
+                let negative =
+                    pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(&negative);
                 assert!(matches!(
                     Mapper::<NoLedger>::map_multi_era_native_script(&negative).native_script,
                     Some(u5c::native_script::NativeScript::ScriptNOfK(
@@ -2904,9 +2904,9 @@ macro_rules! impl_cardano_mapper_shared {
                     ))
                 ));
 
-                let positive = pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(
-                    &pallas_primitives::alonzo::NativeScript::ScriptNOfK(2, vec![]),
-                );
+                let positive = pallas_primitives::alonzo::NativeScript::ScriptNOfK(2, vec![]);
+                let positive =
+                    pallas_traverse::MultiEraNativeScript::from_decoded_alonzo_compatible(&positive);
                 assert!(
                     matches!(
                         Mapper::<NoLedger>::map_multi_era_native_script(&positive).native_script,

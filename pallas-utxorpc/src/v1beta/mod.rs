@@ -576,9 +576,8 @@ mod tests {
 
     #[test]
     fn a_pubkey_clause_maps_to_the_member_this_schema_names() {
-        let script = trv::MultiEraNativeScript::from_decoded_alonzo_compatible(
-            &alonzo::NativeScript::ScriptPubkey([0x44; 28].into()),
-        );
+        let script = alonzo::NativeScript::ScriptPubkey([0x44; 28].into());
+        let script = trv::MultiEraNativeScript::from_decoded_alonzo_compatible(&script);
 
         assert_eq!(
             Mapper::<NoLedger>::map_multi_era_native_script(&script).native_script,

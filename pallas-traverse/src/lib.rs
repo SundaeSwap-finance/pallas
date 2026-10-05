@@ -632,18 +632,28 @@ pub enum MultiEraScriptRef<'b> {
 /// The `AlonzoCompatible` variant carries the type every era through Conway
 /// shares. The `unstable` build adds a Dijkstra variant with a seventh clause.
 ///
-/// Each variant keeps a [`KeepRaw`], so a script read from a witness set or a
-/// reference script carries the bytes it arrived in and gives the hash the
-/// ledger keys it by. A script read from auxiliary data carries none, because
-/// the auxiliary data types hold a decoded script.
+/// A script read from a witness set or a reference script carries the bytes it
+/// arrived in and gives the hash the ledger keys it by. A script read from
+/// auxiliary data, or held by another script, carries none, because those
+/// types hold a decoded script.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum MultiEraNativeScript<'b> {
     /// Native script from any era through Conway.
-    AlonzoCompatible(Cow<'b, KeepRaw<'b, alonzo::NativeScript>>),
+    AlonzoCompatible(NativeScriptForm<'b, alonzo::NativeScript>),
     /// Native script from a Dijkstra transaction, which may require a guard.
     #[cfg(feature = "unstable")]
-    Dijkstra(Cow<'b, KeepRaw<'b, dijkstra::NativeScript>>),
+    Dijkstra(NativeScriptForm<'b, dijkstra::NativeScript>),
+}
+
+/// A native script of one era's type, held with or without the bytes it arrived in.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum NativeScriptForm<'b, T: Clone> {
+    /// A script held with the bytes it arrived in.
+    Raw(Cow<'b, KeepRaw<'b, T>>),
+    /// A script held decoded, with no bytes of its own.
+    Decoded(Cow<'b, T>),
 }
 
 /// The clause at the root of a native script, normalized across eras.
@@ -854,6 +864,7 @@ mod attribute_tests {
         ("lib::MultiEraUpdate", EveryBuild, Always),
         ("lib::MultiEraValue", EveryBuild, Always),
         ("lib::MultiEraWithdrawals", EveryBuild, Always),
+        ("lib::NativeScriptForm", EveryBuild, Always),
         ("probe::Outcome", EveryBuild, Never),
         ("script_ref::ScriptLanguage", EveryBuild, Always),
     ];
@@ -1204,6 +1215,10 @@ mod attribute_tests {
                 crate::MultiEraWithdrawals::Empty,
                 crate::MultiEraWithdrawals::AlonzoCompatible(..),
                 crate::MultiEraWithdrawals::Conway(..),
+            ],
+            NativeScriptForm: crate::NativeScriptForm<'_, pallas_primitives::alonzo::NativeScript> => [
+                crate::NativeScriptForm::Raw(..),
+                crate::NativeScriptForm::Decoded(..),
             ],
             ScriptLanguage: crate::script_ref::ScriptLanguage => [
                 crate::script_ref::ScriptLanguage::Native,

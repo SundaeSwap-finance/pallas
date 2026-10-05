@@ -12,7 +12,7 @@ use pallas_primitives::dijkstra;
 
 use crate::{
     ComputeHash as _, Era, MultiEraNativeClause, MultiEraNativeScript, MultiEraRedeemer,
-    MultiEraRedeemerTag, MultiEraTx, OriginalHash as _,
+    MultiEraRedeemerTag, MultiEraTx, NativeScriptForm, OriginalHash as _,
 };
 
 /// Reads the six clauses every era's native script type names, under the era
@@ -37,30 +37,41 @@ macro_rules! shared_clauses {
     };
 }
 
+impl<T: Clone> Deref for NativeScriptForm<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        match self {
+            Self::Raw(x) => x,
+            Self::Decoded(x) => x,
+        }
+    }
+}
+
 impl<'b> MultiEraNativeScript<'b> {
     pub fn from_alonzo_compatible(script: &'b KeepRaw<'b, alonzo::NativeScript>) -> Self {
-        Self::AlonzoCompatible(Cow::Borrowed(script))
+        Self::AlonzoCompatible(NativeScriptForm::Raw(Cow::Borrowed(script)))
     }
 
     /// Read a script that reached this crate already decoded, so that it has
     /// no bytes of its own to hash.
-    pub fn from_decoded_alonzo_compatible(script: &alonzo::NativeScript) -> Self {
-        Self::AlonzoCompatible(Cow::Owned(KeepRaw::from(script.clone())))
+    pub fn from_decoded_alonzo_compatible(script: &'b alonzo::NativeScript) -> Self {
+        Self::AlonzoCompatible(NativeScriptForm::Decoded(Cow::Borrowed(script)))
     }
 
     #[cfg(feature = "unstable")]
     pub fn from_dijkstra(script: &'b KeepRaw<'b, dijkstra::NativeScript>) -> Self {
-        Self::Dijkstra(Cow::Borrowed(script))
+        Self::Dijkstra(NativeScriptForm::Raw(Cow::Borrowed(script)))
     }
 
     #[cfg(feature = "unstable")]
-    pub fn from_decoded_dijkstra(script: &dijkstra::NativeScript) -> Self {
-        Self::Dijkstra(Cow::Owned(KeepRaw::from(script.clone())))
+    pub fn from_decoded_dijkstra(script: &'b dijkstra::NativeScript) -> Self {
+        Self::Dijkstra(NativeScriptForm::Decoded(Cow::Borrowed(script)))
     }
 
     pub fn as_alonzo_compatible(&self) -> Option<&alonzo::NativeScript> {
         match self {
-            Self::AlonzoCompatible(x) => Some(x.deref().deref()),
+            Self::AlonzoCompatible(x) => Some(x.deref()),
             #[cfg(feature = "unstable")]
             Self::Dijkstra(_) => None,
         }
@@ -69,7 +80,7 @@ impl<'b> MultiEraNativeScript<'b> {
     #[cfg(feature = "unstable")]
     pub fn as_dijkstra(&self) -> Option<&dijkstra::NativeScript> {
         match self {
-            Self::Dijkstra(x) => Some(x.deref().deref()),
+            Self::Dijkstra(x) => Some(x.deref()),
             Self::AlonzoCompatible(_) => None,
         }
     }
@@ -87,31 +98,33 @@ impl<'b> MultiEraNativeScript<'b> {
     /// Returns the script hash, blake2b-224 behind a zero language tag.
     pub fn hash(&self) -> Hash<28> {
         match self {
-            Self::AlonzoCompatible(x) => {
-                if x.raw_cbor().is_empty() {
-                    x.deref().deref().compute_hash()
-                } else {
-                    x.deref().original_hash()
-                }
+            Self::AlonzoCompatible(NativeScriptForm::Raw(x)) if !x.raw_cbor().is_empty() => {
+                x.deref().original_hash()
+            }
+            Self::AlonzoCompatible(x) => x.deref().compute_hash(),
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(NativeScriptForm::Raw(x)) if !x.raw_cbor().is_empty() => {
+                x.deref().original_hash()
             }
             #[cfg(feature = "unstable")]
-            Self::Dijkstra(x) => {
-                if x.raw_cbor().is_empty() {
-                    x.deref().deref().compute_hash()
-                } else {
-                    x.deref().original_hash()
-                }
-            }
+            Self::Dijkstra(x) => x.deref().compute_hash(),
         }
     }
 
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            Self::AlonzoCompatible(x) => {
+            Self::AlonzoCompatible(NativeScriptForm::Raw(x)) => {
+                pallas_codec::minicbor::to_vec(x.deref()).expect("to_vec is infallible")
+            }
+            Self::AlonzoCompatible(NativeScriptForm::Decoded(x)) => {
                 pallas_codec::minicbor::to_vec(x.deref()).expect("to_vec is infallible")
             }
             #[cfg(feature = "unstable")]
-            Self::Dijkstra(x) => {
+            Self::Dijkstra(NativeScriptForm::Raw(x)) => {
+                pallas_codec::minicbor::to_vec(x.deref()).expect("to_vec is infallible")
+            }
+            #[cfg(feature = "unstable")]
+            Self::Dijkstra(NativeScriptForm::Decoded(x)) => {
                 pallas_codec::minicbor::to_vec(x.deref()).expect("to_vec is infallible")
             }
         }
@@ -122,11 +135,11 @@ impl<'b> MultiEraNativeScript<'b> {
     pub fn clause(&self) -> MultiEraNativeClause<'_> {
         match self {
             Self::AlonzoCompatible(x) => {
-                shared_clauses!(x.deref().deref(), alonzo, alonzo_compatible_scripts)
+                shared_clauses!(x.deref(), alonzo, alonzo_compatible_scripts)
             }
             #[cfg(feature = "unstable")]
             Self::Dijkstra(x) => shared_clauses!(
-                x.deref().deref(),
+                x.deref(),
                 dijkstra,
                 dijkstra_scripts,
                 dijkstra::NativeScript::ScriptRequireGuard(credential) =>
@@ -136,9 +149,7 @@ impl<'b> MultiEraNativeScript<'b> {
     }
 }
 
-fn alonzo_compatible_scripts<'a>(
-    scripts: &[alonzo::NativeScript],
-) -> Vec<MultiEraNativeScript<'a>> {
+fn alonzo_compatible_scripts(scripts: &[alonzo::NativeScript]) -> Vec<MultiEraNativeScript<'_>> {
     scripts
         .iter()
         .map(MultiEraNativeScript::from_decoded_alonzo_compatible)
@@ -146,7 +157,7 @@ fn alonzo_compatible_scripts<'a>(
 }
 
 #[cfg(feature = "unstable")]
-fn dijkstra_scripts<'a>(scripts: &[dijkstra::NativeScript]) -> Vec<MultiEraNativeScript<'a>> {
+fn dijkstra_scripts(scripts: &[dijkstra::NativeScript]) -> Vec<MultiEraNativeScript<'_>> {
     scripts
         .iter()
         .map(MultiEraNativeScript::from_decoded_dijkstra)
@@ -523,8 +534,11 @@ impl<'b> MultiEraTx<'b> {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Deref;
+
     use crate::{Era, MultiEraNativeClause, MultiEraTx, testing};
     use pallas_crypto::hash::Hasher;
+    use pallas_primitives::alonzo;
 
     #[test]
     fn a_witness_set_script_hashes_the_bytes_it_arrived_in() {
@@ -836,6 +850,84 @@ mod tests {
     }
 
     #[test]
+    fn a_witness_script_holds_its_value_by_reference() {
+        let script = script_of_every_alonzo_clause();
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let held = tx
+            .as_conway()
+            .and_then(|x| x.transaction_witness_set.native_script.as_ref())
+            .expect("the witness set holds a native script");
+
+        assert!(
+            std::ptr::eq(
+                tx.multi_era_native_scripts()[0]
+                    .as_alonzo_compatible()
+                    .expect("an Alonzo compatible script"),
+                held[0].deref(),
+            ),
+            "a script read from the witness set is the value the transaction holds"
+        );
+    }
+
+    #[test]
+    fn a_clause_holds_its_scripts_by_reference() {
+        let script = script_of_every_alonzo_clause();
+        let cbor = testing::conway_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).expect("must decode");
+        let scripts = tx.multi_era_native_scripts();
+        let held = match scripts[0].as_alonzo_compatible() {
+            Some(alonzo::NativeScript::ScriptAll(held)) => held,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+
+        assert_eq!(items.len(), held.len(), "one item per script held");
+        for (item, held) in items.iter().zip(held) {
+            assert!(
+                std::ptr::eq(
+                    item.as_alonzo_compatible()
+                        .expect("an Alonzo compatible script"),
+                    held
+                ),
+                "an item is the script its parent holds, not a copy of it"
+            );
+        }
+
+        let held = match &held[1] {
+            alonzo::NativeScript::ScriptAny(held) => held,
+            other => panic!("the second clause is script_any, found {other:?}"),
+        };
+        match items[1].clause() {
+            MultiEraNativeClause::Any(inner) => assert!(
+                std::ptr::eq(
+                    inner[0]
+                        .as_alonzo_compatible()
+                        .expect("an Alonzo compatible script"),
+                    &held[0]
+                ),
+                "a script two levels down is the one its parent holds"
+            ),
+            other => panic!("the second clause is script_any, found {other:?}"),
+        }
+    }
+
+    #[test]
     fn a_nested_script_carries_no_bytes_of_its_own() {
         let script = script_of_every_alonzo_clause();
         let cbor = testing::conway_tx(
@@ -974,6 +1066,39 @@ mod dijkstra_tests {
         }
 
         assert_eq!(items[2].clause(), MultiEraNativeClause::InvalidHereafter(9));
+    }
+
+    #[test]
+    fn a_dijkstra_clause_holds_its_scripts_by_reference() {
+        let script = testing::native_script_all(&[
+            &testing::native_script_require_guard(0x7a),
+            &testing::native_script_pubkey(0x44),
+        ]);
+        let cbor = testing::dijkstra_block_tx(
+            &testing::minimal_body(),
+            &testing::witness_set_with_native_script(&script),
+            None,
+            true,
+        );
+
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).expect("must decode");
+        let scripts = tx.multi_era_native_scripts();
+        let held = match scripts[0].as_dijkstra() {
+            Some(dijkstra::NativeScript::ScriptAll(held)) => held,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+        let items = match scripts[0].clause() {
+            MultiEraNativeClause::All(items) => items,
+            other => panic!("the root clause is script_all, found {other:?}"),
+        };
+
+        assert_eq!(items.len(), held.len(), "one item per script held");
+        for (item, held) in items.iter().zip(held) {
+            assert!(
+                std::ptr::eq(item.as_dijkstra().expect("a Dijkstra script"), held),
+                "an item is the script its parent holds, not a copy of it"
+            );
+        }
     }
 
     #[test]
