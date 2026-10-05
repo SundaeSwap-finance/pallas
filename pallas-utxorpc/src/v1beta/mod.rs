@@ -181,6 +181,20 @@ fn map_direct_deposit(
     }
 }
 
+/// The credentials that guard a transaction, a bare key hash as a key credential.
+#[cfg(feature = "unstable")]
+fn map_guards(x: &pallas_primitives::dijkstra::Guards) -> Vec<u5c::StakeCredential> {
+    use pallas_primitives::{StakeCredential, dijkstra::Guards};
+
+    match x {
+        Guards::AddrKeyhashes(x) => x
+            .iter()
+            .map(|h| map_credential(&StakeCredential::AddrKeyhash(*h)))
+            .collect(),
+        Guards::Credentials(x) => x.iter().map(map_credential).collect(),
+    }
+}
+
 /// The interval one reward account balance must fall within.
 #[cfg(feature = "unstable")]
 fn map_account_balance_interval(
@@ -427,6 +441,11 @@ impl<C: LedgerContext> Mapper<C> {
                 .flatten()
                 .map(map_account_balance_interval)
                 .collect(),
+            guards: tx
+                .required_signers()
+                .as_dijkstra()
+                .map(map_guards)
+                .unwrap_or_default(),
             ..Default::default()
         }
     }
@@ -846,6 +865,48 @@ mod tests {
                 0,
             ),
             "the sub body's deposit and interval reach the sub transaction and not the one carrying it"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_body_without_guards_maps_none() {
+        let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_account_fields());
+
+        assert_eq!(
+            (mapped.guards.len(), mapped.sub_transactions[0].guards.len()),
+            (0, 0),
+            "a Dijkstra body and a sub body without key 14 map to no guards"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn guards_map_with_their_key_or_script_tag() {
+        use u5c::stake_credential::StakeCredential;
+
+        let credential = |inner: StakeCredential| u5c::StakeCredential {
+            stake_credential: Some(inner),
+        };
+        let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_guards());
+
+        assert_eq!(
+            mapped.guards,
+            vec![
+                credential(StakeCredential::AddrKeyHash(GUARD_KEY_HASH.to_vec().into())),
+                credential(StakeCredential::ScriptHash(
+                    GUARD_SCRIPT_HASH.to_vec().into()
+                )),
+            ],
+            "each credential of the body's guards reaches u5c with its key or script tag, in body order"
+        );
+
+        assert_eq!(
+            mapped.sub_transactions[0].guards,
+            vec![credential(StakeCredential::AddrKeyHash(
+                SUB_GUARD_KEY_HASH.to_vec().into()
+            ))],
+            "a sub body's bare key hash reaches the sub transaction as a key credential"
         );
     }
 

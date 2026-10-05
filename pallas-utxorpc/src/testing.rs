@@ -553,6 +553,75 @@ pub fn dijkstra_tx_with_account_fields() -> trv::MultiEraTx<'static> {
     trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
 }
 
+/// The key credential of the top body's guards.
+#[cfg(feature = "unstable")]
+pub const GUARD_KEY_HASH: [u8; 28] = [0x31; 28];
+
+/// The script credential of the top body's guards.
+#[cfg(feature = "unstable")]
+pub const GUARD_SCRIPT_HASH: [u8; 28] = [0x32; 28];
+
+/// The key hash of the sub body's guards.
+#[cfg(feature = "unstable")]
+pub const SUB_GUARD_KEY_HASH: [u8; 28] = [0x33; 28];
+
+/// A Dijkstra transaction whose guards are a key and a script credential, and
+/// whose one sub transaction's guards are a bare key hash.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_guards() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(5).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x13; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(2).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&GUARD_KEY_HASH).unwrap();
+    e.array(2).unwrap();
+    e.u8(1).unwrap();
+    e.bytes(&GUARD_SCRIPT_HASH).unwrap();
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(3).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x14; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.bytes(&SUB_GUARD_KEY_HASH).unwrap();
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
 /// A Dijkstra update setting each key this era adds past 33 to a value no
 /// other key of the update takes, with key 38 a ratio rather than nil.
 #[cfg(feature = "unstable")]
