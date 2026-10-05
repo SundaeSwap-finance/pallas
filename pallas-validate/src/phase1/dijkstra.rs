@@ -12,7 +12,9 @@ use pallas_codec::{
 };
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway::LanguageViews, dijkstra::*};
-use pallas_traverse::{ComputeHash, MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx};
+use pallas_traverse::{
+    ComputeHash, MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash,
+};
 use std::collections::{BTreeMap, HashSet};
 
 type Keys = HashSet<Hash<28>>;
@@ -165,11 +167,24 @@ pub fn validate_dijkstra_tx(
         accounts.insert(credential.clone(), Some(0));
         state.insert(credential.clone(), DijkstraRegistrationState::Registered);
     }
-    // Zero withdrawals also require a zero original balance in legacy mode.
-    if !scripts.is_empty() {
-        if b.sub_transactions.is_some() {
-            return Err(DijkstraUnsupported("scripted or stateful batch"));
-        }
+    if !scripts.is_empty() && b.sub_transactions.is_some() {
+        return Err(DijkstraUnsupported("scripted or stateful batch"));
+    }
+    check_interval(
+        b.validity_interval_start,
+        b.ttl,
+        b.network_id,
+        *block_slot,
+        *network_id,
+    )?;
+    // Dijkstra Tx.hs counts [body, witnesses, auxiliary/null], excluding block success.
+    let size = encode(tx.to_mempool_transaction())?.len();
+    if size > pp.max_transaction_size as usize {
+        return Err(PostAlonzo(MaxTxSizeExceeded));
+    }
+    let (script_fee, has_plutus) = check_scripts(tx, utxos, pp, &scripts, &mut keys, *network_id)?;
+    // Native scripts do not activate legacy Plutus withdrawal rules.
+    if has_plutus {
         if b.required_top_level_guards
             .as_ref()
             .is_some_and(|x| !x.is_empty())
@@ -193,26 +208,11 @@ pub fn validate_dijkstra_tx(
             }
         }
     }
-    check_interval(
-        b.validity_interval_start,
-        b.ttl,
-        b.network_id,
-        *block_slot,
-        *network_id,
-    )?;
-    // Dijkstra Tx.hs counts [body, witnesses, auxiliary/null], excluding block success.
-    let size = encode(tx.to_mempool_transaction())?.len();
-    if size > pp.max_transaction_size as usize {
-        return Err(PostAlonzo(MaxTxSizeExceeded));
-    }
     let mut minimum_fee = u64::from(pp.minfee_a)
         .checked_mul(size as u64)
         .and_then(|x| x.checked_add(u64::from(pp.minfee_b)))
         .ok_or(PostAlonzo(NegativeValue))?;
-    minimum_fee = add(
-        minimum_fee,
-        check_scripts(tx, utxos, pp, &scripts, &mut keys, *network_id)?,
-    )?;
+    minimum_fee = add(minimum_fee, script_fee)?;
     if b.fee < minimum_fee {
         return Err(PostAlonzo(FeeBelowMin));
     }
@@ -522,7 +522,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     check_witness_fields(&tx.transaction_witness_set, true)
 }
 fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> ValidationResult {
-    if w.native_script.is_some()
+    if (!redeemers && w.native_script.is_some())
         || w.bootstrap_witness.is_some()
         || w.plutus_v1_script.is_some()
         || w.plutus_v2_script.is_some()
@@ -532,7 +532,7 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> Val
         return Err(DijkstraUnsupported("non-vkey witnesses"));
     }
     let allowed = if redeemers {
-        &[0, 4, 5, 7][..]
+        &[0, 1, 4, 5, 7][..]
     } else {
         &[0][..]
     };
@@ -602,14 +602,10 @@ fn check_scripts(
     scripts: &BTreeMap<RedeemersKey, Hash<28>>,
     keys: &mut Keys,
     network: u8,
-) -> Result<u64, ValidationError> {
+) -> Result<(u64, bool), ValidationError> {
     let b = &tx.transaction_body;
     let w = &tx.transaction_witness_set;
-    if !scripts.is_empty() && b.ttl.is_some() {
-        return Err(DijkstraUnsupported(
-            "Plutus validity upper bound requires forecast state",
-        ));
-    }
+    let mut natives = BTreeMap::new();
     let mut available = HashSet::new();
     let mut reference_scripts = HashSet::new();
     let mut refs = Spent::new();
@@ -636,6 +632,16 @@ fn check_scripts(
         if let Some(script) = output.multi_era_script_ref() {
             // Reference UTxOs are already-admitted ledger outputs. No new script
             // bytes enter the ledger in this subset, and phase two is separate.
+            if let Some(native) = script.native_script() {
+                let raw = native.encode();
+                let decoded: NativeScript =
+                    minicbor::decode(&raw).map_err(|_| PostAlonzo(UnsupportedNativeScript))?;
+                crate::utils::dijkstra_native::check_supported(&decoded)?;
+                bytes = add(bytes, raw.len() as u64)?;
+                reference_scripts.insert(script.hash());
+                natives.insert(script.hash(), decoded);
+                continue;
+            }
             let raw = match &script {
                 MultiEraScriptRef::Dijkstra(x) => match x.as_ref() {
                     ScriptRef::PlutusV3Script(s) => s.as_ref(),
@@ -655,6 +661,43 @@ fn check_scripts(
             reference_scripts.insert(hash);
         }
     }
+    for script in w.native_script.iter().flat_map(|x| x.iter()) {
+        let hash = script.original_hash();
+        if !scripts.values().any(|x| *x == hash) || reference_scripts.contains(&hash) {
+            return Err(PostAlonzo(UnneededNativeScript));
+        }
+        natives.insert(hash, (**script).clone());
+    }
+    let witness_keys = w
+        .vkeywitness
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|w| Hasher::<224>::hash(&w.vkey))
+        .collect();
+    for (hash, script) in &natives {
+        crate::utils::dijkstra_native::check_supported(script)?;
+        if scripts.values().any(|x| x == hash)
+            && !crate::utils::dijkstra_native::evaluate(
+                script,
+                &witness_keys,
+                b.validity_interval_start,
+                b.ttl,
+            )
+        {
+            return Err(PostAlonzo(NativeScriptDenial));
+        }
+    }
+    // Retain original purpose indices: native scripts need no redeemer or datum.
+    let scripts: BTreeMap<_, _> = scripts
+        .iter()
+        .filter(|(_, hash)| !natives.contains_key(hash))
+        .map(|(key, hash)| (key.clone(), *hash))
+        .collect();
+    if !scripts.is_empty() && b.ttl.is_some() {
+        return Err(DijkstraUnsupported(
+            "Plutus validity upper bound requires forecast state",
+        ));
+    }
     for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
         let hash = script.compute_hash();
         if !scripts.values().any(|x| *x == hash) || reference_scripts.contains(&hash) {
@@ -663,7 +706,10 @@ fn check_scripts(
         well_formed_v3(script.as_ref())?;
         available.insert(hash);
     }
-    check_datums(tx, utxos, scripts)?;
+    if scripts.values().any(|x| !available.contains(x)) {
+        return Err(PostAlonzo(ScriptWitnessMissing));
+    }
+    check_datums(tx, utxos, &scripts)?;
     if scripts.is_empty() {
         if b.collateral.is_some() || b.collateral_return.is_some() || b.total_collateral.is_some() {
             return Err(DijkstraUnsupported("collateral without Plutus"));
@@ -674,7 +720,7 @@ fn check_scripts(
         // An empty redeemer map and language view still participate when datums exist.
         check_integrity(tx, None)?;
         if bytes == 0 {
-            return Ok(0);
+            return Ok((0, false));
         }
         let p = pp
             .plutus
@@ -683,7 +729,7 @@ fn check_scripts(
         if bytes > u64::from(p.max_ref_script_size_per_tx) {
             return Err(DijkstraReferenceScriptsTooLarge);
         }
-        return reference_fee(bytes, p);
+        return Ok((reference_fee(bytes, p)?, false));
     }
     let p = pp
         .plutus
@@ -696,9 +742,6 @@ fn check_scripts(
     }
     if bytes > u64::from(p.max_ref_script_size_per_tx) {
         return Err(DijkstraReferenceScriptsTooLarge);
-    }
-    if scripts.values().any(|x| !available.contains(x)) {
-        return Err(PostAlonzo(ScriptWitnessMissing));
     }
     let redeemers = w.redeemer.as_ref().ok_or(PostAlonzo(RedeemerMissing))?;
     // BTreeMap decoding could hide duplicate pointers. Inspect original map first.
@@ -788,6 +831,7 @@ fn check_scripts(
         u64::try_from(execution_fee).map_err(|_| PostAlonzo(NegativeValue))?,
         reference_fee(bytes, p)?,
     )
+    .map(|fee| (fee, true))
 }
 
 // Exact nonnegative arithmetic: execution fees round up once; the total tiered
@@ -1086,6 +1130,7 @@ fn check_integrity(tx: &BlockTransaction<'_>, model: Option<&Vec<i64>>) -> Valid
 fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     match script {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
+            ScriptRef::NativeScript(s) => crate::utils::dijkstra_native::check_supported(s),
             ScriptRef::PlutusV3Script(s) => well_formed_v3(s.as_ref()),
             _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
         },

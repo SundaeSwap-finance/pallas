@@ -1,0 +1,327 @@
+{
+  "date": "2026-10-05",
+  "status": "verified implementation snapshot; see git history for commit status",
+  "pallas_head": "8efc15bc0207ea85038865c7f8700868bc69e0ba",
+  "branch": "leios-musashi",
+  "publication": "Read-only HTTPS Pallas tip matched HEAD at implementation start; no remote changes made.",
+  "baseline": {
+    "revision": "8efc15bc0207ea85038865c7f8700868bc69e0ba",
+    "changes": "test sources and cfg(test) declarations only; original production verified unchanged",
+    "result": {
+      "passed": 0,
+      "failed": 12,
+      "ignored": 0
+    },
+    "capture_failure": "DijkstraUnsupported(\"non-vkey witnesses\")",
+    "compilation_failures_count_as_reproduction": false,
+    "build_directory": "target/dijkstra-native-baseline"
+  },
+  "fixed": {
+    "result": {
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0
+    },
+    "build_directory": "target/debug"
+  },
+  "identical_test_sha256": {
+    "pallas-validate/src/phase1/dijkstra_native_tests.rs": "ea904e02b4b72d251ce4bd7d3d7824f717e3a6a5fee7bc93eb93ef6493fdbfe9",
+    "pallas-validate/src/phase1/dijkstra_transaction_tests.rs": "c5e9a1120458796b909b7b4f197220a81c3f3fa3b5075a39f1a429e6eb4c33d9",
+    "pallas-validate/src/phase2/dijkstra_native_context_tests.rs": "e0e9d43454a315d71ab052df585caa37798d3284dec643075eca2d1d44589b45"
+  },
+  "production_sha256": {
+    "pallas-validate/src/phase1/dijkstra.rs": "6ff444493baa41b0ba92e71899f65927a8f09e8fe3fc1c93cc2e5f3cbba6547b",
+    "pallas-validate/src/phase2/dijkstra.rs": "3442ffb7eafc58c10758698ab309959c92ccad3c8a66906da443039e80b7c798",
+    "pallas-validate/src/utils.rs": "c1640abae63d91308e3d9f57f8734a43ec1aa4b7700952d04d13168512a03e0f",
+    "pallas-validate/src/utils/dijkstra_native.rs": "ba308a2ab11abbd68fe4d2bf6e1d35ef3eb2de0548e8e1caa0d66b71e9f24988"
+  },
+  "checks": [
+    {
+      "name": "fixed",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "unstable,phase2",
+        "--lib",
+        "dijkstra_native"
+      ],
+      "exit_code": 0,
+      "seconds": 33.6
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 1,
+      "seconds": 1.88
+    },
+    {
+      "name": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 30.42
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "exit_code": 101,
+      "seconds": 314.04
+    },
+    {
+      "name": "blueprint",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-network",
+        "-p",
+        "pallas-network2",
+        "--features",
+        "blueprint"
+      ],
+      "exit_code": 101,
+      "seconds": 17.84
+    },
+    {
+      "name": "unstable",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-primitives",
+        "-p",
+        "pallas-traverse",
+        "-p",
+        "pallas-utxorpc",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "unstable"
+      ],
+      "exit_code": 0,
+      "seconds": 36.86
+    },
+    {
+      "name": "phase2",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2"
+      ],
+      "exit_code": 0,
+      "seconds": 21.69
+    },
+    {
+      "name": "native-validation",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "unstable,phase2"
+      ],
+      "exit_code": 0,
+      "seconds": 42.22
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "seconds": 14.73
+    },
+    {
+      "name": "docs",
+      "command": [
+        "cargo",
+        "doc",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "seconds": 84.61
+    },
+    {
+      "name": "no-default",
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "seconds": 12.28
+    },
+    {
+      "name": "all-features",
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "exit_code": 0,
+      "seconds": 18.47
+    },
+    {
+      "name": "isolated-primitives",
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "-p",
+        "pallas-primitives",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "seconds": 7.48
+    }
+  ],
+  "test_summaries": {
+    "native-validation": {
+      "passed": 286,
+      "failed": 0,
+      "ignored": 3
+    },
+    "native-without-phase2": {
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0
+    },
+    "workspace-socket-retry": {
+      "passed": 1016,
+      "failed": 0,
+      "ignored": 19
+    },
+    "blueprint-socket-retry": {
+      "passed": 392,
+      "failed": 0,
+      "ignored": 8
+    },
+    "math-docs": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "unstable": {
+      "passed": 678,
+      "failed": 0,
+      "ignored": 1
+    },
+    "phase2": {
+      "passed": 162,
+      "failed": 0,
+      "ignored": 1
+    },
+    "msrv-validation": {
+      "passed": 286,
+      "failed": 0,
+      "ignored": 3
+    }
+  },
+  "workspace_completion": {
+    "passed": 1036,
+    "ignored": 19,
+    "method": "workspace excluding pallas-math passed with sockets; all 19 math unit tests passed in initial run; math doctest passed separately"
+  },
+  "sandbox_retries": {
+    "initial_failures": [
+      "workspace-tests",
+      "blueprint"
+    ],
+    "reason": "loopback bind/connect Operation not permitted in pallas-network/tests/plexer.rs",
+    "resolution": "socket-enabled workspace excluding already-passed math unit tests, blueprint suite and math docs all passed"
+  },
+  "additional_checks": [
+    {
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo +1.97.0 check --offline --locked --workspace --all-targets",
+      "result": "passed"
+    },
+    {
+      "command": "cargo +1.97.0 test --offline --locked -p pallas-validate --features phase2,unstable",
+      "result": "passed"
+    },
+    {
+      "command": "cargo +1.97.0 test --offline --locked -p pallas-validate --features unstable --lib dijkstra_native",
+      "result": "9 passed"
+    },
+    {
+      "command": "rustfmt --edition 2024 --check changed Rust files; git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "python3 test_data/dijkstra-native-scripts/verify.py",
+      "result": "passed; exact retained extractor re-extraction also byte-identical"
+    }
+  ],
+  "known_failures": [
+    {
+      "check": "cargo fmt --all --check",
+      "result": "seven pre-existing differences in untouched examples/leios-testnet/src/bin/harvest.rs; file verified byte-identical to HEAD"
+    }
+  ],
+  "limitations": [
+    "Guard clauses, script guards and scripted subtransactions remain unsupported.",
+    "Earlier exact historical parameter state was not independently recovered; epoch-64 parameters are explicit replay context.",
+    "Archive success is not an independent node comparison or current spendability proof.",
+    "macOS/Windows unavailable; Linux checked."
+  ],
+  "full_logs": "target/dijkstra-native-checks/",
+  "durable_regression_artifacts": "test_data/dijkstra-native-scripts/"
+}

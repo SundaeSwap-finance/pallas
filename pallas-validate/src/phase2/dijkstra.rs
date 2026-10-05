@@ -11,7 +11,7 @@ use crate::utils::{MultiEraProtocolParameters, TxoRef, UtxoMap};
 use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
 use pallas_codec::utils::CborWrap;
 use pallas_primitives::{conway as c, dijkstra as n};
-use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx};
+use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
 use std::collections::BTreeMap;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
@@ -34,11 +34,24 @@ fn context_output(
     let script = match output.multi_era_script_ref() {
         None => None,
         Some(MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
-            n::ScriptRef::PlutusV3Script(s) => Some(s.clone()),
+            n::ScriptRef::NativeScript(s) => {
+                crate::utils::dijkstra_native::check_supported(s)
+                    .map_err(|_| Error::DijkstraUnsupported("native script guards"))?;
+                // The guard-free variants share their encoding. Preserve original
+                // script bytes so the V3 TxOut exposes the correct reference hash.
+                let raw = pallas_codec::minicbor::to_vec(s)
+                    .map_err(|_| Error::DijkstraInvalid("native script encoding"))?;
+                let compatible: pallas_codec::utils::KeepRaw<'_, c::NativeScript> =
+                    pallas_codec::minicbor::decode(&raw)
+                        .map_err(|_| Error::DijkstraInvalid("native script encoding"))?;
+                Some(c::ScriptRef::NativeScript(compatible.to_owned()))
+            }
+            n::ScriptRef::PlutusV3Script(s) => Some(c::ScriptRef::PlutusV3Script(s.clone())),
             _ => return unsupported("reference script language (requires V3)"),
         },
         Some(MultiEraScriptRef::Conway(s)) => match s.as_ref() {
-            c::ScriptRef::PlutusV3Script(s) => Some(s.clone()),
+            c::ScriptRef::NativeScript(s) => Some(c::ScriptRef::NativeScript(s.clone().to_owned())),
+            c::ScriptRef::PlutusV3Script(s) => Some(c::ScriptRef::PlutusV3Script(s.clone())),
             _ => return unsupported("reference script language (requires V3)"),
         },
         _ => return unsupported("reference script language (requires V3)"),
@@ -54,7 +67,7 @@ fn context_output(
                     c::DatumOption::Data(d) => c::DatumOption::Data(CborWrap(d.0.unwrap().into())),
                 })
                 .map(Into::into),
-            script_ref: script.map(|s| CborWrap(c::ScriptRef::PlutusV3Script(s))),
+            script_ref: script.map(CborWrap),
         }
         .into(),
     ))
@@ -139,13 +152,7 @@ fn eval_tx_with_mode(
     {
         return unsupported("governance");
     }
-    if b.ttl.is_some() {
-        return unsupported("upper validity bound requires forecast state");
-    }
-    if w.plutus_v1_script.is_some()
-        || w.plutus_v2_script.is_some()
-        || w.native_script.is_some()
-        || w.bootstrap_witness.is_some()
+    if w.plutus_v1_script.is_some() || w.plutus_v2_script.is_some() || w.bootstrap_witness.is_some()
     {
         return unsupported("unsupported witness scripts or bootstrap witnesses");
     }
@@ -193,6 +200,19 @@ fn eval_tx_with_mode(
         .collect::<Result<Vec<_>, _>>()?;
     // Collateral is a phase-one concern and is not part of the V3 context or
     // script lookup.
+    let mut natives = std::collections::BTreeSet::new();
+    for script in w.native_script.iter().flat_map(|x| x.iter()) {
+        crate::utils::dijkstra_native::check_supported(script)
+            .map_err(|_| Error::DijkstraUnsupported("native script guards"))?;
+        natives.insert(script.original_hash());
+    }
+    for input in inputs.iter().chain(&reference_inputs) {
+        if let c::TransactionOutput::PostAlonzo(o) = &input.resolved
+            && let Some(CborWrap(c::ScriptRef::NativeScript(s))) = &o.script_ref
+        {
+            natives.insert(s.original_hash());
+        }
+    }
     let mut scripts = BTreeMap::new();
     for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
         super::native_evaluator::check_v3_script(script.as_ref())?;
@@ -224,6 +244,9 @@ fn eval_tx_with_mode(
         if let Address::Shelley(address) = view.address()?
             && let ShelleyPaymentPart::Script(hash) = address.payment()
         {
+            if natives.contains(hash) {
+                continue;
+            }
             let key = n::RedeemersKey {
                 tag: n::RedeemerTag::Spend,
                 index: index as u32,
@@ -290,6 +313,8 @@ fn eval_tx_with_mode(
             );
         }
     }
+    expected.retain(|_, hash| !natives.contains(hash));
+    purposes_by_pointer.retain(|key, _| expected.contains_key(key));
     for hash in expected.values() {
         if !scripts.contains_key(hash) {
             return Err(Error::MissingRequiredScript {
@@ -337,6 +362,9 @@ fn eval_tx_with_mode(
     }
     if purposes.is_empty() {
         return Ok(vec![]);
+    }
+    if b.ttl.is_some() {
+        return unsupported("upper validity bound requires forecast state");
     }
     let lower_bound = b
         .validity_interval_start
@@ -451,3 +479,7 @@ fn eval_tx_with_mode(
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "dijkstra_native_context_tests.rs"]
+mod native_context_tests;

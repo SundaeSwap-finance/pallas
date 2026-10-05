@@ -720,7 +720,8 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
             match feature {
                 0 => assert!(result.is_ok(), "a key input may carry a datum"),
                 1 => error(result, "PostAlonzo(PreservationOfValue)"),
-                2 => error(result, "DijkstraMissingParameters(\"Plutus parameters\")"),
+                // A missing script is detected before choosing its language parameters.
+                2 => error(result, "PostAlonzo(ScriptWitnessMissing)"),
                 _ => error(result, &format!("DijkstraUnsupported({expected:?})")),
             }
         }

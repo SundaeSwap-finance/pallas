@@ -377,6 +377,93 @@ mod scripts {
             test(tx, inputs, env, state);
         });
     }
+    #[test]
+    fn dijkstra_native_mixed_plutus_preserves_indices_and_context() {
+        use pallas_traverse::OriginalHash;
+        for reference in [false, true] {
+            case(false, PASS, |mut tx, mut inputs, env, state| {
+                // Noncanonical native script bytes must survive V3 TxOut projection.
+                let raw = [0x98, 0x02, 0x18, 0x01, 0x80]; // all []
+                let native = minicbor::decode::<KeepRaw<'_, n::NativeScript>>(&raw)
+                    .unwrap()
+                    .to_owned();
+                let hash = native.original_hash();
+                let input = n::TransactionInput {
+                    transaction_id: Hash::from([0; 32]),
+                    index: 0,
+                };
+                let mut out = inputs[0].1.clone();
+                let o = output_mut(&mut out);
+                o.address = pallas_addresses::ShelleyAddress::new(
+                    pallas_addresses::Network::Testnet,
+                    pallas_addresses::ShelleyPaymentPart::Script(hash),
+                    pallas_addresses::ShelleyDelegationPart::Null,
+                )
+                .to_vec()
+                .into();
+                o.value = c::Value::Coin(5_000_000);
+                // Native spends require no datum, even when the output has a hash.
+                o.datum_option = Some(c::DatumOption::Hash(Hash::from([42; 32])).into());
+                if reference {
+                    o.script_ref = Some(CborWrap(n::ScriptRef::NativeScript(native.clone())));
+                } else {
+                    tx.transaction_witness_set.native_script =
+                        n::NonEmptySet::from_vec(vec![native]);
+                }
+                inputs.push((input.clone(), out));
+                let mut spending = tx.transaction_body.inputs.to_vec();
+                spending.push(input);
+                tx.transaction_body.inputs = spending.into();
+                if let c::Value::Multiasset(coin, _) = &mut output_mut(first_output(&mut tx)).value
+                {
+                    *coin += 5_000_000;
+                }
+                let redeemers = &mut tx.transaction_witness_set.redeemer.as_mut().unwrap().0;
+                let old = n::RedeemersKey {
+                    tag: n::RedeemerTag::Spend,
+                    index: 1,
+                };
+                let value = redeemers.remove(&old).unwrap();
+                redeemers.insert(
+                    n::RedeemersKey {
+                        tag: n::RedeemerTag::Spend,
+                        index: 2,
+                    },
+                    value.clone(),
+                );
+                seal(&mut tx, &env);
+                let result = run(&tx, &inputs, &env, &state);
+                assert!(result.is_ok(), "{result:?}");
+                let result = evaluate(&tx, &inputs, &env).unwrap();
+                assert_eq!(result.len(), 3);
+                assert!(result.iter().all(|x| x.success));
+                // A redeemer for the native input is extraneous in both phases.
+                tx.transaction_witness_set
+                    .redeemer
+                    .as_mut()
+                    .unwrap()
+                    .0
+                    .insert(
+                        n::RedeemersKey {
+                            tag: n::RedeemerTag::Spend,
+                            index: 0,
+                        },
+                        value,
+                    );
+                seal(&mut tx, &env);
+                assert!(matches!(
+                    run(&tx, &inputs, &env, &state),
+                    Err(crate::utils::ValidationError::PostAlonzo(
+                        crate::utils::PostAlonzoError::UnneededRedeemer
+                    ))
+                ));
+                assert!(matches!(
+                    evaluate(&tx, &inputs, &env),
+                    Err(crate::phase2::error::Error::ExtraneousRedeemer)
+                ));
+            });
+        }
+    }
     const PASS: &str = "(program 1.1.0 (lam ctx (con unit ())))";
     #[test]
     fn estimation_tests_spend_mint_reward_reporting() {
