@@ -222,9 +222,6 @@ pub fn validate_dijkstra_tx(
     for sub in b.sub_transactions.iter().flat_map(|x| x.iter()) {
         check_sub_supported(sub)?;
         let sb = &sub.sub_transaction_body;
-        for output in sb.outputs.iter() {
-            key_coin(&MultiEraOutput::from_dijkstra(output))?;
-        }
         check_required_guards(sb.required_top_level_guards.as_ref(), &top_guards)?;
         check_interval(
             sb.validity_interval_start,
@@ -434,17 +431,14 @@ fn check_outputs(
     }
     Ok(total)
 }
+/// A sub-transaction input: a key must authorize it, since a sub-transaction
+/// carries no scripts. Native assets are allowed; `check_assets` balances them
+/// across the batch.
 fn key_coin(
     output: &MultiEraOutput<'_>,
 ) -> Result<(u64, pallas_crypto::hash::Hash<28>), ValidationError> {
     if output.datum().is_some() || output.multi_era_script_ref().is_some() {
         return Err(DijkstraUnsupported("output datum or reference script"));
-    }
-    if !matches!(
-        output.value().into_alonzo(),
-        pallas_primitives::alonzo::Value::Coin(_)
-    ) {
-        return Err(DijkstraUnsupported("multiasset value"));
     }
     let Address::Shelley(address) = output.address().map_err(|_| PostAlonzo(AddressDecoding))?
     else {
