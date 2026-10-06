@@ -3,6 +3,7 @@ use super::{
     dijkstra_tests::{env, error, sign, synthetic},
     *,
 };
+use pallas_addresses::{Network, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor,
     utils::{MaybeIndefArray, Nullable},
@@ -227,5 +228,124 @@ fn dijkstra_batch_cannot_spend_output_created_in_same_batch() {
         tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![first, second]);
         sign(&mut tx);
         error(run(&tx, &input, &env()), "PostAlonzo(InputNotInUTxO)");
+    });
+}
+
+/// `run`, with the sub-transaction's input resolving to `sub_input`.
+fn run_sub(
+    tx: &n::BlockTransaction<'_>,
+    input: &n::TransactionOutput<'_>,
+    sub_input: &n::TransactionOutput<'_>,
+) -> crate::utils::ValidationResult {
+    let original = tx.transaction_body.inputs[0].clone();
+    let mut second = original.clone();
+    second.index = 99;
+    let utxos = [
+        (owned(original), MultiEraOutput::from_dijkstra(input)),
+        (owned(second), MultiEraOutput::from_dijkstra(sub_input)),
+    ]
+    .into_iter()
+    .collect();
+    validate_txs(
+        &[MultiEraTx::from_dijkstra(tx)],
+        &env(),
+        &utxos,
+        &mut CertState::default(),
+    )
+}
+
+fn post_alonzo<'a, 'b>(
+    output: &'a mut n::TransactionOutput<'b>,
+) -> &'a mut n::PostAlonzoTransactionOutput<'b> {
+    let n::TransactionOutput::PostAlonzo(out) = output else {
+        unreachable!()
+    };
+    out
+}
+
+fn tokens(coin: u64, quantity: u64) -> pallas_primitives::conway::Value {
+    pallas_primitives::conway::Value::Multiasset(
+        coin,
+        [(
+            [8; 28].into(),
+            [(b"token".to_vec().into(), quantity.try_into().unwrap())]
+                .into_iter()
+                .collect(),
+        )]
+        .into_iter()
+        .collect(),
+    )
+}
+
+fn script_address() -> pallas_codec::utils::Bytes {
+    ShelleyAddress::new(
+        Network::Testnet,
+        ShelleyPaymentPart::Script([9; 28].into()),
+        ShelleyDelegationPart::Null,
+    )
+    .to_vec()
+    .into()
+}
+
+/// The shape of a babel-fee offer that places a DEX order: the sub spends a key
+/// input holding tokens and pays them, with some coin, to a script under an
+/// inline datum. The top level supplies that coin.
+fn token_order_batch(
+    test: impl FnOnce(n::BlockTransaction<'_>, n::TransactionOutput<'_>, n::TransactionOutput<'_>),
+) {
+    batch(|mut tx, input| {
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        let order_coin = 2_000_000;
+        let mut sub_input = input.clone();
+        post_alonzo(&mut sub_input).value = tokens(coin, 7);
+        let mut order = tx.transaction_body.outputs[0].clone();
+        let out = post_alonzo(&mut order);
+        out.address = script_address();
+        out.value = tokens(order_coin, 7);
+        out.datum_option = Some(
+            pallas_primitives::conway::DatumOption::Data(pallas_codec::utils::CborWrap(
+                n::PlutusData::BigInt(n::BigInt::Int(42.into())).into(),
+            ))
+            .into(),
+        );
+        let mut sub = tx.transaction_body.sub_transactions.as_ref().unwrap()[0].clone();
+        sub.sub_transaction_body.outputs = MaybeIndefArray::Def(vec![order]);
+        sign_sub(&mut sub);
+        tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+        let mut outputs = tx.transaction_body.outputs.clone().to_vec();
+        let n::Value::Coin(ref mut top) = post_alonzo(&mut outputs[0]).value else {
+            unreachable!()
+        };
+        *top -= order_coin;
+        tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+        sign(&mut tx);
+        test(tx, input, sub_input);
+    });
+}
+
+#[test]
+fn dijkstra_batch_sub_pays_tokens_to_a_script_under_a_datum() {
+    token_order_batch(|tx, input, sub_input| {
+        let result = run_sub(&tx, &input, &sub_input);
+        assert!(result.is_ok(), "{result:?}");
+    });
+}
+
+#[test]
+fn dijkstra_batch_sub_inputs_still_need_a_key_and_no_datum() {
+    token_order_batch(|tx, input, sub_input| {
+        let mut scripted = sub_input.clone();
+        post_alonzo(&mut scripted).address = script_address();
+        error(
+            run_sub(&tx, &input, &scripted),
+            "DijkstraUnsupported(\"script payment credential\")",
+        );
+        let mut with_datum = sub_input;
+        post_alonzo(&mut with_datum).datum_option =
+            Some(pallas_primitives::conway::DatumOption::Hash([0; 32].into()).into());
+        error(
+            run_sub(&tx, &input, &with_datum),
+            "DijkstraUnsupported(\"output datum or reference script\")",
+        );
     });
 }
