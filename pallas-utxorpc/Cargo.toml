@@ -40,7 +40,7 @@ default = ["u5c-v1alpha-compat"]
 # to force callers onto explicit `v1alpha::Mapper` / `v1beta::Mapper` paths.
 u5c-v1alpha-compat = []
 # Read the Dijkstra era through the accessors that can hold its types.
-unstable = ["pallas-traverse/unstable", "pallas-primitives/unstable"]
+unstable = ["pallas-traverse/unstable", "pallas-primitives/unstable", "pallas-validate/unstable"]
 
 [dev-dependencies]
 hex.workspace = true

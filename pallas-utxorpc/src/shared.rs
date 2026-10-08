@@ -88,9 +88,8 @@ macro_rules! impl_cardano_mapper_shared {
             NOfK(i64),
             InvalidBefore(u64),
             InvalidHereafter(u64),
-            /// The clause Dijkstra adds, which u5c has no member for.
             #[cfg(feature = "unstable")]
-            Guard,
+            Guard(&'a pallas_primitives::StakeCredential),
         }
 
         /// Map an anchor, whose type every era carrying one shares.
@@ -98,6 +97,23 @@ macro_rules! impl_cardano_mapper_shared {
             u5c::Anchor {
                 url: x.url.clone(),
                 content_hash: x.content_hash.to_vec().into(),
+            }
+        }
+
+        /// Map a credential, whose type every era shares.
+        fn map_credential(x: &pallas_primitives::StakeCredential) -> u5c::StakeCredential {
+            use pallas_primitives::StakeCredential;
+            let inner = match x {
+                StakeCredential::AddrKeyhash(x) => {
+                    u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
+                }
+                StakeCredential::ScriptHash(x) => {
+                    u5c::stake_credential::StakeCredential::ScriptHash(x.to_vec().into())
+                }
+            };
+
+            u5c::StakeCredential {
+                stake_credential: inner.into(),
             }
         }
 
@@ -143,9 +159,8 @@ macro_rules! impl_cardano_mapper_shared {
                     MultiEraRedeemerTag::Reward => u5c::RedeemerPurpose::Reward,
                     MultiEraRedeemerTag::Vote => u5c::RedeemerPurpose::Vote,
                     MultiEraRedeemerTag::Propose => u5c::RedeemerPurpose::Propose,
-                    // u5c has no guarding purpose.
                     #[cfg(feature = "unstable")]
-                    MultiEraRedeemerTag::Guarding => u5c::RedeemerPurpose::Unspecified,
+                    MultiEraRedeemerTag::Guarding => guarding_purpose(),
                     _ => unimplemented!("map_multi_era_purpose has no arm for this purpose"),
                 }
             }
@@ -248,7 +263,6 @@ macro_rules! impl_cardano_mapper_shared {
                 envelope(inner)
             }
 
-            /// A guard clause has no u5c field and maps to an empty message.
             /// Rebuild one node over children already mapped.
             fn native_script_node(
                 clause: NativeClause,
@@ -282,9 +296,9 @@ macro_rules! impl_cardano_mapper_shared {
                         u5c::native_script::NativeScript::InvalidHereafter(s)
                     }
                     #[cfg(feature = "unstable")]
-                    NativeClause::Guard => {
+                    NativeClause::Guard(x) => {
                         return u5c::NativeScript {
-                            native_script: None,
+                            native_script: native_script_guard(x),
                         };
                     }
                 };
@@ -334,7 +348,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 NativeScript::InvalidHereafter(s) => {
                                     NativeClause::InvalidHereafter(*s)
                                 }
-                                NativeScript::ScriptRequireGuard(_) => NativeClause::Guard,
+                                NativeScript::ScriptRequireGuard(x) => NativeClause::Guard(x),
                             },
                             children,
                         )
@@ -524,19 +538,7 @@ macro_rules! impl_cardano_mapper_shared {
                 &self,
                 x: &pallas_primitives::babbage::StakeCredential,
             ) -> u5c::StakeCredential {
-                use pallas_primitives::babbage;
-                let inner = match x {
-                    babbage::StakeCredential::AddrKeyhash(x) => {
-                        u5c::stake_credential::StakeCredential::AddrKeyHash(x.to_vec().into())
-                    }
-                    babbage::StakeCredential::ScriptHash(x) => {
-                        u5c::stake_credential::StakeCredential::ScriptHash(x.to_vec().into())
-                    }
-                };
-
-                u5c::StakeCredential {
-                    stake_credential: inner.into(),
-                }
+                map_credential(x)
             }
 
             pub fn map_relay(&self, x: &pallas_primitives::alonzo::Relay) -> u5c::Relay {
@@ -933,9 +935,9 @@ macro_rules! impl_cardano_mapper_shared {
                             pool_keyhash: pool.to_vec().into(),
                         })
                     }
+                    // In v1alpha this literal names every field of the message.
+                    #[allow(clippy::needless_update)]
                     MultiEraCertKind::PoolRegistration(pool) => {
-                        // The u5c `PoolRegistrationCert` has no field for the BLS key
-                        // the Dijkstra era adds, so `pool.bls_key` is not mapped.
                         u5c::certificate::Certificate::PoolRegistration(u5c::PoolRegistrationCert {
                             operator: pool.operator.to_vec().into(),
                             vrf_keyhash: pool.vrf_keyhash.to_vec().into(),
@@ -950,6 +952,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 .collect(),
                             relays: pool.relays.iter().map(|x| self.map_relay(x)).collect(),
                             pool_metadata: pool.pool_metadata.map(map_pool_metadata),
+                            ..Default::default()
                         })
                     }
                     MultiEraCertKind::PoolRetirement(pool, epoch) => {
@@ -1098,6 +1101,8 @@ macro_rules! impl_cardano_mapper_shared {
                 order: u32,
             ) -> Option<u5c::Certificate> {
                 let inner = self.map_cert_kind(&x.kind()?);
+                #[cfg(feature = "unstable")]
+                let inner = with_pool_bls_key(inner, x.bls_key());
                 Some(self.certificate(inner, tx, order))
             }
 
@@ -1290,6 +1295,8 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            // In v1alpha the expected pool registration names every field of its message.
+            #[allow(clippy::needless_update)]
             fn every_conway_certificate_maps_to_the_u5c_message_naming_it() {
                 let cases: Vec<(conway::Certificate, u5c::certificate::Certificate)> = vec![
                     (
@@ -1345,6 +1352,7 @@ macro_rules! impl_cardano_mapper_shared {
                                     url: METADATA_URL.to_string(),
                                     hash: METADATA_HASH.to_vec().into(),
                                 }),
+                                ..Default::default()
                             },
                         ),
                     ),
@@ -1493,6 +1501,8 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            // In v1alpha the expected pool registration names every field of its message.
+            #[allow(clippy::needless_update)]
             fn every_alonzo_certificate_maps_to_the_u5c_message_naming_it() {
                 let cases: Vec<(alonzo::Certificate, u5c::certificate::Certificate)> = vec![
                     (
@@ -1548,6 +1558,7 @@ macro_rules! impl_cardano_mapper_shared {
                                     url: METADATA_URL.to_string(),
                                     hash: METADATA_HASH.to_vec().into(),
                                 }),
+                                ..Default::default()
                             },
                         ),
                     ),
@@ -1651,6 +1662,8 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            // In v1alpha the expected pool registration names every field of its message.
+            #[allow(clippy::needless_update)]
             fn a_pool_registration_read_from_a_block_maps_every_parameter() {
                 let cbor = babbage10_block();
                 let decoded = MultiEraBlock::decode(&cbor).expect("the fixture decodes");
@@ -1734,6 +1747,7 @@ macro_rules! impl_cardano_mapper_shared {
                                 .unwrap()
                                 .into(),
                             }),
+                            ..Default::default()
                         }
                     ))
                 );
@@ -1937,35 +1951,6 @@ macro_rules! impl_cardano_mapper_shared {
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_dijkstra_pool_registration_drops_the_bls_key_it_fills() {
-                use prost::Message;
-
-                let block = dijkstra_block(include_str!("../../../test_data/dijkstra6.block"));
-                let txs = block.txs();
-                let keys: Vec<Vec<u8>> = txs
-                    .iter()
-                    .flat_map(|tx| tx.certs())
-                    .filter_map(|cert| cert.bls_key().map(|k| k.bls_pubkey.to_vec()))
-                    .collect();
-
-                assert_eq!(
-                    keys.len(),
-                    2,
-                    "this block's two pool registrations each fill the BLS key slot, which is what the mapper then has to drop"
-                );
-
-                let wire = Mapper::new(NoLedger).map_block(&block).encode_to_vec();
-
-                for key in keys {
-                    assert!(
-                        !wire.windows(key.len()).any(|w| w == key.as_slice()),
-                        "u5c names no field for a pool registration's BLS key, so none of its bytes may reach the wire"
-                    );
-                }
-            }
-
-            #[cfg(feature = "unstable")]
-            #[test]
             fn a_dijkstra_block_with_no_certificates_maps_none() {
                 let block = dijkstra_block(include_str!("../../../test_data/dijkstra3.block"));
                 let mapper = Mapper::new(NoLedger);
@@ -2002,20 +1987,17 @@ macro_rules! impl_cardano_mapper_shared {
                     }),
                     "the anchor the proposal carries must reach the schema"
                 );
+                let Some(u5c::GovernanceAction {
+                    governance_action:
+                        Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(change)),
+                }) = &proposal.gov_action
+                else {
+                    panic!("the action is a parameter change, got {:?}", proposal.gov_action);
+                };
                 assert_eq!(
-                    proposal.gov_action,
-                    Some(u5c::GovernanceAction {
-                        governance_action: Some(
-                            u5c::governance_action::GovernanceAction::ParameterChangeAction(
-                                u5c::ParameterChangeAction {
-                                    gov_action_id: None,
-                                    protocol_param_update: None,
-                                    policy_hash: Default::default(),
-                                }
-                            )
-                        ),
-                    }),
-                    "the action is a parameter change naming no earlier action and no guardrails script, and its one key, 48, is one u5c has no field for"
+                    (&change.gov_action_id, change.policy_hash.is_empty()),
+                    (&None, true),
+                    "the parameter change names no earlier action and no guardrails script"
                 );
             }
 
@@ -2360,18 +2342,6 @@ macro_rules! impl_cardano_mapper_shared {
                 );
             }
 
-            #[cfg(feature = "unstable")]
-            #[test]
-            fn a_guarding_redeemer_maps_to_the_purpose_u5c_leaves_unspecified() {
-                let mapper = Mapper::new(NoLedger);
-
-                assert_eq!(
-                    mapper.map_multi_era_purpose(&pallas_traverse::MultiEraRedeemerTag::Guarding),
-                    u5c::RedeemerPurpose::Unspecified,
-                    "u5c has no guarding purpose, so a guard reads as unspecified rather than as one of the six it names"
-                );
-            }
-
             #[test]
             fn a_certificate_carries_the_redeemer_paired_with_its_own_position() {
                 let tx = conway_tx_with_certificate_redeemers();
@@ -2475,6 +2445,8 @@ macro_rules! impl_cardano_mapper_shared {
             /// each key means rather than from what the mapper does. The V4 cost model
             /// is the one entry only a Dijkstra update can propose, so the caller says
             /// whether to expect it.
+            // In v1alpha this literal names every field of the message.
+            #[allow(clippy::needless_update)]
             fn every_key_as_pparams(plutus_v4: Option<u5c::CostModel>) -> u5c::PParams {
                 u5c::PParams {
                     min_fee_coefficient: u64_to_bigint(1),
@@ -2546,6 +2518,7 @@ macro_rules! impl_cardano_mapper_shared {
                     // protocol version key, so this field has no key to read and stays
                     // unset. A hard fork initiation action proposes the version.
                     protocol_version: None,
+                    ..Default::default()
                 }
             }
 
@@ -2677,46 +2650,6 @@ macro_rules! impl_cardano_mapper_shared {
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_dijkstra_parameter_change_of_a_key_u5c_cannot_carry_maps_to_no_parameters() {
-                let proposal =
-                    dijkstra_proposal(include_str!("../../../test_data/proposal-param-change-key48.hex"));
-                let mapper = Mapper::new(NoLedger);
-                let change = parameter_change(
-                    mapper.map_gov_action(&trv::MultiEraGovAction::from_dijkstra(
-                        &proposal.gov_action,
-                    )),
-                );
-
-                assert_eq!(
-                    change.protocol_param_update, None,
-                    "key 48 has no u5c field, so the update must be absent rather than a PParams whose every field reads its proto3 zero"
-                );
-            }
-
-            #[cfg(feature = "unstable")]
-            #[test]
-            fn a_dijkstra_parameter_change_of_a_carried_key_and_an_era_key_maps_the_carried_one() {
-                // Key 16 is min_pool_cost, key 48 is max_ref_script_size_per_endorser_block.
-                let update = dijkstra_update(&[0xa2, 0x10, 0x10, 0x18, 0x30, 0x19, 0x4e, 0x20]);
-                let mapper = Mapper::new(NoLedger);
-
-                let mapped =
-                    mapper.map_pparams_update(&pallas_traverse::MultiEraParamUpdate::Dijkstra(
-                        Box::new(std::borrow::Cow::Borrowed(&update)),
-                    ));
-
-                assert_eq!(
-                    mapped,
-                    Some(u5c::PParams {
-                        min_pool_cost: u64_to_bigint(16),
-                        ..Default::default()
-                    }),
-                    "the key u5c carries reaches its field, and the key it cannot carry neither adds a field nor takes the update away"
-                );
-            }
-
-            #[cfg(feature = "unstable")]
-            #[test]
             fn a_dijkstra_transaction_maps_every_script_it_carries() {
                 let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-scripts.tx"));
                 let mapper = Mapper::new(NoLedger);
@@ -2736,10 +2669,6 @@ macro_rules! impl_cardano_mapper_shared {
                         witness[0].script
                     );
                 };
-                assert_eq!(
-                    clause.native_script, None,
-                    "a guard clause has no member in the u5c native_script oneof, so it reaches the wire as an empty message, which is this mapper's known limit"
-                );
 
                 let aux = &mapped.auxiliary.as_ref().unwrap().scripts;
                 assert_eq!(
@@ -2754,8 +2683,8 @@ macro_rules! impl_cardano_mapper_shared {
                     );
                 };
                 assert_eq!(
-                    aux_clause.native_script, None,
-                    "the same guard clause reaches the auxiliary list as the same empty message"
+                    aux_clause, clause,
+                    "the same guard clause reaches the auxiliary list as the same message"
                 );
                 assert_eq!(
                     aux[1].script,
@@ -2859,48 +2788,6 @@ macro_rules! impl_cardano_mapper_shared {
                         vec![0x04u8, 0xaa, 0xbb].into()
                     )),
                     "a PlutusV4 reference script must reach the V4 field carrying its own bytes"
-                );
-            }
-
-            #[cfg(feature = "unstable")]
-            #[test]
-            fn a_guard_clause_inside_a_list_maps_to_an_empty_message() {
-                use pallas_primitives::{StakeCredential, dijkstra};
-
-                let script = dijkstra::NativeScript::ScriptAll(vec![
-                    dijkstra::NativeScript::ScriptRequireGuard(StakeCredential::AddrKeyhash(
-                        [0x7a; 28].into(),
-                    )),
-                    dijkstra::NativeScript::ScriptPubkey([0x44; 28].into()),
-                ]);
-
-                let mapped = Mapper::<NoLedger>::map_multi_era_native_script(
-                    &pallas_traverse::MultiEraNativeScript::from_decoded_dijkstra(&script),
-                );
-
-                let Some(u5c::native_script::NativeScript::ScriptAll(list)) = mapped.native_script
-                else {
-                    panic!(
-                        "the root clause is script_all, got {:?}",
-                        mapped.native_script
-                    );
-                };
-                assert_eq!(
-                    list.items.len(),
-                    2,
-                    "a guard inside a list is carried as a member rather than dropped"
-                );
-                assert_eq!(
-                    list.items[0].native_script, None,
-                    "the guard has no member in the u5c oneof, so it reaches the wire as an empty message"
-                );
-                assert!(
-                    list.items[1].native_script.is_some(),
-                    "and the clause beside it keeps its own member"
-                );
-                assert_ne!(
-                    list.items[0].native_script, list.items[1].native_script,
-                    "so the guard must not read as the clause beside it"
                 );
             }
 
@@ -3158,7 +3045,7 @@ macro_rules! impl_cardano_mapper_shared {
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_guard_clause_nested_in_a_dijkstra_script_maps_to_an_empty_message() {
+            fn a_guard_clause_keeps_its_position_beside_the_clause_it_neighbours() {
                 use pallas_primitives::dijkstra::{NativeScript, StakeCredential};
 
                 let guard = NativeScript::ScriptRequireGuard(StakeCredential::AddrKeyhash(
@@ -3182,15 +3069,15 @@ macro_rules! impl_cardano_mapper_shared {
                     Some(Mapper::<NoLedger>::map_native_script_pubkey(vec![8u8; 28])),
                     "the clause beside a guard maps to what it means"
                 );
-                assert_eq!(
-                    all.items[1].native_script, None,
-                    "a guard clause has no u5c field and maps to an empty message"
+                assert_ne!(
+                    all.items[1].native_script, all.items[0].native_script,
+                    "so the guard must not read as the clause beside it"
                 );
             }
 
             #[cfg(feature = "unstable")]
             #[test]
-            fn a_sub_transaction_reaches_none_of_the_mapped_transaction() {
+            fn a_sub_transaction_reaches_none_of_the_outer_body_fields() {
                 let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-subtx.tx"));
                 let subs = tx.sub_transactions();
                 assert_eq!(
@@ -3327,6 +3214,95 @@ macro_rules! impl_cardano_mapper_shared {
                 assert!(
                     enclosing.fee.is_some(),
                     "and the enclosing body carries the one fee the whole transaction pays, so the absent fee above is the sub body's own state rather than a mapper reporting no fee at all"
+                );
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn a_dijkstra_parameter_set_maps_the_fields_every_era_names() {
+                let mapped = Mapper::new(NoLedger).map_pparams(
+                    pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(
+                        dijkstra_params(),
+                    ),
+                );
+
+                assert_eq!(
+                    (
+                        mapped.max_tx_size,
+                        mapped.min_fee_coefficient,
+                        mapped.min_fee_constant,
+                        mapped.coins_per_utxo_byte,
+                        mapped.stake_key_deposit,
+                        mapped.max_value_size,
+                        mapped.protocol_version,
+                    ),
+                    (
+                        16_384,
+                        u64_to_bigint(44),
+                        u64_to_bigint(155_381),
+                        u64_to_bigint(4_310),
+                        u64_to_bigint(2_000_000),
+                        5_000,
+                        Some(u5c::ProtocolVersion {
+                            major: 12,
+                            minor: 1
+                        }),
+                    ),
+                    "each field the set holds outside its Plutus parameters reaches the u5c field it means"
+                );
+
+                assert_eq!(
+                    (
+                        mapped.collateral_percentage,
+                        mapped.max_collateral_inputs,
+                        mapped.prices,
+                        mapped.max_execution_units_per_transaction,
+                        mapped.min_fee_script_ref_cost_per_byte,
+                        mapped.cost_models,
+                    ),
+                    (
+                        150,
+                        3,
+                        Some(u5c::ExPrices {
+                            steps: Some(rational_number_to_u5c(ratio(721, 10_000_000))),
+                            memory: Some(rational_number_to_u5c(ratio(577, 10_000))),
+                        }),
+                        Some(u5c::ExUnits {
+                            memory: 14_000_000,
+                            steps: 10_000_000_000,
+                        }),
+                        Some(rational_number_to_u5c(ratio(15, 1))),
+                        Some(u5c::CostModels {
+                            plutus_v3: Some(u5c::CostModel {
+                                values: vec![301, 302]
+                            }),
+                            ..Default::default()
+                        }),
+                    ),
+                    "each Plutus parameter the set holds reaches the u5c field it means, and the one cost model it holds reaches the V3 field"
+                );
+            }
+
+            #[cfg(feature = "unstable")]
+            #[test]
+            fn a_dijkstra_parameter_set_without_plutus_parameters_maps_none_of_them() {
+                let mut params = dijkstra_params();
+                params.plutus = None;
+                params.key_deposit = None;
+
+                let mapped = Mapper::new(NoLedger).map_pparams(
+                    pallas_validate::utils::MultiEraProtocolParameters::Dijkstra(params),
+                );
+
+                assert_eq!(
+                    (
+                        mapped.stake_key_deposit,
+                        mapped.prices,
+                        mapped.cost_models,
+                        mapped.max_tx_size
+                    ),
+                    (None, None, None, 16_384),
+                    "a field the set leaves absent is absent in u5c, while the fields it holds still reach theirs"
                 );
             }
         }
@@ -3572,6 +3548,43 @@ macro_rules! impl_cardano_mapper_shared {
                         .into(),
                         ..Default::default()
                     },
+                    #[cfg(feature = "unstable")]
+                    MultiEraProtocolParameters::Dijkstra(params) => {
+                        let plutus = params.plutus.as_ref();
+                        u5c::PParams {
+                            max_tx_size: params.max_transaction_size.into(),
+                            min_fee_coefficient: u64_to_bigint(params.minfee_a.into()),
+                            min_fee_constant: u64_to_bigint(params.minfee_b.into()),
+                            coins_per_utxo_byte: u64_to_bigint(params.ada_per_utxo_byte),
+                            stake_key_deposit: params.key_deposit.and_then(u64_to_bigint),
+                            protocol_version: u5c::ProtocolVersion {
+                                major: params.protocol_version.0 as u32,
+                                minor: params.protocol_version.1 as u32,
+                            }
+                            .into(),
+                            max_value_size: params.max_value_size.into(),
+                            collateral_percentage: plutus
+                                .map(|p| p.collateral_percentage.into())
+                                .unwrap_or_default(),
+                            max_collateral_inputs: plutus
+                                .map(|p| p.max_collateral_inputs.into())
+                                .unwrap_or_default(),
+                            prices: plutus
+                                .map(|p| execution_prices_to_u5c(p.execution_costs.clone())),
+                            max_execution_units_per_transaction: plutus
+                                .map(|p| execution_units_to_u5c(p.max_tx_ex_units)),
+                            min_fee_script_ref_cost_per_byte: plutus.map(|p| {
+                                rational_number_to_u5c(p.minfee_refscript_cost_per_byte.clone())
+                            }),
+                            cost_models: plutus.map(|p| u5c::CostModels {
+                                plutus_v3: Some(u5c::CostModel {
+                                    values: p.cost_model_v3.clone(),
+                                }),
+                                ..Default::default()
+                            }),
+                            ..dijkstra_pparams(&params)
+                        }
+                    }
                     _ => {
                         unimplemented!("map_pparams has no arm for this era's protocol parameters")
                     }
@@ -3587,6 +3600,8 @@ macro_rules! impl_cardano_mapper_shared {
                 let mut any_set = false;
                 let seen = &mut any_set;
 
+                // In v1alpha this literal names every field of the message.
+                #[allow(clippy::needless_update)]
                 let mapped = u5c::PParams {
                     coins_per_utxo_byte: read_key(seen, x.ada_per_utxo_byte())
                         .and_then(u64_to_bigint),
@@ -3686,6 +3701,7 @@ macro_rules! impl_cardano_mapper_shared {
                     drep_deposit: read_key(seen, x.drep_deposit()).and_then(u64_to_bigint),
                     drep_inactivity_period: read_key(seen, x.drep_inactivity_period())
                         .unwrap_or_default(),
+                    ..dijkstra_pparams_update(seen, x)
                 };
 
                 if !any_set {

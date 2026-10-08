@@ -88,6 +88,10 @@
           },
           {
             "poolRegistration": {
+              "blsKey": {
+                "blsPossessionProof": "sCifWhklTVfCYQBSjet6FEUPP7pkoMzdgyhwNB0VNFqUCBZody3db/Kq7LPJGULi",
+                "blsPubkey": "ifoaKLmy0Z65yNwKQvkFttgzWkCa+23wA8kc5rUIQovKgjjKQyu8UcKGzsIiEPS8GR6zOtuRw57Twq/9JLxlKT+rC4l8sW5ZEBOOPNZv8DvcLpxUak3lRW9AlW/sDgWI"
+              },
               "cost": {
                 "int": "600000000"
               },
@@ -234,6 +238,10 @@
           },
           {
             "poolRegistration": {
+              "blsKey": {
+                "blsPossessionProof": "iWFdd3SNHoxCa+Se5s2eFZxuvnDMUVQnSKf1nXHuJZY6N3WcvBxNqWrZEZZlIWyW",
+                "blsPubkey": "kh0OTZsIGAOJvFiVBJXWjoNwMzTemFUxy42qBZ8J8retBOsiIItwHdZWUDCeTiHPFADOd6uTh4Kpoq7cywe6FCXqSbCaPGqVosv5jn7gzLBN4hERbccA/AUt7FOm2nSg"
+              },
               "cost": {
                 "int": "500000000"
               },

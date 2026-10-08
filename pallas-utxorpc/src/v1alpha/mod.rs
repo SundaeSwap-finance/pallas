@@ -43,6 +43,40 @@ fn information_action() -> u5c::governance_action::GovernanceAction {
     u5c::governance_action::GovernanceAction::InfoAction(6)
 }
 
+/// The u5c purpose of a guarding redeemer, for which this schema has no member.
+#[cfg(feature = "unstable")]
+fn guarding_purpose() -> u5c::RedeemerPurpose {
+    u5c::RedeemerPurpose::Unspecified
+}
+
+/// The u5c member of a guard clause, for which this schema has no member.
+#[cfg(feature = "unstable")]
+fn native_script_guard(
+    _: &pallas_primitives::StakeCredential,
+) -> Option<u5c::native_script::NativeScript> {
+    None
+}
+
+/// Returns the certificate unchanged, since this schema has no field for a pool BLS key.
+#[cfg(feature = "unstable")]
+fn with_pool_bls_key(
+    cert: Option<u5c::certificate::Certificate>,
+    _: Option<&pallas_primitives::dijkstra::BlsKey>,
+) -> Option<u5c::certificate::Certificate> {
+    cert
+}
+
+/// The fields of the keys only a Dijkstra update carries, for which this schema has no field.
+fn dijkstra_pparams_update(_: &mut bool, _: &trv::MultiEraParamUpdate) -> u5c::PParams {
+    u5c::PParams::default()
+}
+
+/// The fields of the Dijkstra parameters no other era carries, for which this schema has no field.
+#[cfg(feature = "unstable")]
+fn dijkstra_pparams(_: &pallas_validate::utils::DijkstraProtParams) -> u5c::PParams {
+    u5c::PParams::default()
+}
+
 impl<C: LedgerContext> Mapper<C> {
     // v1alpha names this variant by what it holds; v1beta names it
     // ScriptPubkeyHash. The rest of map_native_script is identical between
@@ -278,6 +312,122 @@ mod tests {
                 .governance_action,
             Some(u5c::governance_action::GovernanceAction::InfoAction(6)),
             "this schema types the information member a uint32, and the proto prescribes the value 6"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_pool_registration_drops_the_bls_key_it_fills() {
+        use crate::testing::dijkstra_block;
+        use prost::Message;
+
+        let block = dijkstra_block(include_str!("../../../test_data/dijkstra6.block"));
+        let txs = block.txs();
+        let keys: Vec<Vec<u8>> = txs
+            .iter()
+            .flat_map(|tx| tx.certs())
+            .filter_map(|cert| cert.bls_key().map(|k| k.bls_pubkey.to_vec()))
+            .collect();
+
+        assert_eq!(
+            keys.len(),
+            2,
+            "this block's two pool registrations each fill the BLS key slot, which is what the mapper then has to drop"
+        );
+
+        let wire = Mapper::new(NoLedger).map_block(&block).encode_to_vec();
+
+        for key in keys {
+            assert!(
+                !wire.windows(key.len()).any(|w| w == key.as_slice()),
+                "this schema names no field for a pool registration's BLS key, so none of its bytes may reach the wire"
+            );
+        }
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_guarding_redeemer_maps_to_the_purpose_this_schema_leaves_unspecified() {
+        let mapper = Mapper::new(NoLedger);
+
+        assert_eq!(
+            mapper.map_multi_era_purpose(&trv::MultiEraRedeemerTag::Guarding),
+            u5c::RedeemerPurpose::Unspecified,
+            "this schema has no guarding purpose, so a guard reads as unspecified rather than as one of the six it names"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_guard_clause_inside_a_list_maps_to_an_empty_message() {
+        use pallas_primitives::{StakeCredential, dijkstra};
+
+        let script = dijkstra::NativeScript::ScriptAll(vec![
+            dijkstra::NativeScript::ScriptRequireGuard(StakeCredential::AddrKeyhash(
+                [0x7a; 28].into(),
+            )),
+            dijkstra::NativeScript::ScriptPubkey([0x44; 28].into()),
+        ]);
+
+        let mapped = Mapper::<NoLedger>::map_multi_era_native_script(
+            &trv::MultiEraNativeScript::from_decoded_dijkstra(&script),
+        );
+
+        let Some(u5c::native_script::NativeScript::ScriptAll(list)) = mapped.native_script else {
+            panic!(
+                "the root clause is script_all, got {:?}",
+                mapped.native_script
+            );
+        };
+        assert_eq!(
+            list.items.len(),
+            2,
+            "a guard inside a list is carried as a member rather than dropped"
+        );
+        assert_eq!(
+            list.items[0].native_script, None,
+            "the guard has no member in this schema's oneof, so it reaches the wire as an empty message"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_parameter_change_of_a_key_this_schema_cannot_carry_maps_to_no_parameters() {
+        let proposal = crate::testing::dijkstra_proposal(include_str!(
+            "../../../test_data/proposal-param-change-key48.hex"
+        ));
+        let action = Mapper::new(NoLedger)
+            .map_gov_action(&trv::MultiEraGovAction::from_dijkstra(&proposal.gov_action));
+
+        let Some(u5c::governance_action::GovernanceAction::ParameterChangeAction(change)) =
+            action.governance_action
+        else {
+            panic!("the action is a parameter change, got {action:?}");
+        };
+        assert_eq!(
+            change.protocol_param_update, None,
+            "key 48 has no field in this schema, so the update must be absent rather than a PParams whose every field reads its proto3 zero"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_parameter_change_of_a_carried_key_and_an_era_key_maps_the_carried_one() {
+        // Key 16 is min_pool_cost, key 48 is max_ref_script_size_per_endorser_block.
+        let update =
+            crate::testing::dijkstra_update(&[0xa2, 0x10, 0x10, 0x18, 0x30, 0x19, 0x4e, 0x20]);
+
+        let mapped = Mapper::new(NoLedger).map_pparams_update(&trv::MultiEraParamUpdate::Dijkstra(
+            Box::new(std::borrow::Cow::Borrowed(&update)),
+        ));
+
+        assert_eq!(
+            mapped,
+            Some(u5c::PParams {
+                min_pool_cost: u64_to_bigint(16),
+                ..Default::default()
+            }),
+            "the key this schema carries reaches its field, and the key it cannot carry neither adds a field nor takes the update away"
         );
     }
 

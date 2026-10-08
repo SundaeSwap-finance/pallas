@@ -423,6 +423,279 @@ pub fn dijkstra_tx_with_aux_plutus_scripts() -> trv::MultiEraTx<'static> {
     trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
 }
 
+/// A testnet key reward account whose 28 credential bytes are all the byte given.
+#[cfg(feature = "unstable")]
+const fn reward_account(fill: u8) -> [u8; 29] {
+    let mut account = [fill; 29];
+    account[0] = 0xe0;
+    account
+}
+
+/// The account `dijkstra_tx_with_account_fields` deposits into.
+#[cfg(feature = "unstable")]
+pub const DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x21);
+
+/// The coin deposited into that account.
+#[cfg(feature = "unstable")]
+pub const DEPOSIT_COIN: u64 = 4_000_000;
+
+/// The account whose interval has only a lower bound.
+#[cfg(feature = "unstable")]
+pub const LOWER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x22);
+
+/// The account whose interval has only an upper bound.
+#[cfg(feature = "unstable")]
+pub const UPPER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x23);
+
+/// The account whose interval has both bounds.
+#[cfg(feature = "unstable")]
+pub const BOUNDED_ACCOUNT: [u8; 29] = reward_account(0x24);
+
+/// The account whose interval is a bare coin.
+#[cfg(feature = "unstable")]
+pub const COIN_ACCOUNT: [u8; 29] = reward_account(0x25);
+
+/// The account of the one starting interval, a lower bound.
+#[cfg(feature = "unstable")]
+pub const STARTING_ACCOUNT: [u8; 29] = reward_account(0x26);
+
+/// The account the sub transaction deposits into.
+#[cfg(feature = "unstable")]
+pub const SUB_DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x27);
+
+/// The account of the sub transaction's interval, an upper bound.
+#[cfg(feature = "unstable")]
+pub const SUB_INTERVAL_ACCOUNT: [u8; 29] = reward_account(0x28);
+
+/// Writes `[lower, upper]` with nil for a bound that is absent.
+#[cfg(feature = "unstable")]
+fn write_interval(e: &mut minicbor::Encoder<Vec<u8>>, lower: Option<u64>, upper: Option<u64>) {
+    e.array(2).unwrap();
+    for bound in [lower, upper] {
+        match bound {
+            Some(coin) => e.u64(coin).unwrap(),
+            None => e.null().unwrap(),
+        };
+    }
+}
+
+/// A Dijkstra transaction with a direct deposit, an account balance interval
+/// of each of the four shapes, a starting interval, and one sub transaction
+/// with a deposit and an interval of its own.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_account_fields() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(7).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    // sub_transaction = [body, witness set, auxiliary data or nil]
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&SUB_DEPOSIT_ACCOUNT).unwrap();
+    e.u64(12).unwrap();
+    e.u8(26).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&SUB_INTERVAL_ACCOUNT).unwrap();
+    write_interval(&mut e, None, Some(13));
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&DEPOSIT_ACCOUNT).unwrap();
+    e.u64(DEPOSIT_COIN).unwrap();
+
+    e.u8(26).unwrap();
+    e.map(4).unwrap();
+    e.bytes(&LOWER_BOUND_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(5), None);
+    e.bytes(&UPPER_BOUND_ACCOUNT).unwrap();
+    write_interval(&mut e, None, Some(6));
+    e.bytes(&BOUNDED_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(7), Some(8));
+    e.bytes(&COIN_ACCOUNT).unwrap();
+    e.u64(9).unwrap();
+
+    e.u8(27).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&STARTING_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(10), None);
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// A Dijkstra update setting each key this era adds past 33 to a value no
+/// other key of the update takes, with key 38 a ratio rather than nil.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_update_of_every_era_key() -> pallas_primitives::dijkstra::ProtocolParamUpdate {
+    use pallas_primitives::{ExUnits, Nullable};
+
+    let mut update = dijkstra_update_of_no_key();
+    update.max_ref_script_size_per_block = Some(34);
+    update.max_ref_script_size_per_tx = Some(35);
+    update.ref_script_cost_stride = Some(36);
+    update.ref_script_cost_multiplier = Some(ratio(37, 1));
+    update.max_pledge_leverage = Some(Nullable::Some(ratio(38, 1)));
+    update.min_pool_margin = Some(ratio(1, 39));
+    update.leios_announcement_period_length = Some(40);
+    update.leios_vote_period_length = Some(41);
+    update.leios_diffusion_period_length = Some(42);
+    update.leios_committee_size = Some(43);
+    update.leios_quorum_stake_threshold = Some(ratio(1, 44));
+    update.max_endorser_block_references_size = Some(45);
+    update.max_endorser_block_txs_size = Some(46);
+    update.max_endorser_block_execution_units = Some(ExUnits {
+        mem: 47,
+        steps: 470,
+    });
+    update.max_ref_script_size_per_endorser_block = Some(48);
+    update
+}
+
+/// Each key this era adds past 33, set alone in a Dijkstra update to the zero
+/// value of its own type, with key 38 set to nil.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_updates_of_one_zero_era_key() -> Vec<(
+    &'static str,
+    pallas_primitives::dijkstra::ProtocolParamUpdate,
+)> {
+    use pallas_primitives::{ExUnits, Nullable};
+
+    let blank = dijkstra_update_of_no_key();
+    let one = |set: &dyn Fn(&mut pallas_primitives::dijkstra::ProtocolParamUpdate)| {
+        let mut update = blank.clone();
+        set(&mut update);
+        update
+    };
+
+    vec![
+        (
+            "max_ref_script_size_per_block",
+            one(&|x| x.max_ref_script_size_per_block = Some(0)),
+        ),
+        (
+            "max_ref_script_size_per_tx",
+            one(&|x| x.max_ref_script_size_per_tx = Some(0)),
+        ),
+        (
+            "ref_script_cost_stride",
+            one(&|x| x.ref_script_cost_stride = Some(0)),
+        ),
+        (
+            "ref_script_cost_multiplier",
+            one(&|x| x.ref_script_cost_multiplier = Some(ratio(0, 1))),
+        ),
+        (
+            "max_pledge_leverage",
+            one(&|x| x.max_pledge_leverage = Some(Nullable::Null)),
+        ),
+        (
+            "min_pool_margin",
+            one(&|x| x.min_pool_margin = Some(ratio(0, 1))),
+        ),
+        (
+            "leios_announcement_period_length",
+            one(&|x| x.leios_announcement_period_length = Some(0)),
+        ),
+        (
+            "leios_vote_period_length",
+            one(&|x| x.leios_vote_period_length = Some(0)),
+        ),
+        (
+            "leios_diffusion_period_length",
+            one(&|x| x.leios_diffusion_period_length = Some(0)),
+        ),
+        (
+            "leios_committee_size",
+            one(&|x| x.leios_committee_size = Some(0)),
+        ),
+        (
+            "leios_quorum_stake_threshold",
+            one(&|x| x.leios_quorum_stake_threshold = Some(ratio(0, 1))),
+        ),
+        (
+            "max_endorser_block_references_size",
+            one(&|x| x.max_endorser_block_references_size = Some(0)),
+        ),
+        (
+            "max_endorser_block_txs_size",
+            one(&|x| x.max_endorser_block_txs_size = Some(0)),
+        ),
+        (
+            "max_endorser_block_execution_units",
+            one(&|x| x.max_endorser_block_execution_units = Some(ExUnits { mem: 0, steps: 0 })),
+        ),
+        (
+            "max_ref_script_size_per_endorser_block",
+            one(&|x| x.max_ref_script_size_per_endorser_block = Some(0)),
+        ),
+    ]
+}
+
+/// A Dijkstra parameter set whose Plutus parameters are present and whose
+/// every number differs from every other.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_params() -> pallas_validate::utils::DijkstraProtParams {
+    pallas_validate::utils::DijkstraProtParams {
+        system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
+        epoch_length: 21_600,
+        slot_length: 1,
+        protocol_version: (12, 1),
+        minfee_a: 44,
+        minfee_b: 155_381,
+        max_transaction_size: 16_384,
+        ada_per_utxo_byte: 4_310,
+        max_value_size: 5_000,
+        key_deposit: Some(2_000_000),
+        plutus: Some(pallas_validate::utils::DijkstraPlutusParams {
+            cost_model_v3: vec![301, 302],
+            execution_costs: pallas_primitives::ExUnitPrices {
+                mem_price: ratio(577, 10_000),
+                step_price: ratio(721, 10_000_000),
+            },
+            max_tx_ex_units: pallas_primitives::ExUnits {
+                mem: 14_000_000,
+                steps: 10_000_000_000,
+            },
+            collateral_percentage: 150,
+            max_collateral_inputs: 3,
+            minfee_refscript_cost_per_byte: ratio(15, 1),
+            max_ref_script_size_per_tx: 204_800,
+            ref_script_cost_stride: 25_600,
+            ref_script_cost_multiplier: ratio(6, 5),
+        }),
+    }
+}
+
 /// A Conway reference script of the Plutus script bytes given, under the
 /// language index given, where 1, 2 and 3 are PlutusV1, V2 and V3.
 pub fn conway_plutus_script_ref(language: u8, script: &[u8]) -> conway::ScriptRef<'static> {
@@ -802,8 +1075,7 @@ macro_rules! updates_of_one_zero_key {
 /// An update of the era named that sets every key the mapper reads, each to a
 /// value no other key of the update takes, so a mapper reading the wrong key
 /// cannot agree with an expectation written from the key meanings. A key the
-/// era adds past the ones u5c has a field for is named by the caller and left
-/// unset.
+/// era adds past 33 is named by the caller and left unset.
 macro_rules! update_of_every_key {
     ($era:ident, $cost_models:expr $(, $era_only:ident)* $(,)?) => {
         pallas_primitives::$era::ProtocolParamUpdate {
@@ -893,7 +1165,7 @@ pub fn conway_updates_of_one_zero_key() -> Vec<(&'static str, conway::ProtocolPa
 }
 
 /// The same keys set alone in a Dijkstra update. The keys this era adds past
-/// 33 stay unset, since u5c has no field for them.
+/// 33 stay unset.
 #[cfg(feature = "unstable")]
 pub fn dijkstra_updates_of_one_zero_key() -> Vec<(
     &'static str,
@@ -931,8 +1203,7 @@ pub fn conway_update_of_every_key() -> conway::ProtocolParamUpdate {
 }
 
 /// A Dijkstra update setting the same keys to the same values, plus the V4
-/// cost model only this era names. The keys this era adds past 33 stay unset,
-/// since u5c has no field for them.
+/// cost model only this era names. The keys this era adds past 33 stay unset.
 #[cfg(feature = "unstable")]
 pub fn dijkstra_update_of_every_key() -> pallas_primitives::dijkstra::ProtocolParamUpdate {
     use pallas_primitives::dijkstra;
