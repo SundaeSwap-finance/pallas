@@ -82,6 +82,7 @@ cargo nextest run -p pallas-network -p pallas-network2 --features blueprint
 cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network -p pallas-network2 -p pallas-hardano --features unstable
 cargo nextest run -p pallas-primitives --features unstable,blueprint
 cargo nextest run -p pallas-validate --features unstable
+cargo nextest run -p pallas-validate --features phase2
 cargo check --workspace --all-targets --no-default-features
 cargo check --workspace --all-targets --all-features
 ```

@@ -100,6 +100,10 @@ jobs:
         uses: ./.github/actions/sized-tests
         with:
           args: -p pallas-validate --features unstable
+      - name: Test validation with phase two enabled
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-validate --features phase2
 
   # Large tests dial public peers, so they run only when a run is started by hand.
   large:
