@@ -604,10 +604,7 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> Validati
                 .flatten()
                 .map(compute_plutus_v3_script_hash);
 
-            let ref_scripts = tx_body
-                .reference_inputs
-                .iter()
-                .flatten()
+            let ref_scripts = reference_script_inputs(tx_body)
                 .filter_map(|x| get_script_hash_from_reference_input(x, utxos));
 
             let all_scripts_wits: Vec<_> = native_script_wits
@@ -1621,14 +1618,12 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     {
         v3_scripts = true;
     }
-    if let Some(reference_inputs) = &mtx.transaction_body.reference_inputs {
-        for ref_input in reference_inputs.iter() {
-            match reference_script(ref_input, utxos) {
-                Some(ScriptRef::PlutusV1Script(_)) => v1_scripts = true,
-                Some(ScriptRef::PlutusV2Script(_)) => v2_scripts = true,
-                Some(ScriptRef::PlutusV3Script(_)) => v3_scripts = true,
-                _ => (),
-            }
+    for input in reference_script_inputs(&mtx.transaction_body) {
+        match reference_script(input, utxos) {
+            Some(ScriptRef::PlutusV1Script(_)) => v1_scripts = true,
+            Some(ScriptRef::PlutusV2Script(_)) => v2_scripts = true,
+            Some(ScriptRef::PlutusV3Script(_)) => v3_scripts = true,
+            _ => (),
         }
     }
     let mut langs = vec![];
