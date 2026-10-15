@@ -1,0 +1,22 @@
+[package]
+name = "u5c-chain-oracle"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[package.metadata.release]
+release = false
+
+[dependencies]
+pallas-addresses.workspace = true
+pallas-codec.workspace = true
+pallas-crypto.workspace = true
+pallas-primitives = { workspace = true, features = ["unstable"] }
+pallas-traverse = { workspace = true, features = ["unstable"] }
+pallas-utxorpc = { workspace = true, features = ["unstable"] }
+pallas-validate = { workspace = true, features = ["unstable"] }
+chrono = { workspace = true }
+flate2 = "1"
+hex.workspace = true
+serde_json.workspace = true
