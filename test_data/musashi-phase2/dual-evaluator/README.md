@@ -16,6 +16,16 @@ the next minor release. All 24 workspace packages inherit the new minimum.
 The local dependency URI still prevents a portable CI checkout; publishing the
 Amaru candidate and selecting its exact remote pin remain outstanding.
 
+## Amaru workspace verification completed, 2026-09-30
+
+After libclang installation, the required Amaru workspace run completed successfully
+at candidate `e122ffb...`: **3824 passed, zero failed, 29 ignored**, including doctests.
+Compilation took 8m 20s. The run used Amaru's pinned `nightly-2026-09-04`; it does not
+claim the entire Amaru node builds on stable Rust. The earlier stable Rust 1.97
+checks cover the evaluator/kernel dependencies and Pallas integration.
+`amaru-workspace-libclang-fixed.json` and its full log retain this result.
+The earlier missing-libclang log remains historical evidence; that blocker is resolved.
+
 ## Implementation and dependency status
 
 Earlier eras retain registry `amaru-uplc =0.1.0` and their existing evaluator.
@@ -164,8 +174,9 @@ directory specified by `MUSASHI_COMPARISON_OUT`; `CARDANO_CLI` selects the binar
 Machine-readable `verification.json` records the remaining repository checks,
 commands, exceptions and exact revisions. Linux checks do not establish macOS or
 Windows support. Workspace formatting has seven pre-existing harvest.rs differences.
-Amaru workspace tests remain blocked by missing `libclang.so` in RocksDB, while
-changed-crate tests, Clippy and docs pass.
+The original Amaru workspace attempt was blocked by missing `libclang.so` in
+RocksDB; the completed retry above resolves it. Changed-crate tests, Clippy and docs
+also pass.
 
 **Next:** publish the new Amaru candidate only with explicit authorization (or
 user publication); replace the local
