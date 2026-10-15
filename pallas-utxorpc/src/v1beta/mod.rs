@@ -151,6 +151,13 @@ fn snapshot_cases() -> Vec<(&'static str, &'static str, &'static str)> {
         "u5c_v1beta.json",
     )];
 
+    #[cfg(feature = "unstable")]
+    cases.push((
+        include_str!("../../../test_data/dijkstra6.block"),
+        include_str!("../../../test_data/u5c_v1beta_dijkstra.json"),
+        "u5c_v1beta_dijkstra.json",
+    ));
+
     cases
 }
 
