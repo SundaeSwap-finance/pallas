@@ -74,8 +74,10 @@
     "cli-integer/positive-outside-fixed/settings.tx.json": "bf1debd5a5cccdd0f20913de465e1a2e7c7f667238d080095e180309f16d21e5"
   },
   "files_sha256": {
-    "README.md": "415c33abe3cea95e722fae31a43ec469c874c9caec9815cfb34f0e8e404adc6a",
+    "README.md": "a2767326462232571f78fa306e17640e761302538ac16b38f5368208bef48bc4",
     "amaru-candidate.patch": "a57c8e778dd5a2efddc600e9c24c65441bdddf0953ceba06a4b1aabc703841bd",
+    "amaru-workspace-libclang-fixed.json": "1409999439b437ee478ab41cd7f85ea76a1080243f75a4e45b93aeab0e5c2e0a",
+    "amaru-workspace-libclang-fixed.txt": "e5a1883dc4ccc29095a9902f45d5f24e3fe9bef45a0c2ef4bf7805d8756f4701",
     "amaru-workspace-missing-libclang.txt": "091c0876c8831a951d93df5a10d81b0c0e61ab3156801092f175144328743a2f",
     "baseline-amaru-integers.txt": "dc0850e5d36603d4f12be9a6ca57c1141586afb599daadd4925356e64ef3a021",
     "baseline-dual-runtime.txt": "170653e29a9cf5d517f2b753cd5edf3b15de158395a967caa17559f46ab5ce29",
@@ -163,5 +165,6 @@
     "workspace_msrv": "1.97",
     "report": "rust197-policy/verification.json",
     "scope": "experiment branch; canonical checkouts unchanged"
-  }
+  },
+  "amaru_workspace_retry": "amaru-workspace-libclang-fixed.json"
 }
