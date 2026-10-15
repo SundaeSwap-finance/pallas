@@ -32,6 +32,8 @@ use std::ops::Deref;
 #[cfg(test)]
 mod certificate_witnesses;
 #[cfg(test)]
+mod input_eras;
+#[cfg(test)]
 mod registration_deposits;
 
 pub fn validate_conway_tx(
