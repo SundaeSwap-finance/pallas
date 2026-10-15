@@ -179,6 +179,90 @@ mod conway_tests {
     }
 
     #[test]
+    fn byron_inputs_are_witnessed_through_dispatch() {
+        use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress, SpendingData};
+        use pallas_crypto::key::ed25519::SecretKey;
+        use pallas_primitives::conway::{BootstrapWitness, TransactionInput};
+        use pallas_traverse::OriginalHash;
+
+        // Synthetic mutation of the Conway control. The spent input and an
+        // added collateral input are locked by one Byron key, the collateral
+        // by an output of the Byron era.
+        let key = SecretKey::from([7; 32]);
+        let chain_code = [9; 32];
+        let xpub = [key.public_key().as_ref(), &chain_code[..]].concat();
+        let address = ByronAddress::from(AddressPayload::new(
+            AddrType::PubKey,
+            SpendingData::PubKey(xpub.into()),
+            vec![].into(),
+        ))
+        .to_vec();
+        let collateral = TransactionInput {
+            transaction_id: [1; 32].into(),
+            index: 0,
+        };
+        let raw = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
+        let mut tx: Tx = conway_minted_tx_from_cbor(&raw);
+        tx.transaction_body.collateral = Some(vec![collateral.clone()].try_into().unwrap());
+        let encoded = minicbor::to_vec(&tx).unwrap();
+        let tx: Tx = minicbor::decode(&encoded).unwrap();
+        let hash = tx.transaction_body.original_hash();
+        let spent = tx.transaction_body.inputs.iter().next().unwrap().clone();
+        let spent_output = minicbor::to_vec(pallas_primitives::alonzo::TransactionOutput {
+            address: address.clone().into(),
+            amount: pallas_primitives::alonzo::Value::Coin(20_000_000),
+            datum_hash: None,
+        })
+        .unwrap();
+        let mut collateral_output = vec![0x82];
+        collateral_output.extend(&address);
+        collateral_output.extend([0x1a, 0x00, 0x4c, 0x4b, 0x40]);
+        let utxos = UTxOs::from([
+            (
+                MultiEraInput::from_alonzo_compatible(&spent),
+                MultiEraOutput::decode(pallas_traverse::Era::Conway, &spent_output).unwrap(),
+            ),
+            (
+                MultiEraInput::from_alonzo_compatible(&collateral),
+                MultiEraOutput::decode(pallas_traverse::Era::Byron, &collateral_output).unwrap(),
+            ),
+        ]);
+        let mut params = mk_mainnet_params_epoch_365();
+        // Isolate witnessing from the size-dependent fee of the derived body.
+        params.minfee_a = 0;
+        params.minfee_b = 0;
+        let env = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(params),
+            prot_magic: 764824073,
+            block_slot: 137806612,
+            network_id: 1,
+            acnt: Some(AccountState::default()),
+        };
+        let witness = |signed: &[u8]| BootstrapWitness {
+            public_key: key.public_key().as_ref().to_vec().into(),
+            signature: key.sign(signed).as_ref().to_vec().into(),
+            chain_code: chain_code.to_vec().into(),
+            attributes: vec![0xa0].into(),
+        };
+        for (witnesses, expected) in [
+            (vec![witness(hash.as_ref())], "Ok(())"),
+            (vec![], "Err(PostAlonzo(VKWitnessMissing))"),
+            (vec![witness(&[0; 32])], "Err(PostAlonzo(VKWrongSignature))"),
+        ] {
+            let mut tx = tx.clone();
+            tx.transaction_witness_set.vkeywitness = None;
+            tx.transaction_witness_set.bootstrap_witness = witnesses.try_into().ok();
+            let result = validate_txs(
+                &[MultiEraTx::from_conway(&tx)],
+                &env,
+                &utxos,
+                &mut CertState::default(),
+            );
+            assert_eq!(format!("{result:?}"), expected);
+        }
+    }
+
+    #[test]
     //Transaction hash:
     // b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f
     fn preview_reference_script_rejects_underfunded_collateral() {
