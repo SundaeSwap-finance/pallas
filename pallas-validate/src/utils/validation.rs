@@ -4,6 +4,46 @@ use thiserror::Error;
 #[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum ValidationError {
+    #[cfg(feature = "unstable")]
+    #[error("unsupported Dijkstra phase-one feature: {0}")]
+    DijkstraUnsupported(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra certificate validation requires historical certificate state")]
+    DijkstraCertificateStateUnavailable,
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra registration: {0}")]
+    DijkstraInvalidCertificate(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("missing or invalid Dijkstra protocol parameter: {0}")]
+    DijkstraMissingParameters(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra reference script size exceeds the protocol limit")]
+    DijkstraReferenceScriptsTooLarge,
+
+    #[cfg(feature = "unstable")]
+    #[error("input has already been consumed within the Dijkstra batch")]
+    DijkstraInputAlreadySpent,
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra withdrawal requires the original account balance for {0}")]
+    DijkstraAccountStateUnavailable(String),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra withdrawal: {0}")]
+    DijkstraInvalidWithdrawal(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra metadata")]
+    DijkstraInvalidMetadata,
+
+    #[cfg(feature = "unstable")]
+    #[error("malformed Dijkstra Plutus V3 script")]
+    DijkstraMalformedScript,
+
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
 
@@ -284,6 +324,9 @@ pub enum AlonzoError {
 #[derive(Debug, Clone, Error)]
 #[non_exhaustive]
 pub enum PostAlonzoError {
+    #[error("native reference script uses features unsupported by this validator")]
+    UnsupportedNativeScript,
+
     #[error("native script evaluation failed")]
     NativeScriptDenial,
 
