@@ -33,6 +33,11 @@ pub fn eval_tx(
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
+    #[cfg(feature = "unstable")]
+    if tx.era() == pallas_traverse::Era::Dijkstra {
+        return super::dijkstra::eval_tx(tx, pparams, utxos, slot_config);
+    }
+
     let utxos = utxos
         .iter()
         .map(|(txoref, eracbor)| {
