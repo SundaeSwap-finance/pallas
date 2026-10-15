@@ -31,11 +31,38 @@ pub fn conway_tx(tx_str: &str) -> trv::MultiEraTx<'_> {
     trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
 }
 
+/// Decodes a hex encoded Dijkstra block.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_block(block_str: &str) -> trv::MultiEraBlock<'_> {
+    let cbor: &'static [u8] = Box::leak(hex::decode(block_str).unwrap().into_boxed_slice());
+    trv::MultiEraBlock::decode(cbor).unwrap()
+}
+
+/// Decodes a hex encoded Dijkstra transaction.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx(tx_str: &str) -> trv::MultiEraTx<'_> {
+    let cbor: &'static [u8] = Box::leak(hex::decode(tx_str).unwrap().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// Decodes a hex encoded Dijkstra proposal procedure.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_proposal(hex_str: &str) -> pallas_primitives::dijkstra::ProposalProcedure {
+    let cbor = hex::decode(hex_str.trim()).unwrap();
+    pallas_codec::minicbor::decode(&cbor).unwrap()
+}
+
 /// A Conway parameter change around an update read from the CBOR map given,
 /// so a test reads the bytes a proposal would encode.
 pub fn conway_parameter_change(update_cbor: &[u8]) -> conway::GovAction {
     let update = minicbor::decode(update_cbor).expect("a parameter update map must decode");
     conway::GovAction::ParameterChange(None, Box::new(update), None)
+}
+
+/// A Dijkstra parameter update read from the CBOR map given.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_update(update_cbor: &[u8]) -> pallas_primitives::dijkstra::ProtocolParamUpdate {
+    minicbor::decode(update_cbor).expect("a parameter update map must decode")
 }
 
 /// The action a test names as the one most recently enacted of its kind.
@@ -181,6 +208,315 @@ pub fn conway_tx_with_certificate_redeemers() -> trv::MultiEraTx<'static> {
     trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
 }
 
+/// The DRep key hash that casts the vote in `dijkstra_tx_with_one_vote`.
+#[cfg(feature = "unstable")]
+pub const VOTING_DREP_KEY_HASH: [u8; 28] = [0x77; 28];
+
+/// The transaction of the governance action that vote is cast on.
+#[cfg(feature = "unstable")]
+pub const VOTED_ACTION_TX_HASH: [u8; 32] = [0x88; 32];
+
+/// The index of that governance action inside its transaction.
+#[cfg(feature = "unstable")]
+pub const VOTED_ACTION_INDEX: u32 = 3;
+
+/// The anchor url of that vote.
+#[cfg(feature = "unstable")]
+pub const VOTE_ANCHOR_URL: &str = "https://example.invalid/vote";
+
+/// The anchor content hash of that vote.
+#[cfg(feature = "unstable")]
+pub const VOTE_ANCHOR_HASH: [u8; 32] = [0x99; 32];
+
+/// The key hash of the committee member voting in
+/// `dijkstra_tx_with_committee_votes`.
+#[cfg(feature = "unstable")]
+pub const COMMITTEE_VOTER_KEY_HASH: [u8; 28] = [0x6a; 28];
+
+/// The script hash of the committee member voting beside it.
+#[cfg(feature = "unstable")]
+pub const COMMITTEE_VOTER_SCRIPT_HASH: [u8; 28] = [0x6b; 28];
+
+/// The action the committee key votes no on.
+#[cfg(feature = "unstable")]
+pub const COMMITTEE_KEY_ACTION_TX_HASH: [u8; 32] = [0x6c; 32];
+
+/// The action the committee script abstains on.
+#[cfg(feature = "unstable")]
+pub const COMMITTEE_SCRIPT_ACTION_TX_HASH: [u8; 32] = [0x6d; 32];
+
+/// The CBOR index of the Dijkstra voter variant for a committee key.
+#[cfg(feature = "unstable")]
+const COMMITTEE_KEY_VOTER: u8 = 0;
+
+/// The CBOR index of the Dijkstra voter variant for a committee script.
+#[cfg(feature = "unstable")]
+const COMMITTEE_SCRIPT_VOTER: u8 = 1;
+
+/// The CBOR index of the Dijkstra voter variant for a DRep key.
+#[cfg(feature = "unstable")]
+const DREP_KEY_VOTER: u8 = 2;
+
+/// The CBOR index of a no vote.
+#[cfg(feature = "unstable")]
+const NO_VOTE: u8 = 0;
+
+/// The CBOR index of a yes vote.
+#[cfg(feature = "unstable")]
+const YES_VOTE: u8 = 1;
+
+/// The CBOR index of an abstain vote.
+#[cfg(feature = "unstable")]
+const ABSTAIN_VOTE: u8 = 2;
+
+/// Writes a Dijkstra body of one input, no outputs, a fee, and the voting
+/// procedures the writer given adds at body key 19.
+#[cfg(feature = "unstable")]
+fn dijkstra_tx_voting(
+    voters: usize,
+    write_votes: impl Fn(&mut minicbor::Encoder<Vec<u8>>),
+) -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    // voting_procedures is a map from a voter to a map from a governance
+    // action id to a voting procedure.
+    e.u8(19).unwrap();
+    e.map(voters as u64).unwrap();
+    write_votes(&mut e);
+
+    // An empty witness set, no auxiliary data, and a valid transaction.
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// A Dijkstra transaction whose body has one voting procedure at body key
+/// 19: a DRep key voter casting one yes vote on one governance action, with an
+/// anchor.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_one_vote() -> trv::MultiEraTx<'static> {
+    dijkstra_tx_voting(1, |e| {
+        // voter = [2, addr_keyhash], the flat encoding of the DRep key variant.
+        e.array(2).unwrap();
+        e.u8(DREP_KEY_VOTER).unwrap();
+        e.bytes(&VOTING_DREP_KEY_HASH).unwrap();
+
+        e.map(1).unwrap();
+
+        // gov_action_id = [transaction_id, action_index]
+        e.array(2).unwrap();
+        e.bytes(&VOTED_ACTION_TX_HASH).unwrap();
+        e.u32(VOTED_ACTION_INDEX).unwrap();
+
+        // voting_procedure = [vote, anchor], anchor = [url, content_hash]
+        e.array(2).unwrap();
+        e.u8(YES_VOTE).unwrap();
+        e.array(2).unwrap();
+        e.str(VOTE_ANCHOR_URL).unwrap();
+        e.bytes(&VOTE_ANCHOR_HASH).unwrap();
+    })
+}
+
+/// A Dijkstra transaction whose body has two voting procedures, a committee
+/// key voting no and a committee script abstaining, each on an action of its
+/// own and neither with an anchor.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_committee_votes() -> trv::MultiEraTx<'static> {
+    dijkstra_tx_voting(2, |e| {
+        for (variant, hash, action, vote) in [
+            (
+                COMMITTEE_KEY_VOTER,
+                COMMITTEE_VOTER_KEY_HASH,
+                COMMITTEE_KEY_ACTION_TX_HASH,
+                NO_VOTE,
+            ),
+            (
+                COMMITTEE_SCRIPT_VOTER,
+                COMMITTEE_VOTER_SCRIPT_HASH,
+                COMMITTEE_SCRIPT_ACTION_TX_HASH,
+                ABSTAIN_VOTE,
+            ),
+        ] {
+            e.array(2).unwrap();
+            e.u8(variant).unwrap();
+            e.bytes(&hash).unwrap();
+
+            e.map(1).unwrap();
+
+            e.array(2).unwrap();
+            e.bytes(&action).unwrap();
+            e.u32(0).unwrap();
+
+            e.array(2).unwrap();
+            e.u8(vote).unwrap();
+            e.null().unwrap();
+        }
+    })
+}
+
+/// The auxiliary PlutusV1 script of `dijkstra_tx_with_aux_plutus_scripts`.
+#[cfg(feature = "unstable")]
+pub const AUX_PLUTUS_V1: [u8; 3] = [0x01, 0x11, 0x11];
+
+/// Its auxiliary PlutusV2 script.
+#[cfg(feature = "unstable")]
+pub const AUX_PLUTUS_V2: [u8; 3] = [0x02, 0x22, 0x22];
+
+/// Its auxiliary PlutusV3 script.
+#[cfg(feature = "unstable")]
+pub const AUX_PLUTUS_V3: [u8; 3] = [0x03, 0x33, 0x33];
+
+/// A Dijkstra transaction whose auxiliary data has one Plutus script of each of
+/// the three versions an earlier era's auxiliary type also names, each with
+/// bytes no other of the three has.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_aux_plutus_scripts() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(3).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.map(0).unwrap();
+
+    // Auxiliary data keys 2, 3 and 4 are the V1, V2 and V3 script lists.
+    e.tag(Tag::new(259)).unwrap();
+    e.map(3).unwrap();
+    for (key, script) in [
+        (2u8, AUX_PLUTUS_V1.as_slice()),
+        (3, AUX_PLUTUS_V2.as_slice()),
+        (4, AUX_PLUTUS_V3.as_slice()),
+    ] {
+        e.u8(key).unwrap();
+        e.array(1).unwrap();
+        e.bytes(script).unwrap();
+    }
+
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// A Dijkstra parameter set whose every cost model is present and whose
+/// every number differs from every other.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_params() -> pallas_validate::utils::DijkstraProtParams {
+    use pallas_primitives::{ExUnits, conway};
+
+    pallas_validate::utils::DijkstraProtParams {
+        system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
+        epoch_length: 21_600,
+        slot_length: 1,
+        minfee_a: 44,
+        minfee_b: 155_381,
+        max_block_body_size: 90_112,
+        max_transaction_size: 16_384,
+        max_block_header_size: 1_100,
+        key_deposit: 2_000_000,
+        pool_deposit: 500_000_000,
+        desired_number_of_stake_pools: 150,
+        protocol_version: (12, 1),
+        min_pool_cost: 170_000_000,
+        ada_per_utxo_byte: 4_310,
+        cost_models_for_script_languages: pallas_primitives::dijkstra::CostModels {
+            plutus_v1: Some(vec![101, 102]),
+            plutus_v2: Some(vec![201, 202]),
+            plutus_v3: Some(vec![301, 302]),
+            plutus_v4: Some(vec![401, 402]),
+            unknown: Default::default(),
+        },
+        execution_costs: pallas_primitives::ExUnitPrices {
+            mem_price: ratio(577, 10_000),
+            step_price: ratio(721, 10_000_000),
+        },
+        max_tx_ex_units: ExUnits {
+            mem: 14_000_000,
+            steps: 10_000_000_000,
+        },
+        max_block_ex_units: ExUnits {
+            mem: 62_000_000,
+            steps: 20_000_000_000,
+        },
+        max_value_size: 5_000,
+        collateral_percentage: 151,
+        max_collateral_inputs: 3,
+        expansion_rate: ratio(3, 1_000),
+        treasury_growth_rate: ratio(1, 5),
+        maximum_epoch: 18,
+        pool_pledge_influence: ratio(3, 10),
+        pool_voting_thresholds: conway::PoolVotingThresholds {
+            motion_no_confidence: ratio(1, 51),
+            committee_normal: ratio(1, 52),
+            committee_no_confidence: ratio(1, 53),
+            hard_fork_initiation: ratio(1, 54),
+            security_voting_threshold: ratio(1, 55),
+        },
+        drep_voting_thresholds: conway::DRepVotingThresholds {
+            motion_no_confidence: ratio(1, 61),
+            committee_normal: ratio(1, 62),
+            committee_no_confidence: ratio(1, 63),
+            update_constitution: ratio(1, 64),
+            hard_fork_initiation: ratio(1, 65),
+            pp_network_group: ratio(1, 66),
+            pp_economic_group: ratio(1, 67),
+            pp_technical_group: ratio(1, 68),
+            pp_governance_group: ratio(1, 69),
+            treasury_withdrawal: ratio(1, 70),
+        },
+        min_committee_size: 7,
+        committee_term_limit: 293,
+        governance_action_validity_period: 120,
+        governance_action_deposit: 100_000_000_000,
+        drep_deposit: 500_000_001,
+        drep_inactivity_period: 20,
+        minfee_refscript_cost_per_byte: ratio(15, 1),
+        max_ref_script_size_per_block: 1_048_576,
+        max_ref_script_size_per_tx: 204_800,
+        ref_script_cost_stride: 25_600,
+        ref_script_cost_multiplier: ratio(6, 5),
+        max_pledge_leverage: Some(ratio(38, 1)),
+        min_pool_margin: ratio(1, 39),
+        leios_announcement_period_length: 1_000,
+        leios_vote_period_length: 4_000,
+        leios_diffusion_period_length: 7_000,
+        leios_committee_size: 900,
+        leios_quorum_stake_threshold: ratio(3, 4),
+        max_endorser_block_references_size: 100_000,
+        max_endorser_block_txs_size: 1_000_000,
+        max_endorser_block_ex_units: ExUnits {
+            mem: 310_000_000,
+            steps: 100_000_000_000,
+        },
+        max_ref_script_size_per_endorser_block: 4_000_000,
+    }
+}
+
 /// A Conway reference script of the Plutus script bytes given, under the
 /// language index given, where 1, 2 and 3 are PlutusV1, V2 and V3.
 pub fn conway_plutus_script_ref(language: u8, script: &[u8]) -> conway::ScriptRef<'static> {
@@ -200,6 +536,18 @@ pub fn conway_native_script_ref(keyhash: [u8; 28]) -> conway::ScriptRef<'static>
     e.array(2).unwrap();
     e.u8(0).unwrap();
     e.bytes(&keyhash).unwrap();
+    decode_leaked(e.into_writer())
+}
+
+/// A Dijkstra reference script of the PlutusV4 script bytes given.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_plutus_v4_script_ref(
+    script: &[u8],
+) -> pallas_primitives::dijkstra::ScriptRef<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(2).unwrap();
+    e.u8(4).unwrap();
+    e.bytes(script).unwrap();
     decode_leaked(e.into_writer())
 }
 
@@ -329,8 +677,7 @@ macro_rules! updates_of_one_zero_key {
 /// An update of the era named that sets every key the mapper reads, each to a
 /// value no other key of the update takes, so a mapper reading the wrong key
 /// cannot agree with an expectation written from the key meanings. A key the
-/// era adds past the ones u5c has a field for is named by the caller and left
-/// unset.
+/// era adds past 33 is named by the caller and left unset.
 macro_rules! update_of_every_key {
     ($era:ident, $cost_models:expr $(, $era_only:ident)* $(,)?) => {
         pallas_primitives::$era::ProtocolParamUpdate {
@@ -396,6 +743,12 @@ pub fn conway_update_of_no_key() -> conway::ProtocolParamUpdate {
     minicbor::decode(&[0xa0]).expect("the empty parameter update map must decode")
 }
 
+/// A Dijkstra update setting no key at all.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_update_of_no_key() -> pallas_primitives::dijkstra::ProtocolParamUpdate {
+    minicbor::decode(&[0xa0]).expect("the empty parameter update map must decode")
+}
+
 /// Every key the parameter update mapper reads, each set alone in a Conway
 /// update to the zero or empty value of the key's own type.
 pub fn conway_updates_of_one_zero_key() -> Vec<(&'static str, conway::ProtocolParamUpdate)> {
@@ -413,6 +766,30 @@ pub fn conway_updates_of_one_zero_key() -> Vec<(&'static str, conway::ProtocolPa
     )
 }
 
+/// The same keys set alone in a Dijkstra update. The keys this era adds past
+/// 33 stay unset.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_updates_of_one_zero_key() -> Vec<(
+    &'static str,
+    pallas_primitives::dijkstra::ProtocolParamUpdate,
+)> {
+    use pallas_primitives::dijkstra;
+
+    let blank = dijkstra_update_of_no_key();
+
+    updates_of_one_zero_key!(
+        dijkstra,
+        blank,
+        dijkstra::CostModels {
+            plutus_v1: None,
+            plutus_v2: None,
+            plutus_v3: None,
+            plutus_v4: None,
+            unknown: Default::default(),
+        }
+    )
+}
+
 /// A Conway update that sets every key the era names, each to a value no other
 /// key of the update takes.
 pub fn conway_update_of_every_key() -> conway::ProtocolParamUpdate {
@@ -424,5 +801,38 @@ pub fn conway_update_of_every_key() -> conway::ProtocolParamUpdate {
             plutus_v3: Some(vec![183]),
             unknown: Default::default(),
         }
+    )
+}
+
+/// A Dijkstra update setting the same keys to the same values, plus the V4
+/// cost model only this era names. The keys this era adds past 33 stay unset.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_update_of_every_key() -> pallas_primitives::dijkstra::ProtocolParamUpdate {
+    use pallas_primitives::dijkstra;
+
+    update_of_every_key!(
+        dijkstra,
+        dijkstra::CostModels {
+            plutus_v1: Some(vec![181]),
+            plutus_v2: Some(vec![182]),
+            plutus_v3: Some(vec![183]),
+            plutus_v4: Some(vec![184]),
+            unknown: Default::default(),
+        },
+        max_ref_script_size_per_block,
+        max_ref_script_size_per_tx,
+        ref_script_cost_stride,
+        ref_script_cost_multiplier,
+        max_pledge_leverage,
+        min_pool_margin,
+        leios_announcement_period_length,
+        leios_vote_period_length,
+        leios_diffusion_period_length,
+        leios_committee_size,
+        leios_quorum_stake_threshold,
+        max_endorser_block_references_size,
+        max_endorser_block_txs_size,
+        max_endorser_block_execution_units,
+        max_ref_script_size_per_endorser_block,
     )
 }
