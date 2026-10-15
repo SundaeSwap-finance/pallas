@@ -116,6 +116,34 @@ fn captured_settings(test: impl FnOnce(Tx<'_>, UTxOs<'_>)) {
 }
 
 #[test]
+fn captured_native_input_checks_original_payment_witness() {
+    captured_settings(|tx, utxos| {
+        let wits = tx
+            .transaction_witness_set
+            .vkeywitness
+            .as_ref()
+            .map(|w| w.clone().to_vec());
+        let result = check_vkey_input_wits(&tx, &wits, &utxos);
+        assert!(
+            result.is_ok(),
+            "expected original payment signature to pass: {result:?}"
+        );
+    });
+}
+
+#[test]
+fn captured_native_inputs_pass_witness_and_balance_rules() {
+    captured_settings(|tx, utxos| {
+        let result = check_witness_set(&tx, &utxos);
+        assert!(
+            result.is_ok(),
+            "expected captured witnesses/reference to pass: {result:?}"
+        );
+        assert!(check_preservation_of_value(&tx, &utxos, 2_000_000).is_ok());
+    });
+}
+
+#[test]
 fn captured_native_collateral_address_and_value() {
     captured_settings(|tx, utxos| {
         assert!(
@@ -137,6 +165,27 @@ fn captured_native_collateral_address_and_value() {
 
 fn expect(actual: ValidationResult, expected: &str) {
     assert_eq!(format!("{actual:?}"), expected);
+}
+
+#[test]
+fn captured_native_inputs_reject_missing_and_invalid_payment_witnesses() {
+    captured_settings(|tx, utxos| {
+        expect(
+            check_vkey_input_wits(&tx, &Some(vec![]), &utxos),
+            "Err(PostAlonzo(VKWitnessMissing))",
+        );
+        let mut wits = tx
+            .transaction_witness_set
+            .vkeywitness
+            .clone()
+            .unwrap()
+            .to_vec();
+        wits[0].signature = vec![0; 64].into();
+        expect(
+            check_vkey_input_wits(&tx, &Some(wits), &utxos),
+            "Err(PostAlonzo(VKWrongSignature))",
+        );
+    });
 }
 
 fn synthetic_output<'a>(
@@ -242,6 +291,66 @@ fn native_reference_scripts_reject_v4_and_nested_guards_explicitly() {
             *utxos.get_mut(&owned_input(&reference)).unwrap() =
                 synthetic_output(vec![0x60; 29], None, Some(script));
             expect(check_witness_set(&tx, &utxos), expected);
+        }
+    });
+}
+
+#[test]
+fn native_reference_timelocks_keep_original_hash_and_need_no_redeemer() {
+    use pallas_primitives::dijkstra::{NativeScript, ScriptRef};
+    use pallas_traverse::ComputeHash;
+    captured_settings(|mut tx, mut utxos| {
+        let reference = tx.transaction_body.reference_inputs.as_ref().unwrap()[0].clone();
+        for (tag, expected) in [(1, "Ok(())"), (2, "Err(PostAlonzo(NativeScriptDenial))")] {
+            // Noncanonical [all/any, []]; the tag has an extra byte.
+            let raw = [0x82, 0x18, tag, 0x80];
+            let native: KeepRaw<NativeScript> = minicbor::decode(&raw).unwrap();
+            let hash = native.original_hash();
+            assert_ne!(hash, native.compute_hash());
+            *utxos.get_mut(&owned_input(&reference)).unwrap() = synthetic_output(
+                vec![0x60; 29],
+                None,
+                Some(ScriptRef::NativeScript(native.to_owned())),
+            );
+            tx.transaction_body.certificates = Some(
+                vec![Certificate::Reg(
+                    StakeCredential::ScriptHash(hash),
+                    2_000_000,
+                )]
+                .try_into()
+                .unwrap(),
+            );
+            expect(check_certificate_native_scripts(&tx, &utxos), expected);
+            if tag == 1 {
+                // Re-sign the derived body using a public deterministic test key.
+                // Only this synthetic case changes the original body/witnesses.
+                let key = pallas_crypto::key::ed25519::SecretKey::from([42; 32]);
+                let hash = Hasher::<224>::hash(key.public_key().as_ref());
+                let mut address = vec![0x60];
+                address.extend(hash.as_ref());
+                let spending = tx.transaction_body.inputs[0].clone();
+                *utxos.get_mut(&owned_input(&spending)).unwrap() =
+                    synthetic_output(address, None, None);
+                let body_bytes = minicbor::to_vec(&tx.transaction_body).unwrap();
+                let body: KeepRaw<TransactionBody> = minicbor::decode(&body_bytes).unwrap();
+                // Keep raw body alive while checking the synthetic signature.
+                let mut signed = tx.clone();
+                signed.transaction_body = body;
+                signed.transaction_witness_set.redeemer = None;
+                signed.transaction_witness_set.vkeywitness = Some(
+                    vec![VKeyWitness {
+                        vkey: key.public_key().as_ref().to_vec().into(),
+                        signature: key
+                            .sign(signed.transaction_body.original_hash())
+                            .as_ref()
+                            .to_vec()
+                            .into(),
+                    }]
+                    .try_into()
+                    .unwrap(),
+                );
+                expect(check_witness_set(&signed, &utxos), "Ok(())");
+            }
         }
     });
 }
@@ -742,5 +851,43 @@ fn earlier_era_key_inputs_still_verify_signatures() {
                 "Ok(())",
             );
         }
+    });
+}
+
+#[test]
+fn byron_output_inspection_preserves_existing_witness_boundary() {
+    captured_settings(|tx, _| {
+        // Synthetic output using an address from pallas-addresses' public vectors.
+        let address = pallas_addresses::ByronAddress::from_base58(
+            "Ae2tdPwUPEZLs4HtbuNey7tK4hTKrwNwYtGqp7bDfCy2WdR3P6735W5Yfpe",
+        )
+        .unwrap()
+        .to_vec();
+        let output = pallas_primitives::byron::TxOut {
+            address: minicbor::decode(&address).unwrap(),
+            amount: 5_000_000,
+        };
+        let utxos = UTxOs::from([(
+            owned_input(&tx.transaction_body.inputs[0]),
+            MultiEraOutput::from_byron(&output),
+        )]);
+        expect(
+            check_collaterals_address(&[tx.transaction_body.inputs[0].clone()], &utxos),
+            "Ok(())",
+        );
+        assert_eq!(
+            get_consumed(&tx.transaction_body, &utxos).unwrap(),
+            Value::Coin(5_000_000)
+        );
+        let wits = tx
+            .transaction_witness_set
+            .vkeywitness
+            .clone()
+            .map(|w| w.to_vec());
+        // The captured transaction has no bootstrap witness for this address.
+        expect(
+            check_vkey_input_wits(&tx, &wits, &utxos),
+            "Err(PostAlonzo(VKWitnessMissing))",
+        );
     });
 }
