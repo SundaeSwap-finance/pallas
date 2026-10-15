@@ -71,9 +71,117 @@ mod conway_tests {
     }
 
     #[test]
+    fn registration_deposit_is_required_through_dispatch() {
+        // Synthetic mutation of the existing Conway control. The deposit has
+        // not been reserved; balance must fail before the invalid signatures.
+        let raw = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
+        let mut tx: Tx = conway_minted_tx_from_cbor(&raw);
+        let mut body = (*tx.transaction_body).clone();
+        assert!(body.certificates.is_none());
+        body.certificates = Some(
+            vec![pallas_primitives::conway::Certificate::Reg(
+                pallas_primitives::StakeCredential::AddrKeyhash([1; 28].into()),
+                2_000_000,
+            )]
+            .try_into()
+            .unwrap(),
+        );
+        let changed_body = minicbor::to_vec(body).unwrap();
+        tx.transaction_body = minicbor::decode(&changed_body).unwrap();
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
+            Value::Coin(20_000_000),
+            None,
+            None,
+        )];
+        let utxos = mk_utxo_for_conway_tx(&tx.transaction_body, tx_outs_info);
+        let mut params = mk_mainnet_params_epoch_365();
+        params.key_deposit = 2_000_000;
+        // Isolate balance from the size-dependent fee of the derived body.
+        params.minfee_a = 0;
+        params.minfee_b = 0;
+        let env = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(params),
+            prot_magic: 764824073,
+            block_slot: 137806612,
+            network_id: 1,
+            acnt: Some(AccountState::default()),
+        };
+        let result = validate_txs(
+            &[MultiEraTx::from_conway(&tx)],
+            &env,
+            &utxos,
+            &mut CertState::default(),
+        );
+        assert!(
+            matches!(
+                result,
+                Err(PostAlonzo(PostAlonzoError::PreservationOfValue))
+            ),
+            "expected deposit imbalance, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn certificate_script_is_required_through_dispatch() {
+        // Synthetic Conway mutation with its deposit funded. A missing script
+        // must fail before the deliberately stale payment signature.
+        let raw = cbor_to_bytes(include_str!("../../test_data/conway3.tx"));
+        let mut tx: Tx = conway_minted_tx_from_cbor(&raw);
+        let mut body = (*tx.transaction_body).clone();
+        assert!(body.certificates.is_none());
+        body.certificates = Some(
+            vec![pallas_primitives::conway::Certificate::Reg(
+                pallas_primitives::StakeCredential::ScriptHash([1; 28].into()),
+                2_000_000,
+            )]
+            .try_into()
+            .unwrap(),
+        );
+        let changed_body = minicbor::to_vec(body).unwrap();
+        tx.transaction_body = minicbor::decode(&changed_body).unwrap();
+        let tx_outs_info: &[ConwayTxOutInfo] = &[(
+            String::from(
+                "015c5c318d01f729e205c95eb1b02d623dd10e78ea58f72d0c13f892b2e8904edc699e2f0ce7b72be7cec991df651a222e2ae9244eb5975cba",
+            ),
+            Value::Coin(22_000_000),
+            None,
+            None,
+        )];
+        let utxos = mk_utxo_for_conway_tx(&tx.transaction_body, tx_outs_info);
+        let mut params = mk_mainnet_params_epoch_365();
+        params.key_deposit = 2_000_000;
+        // Isolate balance from the size-dependent fee of the derived body.
+        params.minfee_a = 0;
+        params.minfee_b = 0;
+        let env = Environment {
+            prot_params: MultiEraProtocolParameters::Conway(params),
+            prot_magic: 764824073,
+            block_slot: 137806612,
+            network_id: 1,
+            acnt: Some(AccountState::default()),
+        };
+        let result = validate_txs(
+            &[MultiEraTx::from_conway(&tx)],
+            &env,
+            &utxos,
+            &mut CertState::default(),
+        );
+        assert!(
+            matches!(
+                result,
+                Err(PostAlonzo(PostAlonzoError::ScriptWitnessMissing))
+            ),
+            "expected missing certificate script, got {result:?}"
+        );
+    }
+
+    #[test]
     //Transaction hash:
     // b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f
-    fn successful_preview_tx_with_plutus_v3_script() {
+    fn preview_reference_script_rejects_underfunded_collateral() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway4.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
@@ -141,10 +249,34 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
 
-        match validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state) {
-            Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({err:?})"),
-        };
+        // These manually supplied collateral UTxOs leave less than 150% of
+        // the fee after the original collateral return. Previously this was
+        // skipped because the V3 script is supplied only by reference. Keep
+        // all transaction bytes and supplied values; require the correct error.
+        let returned =
+            MultiEraOutput::from_conway(mtx.transaction_body.collateral_return.as_ref().unwrap())
+                .value()
+                .coin();
+        let supplied = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(
+                &mtx.transaction_body.collateral.as_ref().unwrap()[0],
+            ))
+            .unwrap()
+            .value()
+            .coin();
+        println!(
+            "collateral: supplied={supplied}, returned={returned}, fee={}",
+            mtx.transaction_body.fee
+        );
+        assert!((supplied - returned) * 100 < mtx.transaction_body.fee * 150);
+        let result = validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state);
+        assert!(
+            matches!(
+                result,
+                Err(PostAlonzo(PostAlonzoError::CollateralMinLovelace))
+            ),
+            "{result:?}"
+        );
 
         #[cfg(feature = "phase2")]
         match pallas_validate::phase2::tx::eval_tx(
@@ -161,7 +293,7 @@ mod conway_tests {
     #[test]
     // Transaction hash:
     // 3e1ae85c08b610d5d03e67cf90e78980d1d2f54ffc50c21672e24180b450d354
-    fn successful_mainnet_tx_with_plutus_v3_script() {
+    fn mainnet_reference_script_rejects_underfunded_collateral() {
         let cbor_bytes: Vec<u8> = cbor_to_bytes(include_str!("../../test_data/conway5.tx"));
         let mtx: Tx = conway_minted_tx_from_cbor(&cbor_bytes);
         let metx: MultiEraTx = MultiEraTx::from_conway(&mtx);
@@ -218,10 +350,34 @@ mod conway_tests {
         };
         let mut cert_state: CertState = CertState::default();
 
-        match validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state) {
-            Ok(()) => (),
-            Err(err) => panic!("Unexpected error ({err:?})"),
-        };
+        // These manually supplied collateral UTxOs leave less than 150% of
+        // the fee after the original collateral return. Previously this was
+        // skipped because the V3 script is supplied only by reference. Keep
+        // all transaction bytes and supplied values; require the correct error.
+        let returned =
+            MultiEraOutput::from_conway(mtx.transaction_body.collateral_return.as_ref().unwrap())
+                .value()
+                .coin();
+        let supplied = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(
+                &mtx.transaction_body.collateral.as_ref().unwrap()[0],
+            ))
+            .unwrap()
+            .value()
+            .coin();
+        println!(
+            "collateral: supplied={supplied}, returned={returned}, fee={}",
+            mtx.transaction_body.fee
+        );
+        assert!((supplied - returned) * 100 < mtx.transaction_body.fee * 150);
+        let result = validate_txs(std::slice::from_ref(&metx), &env, &utxos, &mut cert_state);
+        assert!(
+            matches!(
+                result,
+                Err(PostAlonzo(PostAlonzoError::CollateralMinLovelace))
+            ),
+            "{result:?}"
+        );
 
         #[cfg(feature = "phase2")]
         match pallas_validate::phase2::tx::eval_tx(
