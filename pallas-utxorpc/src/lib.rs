@@ -69,6 +69,10 @@ use pallas_traverse as trv;
 
 #[macro_use]
 mod shared;
+#[macro_use]
+mod before_v1;
+#[macro_use]
+mod since_v1beta;
 
 #[cfg(test)]
 mod testing;
