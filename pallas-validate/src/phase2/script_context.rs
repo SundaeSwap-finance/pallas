@@ -1233,3 +1233,6 @@ mod tests {
         assert_eq!(keys, vec![committed]);
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+mod registration_scripts;

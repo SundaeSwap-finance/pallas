@@ -1,0 +1,90 @@
+{
+  "cli_version": "11.2.2.0",
+  "cli_revision": "afa091b4af2795d1d9c46e59145ed16127760f7b",
+  "cli_sha256": "9bf4a2576754ff76533c387687cfb8fbe0713fac6952a0db973356b00a376e9d",
+  "scope": "offline execution only; synthetic era history; no transaction submission",
+  "results": {
+    "mint": {
+      "pallas": [
+        {
+          "tag": "Spend",
+          "index": 3,
+          "memory": 100601,
+          "steps": 34147076,
+          "success": true
+        },
+        {
+          "tag": "Spend",
+          "index": 4,
+          "memory": 265487,
+          "steps": 92650870,
+          "success": true
+        },
+        {
+          "tag": "Mint",
+          "index": 0,
+          "memory": 96167,
+          "steps": 33170023,
+          "success": true
+        },
+        {
+          "tag": "Reward",
+          "index": 0,
+          "memory": 1165151,
+          "steps": 401636719,
+          "success": true
+        },
+        {
+          "tag": "Reward",
+          "index": 1,
+          "memory": 534704,
+          "steps": 263801953,
+          "success": true
+        }
+      ],
+      "cardano_cli": [
+        {
+          "executionUnits": {
+            "memory": 534704,
+            "steps": 263801953
+          },
+          "lovelaceCost": 49873,
+          "scriptHash": "aabeb9796cfbf5847e567e16adb0d021632bd16685458d67a8f9a09f"
+        },
+        {
+          "executionUnits": {
+            "memory": 1165151,
+            "steps": 401636719
+          },
+          "lovelaceCost": 96188,
+          "scriptHash": "550fafb22a38e9df21ca1735f9eb7ec4ca75fb6efcd2a6d0d2c7d69b"
+        },
+        {
+          "executionUnits": {
+            "memory": 96167,
+            "steps": 33170023
+          },
+          "lovelaceCost": 7941,
+          "scriptHash": "7440ff3290a4a6438ddeb00ae65968b8f92d18d4eb5572c3b965333c"
+        },
+        {
+          "executionUnits": {
+            "memory": 265487,
+            "steps": 92650870
+          },
+          "lovelaceCost": 21999,
+          "scriptHash": "d97a21f41fe3b36bc5a6e6ec009015402a8651c48be1b051b6491d2e"
+        },
+        {
+          "executionUnits": {
+            "memory": 100601,
+            "steps": 34147076
+          },
+          "lovelaceCost": 8267,
+          "scriptHash": "9cb910b462a5495ea3bd0066df602052392324bd6b6a944760f6616d"
+        }
+      ],
+      "match": "exact execution units for all five purposes"
+    }
+  }
+}

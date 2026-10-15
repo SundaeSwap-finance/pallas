@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "network": {
+    "name": "Musashi",
+    "magic": 164,
+    "network_id": 0,
+    "era": "Dijkstra",
+    "protocol_version": [
+      12,
+      0
+    ]
+  },
+  "capture": {
+    "date": "2026-10-05",
+    "kind": "extracted from existing network archive; reconstructed mempool envelope with unmodified signed fields",
+    "source": "/home/rodrigo/projects/musashi-readiness/local-dolos/data/archive/000002.segment",
+    "source_segment_sha256": "715485b9c5de71771eae7add4624e49151a917c0dd49ecef9abce78a90ac7fb8",
+    "dictionary_source": "dolos/crates/flatfiles/dictionary/cardano.dict",
+    "dictionary_checkout_revision": "538e2b4fcf11380d974ad3c646757703025734b4",
+    "dictionary_sha256": "c47b2eb1f69a997bf01a720f26bcc1b668e0fddb95431e91c90cebf4f9b87139",
+    "tool": "extract.rs",
+    "pallas_revision": "8efc15bc0207ea85038865c7f8700868bc69e0ba",
+    "pallas_note": "working validation changes do not affect extraction codec/traverse",
+    "node_build": "unknown",
+    "archive_ingestion_build": "unknown"
+  },
+  "mint": {
+    "archive_success": true,
+    "block_hash": "5806625f83cb6b50508d92e29b47c5bd4e3f69cff08ecc579802e976929ea699",
+    "frame": 7032,
+    "segment": "000002.segment",
+    "slot": 1025002,
+    "transaction_id": "ca60ffd71d5dc8fa94ad7d0103183511004e0d42efd7b3a07e1aa6bfc19e5f69"
+  },
+  "producer": {
+    "archive_success": true,
+    "block_hash": "581ecc428804ea8bbc96aa6812900c43c03014f6e40101f11255dd472b968fb3",
+    "frame": 7017,
+    "segment": "000002.segment",
+    "slot": 1024709,
+    "transaction_id": "f615fb416d70838b965ff08ae99a60d59e0f723a17918ff7dd1c921f376da52d"
+  },
+  "parameters": {
+    "file": "../musashi-phase1/historical-parameters.json",
+    "sha256": "55c0e4808f6bb11b86a320ed6a39b4397aac6b82c393e56fa9b7ff9f7de23da4",
+    "origin": "captured epoch-64 parameters, deliberately reused for constructed replay at slot 1025002",
+    "exact_historical_state_at_capture_slot": "unknown; not independently recovered",
+    "account_state": "not needed; no certificates or withdrawals"
+  },
+  "ledger": {
+    "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+    "native_predicates_source": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Scripts.hs",
+    "native_predicates_sha256": "391a730dd5c9640db8726dbff0a2ae7772b94662f54211089643e5cb0db014fd"
+  },
+  "expected": {
+    "baseline": "DijkstraUnsupported(\"non-vkey witnesses\") for identical captured mint admission assertion",
+    "fixed": "phase-one admission succeeds, original signatures/body/inputs preserved",
+    "synthetic_cases": "separate test constructions; no captured CBOR mutated"
+  },
+  "limitations": [
+    "Dolos expanded archive success, not independent consensus replay or node validation response.",
+    "Exact earlier historical parameters and ingestion/node versions unavailable.",
+    "No proof of current spendability or live submission; no live transactions submitted.",
+    "Guard clauses and scripted subtransactions excluded; not full Dijkstra conformance."
+  ],
+  "files": {
+    "mint.tx.hex": {
+      "encoding": "hex",
+      "bytes": 364,
+      "sha256": "3e4f07bdc9fcf772bd1a3cbe6949fc8bab9cfca49960a251a8c6a81f849d2ffa"
+    },
+    "mint.input.hex": {
+      "encoding": "hex",
+      "bytes": 41,
+      "sha256": "f71bd3609b70df04b4a2494de6e45cecb1e25f674c5054e19a7af2514de33852"
+    },
+    "producer.body.hex": {
+      "encoding": "hex",
+      "bytes": 92,
+      "sha256": "0101b7474ba1a5da067e76b3edd48e7813d24bed169c02d0ba3959d287bb81f4"
+    },
+    "extraction.json": {
+      "encoding": "utf8",
+      "bytes": 594,
+      "sha256": "c139d6a8e4a4113745063c2699d07d2c660ab58066d6e8fa77cce0a3a22b78d4"
+    },
+    "extract.rs": {
+      "encoding": "utf8",
+      "bytes": 2696,
+      "sha256": "0405e6f553f4dca095bcf3b2cb7eb09bae04a3128fc349a488ed09048a655de1"
+    }
+  }
+}

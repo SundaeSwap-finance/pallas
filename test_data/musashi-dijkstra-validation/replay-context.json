@@ -1,0 +1,45 @@
+{
+  "network_magic": 164,
+  "network_id": 0,
+  "protocol_version": [
+    12,
+    0
+  ],
+  "system_start": "2026-09-07T00:00:00Z",
+  "slot_length_seconds": 1,
+  "epoch_length_slots": 21600,
+  "mint_validation_slot": 1404987,
+  "mint_account_state": "account-state.json",
+  "order_replay_slot": 2100000,
+  "order_replay_slot_kind": "stipulated for offline replay; not a claimed historical validation slot",
+  "parameters": [
+    {
+      "file": "../musashi-phase1/historical-parameters.json",
+      "sha256": "55c0e4808f6bb11b86a320ed6a39b4397aac6b82c393e56fa9b7ff9f7de23da4"
+    },
+    {
+      "file": "../musashi-phase1/registration-epoch64-parameters.json",
+      "sha256": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6"
+    },
+    {
+      "file": "../musashi-phase1/registration-dijkstra-genesis.json",
+      "sha256": "e3a0f8edd086e0c1fccc9fa04b58fa76b8f735ce1214f854072078f7c823e8be"
+    },
+    {
+      "file": "../musashi-phase1/registration-shelley-genesis.json",
+      "sha256": "da8508afc546a0b1824d93629a7a5fc8c0898d85095c2cf1b25730eb99d5a151"
+    },
+    {
+      "file": "../musashi-phase1/registration-parameter-history.json",
+      "sha256": "fb209022f61473b423e6973218c2d64bae7f9995ce65fd08b756c792af45b685"
+    },
+    {
+      "file": "../musashi-phase2/dual-evaluator/cli-integer/parameters.json",
+      "sha256": "573ea46eb0e3c3d2942658054621aea38bdb807b77573fbd50d51d250b9a8909"
+    },
+    {
+      "file": "../musashi-phase2/dual-evaluator/cli-integer/synthetic-era-history.json",
+      "sha256": "c9ac59599560f96eeb3034f52b5ed35de67e7dad1ae70d99f186b2c47939d614"
+    }
+  ]
+}

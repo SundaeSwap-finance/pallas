@@ -2,7 +2,167 @@
 //! Conway view of their compatible body/witness/output CBOR, never era dispatch.
 use super::*;
 use pallas_codec::minicbor;
+#[cfg(feature = "unstable")]
+use pallas_codec::utils::Nullable;
 use pallas_primitives::conway::{Certificate, RedeemerTag};
+
+#[cfg(feature = "unstable")]
+fn captured_settings(test: impl FnOnce(Tx<'_>, UTxOs<'_>)) {
+    use pallas_traverse::{Era, MultiEraBlock};
+    let read = |name: &str| {
+        hex::decode(
+            std::fs::read_to_string(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../test_data/musashi-registration/blocks")
+                    .join(name),
+            )
+            .unwrap()
+            .trim(),
+        )
+        .unwrap()
+    };
+    let block_bytes = read("1401365.block");
+    let producer_bytes = read("1401345.block");
+    let block = MultiEraBlock::decode(&block_bytes).unwrap();
+    let producer = MultiEraBlock::decode(&producer_bytes).unwrap();
+    let txs = block.txs();
+    let original = &txs[0];
+    assert_eq!(original.era(), Era::Dijkstra);
+    assert_eq!(
+        original.hash().to_string(),
+        "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6"
+    );
+    let native = original.as_dijkstra().unwrap();
+    assert!(native.success);
+    let evidence: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../test_data/musashi-registration/certificate-witnesses-provenance.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        Hasher::<256>::hash(native.transaction_witness_set.raw_cbor()).to_string(),
+        evidence["settings"]["witness_blake2b_256"]
+            .as_str()
+            .unwrap()
+    );
+    let tx = Tx {
+        transaction_body: minicbor::decode(native.transaction_body.raw_cbor()).unwrap(),
+        transaction_witness_set: minicbor::decode(native.transaction_witness_set.raw_cbor())
+            .unwrap(),
+        success: true,
+        auxiliary_data: Nullable::Null,
+    };
+    assert_eq!(tx.transaction_body.original_hash(), original.hash());
+    let producers = producer.txs();
+    assert_eq!(
+        producers[0].hash(),
+        tx.transaction_body.inputs[0].transaction_id
+    );
+    assert!(producers[0].as_dijkstra().unwrap().success);
+    let outputs = producers[0].outputs();
+    let raw: Vec<_> = outputs.iter().map(|x| x.encode()).collect();
+    assert_eq!(
+        Hasher::<256>::hash(&raw[0]).to_string(),
+        evidence["settings"]["reference_output"]["blake2b_256"]
+            .as_str()
+            .unwrap()
+    );
+    assert_eq!(
+        native.transaction_body.reference_inputs.as_ref().unwrap()[0].transaction_id,
+        producers[0].hash()
+    );
+    assert_eq!(
+        native.transaction_body.reference_inputs.as_ref().unwrap()[0].index,
+        0
+    );
+    assert_eq!(native.transaction_body.inputs[0].index, 1);
+    let reference: TransactionOutput = minicbor::decode(&raw[0]).unwrap();
+    let spending: TransactionOutput = minicbor::decode(&raw[1]).unwrap();
+    let body = tx.transaction_body.clone();
+    let utxos = UTxOs::from([
+        (
+            MultiEraInput::from_alonzo_compatible(&body.inputs[0]),
+            MultiEraOutput::from_conway(&spending),
+        ),
+        (
+            MultiEraInput::from_alonzo_compatible(&body.reference_inputs.as_ref().unwrap()[0]),
+            MultiEraOutput::from_conway(&reference),
+        ),
+    ]);
+    test(tx, utxos);
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_accepts_certificate_redeemer() {
+    captured_settings(|tx, utxos| result(check_witness_set(&tx, &utxos), "Ok(())"));
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_requires_redeemer() {
+    captured_settings(|mut tx, utxos| {
+        let mut witnesses = (*tx.transaction_witness_set).clone();
+        witnesses.redeemer = None;
+        tx.transaction_witness_set = witnesses.into();
+        result(
+            check_witness_set(&tx, &utxos),
+            "Err(PostAlonzo(RedeemerMissing))",
+        );
+    });
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_requires_script_even_without_redeemer() {
+    captured_settings(|mut tx, mut utxos| {
+        let mut witnesses = (*tx.transaction_witness_set).clone();
+        witnesses.redeemer = None;
+        tx.transaction_witness_set = witnesses.into();
+        for output in utxos.values_mut() {
+            let MultiEraOutput::Conway(value) = output else {
+                panic!("Conway view");
+            };
+            if let TransactionOutput::PostAlonzo(inner) = value.to_mut() {
+                inner.script_ref = None;
+            }
+        }
+        result(
+            check_witness_set(&tx, &utxos),
+            "Err(PostAlonzo(ScriptWitnessMissing))",
+        );
+    });
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_rejects_wrong_pointer() {
+    captured_settings(|mut tx, utxos| {
+        let Redeemers::Map(map) = tx
+            .transaction_witness_set
+            .redeemer
+            .as_ref()
+            .unwrap()
+            .clone()
+            .unwrap()
+        else {
+            panic!("captured map")
+        };
+        let entries: Vec<_> = map
+            .into_iter()
+            .map(|(mut key, value)| {
+                key.index = 1;
+                (key, value)
+            })
+            .collect();
+        let mut witnesses = (*tx.transaction_witness_set).clone();
+        witnesses.redeemer = Some(Redeemers::Map(entries.into_iter().collect()).into());
+        tx.transaction_witness_set = witnesses.into();
+        assert!(matches!(
+            check_witness_set(&tx, &utxos),
+            Err(PostAlonzo(UnneededRedeemer))
+        ));
+    });
+}
 
 use pallas_crypto::{hash::Hasher, key::ed25519::SecretKey};
 use pallas_primitives::{
@@ -534,6 +694,56 @@ fn all_plutus_versions_can_supply_certificate_scripts() {
             |tx| result(check_witness_set(&tx, &UTxOs::new()), "Ok(())"),
         );
     }
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_rejects_incorrect_reference_script() {
+    captured_settings(|tx, mut utxos| {
+        for output in utxos.values_mut() {
+            let MultiEraOutput::Conway(value) = output else {
+                panic!("Conway view");
+            };
+            if let TransactionOutput::PostAlonzo(inner) = value.to_mut() {
+                inner.script_ref = Some(pallas_codec::utils::CborWrap(ScriptRef::PlutusV3Script(
+                    plutus(),
+                )));
+            }
+        }
+        result(
+            check_witness_set(&tx, &utxos),
+            "Err(PostAlonzo(ScriptWitnessMissing))",
+        );
+    });
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn captured_registration_checks_original_signatures_and_balance() {
+    captured_settings(|mut tx, utxos| {
+        result(
+            check_preservation_of_value(&tx, &utxos, 2_000_000),
+            "Ok(())",
+        );
+        result(check_witness_set(&tx, &utxos), "Ok(())");
+        let mut vkeys = tx
+            .transaction_witness_set
+            .vkeywitness
+            .clone()
+            .unwrap()
+            .to_vec();
+        vkeys[0].signature = vec![0; 64].into();
+        tx.transaction_witness_set.vkeywitness = Some(vkeys.try_into().unwrap());
+        result(
+            check_witness_set(&tx, &utxos),
+            "Err(PostAlonzo(VKWrongSignature))",
+        );
+        tx.transaction_witness_set.vkeywitness = None;
+        result(
+            check_witness_set(&tx, &utxos),
+            "Err(PostAlonzo(VKWitnessMissing))",
+        );
+    });
 }
 
 #[test]

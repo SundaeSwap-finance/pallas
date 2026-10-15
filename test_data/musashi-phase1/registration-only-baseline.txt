@@ -1,0 +1,119 @@
+     Locking 438 packages to latest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding criterion v0.5.1 (available: v0.7.0)
+      Adding crossterm v0.28.1 (available: v0.29.0)
+      Adding cryptoxide v0.4.4 (available: v0.5.1)
+      Adding itertools v0.14.0 (available: v0.15.0)
+      Adding opentelemetry v0.30.0 (available: v0.32.0)
+      Adding opentelemetry-otlp v0.30.0 (available: v0.32.0)
+      Adding opentelemetry_sdk v0.30.0 (available: v0.32.1)
+      Adding prost v0.13.5 (available: v0.14.4)
+      Adding prost-types v0.13.5 (available: v0.14.4)
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling zerocopy v0.8.59
+   Compiling serde_core v1.0.229
+   Compiling minicbor v0.26.5
+   Compiling thiserror v2.0.21
+   Compiling cfg-if v1.0.5
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling hex v0.4.3
+   Compiling serde_json v1.0.151
+   Compiling cryptoxide v0.4.4
+   Compiling rand_core v0.10.1
+   Compiling autocfg v1.5.1
+   Compiling paste v1.0.15
+   Compiling memchr v2.8.3
+   Compiling crc-catalog v2.5.0
+   Compiling itoa v1.0.18
+   Compiling base58 v0.2.0
+   Compiling crc v3.4.0
+   Compiling once_cell v1.21.4
+   Compiling bech32 v0.11.1
+   Compiling either v1.18.0
+   Compiling pin-project-lite v0.2.17
+   Compiling iana-time-zone v0.1.65
+   Compiling tracing-core v0.1.36
+   Compiling num-traits v0.2.19
+   Compiling itertools v0.14.0
+   Compiling syn v2.0.119
+   Compiling syn v3.0.6
+   Compiling chrono v0.4.45
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling zerocopy-derive v0.8.59
+   Compiling minicbor-derive v0.16.2
+   Compiling tracing-attributes v0.1.31
+   Compiling tracing v0.1.44
+   Compiling half v2.7.1
+   Compiling pallas-codec v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-codec)
+   Compiling pallas-crypto v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-crypto)
+   Compiling pallas-addresses v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-addresses)
+   Compiling pallas-primitives v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-primitives)
+   Compiling pallas-traverse v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-traverse)
+   Compiling pallas-validate v1.4.0 (/tmp/musashi-s05-split/registration-baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 32.43s
+     Running unittests src/lib.rs (/tmp/musashi-s05-split/baseline-target/debug/deps/pallas_validate-84d41189fb084747)
+
+running 8 tests
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees' (1680) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraCertificateStateUnavailable"
+ right: "PostAlonzo(TxExUnitsExceeded)"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting' (1681) panicked at pallas-validate/src/phase1/dijkstra_registration_tests.rs:424:9:
+assertion failed: run(&tx, &utxos, &e, &mut state.clone()).is_ok()
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures' (1685) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraCertificateStateUnavailable"
+ right: "PostAlonzo(ReferenceInputNotInUTxO)"
+test phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject' (1683) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraCertificateStateUnavailable"
+ right: "DijkstraUnsupported(\"certificate kind\")"
+test phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures ... FAILED
+test phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch' (1679) panicked at pallas-validate/src/phase1/dijkstra_registration_tests.rs:156:9:
+Err(DijkstraCertificateStateUnavailable)
+test phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author' (1684) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraCertificateStateUnavailable"
+ right: "PostAlonzo(VKWitnessMissing)"
+test phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance' (1682) panicked at pallas-validate/src/phase1/dijkstra_registration_tests.rs:395:9:
+Err(DijkstraCertificateStateUnavailable)
+test phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance ... FAILED
+
+thread 'phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters' (1686) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraCertificateStateUnavailable"
+ right: "DijkstraInvalidCertificate(\"registration deposit\")"
+test phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters ... FAILED
+
+failures:
+
+failures:
+    phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch
+    phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees
+    phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting
+    phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance
+    phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject
+    phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author
+    phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures
+    phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters
+
+test result: FAILED. 0 passed; 8 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

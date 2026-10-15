@@ -1,0 +1,196 @@
+{
+  "baseline_revision": "1af163ecfa94515477c24f97180dc1aaf849023c",
+  "fixed_revision": "commit containing this report",
+  "baseline": {
+    "command": "CARGO_TARGET_DIR=/tmp/musashi-s05-registration/baseline-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 cargo test --manifest-path /tmp/musashi-s05-registration/baseline/Cargo.toml --offline -p pallas-validate --features unstable --lib dijkstra_ -- --nocapture",
+    "compiled": true,
+    "passed": 12,
+    "failed": 14,
+    "exit_code": 101,
+    "log": "registration-baseline-validation.txt"
+  },
+  "fixed": {
+    "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_ -- --nocapture",
+    "compiled": true,
+    "passed": 26,
+    "failed": 0,
+    "exit_code": 0,
+    "log": "registration-fixed-validation.txt"
+  },
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.38,
+      "log_sha256": "8af5d229a43e6cbcc3e26e545baeb1f4a16be1e37b8b29e34e500ff6f3496564",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/fmt.log"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.95,
+      "log_sha256": "ab6eddd1687dc40c061b02802e3a734a441f91b87d3a299d6e19e51bc128b2a4",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/clippy.log"
+    },
+    {
+      "name": "clippy-native",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 3.22,
+      "log_sha256": "b877cdaeec16ede90785e7fe58723a6fad4edec5eaf40e589f44c86d791fd310",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/clippy-native.log"
+    },
+    {
+      "name": "validate",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 11.4,
+      "log_sha256": "16806c8e400ff7ae07ae6f98e445d899f75d59c7368ee56d2a21f17bfd489215",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/validate.log"
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 4.52,
+      "log_sha256": "41b3f39a79c11b5f72d8c04724dfd37606648910020ab97f699f3c195c23de15",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/phase2.log"
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 14.96,
+      "log_sha256": "1dcf9434bf769ae1eaeaa0f234fdd7cac391d1b65525d842cc0994c1383c8b47",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/unstable.log"
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 5.75,
+      "log_sha256": "0db902ce694aa0d4dd45cdae7f3e709b3fe8f3480593c658b27dc7617a32f944",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/build.log"
+    },
+    {
+      "name": "docs",
+      "command": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 18.95,
+      "log_sha256": "5d91d32887d1964a2b522ba63d8e80d862bb1c32f207a430db9555aadd7bc5ae",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/docs.log"
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.91,
+      "log_sha256": "37bb159a3394c6c17ec27f4903c7b544677276d6ae4f3d547760cfd063a9baea",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/no-default.log"
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 3.74,
+      "log_sha256": "61acc0b1f99eaa7c720705365a0163b24452a9c3bc3e8a5fd39721470f552ba5",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/all-features.log"
+    },
+    {
+      "name": "isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.15,
+      "log_sha256": "22e0df986057b9ba5be07526ac5fb348862a3dedef42108383cc3e088acbb889",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/isolated.log"
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 2.96,
+      "log_sha256": "c86ca2587cd36ad05b13294d0867674e959f4958cfe09cd540c9c2b14df60307",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/msrv.log"
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 1.5,
+      "log_sha256": "df693e1cf8bd7c120a1aab2491fbb50dd82b26744ddae6daa48160febbc53392",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/blueprint.log"
+    },
+    {
+      "name": "workspace",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 254.41,
+      "log_sha256": "4510bca35c5b66a4f4300be23ff9039b887d5a8983b58271e95a955b352344f8",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/workspace.log"
+    },
+    {
+      "name": "blueprint-local-sockets",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "log_sha256": "452ac5d2c42de197a9af32ea00ea17c50426a3c46d953a80175967f09bc94c51",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/blueprint-local-sockets.log"
+    },
+    {
+      "name": "workspace-local-sockets",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0,
+      "log_sha256": "4713bd6b6b2c41569ed9d78c9f45867da68b976d9944038198db5081ed00a501",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/workspace-local-sockets.log"
+    },
+    {
+      "name": "clippy-native-final",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "log_sha256": "25f32a96d8081499050839cbdacb367dad6a534f72b9ae98500a248b08372946",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/clippy-native-final.log"
+    },
+    {
+      "name": "validate-final",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "log_sha256": "0739b9232f843c78afc47b13707731d80fd782699e0f5aea507a47befcbca3ea",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/validate-final.log"
+    },
+    {
+      "name": "msrv-native",
+      "command": "cargo +1.88 check --offline -p pallas-validate --all-targets --features unstable,phase2",
+      "exit_code": 0,
+      "log_sha256": "a39013fb41a9a6cb7b248e002790929740884e4e085da01d7505dbe0ac68ee3f",
+      "durable_local_log": ".git/musashi-s05-registration-evidence/msrv-native.log"
+    }
+  ],
+  "preexisting_failure": {
+    "check": "cargo fmt --all --check",
+    "scope": "seven formatting differences in examples/leios-testnet/src/bin/harvest.rs, unchanged since baseline",
+    "new_or_changed_files": "formatted; native clippy with warnings denied passes"
+  },
+  "environment_failure": {
+    "initial_checks": [
+      "blueprint",
+      "workspace"
+    ],
+    "cause": "sandbox local socket creation denied (EPERM)",
+    "retry": "local socket access allowed; both passed",
+    "math": "19 tests passed, 250.05 seconds, in initial workspace run; excluded from retry to avoid rerunning unchanged expensive tests"
+  },
+  "platform": "Linux only; macOS and Windows CI were not run locally",
+  "remote_checks": {
+    "date": "2026-09-29",
+    "pallas": "baafb53cab4a31a7e8e529a31aeadde953da7ed0",
+    "dolos": "c431ca8dbaa40af31a715fda498505d9a9415105",
+    "matching_remote_musashi_tags": [],
+    "remote_writes": false
+  },
+  "preserved": {
+    "dolos_pin": "808857af9c72b78c214486b2e11df82fc90d49d1",
+    "reference_checkout": "3cf1483545d24d0b934673abebc9e368d0ec27a9",
+    "historical_tags": "unchanged"
+  }
+}

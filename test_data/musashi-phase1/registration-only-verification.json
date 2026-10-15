@@ -1,0 +1,88 @@
+{
+  "scope": "registration-only intermediate commit during the authorized split",
+  "tested_revision": "first commit introducing this report; code hashes below identify that intermediate tree",
+  "original_combined_checkpoint": "76003a3054ef7aa4a694bd9b0c47868fa17b92c5",
+  "baseline": "1af163ecfa94515477c24f97180dc1aaf849023c",
+  "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_registration_tests -- --nocapture",
+  "baseline_result": {
+    "compiled": true,
+    "passed": 0,
+    "failed": 8,
+    "exit_code": 101,
+    "reason": "existing DijkstraCertificateStateUnavailable rejection",
+    "preparation": "registration-only-baseline-preparation.patch; unused state argument plus vocabulary and test wiring only",
+    "target": "/tmp/musashi-s05-split/baseline-target"
+  },
+  "fixed_result": {
+    "compiled": true,
+    "passed": 8,
+    "failed": 0,
+    "exit_code": 0,
+    "target": "/home/rodrigo/projects/pallas/target"
+  },
+  "focused_dijkstra_suite": {
+    "passed": 21,
+    "failed": 0,
+    "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_ -- --nocapture"
+  },
+  "checks": [
+    {
+      "name": "registration-tests",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 9.11,
+      "sha256": "ac191adc3de0c4f07eaa080bac15ff2873e885b082e89b6f0be44377de9d7c86",
+      "local_log": ".git/musashi-s05-split-evidence/registration-tests.log"
+    },
+    {
+      "name": "registration-clippy",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.95,
+      "sha256": "8a4092e2391cbeb9953468c70cda3bda82375bac18b1a92a10f1056353e966ca",
+      "local_log": ".git/musashi-s05-split-evidence/registration-clippy.log"
+    },
+    {
+      "name": "registration-msrv",
+      "command": "cargo +1.88 check --offline -p pallas-validate --all-targets --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 2.19,
+      "sha256": "495029f89cc1a6c1f4840bb35afe690d3edf2990f53666ef04c2e64478bb5c42",
+      "local_log": ".git/musashi-s05-split-evidence/registration-msrv.log"
+    },
+    {
+      "name": "registration-all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 3.42,
+      "sha256": "d498b4d646876492f26fce5675728a7cedebef044c1e097fd839b3a4dba734be",
+      "local_log": ".git/musashi-s05-split-evidence/registration-all-features.log"
+    },
+    {
+      "name": "registration-fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.66,
+      "sha256": "8af5d229a43e6cbcc3e26e545baeb1f4a16be1e37b8b29e34e500ff6f3496564",
+      "local_log": ".git/musashi-s05-split-evidence/registration-fmt.log"
+    }
+  ],
+  "preexisting_failure": "cargo fmt: same seven differences in examples/leios-testnet/src/bin/harvest.rs; changed Rust files formatted",
+  "guard_and_batch_scope": "still unsupported; added by the next commit",
+  "source_sha256": {
+    "pallas-validate/src/phase1/dijkstra.rs": "18512ccd94d35cc119ca85d31c1ac932cbab4b6a75b32b56b1e384213fd6c717",
+    "pallas-validate/src/phase1/dijkstra_registration_tests.rs": "2470de799dce5aa8f5ab47ed552cb00463c2434cb941ae65cd320e4176cad68a",
+    "pallas-validate/src/phase1/dijkstra_tests.rs": "6173c9ccf07273a9077721b19bcbb58269d57cac8f21260b32e64a8041e27400",
+    "pallas-validate/src/phase1/mod.rs": "3b853930452d9bbcfb1dcf655144da376379148bb091c7051779855739a4e0e6",
+    "pallas-validate/src/utils.rs": "1ed96e076c17b45420f0fcc62476abb585ab955583e75d339331735ee47a7a94",
+    "pallas-validate/src/utils/environment.rs": "c516a9ac3b359360ff2945472d97bd49f5fb454772a3317941664a345d17ab7d",
+    "pallas-validate/src/utils/validation.rs": "b2980c1b4b57102652d4afd4d6a2cc412a118bd88ce812d2d55a155d6d2c8f13"
+  },
+  "log_sha256": {
+    "registration-only-baseline.txt": "9df3d332a306313eae931ce95a2cc40da57edc5f8027a59743446edefdc889f4",
+    "registration-only-fixed.txt": "ed71f2853d568c573b8443829e42fe22f3b9a5f93ece79e293b8df0e5090d634"
+  },
+  "reproduction_note": "baseline and fixed compile and execute the identical unchanged registration test module; trailing blank lines removed from tracked logs only",
+  "no_remote_writes": true,
+  "s06_s07_executed": false
+}

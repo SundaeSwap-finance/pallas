@@ -1,0 +1,77 @@
+   Compiling pallas-validate v1.4.0 (/tmp/musashi-s05/baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 0.98s
+     Running unittests src/lib.rs (/tmp/musashi-s05/baseline-target/debug/deps/pallas_validate-84d41189fb084747)
+
+running 11 tests
+
+thread 'phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras' (243) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:438:13:
+assertion failed: dispatch(&tx, &earlier, &env()).is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch' (241) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:89:9:
+Err(TxAndProtParamsDiffer)
+
+thread 'phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly' (247) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "DijkstraUnsupported(\"guards\")"
+
+thread 'phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified' (242) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "PostAlonzo(VKWitnessMissing)"
+
+thread 'phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode' (248) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "DijkstraUnsupported(\"body fields\")"
+
+thread 'phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries' (246) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:230:9:
+assertion failed: dispatch(&tx, &output, &e).is_ok()
+
+thread 'phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state' (245) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "DijkstraCertificateStateUnavailable"
+
+thread 'phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic' (244) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "DijkstraUnsupported(\"output datum or reference script\")"
+
+thread 'phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks' (239) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:79:5:
+assertion `left == right` failed
+  left: "TxAndProtParamsDiffer"
+ right: "PostAlonzo(PreservationOfValue)"
+test phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras ... FAILED
+test phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch ... FAILED
+test phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly ... FAILED
+test phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified ... FAILED
+test phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode ... FAILED
+test phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries ... FAILED
+test phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state ... FAILED
+test phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic ... FAILED
+test phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks ... FAILED
+
+thread 'phase1::dijkstra_tests::dijkstra_validity_is_half_open' (249) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:204:13:
+assertion failed: dispatch(&tx, &output, &e).is_ok()
+test phase1::dijkstra_tests::dijkstra_validity_is_half_open ... FAILED
+test phase1::dijkstra_tests::dijkstra_capture_integrity_and_certified_original_input ... ok
+
+failures:
+
+failures:
+    phase1::dijkstra_tests::dijkstra_balance_network_and_input_checks
+    phase1::dijkstra_tests::dijkstra_captured_control_passes_native_dispatch
+    phase1::dijkstra_tests::dijkstra_captured_signatures_are_required_and_all_verified
+    phase1::dijkstra_tests::dijkstra_earlier_era_inputs_keep_their_eras
+    phase1::dijkstra_tests::dijkstra_output_subset_and_checked_arithmetic
+    phase1::dijkstra_tests::dijkstra_registration_rejects_unavailable_certificate_state
+    phase1::dijkstra_tests::dijkstra_size_fee_and_output_boundaries
+    phase1::dijkstra_tests::dijkstra_typed_features_reject_explicitly
+    phase1::dijkstra_tests::dijkstra_unsupported_fields_do_not_disappear_in_decode
+    phase1::dijkstra_tests::dijkstra_validity_is_half_open
+
+test result: FAILED. 1 passed; 10 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.14s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

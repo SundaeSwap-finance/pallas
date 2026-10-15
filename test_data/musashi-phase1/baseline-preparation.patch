@@ -1,0 +1,54 @@
+--- a/pallas-validate/src/utils/environment.rs
++++ b/pallas-validate/src/utils/environment.rs
+@@ -20,0 +21,2 @@
++    #[cfg(feature = "unstable")]
++    Dijkstra(DijkstraProtParams),
+@@ -42,0 +45,2 @@
++            #[cfg(feature = "unstable")]
++            MultiEraProtocolParameters::Dijkstra(pp) => pp.system_start,
+@@ -67,0 +72,2 @@
++            #[cfg(feature = "unstable")]
++            MultiEraProtocolParameters::Dijkstra(pp) => pp.protocol_version.0 as usize,
+@@ -91,0 +98,2 @@
++            #[cfg(feature = "unstable")]
++            MultiEraProtocolParameters::Dijkstra(pp) => pp.epoch_length,
+@@ -111,0 +120,2 @@
++            #[cfg(feature = "unstable")]
++            MultiEraProtocolParameters::Dijkstra(pp) => pp.slot_length,
+@@ -296,0 +307,16 @@
++
++/// Parameters used by the deliberately restricted native Dijkstra transfer validator.
++/// This is not a complete Dijkstra parameter set. Script and stateful features reject.
++#[cfg(feature = "unstable")]
++#[derive(Debug, Clone)]
++pub struct DijkstraProtParams {
++    pub system_start: chrono::DateTime<chrono::FixedOffset>,
++    pub epoch_length: u64,
++    pub slot_length: u64,
++    pub protocol_version: ProtocolVersion,
++    pub minfee_a: u32,
++    pub minfee_b: u32,
++    pub max_transaction_size: u32,
++    pub ada_per_utxo_byte: Coin,
++    pub max_value_size: u32,
++}
+--- a/pallas-validate/src/utils/validation.rs
++++ b/pallas-validate/src/utils/validation.rs
+@@ -6,0 +7,8 @@
++    #[cfg(feature = "unstable")]
++    #[error("unsupported Dijkstra phase-one feature: {0}")]
++    DijkstraUnsupported(&'static str),
++
++    #[cfg(feature = "unstable")]
++    #[error("Dijkstra certificate validation requires historical certificate state")]
++    DijkstraCertificateStateUnavailable,
++
+--- a/pallas-validate/src/phase1/mod.rs
++++ b/pallas-validate/src/phase1/mod.rs
+@@ -93,0 +94,2 @@
++        #[cfg(feature = "unstable")]
++        (MultiEraProtocolParameters::Dijkstra(_), _) => Err(TxAndProtParamsDiffer),
+@@ -96,0 +99,3 @@
++
++#[cfg(all(test, feature = "unstable"))]
++mod dijkstra_tests;

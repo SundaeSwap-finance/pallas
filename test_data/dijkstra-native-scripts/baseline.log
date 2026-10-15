@@ -1,0 +1,101 @@
+   Compiling pallas-validate v1.4.0 (/tmp/dijkstra-native-baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 3.45s
+     Running unittests src/lib.rs (target/dijkstra-native-baseline/debug/deps/pallas_validate-954e825fe58fb4ce)
+
+running 12 tests
+test phase1::dijkstra_native_tests::dijkstra_native_captured_mint_admission ... FAILED
+test phase2::dijkstra::native_context_tests::dijkstra_native_reference_hash_survives_v3_projection ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_guards_reject_even_in_unused_branches ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_signatures_and_witness_coverage ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_phase_two_has_no_jobs_or_time_translation ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_mint_registration_and_partial_withdrawal ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_earlier_era_reference_and_new_output ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_reference_sources_and_original_hash ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_reference_fee_size_and_scope ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_combinators_and_slot_bounds ... FAILED
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_native_mixed_plutus_preserves_indices_and_context ... FAILED
+test phase1::dijkstra_native_tests::dijkstra_native_deep_scripts_do_not_use_recursive_evaluation ... FAILED
+
+failures:
+
+---- phase1::dijkstra_native_tests::dijkstra_native_captured_mint_admission stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_captured_mint_admission' (300) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:376:5:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- phase2::dijkstra::native_context_tests::dijkstra_native_reference_hash_survives_v3_projection stdout ----
+
+thread 'phase2::dijkstra::native_context_tests::dijkstra_native_reference_hash_survives_v3_projection' (311) panicked at pallas-validate/src/phase2/dijkstra_native_context_tests.rs:26:83:
+called `Result::unwrap()` on an `Err` value: DijkstraUnsupported("reference script language (requires V3)")
+
+---- phase1::dijkstra_native_tests::dijkstra_native_guards_reject_even_in_unused_branches stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_guards_reject_even_in_unused_branches' (304) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraUnsupported(\"non-vkey witnesses\")"
+ right: "DijkstraUnsupported(\"native script guards\")"
+
+---- phase1::dijkstra_native_tests::dijkstra_native_signatures_and_witness_coverage stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_signatures_and_witness_coverage' (309) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:81:5:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_phase_two_has_no_jobs_or_time_translation stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_phase_two_has_no_jobs_or_time_translation' (306) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:81:5:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_mint_registration_and_partial_withdrawal stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_mint_registration_and_partial_withdrawal' (305) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:229:9:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_earlier_era_reference_and_new_output stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_earlier_era_reference_and_new_output' (303) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:503:9:
+Err(PostAlonzo(UnsupportedPlutusLanguage))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_reference_sources_and_original_hash stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_reference_sources_and_original_hash' (308) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:290:13:
+Err(PostAlonzo(UnsupportedPlutusLanguage))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_reference_fee_size_and_scope stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_reference_fee_size_and_scope' (307) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:429:9:
+Err(PostAlonzo(UnsupportedPlutusLanguage))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_combinators_and_slot_bounds stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_combinators_and_slot_bounds' (301) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:81:5:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+---- phase1::dijkstra_transaction_tests::scripts::dijkstra_native_mixed_plutus_preserves_indices_and_context stdout ----
+
+thread 'phase1::dijkstra_transaction_tests::scripts::dijkstra_native_mixed_plutus_preserves_indices_and_context' (310) panicked at pallas-validate/src/phase1/dijkstra_transaction_tests.rs:436:17:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+---- phase1::dijkstra_native_tests::dijkstra_native_deep_scripts_do_not_use_recursive_evaluation stdout ----
+
+thread 'phase1::dijkstra_native_tests::dijkstra_native_deep_scripts_do_not_use_recursive_evaluation' (302) panicked at pallas-validate/src/phase1/dijkstra_native_tests.rs:400:9:
+Err(DijkstraUnsupported("non-vkey witnesses"))
+
+
+failures:
+    phase1::dijkstra_native_tests::dijkstra_native_captured_mint_admission
+    phase1::dijkstra_native_tests::dijkstra_native_combinators_and_slot_bounds
+    phase1::dijkstra_native_tests::dijkstra_native_deep_scripts_do_not_use_recursive_evaluation
+    phase1::dijkstra_native_tests::dijkstra_native_earlier_era_reference_and_new_output
+    phase1::dijkstra_native_tests::dijkstra_native_guards_reject_even_in_unused_branches
+    phase1::dijkstra_native_tests::dijkstra_native_mint_registration_and_partial_withdrawal
+    phase1::dijkstra_native_tests::dijkstra_native_phase_two_has_no_jobs_or_time_translation
+    phase1::dijkstra_native_tests::dijkstra_native_reference_fee_size_and_scope
+    phase1::dijkstra_native_tests::dijkstra_native_reference_sources_and_original_hash
+    phase1::dijkstra_native_tests::dijkstra_native_signatures_and_witness_coverage
+    phase1::dijkstra_transaction_tests::scripts::dijkstra_native_mixed_plutus_preserves_indices_and_context
+    phase2::dijkstra::native_context_tests::dijkstra_native_reference_hash_survives_v3_projection
+
+test result: FAILED. 0 passed; 12 failed; 0 ignored; 0 measured; 149 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

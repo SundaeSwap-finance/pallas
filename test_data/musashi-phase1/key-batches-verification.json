@@ -1,0 +1,104 @@
+{
+  "scope": "second split commit: native key-only subtransactions and guards",
+  "tested_revision": "commit introducing this report",
+  "baseline": "c64fdc935707047cb05755eafde5a54b15ce86d0",
+  "baseline_publication": "user pushed this registration-only commit during the split; remote verified at this revision before creating the batch commit",
+  "original_combined_checkpoint": "76003a3054ef7aa4a694bd9b0c47868fa17b92c5",
+  "original_checkpoint_tag": "musashi-fix-20260929-s05-native-phase1-v1 (preserved)",
+  "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_batch_tests -- --nocapture",
+  "baseline_result": {
+    "compiled": true,
+    "passed": 0,
+    "failed": 5,
+    "exit_code": 101,
+    "reason": "explicit subtransaction rejection before batch support",
+    "preparation": "copy unchanged dijkstra_batch_tests.rs and add its cfg(test,unstable) module declaration; no production adapter",
+    "target": "/tmp/musashi-s05-split/baseline-target"
+  },
+  "fixed_result": {
+    "compiled": true,
+    "passed": 5,
+    "failed": 0,
+    "exit_code": 0,
+    "target": "/home/rodrigo/projects/pallas/target"
+  },
+  "final_focused_suite": {
+    "passed": 26,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "batch-fixed",
+      "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_batch_tests -- --nocapture",
+      "exit_code": 0,
+      "seconds": 4.98,
+      "sha256": "9196db1981d07aab491a310a8cb5fa4bb48fa85bdedfd75747f18e4149eed697",
+      "local_log": ".git/musashi-s05-split-evidence/batch-fixed.log"
+    },
+    {
+      "name": "final-focused",
+      "command": "cargo test --offline -p pallas-validate --features unstable --lib dijkstra_ -- --nocapture",
+      "exit_code": 0,
+      "seconds": 0.32,
+      "sha256": "69e23c4cc0dd928371f014dd66f552bb68258ca06c0211b47902f44e84795727",
+      "local_log": ".git/musashi-s05-split-evidence/final-focused.log"
+    },
+    {
+      "name": "final-tests",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 14.31,
+      "sha256": "c3607feec6c087e64f2a300bd7684115297350dcd7a098e1af8ae377a0c7994f",
+      "local_log": ".git/musashi-s05-split-evidence/final-tests.log"
+    },
+    {
+      "name": "final-clippy",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 4.06,
+      "sha256": "76bb9c7aa892b92617798012c6ba52db299a4bd6a90eca5d91d9a4258ed6fe4d",
+      "local_log": ".git/musashi-s05-split-evidence/final-clippy.log"
+    }
+  ],
+  "source_sha256": {
+    "pallas-validate/src/phase1/dijkstra.rs": "0c381f37c470af77f48c40309c6990d55e32224cea4bcd8ee5c1fee52840485c",
+    "pallas-validate/src/phase1/dijkstra_batch_tests.rs": "a544dbe440061160f15d4c168ebc90b01be5603ca89407a45b9abec9744a937f",
+    "pallas-validate/src/phase1/dijkstra_registration_tests.rs": "2470de799dce5aa8f5ab47ed552cb00463c2434cb941ae65cd320e4176cad68a",
+    "pallas-validate/src/phase1/dijkstra_tests.rs": "184ccfd528bc6d954957b0250d5b34a961e9e4418a04923ed48d399082c62e1e",
+    "pallas-validate/src/phase1/mod.rs": "d624295ba225a1681a118bc792d775c5ccb7cebac1d03e41ee5d9ffa105475db",
+    "pallas-validate/src/utils.rs": "1ed96e076c17b45420f0fcc62476abb585ab955583e75d339331735ee47a7a94",
+    "pallas-validate/src/utils/environment.rs": "7abc6d2977808b7696f4f68726b95ec95a52b22a1fed7ac221a546981b0eea14",
+    "pallas-validate/src/utils/validation.rs": "7f59acd40619a9a9c733333fe244abab44d19bd13b647874f2c4a10a9bac2fd9"
+  },
+  "source_comparison": "all changed Rust production and test files byte-identical to 76003a3; other Rust files unchanged",
+  "restored_historical_artifacts": [
+    "test_data/musashi-phase1/registration-baseline-preparation.patch",
+    "test_data/musashi-phase1/registration-baseline-validation.txt",
+    "test_data/musashi-phase1/registration-certificate-history.json",
+    "test_data/musashi-phase1/registration-certificate-state.json",
+    "test_data/musashi-phase1/registration-dijkstra-genesis.json",
+    "test_data/musashi-phase1/registration-epoch64-parameters.json",
+    "test_data/musashi-phase1/registration-fixed-validation.txt",
+    "test_data/musashi-phase1/registration-parameter-history-scanner.rs",
+    "test_data/musashi-phase1/registration-parameter-history.json",
+    "test_data/musashi-phase1/registration-parameter-proposal-slot45527.block.hex",
+    "test_data/musashi-phase1/registration-parameter-proposal-slot780.block.hex",
+    "test_data/musashi-phase1/registration-provenance.json",
+    "test_data/musashi-phase1/registration-shelley-genesis.json",
+    "test_data/musashi-phase1/registration-verification.json"
+  ],
+  "log_sha256": {
+    "key-batches-baseline.txt": "e8ca757439ab054188a7c55a15ccf375f656e5b9c6c19598dc97c0a0cbd6855b",
+    "key-batches-fixed.txt": "a562d52e4d0099846d4606dd6120be1722e94933b3636a10c3b64c46a6420835"
+  },
+  "prior_full_workspace_verification": "registration-verification.json belongs to original combined checkpoint; final source is byte-identical, so unrelated workspace checks were not repeated solely for history rewriting",
+  "preexisting_failure": "seven cargo fmt differences in examples/leios-testnet/src/bin/harvest.rs; verified on registration intermediate, final changed Rust files restored from formatted combined checkpoint",
+  "evidence_boundary": "positive batches synthetic; unchanged real script-spending batch rejects; no captured successful key-batch proof",
+  "remote_snapshot": {
+    "pallas": "c64fdc935707047cb05755eafde5a54b15ce86d0",
+    "dolos": "c431ca8dbaa40af31a715fda498505d9a9415105",
+    "matching_musashi_tags": []
+  },
+  "agent_remote_writes": false,
+  "s06_s07_executed": false
+}

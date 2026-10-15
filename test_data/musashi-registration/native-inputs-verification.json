@@ -1,0 +1,284 @@
+{
+  "date": "2026-09-27",
+  "baseline": "9a298f8d8fdf5ed21582d4c8e3836a8e0fde9d15",
+  "baseline_preparation": "Separate git archive of baseline revision; final native_inputs.rs and tests/conway.rs copied unchanged. Only unstable/test module declaration appended to baseline phase1/conway.rs; baseline production otherwise byte-identical.",
+  "command": "cargo test --offline -p pallas-validate --features unstable --lib native_inputs -- --nocapture",
+  "build_separation": {
+    "baseline": "Separate extracted tree and CARGO_TARGET_DIR; CARGO_PROFILE_DEV_DEBUG=0",
+    "fixed": "Canonical checkout target; default dev profile"
+  },
+  "baseline_exit_code": 101,
+  "baseline_result": "5 passed; 12 failed",
+  "fixed_exit_code": 0,
+  "fixed_result": "17 passed; 0 failed",
+  "captured_payment_witness": {
+    "baseline_actual": "Err(PostAlonzo(InputDecoding))",
+    "fixed_actual": "Ok(())",
+    "input_era": "Dijkstra",
+    "bytes": "Unchanged original settings.input.hex, identical to producer output 1"
+  },
+  "captured_witness_set": {
+    "baseline_actual": "Err(PostAlonzo(ScriptWitnessMissing))",
+    "fixed_actual": "Ok(())",
+    "reference_output_era": "Dijkstra"
+  },
+  "outcomes": [
+    {
+      "test": "byron_output_inspection_preserves_existing_witness_boundary",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_native_collateral_accounting_and_reference_only_trigger",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_native_collateral_address_and_value",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_native_input_checks_original_payment_witness",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_native_inputs_pass_witness_and_balance_rules",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_native_inputs_reject_missing_and_invalid_payment_witnesses",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "earlier_era_and_native_outputs_share_input_inspection",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "earlier_era_key_inputs_still_verify_signatures",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_collateral_assets_and_annotations_are_checked",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_collateral_rejects_script_and_malformed_addresses",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_inline_datum_and_reference_script_restrict_v1_inputs",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_input_and_reference_datums_are_visible",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_reference_languages_reach_integrity_hash_check",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_reference_script_requires_correct_hash_and_input_role",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_reference_scripts_reject_v4_and_nested_guards_explicitly",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_reference_timelocks_keep_original_hash_and_need_no_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_reference_v1_v2_v3_scripts_supply_mint_from_spending_or_reference_inputs",
+      "baseline": "FAILED",
+      "fixed": "ok"
+    }
+  ],
+  "earlier_collateral": {
+    "command": "cargo test --offline -p pallas-validate --test conway reference_script_rejects_underfunded_collateral -- --nocapture",
+    "baseline_exit_code": 101,
+    "baseline_result": "0 passed; 2 failed",
+    "baseline_actual": "Ok(()) for both underfunded contexts",
+    "fixed_exit_code": 0,
+    "fixed_result": "2 passed",
+    "fixed_actual": "Err(PostAlonzo(CollateralMinLovelace))",
+    "fixture_changes": "None; only assertions/names corrected for manually supplied collateral equal to the original collateral return."
+  },
+  "source_sha256": {
+    "pallas-validate/src/phase1/conway.rs": "9e61ce073e1268129ec19e0dd74643f9e2d23c9cda2e7599649a402fb6df0b6f",
+    "pallas-validate/src/utils/validation.rs": "c1100ca8b614f5093ba45d05fb16913dd9f021f3275a09ccf9c8ceeeec4cc6a2",
+    "pallas-validate/src/phase1/conway/native_inputs.rs": "3aba0272b32561bcc1b2e0571da3e1b5164c57f9fcf0498810eabf73667471d5",
+    "pallas-validate/tests/conway.rs": "70ac320192b93062bf418f25b98987dc8323870d6e16a92e8fa559a97fab0c22"
+  },
+  "payloads": "All eight original Musashi payload files and conway4.tx/conway5.tx are byte-identical to baseline. Decoded-CBOR blake2b-256 checksums and native fixture-integrity test pass.",
+  "gates": [
+    {
+      "name": "fixed",
+      "command": "cargo test --offline -p pallas-validate --features unstable --lib native_inputs -- --nocapture",
+      "exit_code": 0,
+      "seconds": 2.2
+    },
+    {
+      "name": "integrity",
+      "command": "cargo test --offline -p pallas-traverse --features unstable --test musashi_registration",
+      "exit_code": 0,
+      "seconds": 0.24
+    },
+    {
+      "name": "fmt-changed",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase1/conway.rs pallas-validate/src/phase1/conway/native_inputs.rs pallas-validate/src/utils/validation.rs pallas-validate/tests/conway.rs",
+      "exit_code": 0,
+      "seconds": 0.12
+    },
+    {
+      "name": "fmt-workspace",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.71,
+      "explanation": "Seven pre-existing formatting differences only in unchanged examples/leios-testnet/src/bin/harvest.rs. Changed-file formatting passes."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.31
+    },
+    {
+      "name": "clippy-phase2",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.77
+    },
+    {
+      "name": "docs",
+      "command": "RUSTDOCFLAGS=\"-D warnings\" cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 15.79
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 7.53
+    },
+    {
+      "name": "workspace-test",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 260.89,
+      "explanation": "Sandbox denied local sockets in pallas-network. Socket-enabled retries pass. All 19 math unit tests passed in original workspace run; math doctests pass separately."
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 1.49,
+      "explanation": "Sandbox denied local sockets in pallas-network. Socket-enabled retries pass. All 19 math unit tests passed in original workspace run; math doctests pass separately."
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 11.88
+    },
+    {
+      "name": "phase2-default",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 5.28
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 1.8
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 2.39
+    },
+    {
+      "name": "primitives-isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.15
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 3.09
+    },
+    {
+      "name": "workspace-socket-retry",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0,
+      "seconds": 19.68
+    },
+    {
+      "name": "blueprint-socket-retry",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 6.57
+    },
+    {
+      "name": "math-docs",
+      "command": "cargo test --offline -p pallas-math --doc",
+      "exit_code": 0,
+      "seconds": 0.98
+    },
+    {
+      "name": "final-phase2",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 4.36
+    },
+    {
+      "name": "final-clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.08
+    },
+    {
+      "name": "final-clippy-phase2",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.72
+    },
+    {
+      "name": "final-format",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase1/conway.rs pallas-validate/src/phase1/conway/native_inputs.rs pallas-validate/src/utils/validation.rs pallas-validate/tests/conway.rs",
+      "exit_code": 0,
+      "seconds": 0.12
+    },
+    {
+      "name": "fixed-earlier-collateral",
+      "command": "cargo test --offline -p pallas-validate --test conway reference_script_rejects_underfunded_collateral -- --nocapture",
+      "exit_code": 0,
+      "seconds": 4.17
+    }
+  ],
+  "full_logs": "Full raw logs and pinned sources retained locally; this tracked manifest contains commands, source hashes, failures and results, and native-inputs.md gives self-contained reproduction.",
+  "limits": [
+    "Only input consumers of a scoped Conway transaction view; native Dijkstra outputs retain identity and bytes. No native transaction dispatch or phase-two implementation added.",
+    "Captured-script execution continues to use its explicitly derived Conway protocol-9 context, not historical protocol 12.",
+    "Native phase-two input resolution, post-bootstrap V3 deposit/refund translation, full ledger state/cost model replay and submission remain outstanding."
+  ]
+}

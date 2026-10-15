@@ -1,0 +1,82 @@
+{
+  "fixture_id": "musashi-registration-20260925-certificate-witnesses",
+  "parent_provenance": "provenance.json",
+  "date": "2026-09-27",
+  "era": "Dijkstra",
+  "baseline": "0394139c219920e9518e7efd97aa11bbc50078df",
+  "settings": {
+    "transaction_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "block": "blocks/1401365.block",
+    "witness_blake2b_256": "738ff611e74b9952694e98e61360e3e940b86defc75a8ea372ea002fa7e0bda4",
+    "certificate_index": 0,
+    "certificate_kind": "Reg",
+    "credential_kind": "script",
+    "credential_hash": "9eb9018892f84064087cfb1559cab8956d6300c47b6f325a7262c3db",
+    "redeemer": {
+      "tag": "Cert",
+      "index": 0
+    },
+    "reference_output": {
+      "block": "blocks/1401345.block",
+      "transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+      "transaction_index": 0,
+      "output_index": 0,
+      "era": "Dijkstra",
+      "script_language": "PlutusV3",
+      "blake2b_256": "20209f58a49b42c671fa8b10bcf3f223edc1b2f3a1123680658e1a7736bd395f"
+    }
+  },
+  "ledger": {
+    "revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+    "sources": [
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/TxCert.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/TxCert.hs",
+        "sha256": "932e3070d27fab7ca18299992b6dd27869325d085a16b107ee83d6ed49715dd4"
+      },
+      {
+        "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxCert.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxCert.hs",
+        "sha256": "c520f9e62a22eb57cc6396e00498526fbb72e67d03ee5336a5c96f193ece5050"
+      },
+      {
+        "path": "eras/shelley/impl/src/Cardano/Ledger/Shelley/TxCert.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/shelley/impl/src/Cardano/Ledger/Shelley/TxCert.hs",
+        "sha256": "85e74df1bf4578ede23b38aa36aeca899be20f4f71bcf50d4f5bf04e59a47d45"
+      },
+      {
+        "path": "eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/conway/impl/src/Cardano/Ledger/Conway/UTxO.hs",
+        "sha256": "11d7c614cfdc16aff2c7f0e1d6f6b553657c298de08afa631b5173eb7dcd04be"
+      },
+      {
+        "path": "eras/shelley/impl/src/Cardano/Ledger/Shelley/UTxO.hs",
+        "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/shelley/impl/src/Cardano/Ledger/Shelley/UTxO.hs",
+        "sha256": "170ed1859c392d64766e4760a838f3ecb1f71a4e711b8427ab6335c36400eb4d"
+      }
+    ]
+  },
+  "representation": "Original native blocks unchanged; decode natively first. Focused tests decode compatible original body/witness/output CBOR into Conway types to call the existing production witness validator. No mempool wrapper, body mutation, or native Dijkstra dispatch on the acceptance path.",
+  "expected_behavior": {
+    "valid": "Ok",
+    "missing_script": "ScriptWitnessMissing",
+    "incorrect_script": "ScriptWitnessMissing",
+    "missing_redeemer": "RedeemerMissing",
+    "incorrect_pointer": "UnneededRedeemer",
+    "missing_payment_witness": "VKWitnessMissing",
+    "incorrect_payment_signature": "VKWrongSignature"
+  },
+  "derived_cases": [
+    "Remove redeemer only; preserve original body and signatures.",
+    "Remove reference script and redeemer in memory; preserve reference output value/address and original body.",
+    "Replace reference script with synthetic Plutus bytes in memory.",
+    "Change certificate redeemer index from 0 to 1 in memory.",
+    "Remove/corrupt original payment witness in memory.",
+    "Synthetic Conway certificates and scripts: encode bodies before signing with deterministic test-only keys."
+  ],
+  "limits": [
+    "Source/capture/network identity and historical key-deposit excerpt are inherited from provenance.json. Historical node/evaluator identity remains unknown.",
+    "Only certificate authorization, redeemer pointers, and the existing balance rule are exercised. Certificate state and Plutus execution are not tested.",
+    "This Conway view is not a genuine Conway capture or native Dijkstra validation. Earlier-era validators are unchanged."
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "found": {
+    "2cea3692233e891d35ed12466cfb5678746bd388516e7af74820d197e78ffeea": {
+      "block": "dd15453174158c199dc5f94be5f22c3a5591e76d9f230ff9c84c2978165a0196",
+      "slot": 1392140,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "35dfbbeacf2b272965afebf93506af4db68b51246ebc88a326a6ab5f745454ca": {
+      "block": "1f72f6b6bad91ac3fae4755a7624cca4f9118c2e6ef4ef21ed67df257affe46b",
+      "slot": 1393936,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "36a9fa1aa611cfc956a48e0600103eb831a22b9f605437b5415dc74989e22c9f": {
+      "block": "02d9341b3757cadc8195f67cd3a11cf031d7fc4fc12c571d582b1fe1f040d17b",
+      "slot": 1392477,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "3a44fbaaf49822fa51d1b4f02818298a183e02d73ec1edb8915b48fd52a89a62": {
+      "block": "1b2f5a402789360fbe155f1681f7306032817c1140bf1c7dbf9e0b431ad8d958",
+      "slot": 1404987,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "534955fcb209ae442b0f4aba8bd8ca9c2a198102f8449a37ee14fefa0bb07547": {
+      "block": "64bf4fc24f70769eb633c4424dbb6525d8b7af26e2c2d062b505e7fb72c3d44c",
+      "slot": 1392814,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "58fe1a06294925f67725afbb87c1a306027c96bee6e8138a89d7248d2996a8df": {
+      "block": "9ab2731c24c787986f69ac0dca5379cc41811054bc31dbeaeb3f7c950f9f513b",
+      "slot": 1391553,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "5dff52786bba33411497e53dfd8654de5a3145d6fc0b5016dfc13deea55bfc10": {
+      "block": "05f9c15622fcf69a245330bba19bfb2399a69f1f52d8ef2b8948b289713a4528",
+      "slot": 1401378,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "884c9befc41220fbfb2026a79e2a0a293797a0de0f29f6e3ce13977fe7329e6f": {
+      "block": "9bc1f11abd20391247270d3ed9c866ed58b379ff5a1957e3df90087965807006",
+      "slot": 1391855,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "9aa83ea1ef493f9dff31f34d639ef823489af63d15cf7e112d0ab9c41607a6d2": {
+      "block": "548f53684ba972a24b63f31a7880cb0dbcb7299d8f915102a99a43b273a0593b",
+      "slot": 1393909,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "abe8e65857bd7f36d72a92bb73d145775abcd3cf3acb51c2ca5470081c4b5c40": {
+      "block": "c456ef95b071b94515cf3345e3d259a53d3d38efa8ff95875d08a778c7b43e8d",
+      "slot": 1404558,
+      "source_segment": "000003.segment",
+      "success": true
+    },
+    "f4ed3784097149431498b0df6ceaf13b3a531df88838d1f8f39df1269eb54b20": {
+      "block": "99fe52870c5c180eff940e90c8154d5d1abfaa19c94a4c78ff1bdfe80ac5474b",
+      "slot": 1400007,
+      "source_segment": "000003.segment",
+      "success": true
+    }
+  },
+  "frames": 69466,
+  "missing": []
+}

@@ -1,0 +1,12 @@
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.93s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-288018e7ffbf4e48)
+
+running 5 tests
+test phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards ... ok
+test phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 68 filtered out; finished in 0.02s

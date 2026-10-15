@@ -1,0 +1,61 @@
+     Locking 438 packages to latest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding criterion v0.5.1 (available: v0.7.0)
+      Adding crossterm v0.28.1 (available: v0.29.0)
+      Adding cryptoxide v0.4.4 (available: v0.5.1)
+      Adding itertools v0.14.0 (available: v0.15.0)
+      Adding opentelemetry v0.30.0 (available: v0.32.0)
+      Adding opentelemetry-otlp v0.30.0 (available: v0.32.0)
+      Adding opentelemetry_sdk v0.30.0 (available: v0.32.1)
+      Adding prost v0.13.5 (available: v0.14.4)
+      Adding prost-types v0.13.5 (available: v0.14.4)
+   Compiling pallas-codec v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-codec)
+   Compiling pallas-crypto v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-crypto)
+   Compiling pallas-addresses v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-addresses)
+   Compiling pallas-primitives v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-primitives)
+   Compiling pallas-traverse v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-traverse)
+   Compiling pallas-validate v1.4.0 (/tmp/musashi-s05-split/batch-baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 19.43s
+     Running unittests src/lib.rs (/tmp/musashi-s05-split/baseline-target/debug/deps/pallas_validate-84d41189fb084747)
+
+running 5 tests
+
+thread 'phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size' (769) panicked at pallas-validate/src/phase1/dijkstra_batch_tests.rs:88:9:
+Err(DijkstraUnsupported("subtransactions"))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch' (773) panicked at pallas-validate/src/phase1/dijkstra_batch_tests.rs:188:13:
+assertion failed: run(&tx, &input, &e).is_ok()
+test phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size ... FAILED
+test phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch ... FAILED
+
+thread 'phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards' (772) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraUnsupported(\"subtransactions\")"
+ right: "PostAlonzo(VKWitnessMissing)"
+test phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards ... FAILED
+
+thread 'phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending' (771) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraUnsupported(\"subtransactions\")"
+ right: "DijkstraInputAlreadySpent"
+test phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending ... FAILED
+
+thread 'phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch' (770) panicked at pallas-validate/src/phase1/dijkstra_tests.rs:81:5:
+assertion `left == right` failed
+  left: "DijkstraUnsupported(\"subtransactions\")"
+ right: "PostAlonzo(InputNotInUTxO)"
+test phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch ... FAILED
+
+failures:
+
+failures:
+    phase1::dijkstra_batch_tests::dijkstra_batch_aggregate_balance_and_native_size
+    phase1::dijkstra_batch_tests::dijkstra_batch_cannot_spend_output_created_in_same_batch
+    phase1::dijkstra_batch_tests::dijkstra_batch_original_inputs_and_no_double_spending
+    phase1::dijkstra_batch_tests::dijkstra_batch_sub_signatures_and_required_top_guards
+    phase1::dijkstra_batch_tests::dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 68 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

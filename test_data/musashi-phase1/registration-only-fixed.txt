@@ -1,0 +1,14 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-288018e7ffbf4e48)
+
+running 8 tests
+test phase1::dijkstra_registration_tests::dijkstra_registration_state_deposit_and_parameters ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_captured_native_dispatch ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_other_certificates_and_script_forms_reject ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_key_author_and_deposit_balance ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_requires_distinct_certificate_author ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_fee_rounding_and_reference_accounting ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_collateral_budgets_and_fees ... ok
+test phase1::dijkstra_registration_tests::dijkstra_registration_scripts_redeemers_integrity_and_signatures ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.04s

@@ -1,0 +1,22 @@
+diff --git a/pallas-validate/src/phase1/dijkstra_registration_tests.rs b/pallas-validate/src/phase1/dijkstra_registration_tests.rs
+index 4f07adf..2087e14 100644
+--- a/pallas-validate/src/phase1/dijkstra_registration_tests.rs
++++ b/pallas-validate/src/phase1/dijkstra_registration_tests.rs
+@@ -23 +23 @@ fn read(name: &str) -> Vec<u8> {
+-fn params() -> Environment {
++pub(super) fn params() -> Environment {
+diff --git a/pallas-validate/src/phase1/mod.rs b/pallas-validate/src/phase1/mod.rs
+index ea2d078..2bfc2ef 100644
+--- a/pallas-validate/src/phase1/mod.rs
++++ b/pallas-validate/src/phase1/mod.rs
+@@ -119,0 +120,3 @@ pub fn validate_tx(
++
++#[cfg(all(test, feature = "unstable"))]
++mod dijkstra_transaction_tests;
+diff --git a/pallas-validate/src/utils.rs b/pallas-validate/src/utils.rs
+index dbb438b..0b4c560 100644
+--- a/pallas-validate/src/utils.rs
++++ b/pallas-validate/src/utils.rs
+@@ -889,0 +890,2 @@ pub struct CertState {
++    #[cfg(feature = "unstable")]
++    pub dijkstra_account_balances: HashMap<StakeCredential, Option<Coin>>,

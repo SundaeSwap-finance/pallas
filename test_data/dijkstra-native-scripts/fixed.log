@@ -1,0 +1,24 @@
+   Compiling pallas-codec v1.4.0 (/home/rodrigo/projects/pallas/pallas-codec)
+   Compiling pallas-crypto v1.4.0 (/home/rodrigo/projects/pallas/pallas-crypto)
+   Compiling pallas-primitives v1.4.0 (/home/rodrigo/projects/pallas/pallas-primitives)
+   Compiling pallas-addresses v1.4.0 (/home/rodrigo/projects/pallas/pallas-addresses)
+   Compiling pallas-traverse v1.4.0 (/home/rodrigo/projects/pallas/pallas-traverse)
+   Compiling pallas-validate v1.4.0 (/home/rodrigo/projects/pallas/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.38s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-744d72920dad28b7)
+
+running 12 tests
+test phase2::dijkstra::native_context_tests::dijkstra_native_reference_hash_survives_v3_projection ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_captured_mint_admission ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_guards_reject_even_in_unused_branches ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_phase_two_has_no_jobs_or_time_translation ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_signatures_and_witness_coverage ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_mint_registration_and_partial_withdrawal ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_reference_fee_size_and_scope ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_earlier_era_reference_and_new_output ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_deep_scripts_do_not_use_recursive_evaluation ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_reference_sources_and_original_hash ... ok
+test phase1::dijkstra_transaction_tests::scripts::dijkstra_native_mixed_plutus_preserves_indices_and_context ... ok
+test phase1::dijkstra_native_tests::dijkstra_native_combinators_and_slot_bounds ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 149 filtered out; finished in 0.13s

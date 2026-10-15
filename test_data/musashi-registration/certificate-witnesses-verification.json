@@ -1,0 +1,295 @@
+{
+  "date": "2026-09-27",
+  "baseline": "0394139c219920e9518e7efd97aa11bbc50078df",
+  "baseline_preparation": "Extract the baseline commit into a separate checkout. Copy pallas-validate/src/phase1/conway/certificate_witnesses.rs, pallas-validate/tests/conway.rs and test_data/musashi-registration/certificate-witnesses-provenance.json from the fixed checkout. Add only #[cfg(test)] mod certificate_witnesses to phase1/conway.rs; retain all baseline production behavior. Use separate Cargo target directories for baseline and fixed builds.",
+  "focused_command": "cargo test --offline -p pallas-validate --features unstable --lib certificate_witnesses",
+  "baseline_exit_code": 101,
+  "baseline_result": "2 passed; 15 failed",
+  "fixed_exit_code": 0,
+  "fixed_result": "17 passed; 0 failed",
+  "outcomes": [
+    {
+      "test": "all_plutus_versions_can_supply_certificate_scripts",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededPlutusV1Script))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "captured_registration_accepts_certificate_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededRedeemer))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "captured_registration_checks_original_signatures_and_balance",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededRedeemer))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "captured_registration_rejects_incorrect_reference_script",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededRedeemer))",
+      "expected": "Err(PostAlonzo(ScriptWitnessMissing))"
+    },
+    {
+      "test": "captured_registration_rejects_wrong_pointer",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "captured_registration_requires_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(RedeemerMissing))"
+    },
+    {
+      "test": "captured_registration_requires_script_even_without_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(ScriptWitnessMissing))"
+    },
+    {
+      "test": "certificate_pointers_use_full_positions_and_distinct_purposes",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededPlutusV2Script))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "every_credential_certificate_requires_its_key_and_valid_signature",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(VKWitnessMissing))"
+    },
+    {
+      "test": "every_credential_certificate_requires_script_and_plutus_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededPlutusV2Script))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "legacy_registration_requires_neither_key_script_nor_redeemer",
+      "baseline": "ok",
+      "fixed": "ok"
+    },
+    {
+      "test": "native_and_key_certificates_reject_unnecessary_redeemers",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededNativeScript))",
+      "expected": "Err(PostAlonzo(UnneededRedeemer))"
+    },
+    {
+      "test": "native_certificate_checks_authorization_without_redeemers",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededNativeScript))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "native_certificate_timelocks_and_thresholds_are_evaluated",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Err(PostAlonzo(UnneededNativeScript))",
+      "expected": "Ok(())"
+    },
+    {
+      "test": "native_reference_authorization_uses_original_script_hash",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(NativeScriptDenial))"
+    },
+    {
+      "test": "native_reference_certificate_needs_no_redeemer",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(NativeScriptDenial))"
+    },
+    {
+      "test": "pool_certificates_require_operator_and_registration_owners",
+      "baseline": "FAILED",
+      "fixed": "ok",
+      "baseline_actual": "Ok(())",
+      "expected": "Err(PostAlonzo(VKWitnessMissing))"
+    }
+  ],
+  "dispatch": {
+    "command": "cargo test --offline -p pallas-validate --test conway certificate_script_is_required_through_dispatch",
+    "baseline_actual": "VKWrongSignature",
+    "baseline_exit_code": 101,
+    "fixed_expected": "ScriptWitnessMissing",
+    "fixed_exit_code": 0
+  },
+  "source_sha256": {
+    "pallas-validate/src/phase1/conway.rs": "83060c55314df2485d6c71765614f628a4e75e55354f51748f421a9249fc8c5c",
+    "pallas-validate/src/phase1/shelley_ma.rs": "07e690882144a8fc45d2f7cf2bd744cdb75a1a3b70047e587ac982eba9a9072f",
+    "pallas-validate/src/utils/validation.rs": "9e1a52bd142bf6a86c6534aebf6424165f3815b16b6df2253d679c0e28a5cfc3",
+    "pallas-validate/src/phase1/conway/certificate_witnesses.rs": "707de56d47c4df7796333e335f18afaad6dfc5e9f47be684f5e55bd3d290ad8a",
+    "pallas-validate/tests/conway.rs": "457ff8d7e9ee7bdd60c43cc4508a5bdc456517a869abe5fb7b10a4549feece58"
+  },
+  "unchanged_fixture_payloads": "All eight decoded CBOR payloads and original provenance.json byte-identical to baseline; existing native musashi_registration integrity test passes.",
+  "gates": [
+    {
+      "name": "focused",
+      "command": "cargo test --offline -p pallas-validate --features unstable --lib certificate_witnesses",
+      "exit_code": 0,
+      "seconds": 1.4
+    },
+    {
+      "name": "default",
+      "command": "cargo test --offline -p pallas-validate",
+      "exit_code": 0,
+      "seconds": 0.71
+    },
+    {
+      "name": "integrity",
+      "command": "cargo test --offline -p pallas-traverse --features unstable --test musashi_registration",
+      "exit_code": 0,
+      "seconds": 0.22
+    },
+    {
+      "name": "fmt-changed",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/utils.rs pallas-validate/src/phase1/conway.rs pallas-validate/tests/conway.rs pallas-traverse/tests/musashi_registration.rs",
+      "exit_code": 0,
+      "seconds": 0.12
+    },
+    {
+      "name": "fmt-workspace",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.57,
+      "explanation": "Pre-existing unchanged examples/leios-testnet/src/bin/harvest.rs formatting at lines 294, 544, 567, 581, 688, 732, 741; changed files pass."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.92
+    },
+    {
+      "name": "clippy-unstable",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 0.26
+    },
+    {
+      "name": "docs",
+      "command": "cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 14.18,
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 7.9
+    },
+    {
+      "name": "workspace-test",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 257.66,
+      "explanation": "19 pallas-math tests passed; pallas-network local socket creation was denied by sandbox. Remaining workspace and math docs passed on retry."
+    },
+    {
+      "name": "workspace-socket-retry",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0,
+      "seconds": 20.32
+    },
+    {
+      "name": "math-docs",
+      "command": "cargo test --offline -p pallas-math --doc",
+      "exit_code": 0,
+      "seconds": 1.11
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 6.81
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 11.79
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 5.68
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 2.06
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 2.22
+    },
+    {
+      "name": "primitives-isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 1.17
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 4.25
+    },
+    {
+      "name": "final-workspace-clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "name": "final-docs",
+      "command": "cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "final-build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0
+    },
+    {
+      "name": "final-feature-clippy",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "name": "final-changed-format",
+      "command": "rustfmt --edition 2024 --check pallas-validate/src/phase1/conway.rs pallas-validate/src/phase1/shelley_ma.rs pallas-validate/src/utils/validation.rs pallas-validate/tests/conway.rs",
+      "exit_code": 0
+    }
+  ],
+  "full_logs": "Full command output is not distributed with these fixtures. This tracked file preserves commands, source hashes, assertion failures and outcomes; certificate-witnesses.md describes how to reproduce them using tracked files.",
+  "next_step": "Implement phase-two Reg script resolution, including reference scripts. Downstream workarounds require complete validation and submission integration checks before removal.",
+  "implementation_commit": "d9e703a8d1cc62fed38024d702c69f0d85e71c12",
+  "documentation_followup": "Descriptive report and metadata filenames replace local workflow step labels. The test metadata include path and fixture identifier changed; validation behavior and captured CBOR are unchanged. Focused baseline/fixed tests were replayed after renaming."
+}
