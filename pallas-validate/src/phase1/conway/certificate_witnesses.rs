@@ -488,6 +488,66 @@ fn native_certificate_checks_authorization_without_redeemers() {
 }
 
 #[test]
+fn native_reference_certificate_needs_no_redeemer() {
+    use pallas_codec::utils::CborWrap;
+    use pallas_primitives::conway::PostAlonzoTransactionOutput;
+    let script = NativeScript::ScriptPubkey(key_hash(1));
+    let hash = compute_native_script_hash(&script);
+    let input = TransactionInput {
+        transaction_id: [7; 32].into(),
+        index: 0,
+    };
+    for as_spending in [false, true] {
+        for keys in [&[1][..], &[][..]] {
+            synthetic(
+                vec![Certificate::Reg(
+                    StakeCredential::ScriptHash(hash),
+                    2_000_000,
+                )],
+                |tx| {
+                    if as_spending {
+                        tx.transaction_body.inputs = vec![input.clone()].into();
+                    } else {
+                        tx.transaction_body.reference_inputs =
+                            Some(vec![input.clone()].try_into().unwrap());
+                    }
+                },
+                keys,
+                |tx| {
+                    let mut address = vec![0x71]; // script payment; no unrelated key requirement
+                    address.extend(hash.as_ref());
+                    let output = TransactionOutput::PostAlonzo(
+                        PostAlonzoTransactionOutput {
+                            address: address.into(),
+                            value: Value::Coin(2_000_000),
+                            datum_option: None,
+                            script_ref: Some(CborWrap(ScriptRef::NativeScript(
+                                script.clone().into(),
+                            ))),
+                        }
+                        .into(),
+                    );
+                    let encoded = minicbor::to_vec(output).unwrap();
+                    let output: TransactionOutput = minicbor::decode(&encoded).unwrap();
+                    let utxos = UTxOs::from([(
+                        MultiEraInput::from_alonzo_compatible(&input),
+                        MultiEraOutput::from_conway(&output),
+                    )]);
+                    result(
+                        check_witness_set(&tx, &utxos),
+                        if keys.is_empty() {
+                            "Err(PostAlonzo(NativeScriptDenial))"
+                        } else {
+                            "Ok(())"
+                        },
+                    );
+                },
+            );
+        }
+    }
+}
+
+#[test]
 fn pool_certificates_require_operator_and_registration_owners() {
     let registration = Certificate::PoolRegistration {
         operator: key_hash(1),
@@ -684,4 +744,57 @@ fn captured_registration_checks_original_signatures_and_balance() {
             "Err(PostAlonzo(VKWitnessMissing))",
         );
     });
+}
+
+#[test]
+fn native_reference_authorization_uses_original_script_hash() {
+    // Valid noncanonical CBOR for [0, key_hash]: integer 0 uses two bytes.
+    // A reference script is hashed from its original bytes, not a re-encoding.
+    let mut raw = vec![0x82, 0x18, 0, 0x58, 0x1c];
+    raw.extend(key_hash(1).as_ref());
+    let script: KeepRaw<'_, NativeScript> = minicbor::decode(&raw).unwrap();
+    let hash = script.original_hash();
+    assert_ne!(hash, compute_native_script_hash(&script));
+    let input = TransactionInput {
+        transaction_id: [7; 32].into(),
+        index: 0,
+    };
+    for keys in [&[1][..], &[][..]] {
+        synthetic(
+            vec![Certificate::Reg(
+                StakeCredential::ScriptHash(hash),
+                2_000_000,
+            )],
+            |tx| {
+                tx.transaction_body.reference_inputs =
+                    Some(vec![input.clone()].try_into().unwrap());
+            },
+            keys,
+            |tx| {
+                let output = TransactionOutput::PostAlonzo(
+                    pallas_primitives::conway::PostAlonzoTransactionOutput {
+                        address: vec![0x61; 29].into(),
+                        value: Value::Coin(2_000_000),
+                        datum_option: None,
+                        script_ref: Some(pallas_codec::utils::CborWrap(ScriptRef::NativeScript(
+                            script.clone(),
+                        ))),
+                    }
+                    .into(),
+                );
+                let utxos = UTxOs::from([(
+                    MultiEraInput::from_alonzo_compatible(&input),
+                    MultiEraOutput::from_conway(&output),
+                )]);
+                result(
+                    check_witness_set(&tx, &utxos),
+                    if keys.is_empty() {
+                        "Err(PostAlonzo(NativeScriptDenial))"
+                    } else {
+                        "Ok(())"
+                    },
+                );
+            },
+        );
+    }
 }

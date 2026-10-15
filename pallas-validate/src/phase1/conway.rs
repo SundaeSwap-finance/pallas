@@ -691,11 +691,20 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     )?;
     let plutus_data = tx_wits.plutus_data.clone();
     check_datums(tx_body, utxos, &plutus_data)?;
+    // Native reference scripts satisfy script presence, but never need redeemers.
+    let mut plutus_reference_scripts = Vec::new();
+    for input in reference_script_inputs(tx_body) {
+        if let Some(script) = reference_script(input, utxos)?
+            && !matches!(script, ScriptRef::NativeScript(_))
+        {
+            plutus_reference_scripts.push(MultiEraScriptRef::from_conway(&script).hash());
+        }
+    }
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
         &plutus_v3_scripts,
-        &reference_scripts,
+        &plutus_reference_scripts,
         tx_body,
         tx_wits,
         utxos,
