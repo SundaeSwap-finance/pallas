@@ -314,6 +314,27 @@ pub fn body_with_account_fields(account: &[u8], coin: u64, sub_bodies: &[&[u8]])
     e.into_writer()
 }
 
+/// Builds a transaction body with one input, a fee, an exact starting balance
+/// interval on the account given, and a sub transaction over each sub body
+/// given.
+pub fn body_with_starting_balance_interval(
+    account: &[u8],
+    coin: u64,
+    sub_bodies: &[&[u8]],
+) -> Vec<u8> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.map(if sub_bodies.is_empty() { 4 } else { 5 }).unwrap();
+    write_mandatory_keys(&mut e);
+    write_sub_transactions(&mut e, sub_bodies);
+
+    e.u8(27).unwrap();
+    e.map(1).unwrap();
+    e.bytes(account).unwrap();
+    e.u64(coin).unwrap();
+
+    e.into_writer()
+}
+
 /// Builds a transaction body with one input, a fee, keys 7, 11, 21 and 22
 /// written from the fill byte given, and a sub transaction over each sub body
 /// given.
