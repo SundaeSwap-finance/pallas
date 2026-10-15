@@ -296,6 +296,66 @@ fn native_reference_scripts_reject_v4_and_nested_guards_explicitly() {
 }
 
 #[test]
+fn native_reference_timelocks_keep_original_hash_and_need_no_redeemer() {
+    use pallas_primitives::dijkstra::{NativeScript, ScriptRef};
+    use pallas_traverse::ComputeHash;
+    captured_settings(|mut tx, mut utxos| {
+        let reference = tx.transaction_body.reference_inputs.as_ref().unwrap()[0].clone();
+        for (tag, expected) in [(1, "Ok(())"), (2, "Err(PostAlonzo(NativeScriptDenial))")] {
+            // Noncanonical [all/any, []]; the tag has an extra byte.
+            let raw = [0x82, 0x18, tag, 0x80];
+            let native: KeepRaw<NativeScript> = minicbor::decode(&raw).unwrap();
+            let hash = native.original_hash();
+            assert_ne!(hash, native.compute_hash());
+            *utxos.get_mut(&owned_input(&reference)).unwrap() = synthetic_output(
+                vec![0x60; 29],
+                None,
+                Some(ScriptRef::NativeScript(native.to_owned())),
+            );
+            tx.transaction_body.certificates = Some(
+                vec![Certificate::Reg(
+                    StakeCredential::ScriptHash(hash),
+                    2_000_000,
+                )]
+                .try_into()
+                .unwrap(),
+            );
+            expect(check_certificate_native_scripts(&tx, &utxos), expected);
+            if tag == 1 {
+                // Re-sign the derived body using a public deterministic test key.
+                // Only this synthetic case changes the original body/witnesses.
+                let key = pallas_crypto::key::ed25519::SecretKey::from([42; 32]);
+                let hash = Hasher::<224>::hash(key.public_key().as_ref());
+                let mut address = vec![0x60];
+                address.extend(hash.as_ref());
+                let spending = tx.transaction_body.inputs[0].clone();
+                *utxos.get_mut(&owned_input(&spending)).unwrap() =
+                    synthetic_output(address, None, None);
+                let body_bytes = minicbor::to_vec(&tx.transaction_body).unwrap();
+                let body: KeepRaw<TransactionBody> = minicbor::decode(&body_bytes).unwrap();
+                // Keep raw body alive while checking the synthetic signature.
+                let mut signed = tx.clone();
+                signed.transaction_body = body;
+                signed.transaction_witness_set.redeemer = None;
+                signed.transaction_witness_set.vkeywitness = Some(
+                    vec![VKeyWitness {
+                        vkey: key.public_key().as_ref().to_vec().into(),
+                        signature: key
+                            .sign(signed.transaction_body.original_hash())
+                            .as_ref()
+                            .to_vec()
+                            .into(),
+                    }]
+                    .try_into()
+                    .unwrap(),
+                );
+                expect(check_witness_set(&signed, &utxos), "Ok(())");
+            }
+        }
+    });
+}
+
+#[test]
 fn native_input_and_reference_datums_are_visible() {
     captured_settings(|tx, mut utxos| {
         let spending = tx.transaction_body.inputs[0].clone();
