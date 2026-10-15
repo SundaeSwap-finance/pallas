@@ -1,5 +1,7 @@
 //! Base types used for validating transactions in each era.
 
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_native;
 pub mod environment;
 pub mod validation;
 
@@ -883,6 +885,22 @@ pub struct PState {
 #[non_exhaustive]
 #[derive(Default, Clone)] // for testing
 pub struct CertState {
+    /// Known credential prestate for native Dijkstra Reg validation. Missing entries
+    /// are unknown, not unregistered. Phase-one updates are provisional until phase two.
+    #[cfg(feature = "unstable")]
+    pub dijkstra_registrations: HashMap<StakeCredential, DijkstraRegistrationState>,
+    /// Original account balances at the validation slot. Missing means unknown;
+    /// `None` means known unregistered. Updates remain provisional until phase two.
+    #[cfg(feature = "unstable")]
+    pub dijkstra_account_balances: HashMap<StakeCredential, Option<Coin>>,
     pub pstate: PState,
     pub dstate: DState,
+}
+
+/// Explicit prestate for the currently supported Dijkstra registration rule.
+#[cfg(feature = "unstable")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DijkstraRegistrationState {
+    Unregistered,
+    Registered,
 }

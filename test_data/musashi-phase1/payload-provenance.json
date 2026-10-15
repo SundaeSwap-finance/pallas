@@ -1,0 +1,42 @@
+{
+  "control.mempool.hex": {
+    "source": "transactions/control.mempool.cbor",
+    "bytes": 196,
+    "blake2b_256": "6ca9852bf67de94261d8cc12688145788cfe16e33eb2ab46eaa66b9d94422e22"
+  },
+  "control.block.hex": {
+    "source": "transactions/control.block.cbor",
+    "bytes": 197,
+    "blake2b_256": "6934b8f98dc8b47539773e3d12670b2a1177ba330ce378047714d613557d6269"
+  },
+  "control.input.hex": {
+    "source": "inputs/884c9befc41220fbfb2026a79e2a0a293797a0de0f29f6e3ce13977fe7329e6f-1.cbor",
+    "bytes": 37,
+    "blake2b_256": "e6e674a0ef2464afd451cd19167dacf7512c20cc6756fe8c9d2a1e678d9bce0f"
+  },
+  "control-producer.wire.hex": {
+    "source": "endorsers/treasury.wire.cbor",
+    "bytes": 1327,
+    "blake2b_256": "e7db231038c6aab5859b5207116ca746a20a68b5fa6d19c94a3277cb2f5fa239"
+  },
+  "control.block": {
+    "source": "blocks/1400007.block",
+    "bytes": 1060,
+    "blake2b_256": "03d888daf600ec39ccd25d529d44f7ca32f0bd9ec919bd50a86eb97d2d4116fa"
+  },
+  "producer-announcement.block": {
+    "source": "blocks/1391831.block",
+    "bytes": 88542,
+    "blake2b_256": "8dcfc5534587fb62295894f75eaa3b805ea2aadfff9b5e898172cfbf45287196"
+  },
+  "producer-certification.block": {
+    "source": "blocks/1391855.block",
+    "bytes": 972,
+    "blake2b_256": "3d0f6e8277f8fe7408192a2a33cbe6ceee54599c6b5ebb30bdc8031c3f9407b3"
+  },
+  "producer-commitments.hex": {
+    "source": "endorsers/treasury.ebbody",
+    "bytes": 84244,
+    "blake2b_256": "39a31c6ede6867438a11b70658f074a9d62bca14151824a7daa8dcedd5b05edd"
+  }
+}
