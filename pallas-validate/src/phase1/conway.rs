@@ -9,20 +9,22 @@ use crate::utils::{
     compute_native_script_hash, compute_plutus_v1_script_hash, compute_plutus_v2_script_hash,
     compute_plutus_v3_script_hash, conway_add_minted_non_zero, conway_add_values,
     conway_get_val_size_in_words, conway_lovelace_diff_or_fail, conway_values_are_equal,
-    get_conway_tx_size, get_lovelace_from_conway_val, get_payment_part, get_shelley_address,
+    get_conway_tx_size, get_lovelace_from_conway_val, get_shelley_address,
     mk_alonzo_vk_wits_check_list, verify_signature,
 };
 use pallas_addresses::{
-    Address, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress, StakePayload,
+    Address, ByronAddress, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress,
+    StakePayload,
+    byron::{AddrAttrs, AddrType, AddressId, AddressPayload, SpendingData},
 };
 use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
     AddrKeyhash, Hash, PlutusData, PlutusScript, PolicyId, PositiveCoin, StakeCredential,
     TransactionInput, babbage,
     conway::{
-        Certificate, DatumOption, Language, LanguageViews, Mint, Redeemers, RedeemersKey,
-        RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx, VKeyWitness, Value,
-        WitnessSet,
+        BootstrapWitness, Certificate, DatumOption, Language, LanguageViews, Mint, Redeemers,
+        RedeemersKey, RequiredSigners, ScriptRef, TransactionBody, TransactionOutput, Tx,
+        VKeyWitness, Value, WitnessSet,
     },
 };
 use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
@@ -1411,6 +1413,12 @@ fn check_vkey_input_wits(
     let vk_wits: &mut Vec<(bool, VKeyWitness)> =
         &mut mk_alonzo_vk_wits_check_list(vkey_wits, PostAlonzo(VKWitnessMissing))?;
     let tx_hash: &Vec<u8> = &Vec::from(mtx.transaction_body.original_hash().as_ref());
+    let bootstrap_wits: Vec<BootstrapWitness> = mtx
+        .transaction_witness_set
+        .bootstrap_witness
+        .clone()
+        .map(|wits| wits.to_vec())
+        .unwrap_or_default();
     let mut inputs_and_collaterals: Vec<TransactionInput> = Vec::new();
     inputs_and_collaterals.extend(tx_body.inputs.clone().to_vec());
     if let Some(collaterals) = &tx_body.collateral {
@@ -1418,42 +1426,18 @@ fn check_vkey_input_wits(
     }
     for input in inputs_and_collaterals.iter() {
         match utxos.get(&MultiEraInput::from_alonzo_compatible(input)) {
-            Some(multi_era_output) => {
-                // Try to get address from Conway output first
-                let address: Option<Bytes> = if let Some(conway_output) =
-                    MultiEraOutput::as_conway(multi_era_output)
-                {
-                    match conway_output {
-                        TransactionOutput::Legacy(output) => Some(output.address.clone()),
-                        TransactionOutput::PostAlonzo(output) => Some(output.address.clone()),
+            Some(multi_era_output) => match multi_era_output.address() {
+                Ok(Address::Shelley(address)) => match address.payment() {
+                    ShelleyPaymentPart::Key(payment_key_hash) => {
+                        check_vk_wit(payment_key_hash, vk_wits, tx_hash)?
                     }
-                } else if let Some(alonzo_output) = multi_era_output.as_alonzo() {
-                    // Alonzo, Mary, Allegra, Shelley
-                    Some(alonzo_output.address.clone())
-                } else if let Some(babbage_output) = multi_era_output.as_babbage() {
-                    // Babbage
-                    match babbage_output {
-                        babbage::TransactionOutput::Legacy(output) => Some(output.address.clone()),
-                        babbage::TransactionOutput::PostAlonzo(output) => {
-                            Some(output.address.clone())
-                        }
-                    }
-                } else {
-                    // Byron outputs are handled separately below
-                    None
-                };
-
-                if let Some(address) = address {
-                    match get_payment_part(&address).ok_or(PostAlonzo(InputDecoding))? {
-                        ShelleyPaymentPart::Key(payment_key_hash) => {
-                            check_vk_wit(&payment_key_hash, vk_wits, tx_hash)?
-                        }
-                        ShelleyPaymentPart::Script(_) => {}
-                    }
-                } else {
-                    return Err(PostAlonzo(InputDecoding));
+                    ShelleyPaymentPart::Script(_) => {}
+                },
+                Ok(Address::Byron(address)) => {
+                    check_bootstrap_wit(&address, &bootstrap_wits, tx_hash)?
                 }
-            }
+                _ => return Err(PostAlonzo(InputDecoding)),
+            },
             None => return Err(PostAlonzo(InputNotInUTxO)),
         }
     }
@@ -1496,6 +1480,40 @@ fn check_vk_wit(
         }
     }
     Err(PostAlonzo(VKWitnessMissing))
+}
+
+fn check_bootstrap_wit(
+    address: &ByronAddress,
+    wits: &[BootstrapWitness],
+    data_to_verify: &[u8],
+) -> ValidationResult {
+    let root: AddressId = address
+        .decode()
+        .map_err(|_| PostAlonzo(InputDecoding))?
+        .root;
+    for wit in wits {
+        if bootstrap_wit_root(wit) == Some(root) {
+            let vkey_wit = VKeyWitness {
+                vkey: wit.public_key.clone(),
+                signature: wit.signature.clone(),
+            };
+            if !verify_signature(&vkey_wit, data_to_verify) {
+                return Err(PostAlonzo(VKWrongSignature));
+            }
+            return Ok(());
+        }
+    }
+    Err(PostAlonzo(VKWitnessMissing))
+}
+
+fn bootstrap_wit_root(wit: &BootstrapWitness) -> Option<AddressId> {
+    let attributes: AddrAttrs = pallas_codec::minicbor::decode(&wit.attributes).ok()?;
+    let xpub: Vec<u8> = [wit.public_key.as_slice(), wit.chain_code.as_slice()].concat();
+    Some(AddressPayload::hash_address_id(
+        &AddrType::PubKey,
+        &SpendingData::PubKey(xpub.into()),
+        &attributes,
+    ))
 }
 
 fn check_remaining_vk_wits(
