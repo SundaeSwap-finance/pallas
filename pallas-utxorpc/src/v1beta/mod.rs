@@ -300,11 +300,6 @@ impl<C: LedgerContext> Mapper<C> {
     /// Map the transaction's voting procedures into the v1beta `votes` field.
     /// Conway and Dijkstra share the type.
     pub fn map_votes(&self, tx: &trv::MultiEraTx) -> Vec<u5c::VoterVotes> {
-        #[cfg(feature = "unstable")]
-        if tx.era() == trv::Era::Dijkstra {
-            unimplemented!("map_votes is not yet implemented for Dijkstra")
-        }
-
         let Some(procedures) = tx.voting_procedures() else {
             return Vec::new();
         };
@@ -332,6 +327,13 @@ fn snapshot_cases() -> Vec<(&'static str, &'static str, &'static str)> {
         include_str!("../../../test_data/u5c_v1beta.json"),
         "u5c_v1beta.json",
     )];
+
+    #[cfg(feature = "unstable")]
+    cases.push((
+        include_str!("../../../test_data/dijkstra6.block"),
+        include_str!("../../../test_data/u5c_v1beta_dijkstra.json"),
+        "u5c_v1beta_dijkstra.json",
+    ));
 
     cases
 }
@@ -369,6 +371,116 @@ mod tests {
             )),
             "this schema types the information member a message with no field"
         );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_transaction_with_no_votes_maps_none() {
+        let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-proposal.tx"));
+        let mapper = Mapper::new(NoLedger);
+        assert!(mapper.map_votes(&tx).is_empty());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_transaction_with_one_vote_maps_it() {
+        let tx = dijkstra_tx_with_one_vote();
+        let mapper = Mapper::new(NoLedger);
+        let votes = mapper.map_votes(&tx);
+
+        assert_eq!(votes.len(), 1, "the body names one voter");
+
+        assert_eq!(
+            votes[0].voter,
+            Some(u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
+                stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                    VOTING_DREP_KEY_HASH.to_vec().into()
+                )),
+            })),
+            "a DRep key voter reaches u5c as a DRep credential holding that key hash"
+        );
+
+        assert_eq!(votes[0].votes.len(), 1, "that voter casts one vote");
+        let procedure = &votes[0].votes[0];
+
+        assert_eq!(
+            procedure.gov_action_id,
+            Some(u5c::GovernanceActionId {
+                transaction_id: VOTED_ACTION_TX_HASH.to_vec().into(),
+                governance_action_index: VOTED_ACTION_INDEX,
+            }),
+            "the action voted on reaches u5c by its transaction and its index"
+        );
+
+        assert_eq!(
+            procedure.vote,
+            u5c::Vote::Yes as i32,
+            "a yes vote must not reach u5c as any other vote"
+        );
+
+        assert_eq!(
+            procedure.anchor,
+            Some(u5c::Anchor {
+                url: VOTE_ANCHOR_URL.to_string(),
+                content_hash: VOTE_ANCHOR_HASH.to_vec().into(),
+            }),
+            "the anchor of that vote reaches u5c"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_committee_key_and_a_committee_script_vote_as_their_own_credential_kinds() {
+        let tx = dijkstra_tx_with_committee_votes();
+        let votes = Mapper::new(NoLedger).map_votes(&tx);
+
+        assert_eq!(votes.len(), 2, "the body names two voters");
+
+        let expected = [
+            (
+                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::AddrKeyHash(
+                        COMMITTEE_VOTER_KEY_HASH.to_vec().into(),
+                    )),
+                }),
+                u5c::VotingProcedure {
+                    gov_action_id: Some(u5c::GovernanceActionId {
+                        transaction_id: COMMITTEE_KEY_ACTION_TX_HASH.to_vec().into(),
+                        governance_action_index: 0,
+                    }),
+                    vote: u5c::Vote::No as i32,
+                    anchor: None,
+                },
+            ),
+            (
+                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
+                    stake_credential: Some(u5c::stake_credential::StakeCredential::ScriptHash(
+                        COMMITTEE_VOTER_SCRIPT_HASH.to_vec().into(),
+                    )),
+                }),
+                u5c::VotingProcedure {
+                    gov_action_id: Some(u5c::GovernanceActionId {
+                        transaction_id: COMMITTEE_SCRIPT_ACTION_TX_HASH.to_vec().into(),
+                        governance_action_index: 0,
+                    }),
+                    vote: u5c::Vote::Abstain as i32,
+                    anchor: None,
+                },
+            ),
+        ];
+
+        for (voter, procedure) in expected {
+            let found = votes
+                .iter()
+                .find(|x| x.voter.as_ref() == Some(&voter))
+                .unwrap_or_else(|| panic!("this voter must reach u5c: {voter:?}"));
+
+            assert_eq!(
+                found.votes,
+                vec![procedure],
+                "a committee member's one vote must reach u5c as the vote it cast, on the action it named"
+            );
+        }
     }
 
     #[test]
