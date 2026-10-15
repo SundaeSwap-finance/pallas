@@ -1,5 +1,17 @@
 //! Base types used for validating transactions in each era.
 
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_context;
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_native;
+#[cfg(feature = "unstable")]
+pub mod dijkstra_state;
+#[cfg(feature = "unstable")]
+pub mod dijkstra_time;
+#[cfg(feature = "unstable")]
+pub use dijkstra_time::{
+    DijkstraTimeContext, DijkstraTimeError, EraTime, ForecastHorizon, HistoryFailure,
+};
 pub mod environment;
 pub mod validation;
 
@@ -883,6 +895,9 @@ pub struct PState {
 #[non_exhaustive]
 #[derive(Default, Clone)] // for testing
 pub struct CertState {
+    /// The Dijkstra ledger state transactions are validated against.
+    #[cfg(feature = "unstable")]
+    pub dijkstra: dijkstra_state::DijkstraLedgerSnapshot,
     pub pstate: PState,
     pub dstate: DState,
 }

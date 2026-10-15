@@ -21,6 +21,27 @@ and routes to the matching era-specific validator (`validate_byron_tx`,
 
 ## Overview
 
+With `unstable,phase2`, native Dijkstra uses the earlier-era slot-to-POSIX-time
+conversion semantics, with checked arithmetic. Construct `utils::DijkstraTimeContext`
+from known `EraTime` segments and the `ForecastHorizon`, the first slot the
+ledger cannot translate, then pass it to
+`phase2::evaluate_tx_with_time` or `estimate_tx_with_time`.
+`estimate_tx_calls_with_time` additionally preserves builtin-call reports. Historical and known
+future era mappings are preserved. Later slots extend the final known mapping
+up to the horizon, and a bound at or past it is refused with `PastHorizon`.
+Finite lower bounds are inclusive and upper bounds exclusive, in milliseconds.
+
+`phase1::validate_tx_with_time` checks that both endpoints of a Plutus
+transaction translate under the context. `phase1::validate_tx` has no context,
+so it refuses a Plutus transaction with an upper bound as unsupported. Pass the
+same context to phase one and phase two. The `SlotConfig` API remains available
+for a single affine mapping with no horizon.
+
+The focused capture and its current proof limitations are documented in
+[`test_data/musashi-ttl`](../test_data/musashi-ttl/README.md). The V3 evaluator
+retains upstream support for cost models of any length, including the captured
+251- and 350-entry models, without padding or changing the script-integrity commitment.
+
 - `phase1` — phase-1 (structural / rule-based) validation, with one module
   per era: `byron`, `shelley_ma`, `alonzo`, `babbage`, `conway`. Top-level
   entry points are `validate_tx` (single tx) and `validate_txs`

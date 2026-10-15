@@ -1,0 +1,2010 @@
+use super::*;
+#[test]
+fn dijkstra_observed_metadata_reaches_input_validation() {
+    let raw = hex::decode(
+        include_str!("../../../test_data/musashi-dijkstra-validation/order.tx.hex").trim(),
+    )
+    .unwrap();
+    let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+    assert_eq!(
+        tx.hash().to_string(),
+        "11ef408b2575189a212b9048472fe445e303f5f0d1382769aae086f3728dc656"
+    );
+    // Deliberately missing state isolates the unsupported-feature gate, not acceptance.
+    let result = validate_txs(
+        std::slice::from_ref(&tx),
+        &dijkstra_tests::env(),
+        &UTxOs::new(),
+        &mut CertState::default(),
+    );
+    assert_eq!(format!("{result:?}"), "Err(PostAlonzo(InputNotInUTxO))");
+}
+
+#[test]
+fn dijkstra_observed_order_valid_context() {
+    let raw = hex::decode(
+        include_str!("../../../test_data/musashi-dijkstra-validation/order.tx.hex").trim(),
+    )
+    .unwrap();
+    let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+    let producer = hex::decode(
+        include_str!("../../../test_data/musashi-dijkstra-validation/order-producer.body.hex")
+            .trim(),
+    )
+    .unwrap();
+    let body: pallas_primitives::dijkstra::TransactionBody =
+        pallas_codec::minicbor::decode(&producer).unwrap();
+    assert_eq!(
+        pallas_crypto::hash::Hasher::<256>::hash(&producer),
+        tx.inputs()[0].hash().to_owned()
+    );
+    let input = hex::decode(
+        include_str!("../../../test_data/musashi-dijkstra-validation/order.input.hex").trim(),
+    )
+    .unwrap();
+    assert_eq!(
+        pallas_codec::minicbor::to_vec(&body.outputs[2]).unwrap(),
+        input
+    );
+    let utxos = [(
+        tx.inputs()[0].to_owned(),
+        pallas_traverse::MultiEraOutput::decode(Era::Dijkstra, &input).unwrap(),
+    )]
+    .into_iter()
+    .collect();
+    // Constructed replay context: historical parameters and a stipulated later slot.
+    // No historical/current acceptance is claimed; no time bounds or certificates used.
+    // The producer proves the input bytes, not its current unspent status.
+    let mut env = dijkstra_tests::env();
+    env.block_slot = 2_100_000;
+    let result = validate_txs(
+        std::slice::from_ref(&tx),
+        &env,
+        &utxos,
+        &mut CertState::default(),
+    );
+    assert!(result.is_ok(), "{result:?}");
+}
+
+use crate::utils::dijkstra_state::{
+    DijkstraAccount, DijkstraLedgerOverlay, DijkstraLedgerSnapshot, DijkstraPool, DijkstraProposal,
+    DijkstraProposalAction,
+};
+use pallas_codec::{
+    minicbor,
+    utils::{CborWrap, KeepRaw, KeyValuePairs, Nullable},
+};
+use pallas_crypto::{
+    hash::{Hash, Hasher},
+    key::ed25519::SecretKey,
+};
+use pallas_primitives::{conway as c, dijkstra as n};
+use pallas_traverse::{MultiEraInput, MultiEraOutput};
+use std::collections::BTreeMap;
+
+fn utxos<'a>(inputs: &'a [(n::TransactionInput, n::TransactionOutput<'_>)]) -> UTxOs<'a> {
+    inputs
+        .iter()
+        .map(|(i, o)| {
+            (
+                MultiEraInput::from_alonzo_compatible(i),
+                MultiEraOutput::from_dijkstra(o),
+            )
+        })
+        .collect()
+}
+fn run(
+    tx: &n::BlockTransaction<'_>,
+    inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
+    env: &Environment,
+    state: &CertState,
+) -> crate::utils::ValidationResult {
+    validate_txs(
+        &[MultiEraTx::from_dijkstra(tx)],
+        env,
+        &utxos(inputs),
+        &mut state.clone(),
+    )
+}
+#[cfg(feature = "phase2")]
+fn run_with_horizon(
+    tx: &n::BlockTransaction<'_>,
+    inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
+    env: &Environment,
+    state: &CertState,
+    horizon: u64,
+) -> crate::utils::ValidationResult {
+    let time = crate::utils::DijkstraTimeContext::new(
+        vec![crate::utils::EraTime {
+            start_slot: 0,
+            start_time_ms: 1788739200000,
+            slot_length_ms: 1000,
+        }],
+        crate::utils::ForecastHorizon::Slot(horizon),
+    )
+    .unwrap();
+    validate_tx_with_time(
+        &MultiEraTx::from_dijkstra(tx),
+        0,
+        env,
+        &utxos(inputs),
+        &mut state.clone(),
+        &time,
+    )
+}
+fn output_mut<'a, 'b>(
+    o: &'a mut n::TransactionOutput<'b>,
+) -> &'a mut KeepRaw<'b, n::PostAlonzoTransactionOutput<'b>> {
+    let n::TransactionOutput::PostAlonzo(o) = o else {
+        panic!()
+    };
+    o
+}
+fn auxiliary(tx: &mut n::BlockTransaction<'_>, text: &str) {
+    set_auxiliary(
+        tx,
+        n::AuxiliaryData::Shelley(BTreeMap::from([(674, n::Metadatum::Text(text.into()))])),
+    );
+}
+fn set_auxiliary(tx: &mut n::BlockTransaction<'_>, data: n::AuxiliaryData) {
+    tx.auxiliary_data = Nullable::Some(data.into());
+    let Nullable::Some(aux) = &tx.auxiliary_data else {
+        panic!()
+    };
+    tx.transaction_body.auxiliary_data_hash =
+        Some(Hasher::<256>::hash(&minicbor::to_vec(aux).unwrap()));
+    dijkstra_tests::sign(tx);
+}
+fn set_raw_auxiliary(tx: &mut n::BlockTransaction<'_>, aux: &str) {
+    let raw: &'static [u8] = Box::leak(hex::decode(aux).unwrap().into_boxed_slice());
+    tx.auxiliary_data = Nullable::Some(minicbor::decode(raw).unwrap());
+    tx.transaction_body.auxiliary_data_hash = Some(Hasher::<256>::hash(raw));
+    dijkstra_tests::sign(tx);
+}
+#[test]
+fn dijkstra_metadata_commitment_and_limits() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let check = |tx: &n::BlockTransaction<'_>| {
+            run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        auxiliary(&mut tx, "metadata test");
+        assert!(check(&tx).is_ok());
+        let valid = tx.clone();
+        tx.transaction_body.auxiliary_data_hash = None;
+        dijkstra_tests::sign(&mut tx);
+        dijkstra_tests::error(check(&tx), "PostAlonzo(MetadataHash)");
+        tx = valid.clone();
+        tx.auxiliary_data = Nullable::Null;
+        dijkstra_tests::error(check(&tx), "PostAlonzo(MetadataHash)");
+        tx = valid.clone();
+        tx.transaction_body.auxiliary_data_hash = Some(Hash::from([0; 32]));
+        dijkstra_tests::sign(&mut tx);
+        dijkstra_tests::error(check(&tx), "PostAlonzo(MetadataHash)");
+        tx = valid;
+        auxiliary(&mut tx, &"x".repeat(64));
+        assert!(check(&tx).is_ok());
+        auxiliary(&mut tx, &"x".repeat(65));
+        dijkstra_tests::error(check(&tx), "DijkstraMalformed(\"metadata\")");
+    });
+}
+#[test]
+fn dijkstra_auxiliary_scripts_are_refused_only_when_malformed() {
+    #[cfg(feature = "phase2")]
+    let (well_formed, malformed) = (
+        Some(dijkstra_tests::well_formed_script()),
+        "DijkstraInvalidMetadata",
+    );
+    #[cfg(not(feature = "phase2"))]
+    let (well_formed, malformed) = (
+        None::<Vec<u8>>,
+        "DijkstraUnsupported(\"new Plutus script validation requires phase2 feature\")",
+    );
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let check = |tx: &n::BlockTransaction<'_>| {
+            run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        let native = || Some(vec![n::NativeScript::InvalidBefore(0)]);
+        set_auxiliary(
+            &mut tx,
+            n::AuxiliaryData::ShelleyMa(n::ShelleyMaAuxiliaryData {
+                transaction_metadata: BTreeMap::new(),
+                auxiliary_scripts: native(),
+            }),
+        );
+        let result = check(&tx);
+        assert!(result.is_ok(), "{result:?}");
+        let n::AuxiliaryData::PostAlonzo(mut data) = dijkstra_tests::plutus_auxiliary(1, &[1])
+        else {
+            unreachable!()
+        };
+        data.plutus_v1_scripts = Some(vec![]);
+        data.native_scripts = native();
+        set_auxiliary(&mut tx, n::AuxiliaryData::PostAlonzo(data));
+        let result = check(&tx);
+        assert!(result.is_ok(), "{result:?}");
+        for version in 1..=4 {
+            if let Some(bytes) = &well_formed {
+                set_auxiliary(&mut tx, dijkstra_tests::plutus_auxiliary(version, bytes));
+                let result = check(&tx);
+                assert!(result.is_ok(), "PlutusV{version}: {result:?}");
+            }
+            set_auxiliary(&mut tx, dijkstra_tests::plutus_auxiliary(version, &[1]));
+            dijkstra_tests::error(check(&tx), malformed);
+        }
+    });
+}
+#[test]
+fn dijkstra_auxiliary_array_holds_exactly_two_elements() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let check = |tx: &n::BlockTransaction<'_>| {
+            run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        for aux in ["82a080", "9fa080ff", "82a081820400"] {
+            set_raw_auxiliary(&mut tx, aux);
+            let result = check(&tx);
+            assert!(result.is_ok(), "{aux}: {result:?}");
+        }
+        for aux in ["81a0", "83a08000", "83a08182040000", "9fa0ff", "9fa08000ff"] {
+            set_raw_auxiliary(&mut tx, aux);
+            assert_eq!(
+                check(&tx).err().map(|e| format!("{e:?}")).as_deref(),
+                Some("DijkstraMalformed(\"metadata\")"),
+                "{aux}"
+            );
+        }
+    });
+}
+fn value(coin: u64, policy: Hash<28>, quantity: u64) -> c::Value {
+    c::Value::Multiasset(
+        coin,
+        BTreeMap::from([(
+            policy,
+            BTreeMap::from([(b"token".to_vec().into(), quantity.try_into().unwrap())]),
+        )]),
+    )
+}
+#[test]
+fn dijkstra_multiasset_conservation_and_script_output() {
+    dijkstra_tests::synthetic(|mut tx, mut input| {
+        let policy = Hash::from([8; 28]);
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        output_mut(&mut input).value = value(coin, policy, 7);
+        let fee = tx.transaction_body.fee;
+        let output = output_mut(first_output(&mut tx));
+        output.value = value(coin - fee, policy, 7);
+        output.address = pallas_addresses::ShelleyAddress::new(
+            pallas_addresses::Network::Testnet,
+            pallas_addresses::ShelleyPaymentPart::Script(Hash::from([9; 28])),
+            pallas_addresses::ShelleyDelegationPart::Null,
+        )
+        .to_vec()
+        .into();
+        output.datum_option = Some(
+            c::DatumOption::Data(CborWrap(
+                n::PlutusData::BigInt(n::BigInt::Int(42.into())).into(),
+            ))
+            .into(),
+        );
+        dijkstra_tests::sign(&mut tx);
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        assert!(
+            run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()).is_ok(),
+            "script-locked output must not execute a script"
+        );
+        output_mut(first_output(&mut tx)).value = value(coin - fee, policy, 8);
+        dijkstra_tests::sign(&mut tx);
+        dijkstra_tests::error(
+            run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()),
+            "PostAlonzo(PreservationOfValue)",
+        );
+    });
+}
+
+#[cfg(feature = "phase2")]
+mod scripts {
+    use super::*;
+    use crate::utils::{EraCbor, TxoRef, UtxoMap};
+    use pallas_addresses::Address;
+    use pallas_traverse::ComputeHash;
+    fn holding(balance: u64) -> crate::utils::dijkstra_state::DijkstraAccount {
+        crate::utils::dijkstra_state::DijkstraAccount {
+            balance,
+            deposit: 2_000_000,
+        }
+    }
+    fn script(source: &str) -> n::PlutusScript<3> {
+        use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
+        let arena = Arena::new();
+        let p = parse_program(&arena, source, amaru_kernel::ProtocolVersion::new(12, 0))
+            .into_result()
+            .unwrap();
+        n::PlutusScript(
+            minicbor::to_vec(pallas_codec::minicbor::bytes::ByteVec::from(
+                flat::encode(p).unwrap(),
+            ))
+            .unwrap()
+            .into(),
+        )
+    }
+    fn environment() -> Environment {
+        super::super::dijkstra_registration_tests::params()
+    }
+    fn seal(tx: &mut n::BlockTransaction<'_>, env: &Environment) {
+        let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {
+            panic!()
+        };
+        let mut raw =
+            minicbor::to_vec(tx.transaction_witness_set.redeemer.as_ref().unwrap()).unwrap();
+        if let Some(datums) = &tx.transaction_witness_set.plutus_data {
+            raw.extend(minicbor::to_vec(datums).unwrap());
+        }
+        raw.extend(
+            minicbor::to_vec(c::LanguageViews(BTreeMap::from([(
+                2,
+                pp.cost_models_for_script_languages
+                    .plutus_v3
+                    .clone()
+                    .unwrap(),
+            )])))
+            .unwrap(),
+        );
+        tx.transaction_body.script_data_hash = Some(Hasher::<256>::hash(&raw));
+        dijkstra_tests::sign(tx);
+    }
+    fn evaluate(
+        tx: &n::BlockTransaction<'_>,
+        inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
+        env: &Environment,
+    ) -> Result<crate::phase2::MultiEraEvalReport, crate::phase2::error::Error> {
+        let map: UtxoMap = inputs
+            .iter()
+            .map(|(i, o)| {
+                (
+                    TxoRef(i.transaction_id, i.index as u32),
+                    EraCbor(Era::Dijkstra, minicbor::to_vec(o).unwrap()),
+                )
+            })
+            .collect();
+        crate::phase2::evaluate_multi_era_tx(
+            &MultiEraTx::from_dijkstra(tx),
+            &env.prot_params,
+            &map,
+            &crate::phase2::script_context::SlotConfig {
+                zero_slot: 0,
+                zero_time: 1788739200000,
+                slot_length: 1000,
+            },
+        )
+    }
+    fn case(
+        reference: bool,
+        source: &str,
+        test: impl FnOnce(
+            n::BlockTransaction<'_>,
+            Vec<(n::TransactionInput, n::TransactionOutput<'_>)>,
+            Environment,
+            CertState,
+        ),
+    ) {
+        dijkstra_tests::synthetic(|mut tx, input| {
+            let env = environment();
+            let s = script(source);
+            let hash = s.compute_hash();
+            let original = tx.transaction_body.inputs[0].clone();
+            let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+            let script_input = n::TransactionInput {
+                transaction_id: Hash::from([255; 32]),
+                index: 1,
+            };
+            let mut locked = input.clone();
+            let o = output_mut(&mut locked);
+            o.address = pallas_addresses::ShelleyAddress::new(
+                pallas_addresses::Network::Testnet,
+                pallas_addresses::ShelleyPaymentPart::Script(hash),
+                pallas_addresses::ShelleyDelegationPart::Null,
+            )
+            .to_vec()
+            .into();
+            o.value = value(5_000_000, hash, 7);
+            o.datum_option = Some(
+                c::DatumOption::Data(CborWrap(
+                    n::PlutusData::BigInt(n::BigInt::Int(42.into())).into(),
+                ))
+                .into(),
+            );
+            tx.transaction_body.inputs = vec![script_input.clone(), original.clone()].into();
+            tx.transaction_body.fee = 1_000_000;
+            tx.transaction_body.ttl = None;
+            output_mut(first_output(&mut tx)).value = value(coin + 4_000_000, hash, 12);
+            tx.transaction_body.mint = Some(BTreeMap::from([(
+                hash,
+                BTreeMap::from([(b"token".to_vec().into(), 5i64.try_into().unwrap())]),
+            )]));
+            tx.transaction_body.withdrawals = Some(BTreeMap::from([(
+                pallas_addresses::StakeAddress::new(
+                    pallas_addresses::Network::Testnet,
+                    pallas_addresses::StakePayload::Script(hash),
+                )
+                .to_vec()
+                .into(),
+                0,
+            )]));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![original.clone()]);
+            let mut inputs = vec![(original, input.clone()), (script_input, locked)];
+            if reference {
+                let reference = n::TransactionInput {
+                    transaction_id: Hash::from([2; 32]),
+                    index: 0,
+                };
+                let mut output = input.clone();
+                output_mut(&mut output).script_ref =
+                    Some(CborWrap(n::ScriptRef::PlutusV3Script(s)));
+                tx.transaction_body.reference_inputs =
+                    n::NonEmptySet::from_vec(vec![reference.clone()]);
+                inputs.push((reference, output));
+            } else {
+                tx.transaction_witness_set.plutus_v3_script = n::NonEmptySet::from_vec(vec![s]);
+            }
+            tx.transaction_witness_set.redeemer = Some(
+                n::Redeemers(BTreeMap::from([
+                    (
+                        n::RedeemersKey {
+                            tag: n::RedeemerTag::Spend,
+                            index: 1,
+                        },
+                        n::RedeemersValue {
+                            data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+                            ex_units: n::ExUnits {
+                                mem: 50_000,
+                                steps: 5_000_000,
+                            },
+                        },
+                    ),
+                    (
+                        n::RedeemersKey {
+                            tag: n::RedeemerTag::Mint,
+                            index: 0,
+                        },
+                        n::RedeemersValue {
+                            data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+                            ex_units: n::ExUnits {
+                                mem: 50_000,
+                                steps: 5_000_000,
+                            },
+                        },
+                    ),
+                    (
+                        n::RedeemersKey {
+                            tag: n::RedeemerTag::Reward,
+                            index: 0,
+                        },
+                        n::RedeemersValue {
+                            data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+                            ex_units: n::ExUnits {
+                                mem: 50_000,
+                                steps: 5_000_000,
+                            },
+                        },
+                    ),
+                ]))
+                .into(),
+            );
+            let mut state = CertState::default();
+            state
+                .dijkstra
+                .accounts
+                .insert(n::StakeCredential::ScriptHash(hash), Some(holding(0)));
+            seal(&mut tx, &env);
+            test(tx, inputs, env, state);
+        });
+    }
+    #[test]
+    fn dijkstra_native_mixed_plutus_preserves_indices_and_context() {
+        use pallas_traverse::OriginalHash;
+        for reference in [false, true] {
+            case(false, PASS, |mut tx, mut inputs, env, state| {
+                // Noncanonical native script bytes must survive V3 TxOut projection.
+                let raw = [0x98, 0x02, 0x18, 0x01, 0x80]; // all []
+                let native = minicbor::decode::<KeepRaw<'_, n::NativeScript>>(&raw)
+                    .unwrap()
+                    .to_owned();
+                let hash = native.original_hash();
+                let input = n::TransactionInput {
+                    transaction_id: Hash::from([0; 32]),
+                    index: 0,
+                };
+                let mut out = inputs[0].1.clone();
+                let o = output_mut(&mut out);
+                o.address = pallas_addresses::ShelleyAddress::new(
+                    pallas_addresses::Network::Testnet,
+                    pallas_addresses::ShelleyPaymentPart::Script(hash),
+                    pallas_addresses::ShelleyDelegationPart::Null,
+                )
+                .to_vec()
+                .into();
+                o.value = c::Value::Coin(5_000_000);
+                // Native spends require no datum, even when the output has a hash.
+                o.datum_option = Some(c::DatumOption::Hash(Hash::from([42; 32])).into());
+                if reference {
+                    o.script_ref = Some(CborWrap(n::ScriptRef::NativeScript(native.clone())));
+                } else {
+                    tx.transaction_witness_set.native_script =
+                        n::NonEmptySet::from_vec(vec![native]);
+                }
+                inputs.push((input.clone(), out));
+                let mut spending = tx.transaction_body.inputs.to_vec();
+                spending.push(input);
+                tx.transaction_body.inputs = spending.into();
+                if let c::Value::Multiasset(coin, _) = &mut output_mut(first_output(&mut tx)).value
+                {
+                    *coin += 5_000_000;
+                }
+                let redeemers = &mut tx.transaction_witness_set.redeemer.as_mut().unwrap().0;
+                let old = n::RedeemersKey {
+                    tag: n::RedeemerTag::Spend,
+                    index: 1,
+                };
+                let value = redeemers.remove(&old).unwrap();
+                redeemers.insert(
+                    n::RedeemersKey {
+                        tag: n::RedeemerTag::Spend,
+                        index: 2,
+                    },
+                    value.clone(),
+                );
+                seal(&mut tx, &env);
+                let result = run(&tx, &inputs, &env, &state);
+                assert!(result.is_ok(), "{result:?}");
+                let result = evaluate(&tx, &inputs, &env).unwrap();
+                assert_eq!(result.len(), 3);
+                assert!(result.iter().all(|x| x.success));
+                // A redeemer for the native input is extraneous in both phases.
+                tx.transaction_witness_set
+                    .redeemer
+                    .as_mut()
+                    .unwrap()
+                    .0
+                    .insert(
+                        n::RedeemersKey {
+                            tag: n::RedeemerTag::Spend,
+                            index: 0,
+                        },
+                        value,
+                    );
+                seal(&mut tx, &env);
+                assert!(matches!(
+                    run(&tx, &inputs, &env, &state),
+                    Err(crate::utils::ValidationError::PostAlonzo(
+                        crate::utils::PostAlonzoError::UnneededRedeemer
+                    ))
+                ));
+                assert!(matches!(
+                    evaluate(&tx, &inputs, &env),
+                    Err(crate::phase2::error::Error::ExtraneousRedeemer)
+                ));
+            });
+        }
+    }
+    const PASS: &str = "(program 1.1.0 (lam ctx (con unit ())))";
+    #[test]
+    fn dijkstra_v3_cost_model_of_any_length() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            for len in [0, 297, 351, 369] {
+                let mut resized = environment();
+                let MultiEraProtocolParameters::Dijkstra(pp) = &mut resized.prot_params else {
+                    panic!()
+                };
+                pp.cost_models_for_script_languages
+                    .plutus_v3
+                    .as_mut()
+                    .unwrap()
+                    .resize(len, 7);
+                dijkstra_tests::error(
+                    run(&tx, &inputs, &resized, &state),
+                    "PostAlonzo(ScriptIntegrityHash)",
+                );
+                seal(&mut tx, &resized);
+                let result = run(&tx, &inputs, &resized, &state);
+                assert!(result.is_ok(), "{len}: {result:?}");
+                seal(&mut tx, &env);
+            }
+        });
+    }
+    #[test]
+    fn dijkstra_redeemer_pointer_given_twice_is_accepted() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let redeemers = tx.transaction_witness_set.redeemer.as_ref().unwrap();
+            let mut pairs: Vec<_> = redeemers
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            pairs.push(pairs[0].clone());
+            let raw = minicbor::to_vec(pallas_codec::utils::KeyValuePairs::from(pairs)).unwrap();
+            let twice = minicbor::decode::<KeepRaw<'_, n::Redeemers>>(&raw)
+                .unwrap()
+                .to_owned();
+            assert_eq!(twice.len(), 3);
+            tx.transaction_witness_set.redeemer = Some(twice);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+        });
+    }
+    #[test]
+    fn dijkstra_plutus_upper_bound_without_time_is_unsupported() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let slot = env.block_slot;
+            tx.transaction_body.validity_interval_start = Some(slot);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_body.ttl = Some(slot + 1);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "DijkstraUnsupported(\"Plutus validity upper bound requires forecast state\")",
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_plutus_upper_bound_at_the_horizon_is_refused() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let horizon = env.block_slot + 100;
+            tx.transaction_body.ttl = Some(horizon - 1);
+            seal(&mut tx, &env);
+            let result = run_with_horizon(&tx, &inputs, &env, &state, horizon);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_body.ttl = Some(horizon);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run_with_horizon(&tx, &inputs, &env, &state, horizon),
+                &format!("DijkstraTime(PastHorizon {{ slot: {horizon}, horizon: {horizon} }})"),
+            );
+        });
+    }
+    #[test]
+    fn estimation_tests_spend_mint_reward_reporting() {
+        for reference in [false, true] {
+            case(reference, PASS, |mut tx, inputs, env, state| {
+                assert!(run(&tx, &inputs, &env, &state).is_ok());
+                let expected = evaluate(&tx, &inputs, &env).unwrap();
+                for value in tx
+                    .transaction_witness_set
+                    .redeemer
+                    .as_mut()
+                    .unwrap()
+                    .0
+                    .values_mut()
+                {
+                    value.ex_units = n::ExUnits { mem: 0, steps: 0 };
+                }
+                tx.transaction_witness_set.vkeywitness = None;
+                assert!(
+                    evaluate(&tx, &inputs, &env)
+                        .unwrap()
+                        .iter()
+                        .all(|r| !r.success)
+                );
+                let map: UtxoMap = inputs
+                    .iter()
+                    .map(|(i, o)| {
+                        (
+                            TxoRef(i.transaction_id, i.index as u32),
+                            EraCbor(Era::Dijkstra, minicbor::to_vec(o).unwrap()),
+                        )
+                    })
+                    .collect();
+                let report = crate::phase2::estimate_tx(
+                    &MultiEraTx::from_dijkstra(&tx),
+                    &env.prot_params,
+                    &map,
+                    &crate::phase2::script_context::SlotConfig::default(),
+                )
+                .unwrap();
+                assert_eq!(report.len(), 3);
+                for ((entry, (tag, index)), original) in report
+                    .iter()
+                    .zip([
+                        (c::RedeemerTag::Spend, 1),
+                        (c::RedeemerTag::Mint, 0),
+                        (c::RedeemerTag::Reward, 0),
+                    ])
+                    .zip(&expected)
+                {
+                    assert_eq!((entry.tag, entry.index), (tag.into(), index));
+                    assert!(entry.success, "{report:?}");
+                    assert_eq!(entry.units, original.units);
+                    assert_eq!(entry.logs, original.logs);
+                    assert!(entry.failure_message.is_none());
+                }
+            });
+        }
+    }
+    #[test]
+    fn dijkstra_spend_mint_reward_both_script_sources() {
+        for reference in [false, true] {
+            case(reference, PASS, |mut tx, inputs, env, state| {
+                let result = run(&tx, &inputs, &env, &state);
+                assert!(result.is_ok(), "{result:?}");
+                let report = evaluate(&tx, &inputs, &env).unwrap();
+                assert_eq!(report.len(), 3);
+                assert!(report.iter().all(|r| r.success), "{report:?}");
+                let policy = *tx
+                    .transaction_body
+                    .mint
+                    .as_ref()
+                    .unwrap()
+                    .keys()
+                    .next()
+                    .unwrap();
+                tx.transaction_body.mint = Some(BTreeMap::from([(
+                    policy,
+                    BTreeMap::from([(b"token".to_vec().into(), (-5i64).try_into().unwrap())]),
+                )]));
+                let coin = MultiEraOutput::from_dijkstra(&tx.transaction_body.outputs[0])
+                    .value()
+                    .coin();
+                output_mut(first_output(&mut tx)).value = value(coin, policy, 2);
+                seal(&mut tx, &env);
+                let result = run(&tx, &inputs, &env, &state);
+                assert!(result.is_ok(), "burn: {result:?}");
+                assert!(
+                    evaluate(&tx, &inputs, &env)
+                        .unwrap()
+                        .iter()
+                        .all(|r| r.success)
+                );
+            });
+        }
+    }
+    #[test]
+    fn dijkstra_missing_state_and_script_authorization() {
+        case(false, PASS, |tx, inputs, env, state| {
+            assert!(
+                format!("{:?}", run(&tx, &inputs, &env, &CertState::default()))
+                    .contains("DijkstraLedgerStateUnavailable")
+            );
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.plutus_v3_script = None;
+            dijkstra_tests::error(
+                run(&changed, &inputs, &env, &state),
+                "PostAlonzo(ScriptWitnessMissing)",
+            );
+            assert!(evaluate(&changed, &inputs, &env).is_err());
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.vkeywitness = None;
+            dijkstra_tests::error(
+                run(&changed, &inputs, &env, &state),
+                "PostAlonzo(VKWitnessMissing)",
+            );
+            let mut changed = tx.clone();
+            changed.transaction_body.collateral = None;
+            seal(&mut changed, &env);
+            dijkstra_tests::error(
+                run(&changed, &inputs, &env, &state),
+                "PostAlonzo(CollateralMissing)",
+            );
+            let mut changed = tx.clone();
+            changed.transaction_body.script_data_hash = None;
+            dijkstra_tests::sign(&mut changed);
+            dijkstra_tests::error(
+                run(&changed, &inputs, &env, &state),
+                "PostAlonzo(ScriptIntegrityHash)",
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_exact_redeemer_pointers() {
+        case(false, PASS, |tx, inputs, env, state| {
+            for tag in [
+                n::RedeemerTag::Spend,
+                n::RedeemerTag::Mint,
+                n::RedeemerTag::Reward,
+            ] {
+                let mut changed = tx.clone();
+                let key = n::RedeemersKey {
+                    tag,
+                    index: if tag == n::RedeemerTag::Spend { 1 } else { 0 },
+                };
+                let mut rs = (**changed.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+                rs.0.remove(&key);
+                changed.transaction_witness_set.redeemer = Some(rs.into());
+                seal(&mut changed, &env);
+                dijkstra_tests::error(
+                    run(&changed, &inputs, &env, &state),
+                    "PostAlonzo(RedeemerMissing)",
+                );
+                assert!(evaluate(&changed, &inputs, &env).is_err());
+            }
+            let mut changed = tx.clone();
+            let mut rs = (**changed.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+            let value = rs.0.values().next().unwrap().clone();
+            rs.0.insert(
+                n::RedeemersKey {
+                    tag: n::RedeemerTag::Spend,
+                    index: 0,
+                },
+                value,
+            );
+            changed.transaction_witness_set.redeemer = Some(rs.into());
+            seal(&mut changed, &env);
+            dijkstra_tests::error(
+                run(&changed, &inputs, &env, &state),
+                "PostAlonzo(UnneededRedeemer)",
+            );
+            assert!(evaluate(&changed, &inputs, &env).is_err());
+        });
+    }
+    #[test]
+    fn dijkstra_budget_and_failing_scripts() {
+        case(
+            false,
+            "(program 1.1.0 (lam ctx (error)))",
+            |tx, inputs, env, state| {
+                assert!(run(&tx, &inputs, &env, &state).is_ok());
+                assert!(
+                    evaluate(&tx, &inputs, &env)
+                        .unwrap()
+                        .iter()
+                        .all(|r| !r.success)
+                );
+            },
+        );
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+            for r in rs.0.values_mut() {
+                r.ex_units = n::ExUnits { mem: 0, steps: 0 };
+            }
+            tx.transaction_witness_set.redeemer = Some(rs.into());
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| !r.success)
+            );
+            let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+            for r in rs.0.values_mut() {
+                r.ex_units = n::ExUnits {
+                    mem: u64::MAX,
+                    steps: 0,
+                };
+            }
+            tx.transaction_witness_set.redeemer = Some(rs.into());
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_err());
+            assert!(evaluate(&tx, &inputs, &env).is_err());
+        });
+    }
+    #[test]
+    fn dijkstra_datums_and_integrity_are_independent() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let datum = n::PlutusData::BigInt(n::BigInt::Int(42.into()));
+            let hash = Hasher::<256>::hash(&minicbor::to_vec(&datum).unwrap());
+            output_mut(&mut inputs[1].1).datum_option = Some(c::DatumOption::Hash(hash).into());
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(DatumMissing)");
+            assert!(evaluate(&tx, &inputs, &env).is_err());
+            tx.transaction_witness_set.plutus_data = Some(
+                n::NonEmptySet::from_vec(vec![datum.clone().into()])
+                    .unwrap()
+                    .into(),
+            );
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| r.success)
+            );
+            let valid = tx.clone();
+            tx.transaction_body.script_data_hash = Some(Hash::from([3; 32]));
+            dijkstra_tests::sign(&mut tx);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(ScriptIntegrityHash)",
+            );
+            tx = valid;
+            tx.transaction_witness_set.plutus_data = Some(
+                n::NonEmptySet::from_vec(vec![
+                    n::PlutusData::BigInt(n::BigInt::Int(43.into())).into(),
+                ])
+                .unwrap()
+                .into(),
+            );
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
+        });
+    }
+    use crate::phase1::dijkstra_batch_tests as batches;
+    /// A witness set datum list holding only `datum`.
+    fn datums(
+        datum: n::PlutusData,
+    ) -> KeepRaw<'static, n::NonEmptySet<KeepRaw<'static, n::PlutusData>>> {
+        n::NonEmptySet::from_vec(vec![datum.into()]).unwrap().into()
+    }
+    #[test]
+    fn dijkstra_top_level_may_witness_its_collateral_return_datum() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let datum = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+            let coin = MultiEraOutput::from_dijkstra(&inputs[0].1).value().coin();
+            tx.transaction_body.collateral_return = Some(batches::datum_hash_output(
+                &inputs[0].1,
+                coin - 2_000_000,
+                &datum,
+            ));
+            tx.transaction_witness_set.plutus_data = Some(datums(datum));
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_witness_set.plutus_data =
+                Some(datums(n::PlutusData::BigInt(n::BigInt::Int(44.into()))));
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
+        });
+    }
+    #[test]
+    fn dijkstra_legacy_top_level_refuses_a_sub_output_datum() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let datum = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+            let source = n::TransactionInput {
+                transaction_id: Hash::from([254; 32]),
+                index: 0,
+            };
+            let coin = MultiEraOutput::from_dijkstra(&inputs[0].1).value().coin();
+            let paid = batches::datum_hash_output(&inputs[0].1, coin, &datum);
+            inputs.push((source.clone(), inputs[0].1.clone()));
+            let mut sub: n::SubTransaction =
+                minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
+            sub.sub_transaction_body.inputs = vec![source].into();
+            sub.sub_transaction_body.outputs =
+                pallas_codec::utils::MaybeIndefArray::Def(vec![paid]);
+            batches::sign_sub(&mut sub);
+            tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_witness_set.plutus_data = Some(datums(datum));
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
+        });
+    }
+    #[test]
+    fn dijkstra_reward_order_and_explicit_account_balance() {
+        case(false, PASS, |mut tx, inputs, env, mut state| {
+            let Address::Shelley(address) = MultiEraOutput::from_dijkstra(&inputs[0].1)
+                .address()
+                .unwrap()
+            else {
+                panic!()
+            };
+            let pallas_addresses::ShelleyPaymentPart::Key(hash) = address.payment() else {
+                panic!()
+            };
+            let account = pallas_addresses::StakeAddress::new(
+                pallas_addresses::Network::Testnet,
+                pallas_addresses::StakePayload::Stake(*hash),
+            )
+            .to_vec();
+            tx.transaction_body
+                .withdrawals
+                .as_mut()
+                .unwrap()
+                .insert(account.into(), 0);
+            state
+                .dijkstra
+                .accounts
+                .insert(n::StakeCredential::AddrKeyhash(*hash), Some(holding(0)));
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| r.success)
+            );
+            // Raw address bytes sort the key first; ledger ordering keeps Reward[0] on the script.
+            let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+            let r =
+                rs.0.remove(&n::RedeemersKey {
+                    tag: n::RedeemerTag::Reward,
+                    index: 0,
+                })
+                .unwrap();
+            rs.0.insert(
+                n::RedeemersKey {
+                    tag: n::RedeemerTag::Reward,
+                    index: 1,
+                },
+                r,
+            );
+            tx.transaction_witness_set.redeemer = Some(rs.into());
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(RedeemerMissing)",
+            );
+            assert!(evaluate(&tx, &inputs, &env).is_err());
+        });
+        case(false, PASS, |tx, inputs, env, mut state| {
+            for balance in [None, Some(holding(1))] {
+                *state.dijkstra.accounts.values_mut().next().unwrap() = balance;
+                assert!(
+                    format!("{:?}", run(&tx, &inputs, &env, &state))
+                        .contains("DijkstraInvalidWithdrawal")
+                );
+            }
+        });
+    }
+    #[test]
+    fn dijkstra_collateral_assets_and_annotations() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let id = n::TransactionInput {
+                transaction_id: Hash::from([12; 32]),
+                index: 0,
+            };
+            let mut collateral = inputs[0].1.clone();
+            output_mut(&mut collateral).value = value(3_000_000, Hash::from([10; 28]), 3);
+            let returned = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: MultiEraOutput::from_dijkstra(&collateral)
+                        .address()
+                        .unwrap()
+                        .to_vec()
+                        .into(),
+                    value: value(1_500_000, Hash::from([10; 28]), 3),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            );
+            inputs.push((id.clone(), collateral));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
+            tx.transaction_body.collateral_return = Some(returned);
+            tx.transaction_body.total_collateral = Some(1_500_000);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            let valid = tx.clone();
+            tx.transaction_body.total_collateral = Some(1_499_999);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(CollateralAnnotation)",
+            );
+            tx = valid.clone();
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).value =
+                value(1_500_000, Hash::from([10; 28]), 4);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(NonLovelaceCollateral)",
+            );
+            tx = valid.clone();
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).value =
+                value(1_500_001, Hash::from([10; 28]), 3);
+            tx.transaction_body.total_collateral = Some(1_499_999);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(CollateralMinLovelace)",
+            );
+            tx = valid;
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).value =
+                value(3_000_001, Hash::from([10; 28]), 3);
+            tx.transaction_body.total_collateral = None;
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(CollateralMinLovelace)",
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_pointer_addresses_are_refused_only_in_collateral_returns() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let id = n::TransactionInput {
+                transaction_id: Hash::from([12; 32]),
+                index: 0,
+            };
+            let mut collateral = inputs[0].1.clone();
+            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            let pallas_addresses::Address::Shelley(plain) =
+                MultiEraOutput::from_dijkstra(&collateral)
+                    .address()
+                    .unwrap()
+            else {
+                panic!()
+            };
+            let pointer = pallas_addresses::ShelleyAddress::new(
+                plain.network(),
+                plain.payment().clone(),
+                pallas_addresses::ShelleyDelegationPart::Pointer(pallas_addresses::Pointer::new(
+                    1, 2, 3,
+                )),
+            )
+            .to_vec();
+            output_mut(&mut collateral).address = pointer.clone().into();
+            let returned = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: plain.to_vec().into(),
+                    value: c::Value::Coin(1_500_000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            );
+            inputs.push((id.clone(), collateral));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
+            tx.transaction_body.collateral_return = Some(returned);
+            tx.transaction_body.total_collateral = Some(1_500_000);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "pointer collateral input: {result:?}");
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).address =
+                pointer.into();
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "DijkstraPointerInCollateralReturn",
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_byron_collateral_needs_its_bootstrap_witness() {
+        use crate::phase1::dijkstra_batch_tests as byron;
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let id = n::TransactionInput {
+                transaction_id: Hash::from([12; 32]),
+                index: 0,
+            };
+            let mut collateral = inputs[0].1.clone();
+            let returned = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: MultiEraOutput::from_dijkstra(&collateral)
+                        .address()
+                        .unwrap()
+                        .to_vec()
+                        .into(),
+                    value: c::Value::Coin(1_500_000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            );
+            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            output_mut(&mut collateral).address = byron::byron_address();
+            inputs.push((id.clone(), collateral));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
+            tx.transaction_body.collateral_return = Some(returned);
+            tx.transaction_body.total_collateral = Some(1_500_000);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(VKWitnessMissing)",
+            );
+            let body = byron::body_hash(&tx.transaction_body);
+            byron::add_bootstrap(
+                &mut tx.transaction_witness_set,
+                byron::bootstrap(body.as_ref()),
+            );
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+        });
+    }
+    #[test]
+    fn dijkstra_fee_budget_and_reference_boundaries() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {
+                panic!()
+            };
+            let coin = MultiEraOutput::from_dijkstra(&tx.transaction_body.outputs[0])
+                .value()
+                .coin()
+                + tx.transaction_body.fee;
+            let policy = *tx
+                .transaction_body
+                .mint
+                .as_ref()
+                .unwrap()
+                .keys()
+                .next()
+                .unwrap();
+            for _ in 0..3 {
+                let size = minicbor::to_vec(tx.to_mempool_transaction()).unwrap().len() as u64;
+                tx.transaction_body.fee =
+                    size * u64::from(pp.minfee_a) + u64::from(pp.minfee_b) + 9737;
+                let out_coin = coin - tx.transaction_body.fee;
+                output_mut(first_output(&mut tx)).value = value(out_coin, policy, 12);
+                seal(&mut tx, &env);
+            }
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "fee boundary: {result:?}");
+            tx.transaction_body.fee -= 1;
+            let out_coin = coin - tx.transaction_body.fee;
+            output_mut(first_output(&mut tx)).value = value(out_coin, policy, 12);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(FeeBelowMin)");
+        });
+        case(true, PASS, |tx, mut inputs, mut env, state| {
+            inputs.pop();
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(ReferenceInputNotInUTxO)",
+            );
+            assert!(evaluate(&tx, &inputs, &env).is_err());
+            let MultiEraProtocolParameters::Dijkstra(pp) = &mut env.prot_params else {
+                panic!()
+            };
+            pp.cost_models_for_script_languages.plutus_v3 = None;
+            // Missing reference still takes precedence over the cost model.
+            assert!(run(&tx, &inputs, &env, &state).is_err());
+        });
+    }
+    #[test]
+    fn dijkstra_mint_without_policy_rejects() {
+        dijkstra_tests::synthetic(|mut tx, input| {
+            let policy = Hash::from([8; 28]);
+            let coin = MultiEraOutput::from_dijkstra(&tx.transaction_body.outputs[0])
+                .value()
+                .coin();
+            output_mut(first_output(&mut tx)).value = value(coin, policy, 7);
+            tx.transaction_body.mint = Some(BTreeMap::from([(
+                policy,
+                BTreeMap::from([(b"token".to_vec().into(), 7i64.try_into().unwrap())]),
+            )]));
+            dijkstra_tests::sign(&mut tx);
+            let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+            dijkstra_tests::error(
+                run(&tx, &inputs, &environment(), &CertState::default()),
+                "PostAlonzo(ScriptWitnessMissing)",
+            );
+        });
+    }
+
+    fn captured_batch(
+        test: impl FnOnce(
+            n::BlockTransaction<'_>,
+            Vec<(n::TransactionInput, n::TransactionOutput<'_>)>,
+            Environment,
+            CertState,
+        ),
+    ) {
+        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test_data/musashi-dijkstra-validation");
+        let raw = hex::decode(
+            std::fs::read_to_string(base.join("mint-batch.tx.hex"))
+                .unwrap()
+                .trim(),
+        )
+        .unwrap();
+        let view = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(base.join("mint-batch-inputs.json")).unwrap(),
+        )
+        .unwrap();
+        let raws: Vec<_> = manifest
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|name| {
+                (
+                    name,
+                    hex::decode(
+                        std::fs::read_to_string(base.join("batch-inputs").join(name))
+                            .unwrap()
+                            .trim(),
+                    )
+                    .unwrap(),
+                )
+            })
+            .collect();
+        let inputs = raws
+            .iter()
+            .map(|(name, raw)| {
+                let parts: Vec<_> = name.split('.').collect();
+                (
+                    n::TransactionInput {
+                        transaction_id: parts[0].parse().unwrap(),
+                        index: parts[1].parse().unwrap(),
+                    },
+                    minicbor::decode::<n::TransactionOutput>(raw).unwrap(),
+                )
+            })
+            .collect();
+        let tx = view.as_dijkstra().unwrap();
+        let mut state = CertState::default();
+        {
+            let prestate: serde_json::Value = serde_json::from_str(include_str!(
+                "../../../test_data/musashi-dijkstra-validation/account-state.json"
+            ))
+            .unwrap();
+            for (hash, account) in prestate["accounts"].as_object().unwrap() {
+                assert_eq!(account["registered"], true);
+                state.dijkstra.accounts.insert(
+                    n::StakeCredential::ScriptHash(hash.parse().unwrap()),
+                    Some(holding(account["balance"].as_u64().unwrap())),
+                );
+            }
+        }
+        let mut env = environment();
+        env.block_slot = 1404987;
+        test(tx.clone(), inputs, env, state);
+    }
+    #[test]
+    fn dijkstra_captured_mint_batch_phase_one() {
+        captured_batch(|tx, inputs, env, state| {
+            let one = run(&tx, &inputs, &env, &state);
+            assert!(one.is_ok(), "phase one: {one:?}");
+        });
+    }
+    #[test]
+    fn dijkstra_captured_mint_batch_phase_two() {
+        captured_batch(|tx, inputs, env, _| {
+            let report = evaluate(&tx, &inputs, &env).expect("native Plutus V3 evaluation");
+            println!("captured Dijkstra transaction: {report:?}");
+            let redeemers = tx.transaction_witness_set.redeemer.as_ref().unwrap();
+            assert_eq!(report.len(), redeemers.len());
+            for r in report {
+                assert!(r.success, "{r:?}");
+                let (key, declared) = redeemers
+                    .iter()
+                    .find(|(key, _)| key.tag as u8 == r.tag as u8 && key.index == r.index)
+                    .unwrap();
+                assert_eq!(
+                    r.units, declared.ex_units,
+                    "exact original builder budget for {key:?}"
+                );
+            }
+        });
+    }
+    #[test]
+    #[ignore = "exports public offline CLI comparison inputs to DIJKSTRA_FIXTURE_EXPORT"]
+    fn export_dijkstra_cli_comparison() {
+        use pallas_primitives::ToCanonicalJson;
+        use serde_json::json;
+        let dir = std::path::PathBuf::from(std::env::var("DIJKSTRA_FIXTURE_EXPORT").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        let write = |name: &str, value: serde_json::Value| {
+            std::fs::write(dir.join(name), serde_json::to_vec_pretty(&value).unwrap()).unwrap()
+        };
+        captured_batch(|tx, inputs, env, _| {
+            assert!(
+                tx.transaction_body.ttl.is_none()
+                    && tx.transaction_body.validity_interval_start.is_none()
+            );
+            write(
+                "mint-batch.tx.json",
+                json!({"type":"Tx DijkstraEra","description":"Unchanged captured native transaction; offline evaluation only","cborHex":hex::encode(minicbor::to_vec(tx.to_mempool_transaction()).unwrap())}),
+            );
+            let mut outputs = serde_json::Map::new();
+            for (reference, raw) in &inputs {
+                let output = MultiEraOutput::from_dijkstra(raw);
+                let script = match output.multi_era_script_ref() {
+                    Some(pallas_traverse::MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
+                        n::ScriptRef::PlutusV3Script(s) => {
+                            json!({"scriptLanguage":"PlutusScriptV3","script":{"type":"PlutusScriptV3","description":"Captured public reference script","cborHex":hex::encode(s.as_ref())}})
+                        }
+                        _ => panic!(),
+                    },
+                    None => serde_json::Value::Null,
+                    _ => panic!(),
+                };
+                let mut value = serde_json::Map::new();
+                value.insert("lovelace".into(), json!(output.value().coin()));
+                if let pallas_primitives::alonzo::Value::Multiasset(_, assets) =
+                    output.value().into_alonzo()
+                {
+                    for (policy, names) in assets {
+                        value.insert(
+                            policy.to_string(),
+                            names
+                                .into_iter()
+                                .map(|(name, amount)| (hex::encode(name.as_slice()), json!(amount)))
+                                .collect::<serde_json::Map<_, _>>()
+                                .into(),
+                        );
+                    }
+                }
+                let (inline, hash, inline_hash) = match output.datum() {
+                    Some(c::DatumOption::Data(d)) => (
+                        d.0.to_json(),
+                        serde_json::Value::Null,
+                        json!(Hasher::<256>::hash_cbor(&d.0).to_string()),
+                    ),
+                    Some(c::DatumOption::Hash(h)) => (
+                        serde_json::Value::Null,
+                        json!(h.to_string()),
+                        serde_json::Value::Null,
+                    ),
+                    None => (
+                        serde_json::Value::Null,
+                        serde_json::Value::Null,
+                        serde_json::Value::Null,
+                    ),
+                };
+                outputs.insert(format!("{}#{}",reference.transaction_id,reference.index),json!({"address":output.address().unwrap().to_bech32().unwrap(),"value":value,"datum":null,"datumhash":hash,"inlineDatum":inline,"inlineDatumhash":inline_hash,"referenceScript":script}));
+            }
+            write("mint-batch.utxos.json", outputs.into());
+            write("pallas-result.json",evaluate(&tx,&inputs,&env).unwrap().iter().map(|r|json!({"tag":format!("{:?}",r.tag),"index":r.index,"memory":r.units.mem,"steps":r.units.steps,"success":r.success})).collect::<Vec<_>>().into());
+        });
+    }
+
+    #[test]
+    fn dijkstra_v3_purpose_and_optional_datum_context() {
+        // The script reads its own ScriptInfo constructor and compares it with the
+        // redeemer. This catches wrong purpose construction despite matching pointers.
+        let field = |value: &str, index: usize| {
+            let mut list =
+                format!("[(force (force (builtin sndPair))) [(builtin unConstrData) {value}]]");
+            for _ in 0..index {
+                list = format!("[(force (builtin tailList)) {list}]");
+            }
+            format!("[(force (builtin headList)) {list}]")
+        };
+        let script_info = field("ctx", 2);
+        let redeemer = field("ctx", 1);
+        let condition = format!(
+            "[[(builtin equalsInteger) [(force (force (builtin fstPair))) [(builtin unConstrData) {script_info}]]] [(builtin unIData) {redeemer}]]"
+        );
+        let source = format!(
+            "(program 1.1.0 (lam ctx (force [[[(force (builtin ifThenElse)) {condition}] (delay (con unit ()))] (delay (error))])))"
+        );
+        case(false, &source, |mut tx, mut inputs, env, state| {
+            let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
+            for (key, r) in &mut rs.0 {
+                let index = match key.tag {
+                    n::RedeemerTag::Spend => 1,
+                    n::RedeemerTag::Mint => 0,
+                    n::RedeemerTag::Reward => 2,
+                    _ => panic!(),
+                };
+                r.data = n::PlutusData::BigInt(n::BigInt::Int(index.into()));
+            }
+            tx.transaction_witness_set.redeemer = Some(rs.clone().into());
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| r.success)
+            );
+            // CIP-0069 permits V3 spending without a datum; hashed missing datums are
+            // separately rejected by dijkstra_datums_and_integrity_are_independent.
+            output_mut(&mut inputs[1].1).datum_option = None;
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| r.success)
+            );
+            rs.0.get_mut(&n::RedeemersKey {
+                tag: n::RedeemerTag::Mint,
+                index: 0,
+            })
+            .unwrap()
+            .data = n::PlutusData::BigInt(n::BigInt::Int(9.into()));
+            tx.transaction_witness_set.redeemer = Some(rs.into());
+            seal(&mut tx, &env);
+            assert!(run(&tx, &inputs, &env, &state).is_ok());
+            let report = evaluate(&tx, &inputs, &env).unwrap();
+            assert!(
+                !report
+                    .iter()
+                    .find(|r| r.tag == c::RedeemerTag::Mint.into())
+                    .unwrap()
+                    .success
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_new_scripts_are_checked() {
+        dijkstra_tests::synthetic(|mut tx, input| {
+            let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+            for bytes in [vec![0], vec![0x41, 0xff]] {
+                output_mut(first_output(&mut tx)).script_ref = Some(CborWrap(
+                    n::ScriptRef::PlutusV3Script(n::PlutusScript(bytes.into())),
+                ));
+                dijkstra_tests::sign(&mut tx);
+                dijkstra_tests::error(
+                    run(&tx, &inputs, &environment(), &CertState::default()),
+                    "DijkstraMalformedScript",
+                );
+            }
+            output_mut(first_output(&mut tx)).script_ref =
+                Some(CborWrap(n::ScriptRef::PlutusV3Script(script(PASS))));
+            dijkstra_tests::sign(&mut tx);
+            assert!(run(&tx, &inputs, &environment(), &CertState::default()).is_ok());
+        });
+    }
+}
+
+fn first_output<'a, 'b>(tx: &'a mut n::BlockTransaction<'b>) -> &'a mut n::TransactionOutput<'b> {
+    match &mut tx.transaction_body.outputs {
+        pallas_codec::utils::MaybeIndefArray::Def(xs)
+        | pallas_codec::utils::MaybeIndefArray::Indef(xs) => &mut xs[0],
+    }
+}
+
+#[test]
+fn dijkstra_preserves_original_auxiliary_bytes() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        // Indefinite metadata map: same value, different committed bytes.
+        let bytes = hex::decode("bf1902a26474657374ff").unwrap();
+        let aux: KeepRaw<n::AuxiliaryData> = minicbor::decode(&bytes).unwrap();
+        assert_ne!(minicbor::to_vec(&*aux).unwrap(), bytes);
+        tx.auxiliary_data = Nullable::Some(aux.to_owned());
+        tx.transaction_body.auxiliary_data_hash = Some(Hasher::<256>::hash(&bytes));
+        dijkstra_tests::sign(&mut tx);
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        assert!(run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()).is_ok());
+        let Nullable::Some(aux) = &tx.auxiliary_data else {
+            panic!()
+        };
+        tx.transaction_body.auxiliary_data_hash =
+            Some(Hasher::<256>::hash(&minicbor::to_vec(&**aux).unwrap()));
+        dijkstra_tests::sign(&mut tx);
+        dijkstra_tests::error(
+            run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()),
+            "PostAlonzo(MetadataHash)",
+        );
+    });
+}
+#[test]
+fn dijkstra_invalid_multiasset_encodings() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin() - tx.transaction_body.fee;
+        let address = MultiEraOutput::from_dijkstra(&input)
+            .address()
+            .unwrap()
+            .to_vec();
+        for (name, amount, duplicate, empty) in [
+            (vec![1], 0u64, false, false),
+            (vec![1; 33], 1, false, false),
+            (vec![1], 1, true, false),
+            (vec![1], 1, false, true),
+        ] {
+            let mut e = minicbor::Encoder::new(Vec::new());
+            e.array(2)
+                .unwrap()
+                .bytes(&address)
+                .unwrap()
+                .array(2)
+                .unwrap()
+                .u64(coin)
+                .unwrap()
+                .map(if empty { 0 } else { 1 })
+                .unwrap();
+            if !empty {
+                e.bytes(&[8; 28])
+                    .unwrap()
+                    .map(if duplicate { 2 } else { 1 })
+                    .unwrap()
+                    .bytes(&name)
+                    .unwrap()
+                    .u64(amount)
+                    .unwrap();
+                if duplicate {
+                    e.bytes(&name).unwrap().u64(amount).unwrap();
+                }
+            }
+            let raw = e.into_writer();
+            let decoded: n::TransactionOutput = minicbor::decode(&raw).unwrap();
+            let n::TransactionOutput::Legacy(decoded) = decoded else {
+                panic!()
+            };
+            tx.transaction_body.outputs =
+                pallas_codec::utils::MaybeIndefArray::Def(vec![n::TransactionOutput::Legacy(
+                    decoded.to_owned(),
+                )]);
+            dijkstra_tests::sign(&mut tx);
+            let inputs = vec![(tx.transaction_body.inputs[0].clone(), input.clone())];
+            dijkstra_tests::error(
+                run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()),
+                "DijkstraMalformed(\"multi-asset value\")",
+            );
+        }
+    });
+}
+
+/// The key hash of the key that signs every synthetic transaction.
+fn test_key() -> Hash<28> {
+    Hasher::<224>::hash(SecretKey::from([71; 32]).public_key().as_ref())
+}
+/// The testnet reward account of the test key.
+fn test_account() -> n::RewardAccount {
+    let mut account = vec![0xe0];
+    account.extend(test_key().as_ref());
+    account.into()
+}
+/// The Dijkstra environment with no fee and no proposal deposit.
+fn free_env() -> Environment {
+    let mut env = dijkstra_tests::env();
+    let MultiEraProtocolParameters::Dijkstra(ref mut pp) = env.prot_params else {
+        unreachable!()
+    };
+    pp.minfee_a = 0;
+    pp.minfee_b = 0;
+    pp.governance_action_deposit = 0;
+    env
+}
+/// A ledger state where the test key has a registered account holding `balance` and a registered pool.
+fn registered(balance: u64) -> CertState {
+    let mut state = CertState::default();
+    state.dijkstra.accounts.insert(
+        n::StakeCredential::AddrKeyhash(test_key()),
+        Some(DijkstraAccount {
+            balance,
+            deposit: 0,
+        }),
+    );
+    state.dijkstra.pools.insert(
+        test_key(),
+        DijkstraPool {
+            vrf: [9; 32].into(),
+            future_vrf: None,
+        },
+    );
+    state
+}
+/// `tx` proposing `action` with its return account at the test key, signed again.
+fn with_proposal<'a>(
+    tx: &n::BlockTransaction<'a>,
+    action: n::GovAction,
+) -> n::BlockTransaction<'a> {
+    let mut tx = tx.clone();
+    tx.transaction_body.proposal_procedures =
+        n::NonEmptySet::from_vec(vec![n::ProposalProcedure {
+            deposit: 0,
+            reward_account: test_account(),
+            gov_action: action,
+            anchor: n::Anchor {
+                url: "https://proposal.example".into(),
+                content_hash: [0; 32].into(),
+            },
+        }]);
+    dijkstra_tests::sign(&mut tx);
+    tx
+}
+
+#[test]
+fn dijkstra_a_stated_treasury_equals_the_ledger_treasury() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let utxos = utxos(&inputs);
+        let state = DijkstraLedgerSnapshot {
+            treasury: 7_000_000,
+            ..Default::default()
+        };
+        let MultiEraProtocolParameters::Dijkstra(pp) = free_env().prot_params else {
+            unreachable!()
+        };
+        let stating = |treasury| {
+            let mut tx = tx.clone();
+            tx.transaction_body.treasury_value = Some(treasury);
+            dijkstra_tests::sign(&mut tx);
+            dijkstra::validate_dijkstra_tx(
+                &tx,
+                &utxos,
+                &pp,
+                &1400007,
+                &0,
+                &DijkstraLedgerOverlay::new(&state),
+            )
+            .map(|_| ())
+        };
+        let result = stating(7_000_000);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(stating(7_000_001), "DijkstraTreasuryValueMismatch");
+    });
+}
+
+#[test]
+fn dijkstra_stake_pools_vote_only_on_security_relevant_parameter_changes() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let mut second = tx.transaction_body.inputs[0].clone();
+        second.index = 99;
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input.clone()),
+            (second.clone(), input),
+        ];
+        let pool_votes_on = |update: &str| {
+            let update = minicbor::decode(&hex::decode(update).unwrap()).unwrap();
+            let proposal = with_proposal(
+                &tx,
+                n::GovAction::ParameterChange(None, Box::new(update), None),
+            );
+            // Decoding keeps the body bytes that the proposal id hashes.
+            let bytes: &'static [u8] =
+                Box::leak(minicbor::to_vec(&proposal).unwrap().into_boxed_slice());
+            let proposal: n::BlockTransaction = minicbor::decode(bytes).unwrap();
+            let id = n::GovActionId {
+                transaction_id: Hasher::<256>::hash(proposal.transaction_body.raw_cbor()),
+                action_index: 0,
+            };
+            let mut vote = tx.clone();
+            vote.transaction_body.inputs = vec![second.clone()].into();
+            vote.transaction_body.voting_procedures = Some(BTreeMap::from([(
+                n::Voter::StakePoolKey(test_key()),
+                BTreeMap::from([(
+                    id,
+                    n::VotingProcedure {
+                        vote: n::Vote::Yes,
+                        anchor: None,
+                    },
+                )]),
+            )]));
+            dijkstra_tests::sign(&mut vote);
+            validate_txs(
+                &[
+                    MultiEraTx::from_dijkstra(&proposal),
+                    MultiEraTx::from_dijkstra(&vote),
+                ],
+                &free_env(),
+                &utxos(&inputs),
+                &mut registered(0),
+            )
+        };
+        // Key 0, the fee per byte, is security relevant and key 5, the key deposit, is not.
+        let result = pool_votes_on("a100182c");
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            pool_votes_on("a1051a001e8480"),
+            "DijkstraInvalidGovernance(\"voter may not vote on the action\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_hard_fork_follows_its_predecessor_up_to_the_highest_major_version() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let pending = n::GovActionId {
+            transaction_id: [3; 32].into(),
+            action_index: 0,
+        };
+        let mut state = registered(0);
+        state.dijkstra.proposals.push((
+            pending.clone(),
+            DijkstraProposal {
+                action: DijkstraProposalAction::HardForkInitiation { version: (13, 0) },
+                expires_after: 100,
+            },
+        ));
+        let proposing = |prev: Option<&n::GovActionId>, version| {
+            let tx = with_proposal(
+                &tx,
+                n::GovAction::HardForkInitiation(prev.cloned(), version),
+            );
+            run(&tx, &inputs, &free_env(), &state)
+        };
+        for (prev, version) in [(None, (13, 0)), (Some(&pending), (13, 1))] {
+            let result = proposing(prev, version);
+            assert!(result.is_ok(), "{version:?} {result:?}");
+        }
+        dijkstra_tests::error(
+            proposing(Some(&pending), (14, 0)),
+            "DijkstraInvalidGovernance(\"hard fork version cannot follow\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_pool_retires_at_most_the_maximum_epoch_ahead() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let mut state = registered(0);
+        state.dijkstra.epoch = 64;
+        let env = free_env();
+        let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {
+            unreachable!()
+        };
+        let latest = 64 + pp.maximum_epoch;
+        let retiring = |epoch| {
+            let mut tx = tx.clone();
+            tx.transaction_body.certificates =
+                n::NonEmptySet::from_vec(vec![n::Certificate::PoolRetirement(test_key(), epoch)]);
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &env, &state)
+        };
+        let result = retiring(latest);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            retiring(latest + 1),
+            "DijkstraInvalidCertificate(\"pool retirement epoch\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_balance_interval_excludes_its_upper_bound() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let bounded_by = |upper| {
+            let mut tx = tx.clone();
+            tx.transaction_body.account_balance_intervals = Some(BTreeMap::from([(
+                test_account(),
+                n::AccountBalanceInterval::Bounded(0, upper),
+            )]));
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &free_env(), &registered(10))
+        };
+        let result = bounded_by(11);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            bounded_by(10),
+            "DijkstraInvalidAccount(\"balance outside its interval\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_collateral_inputs_are_at_most_the_maximum() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let collateral = |index| n::TransactionInput {
+            transaction_id: [12; 32].into(),
+            index,
+        };
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input.clone()),
+            (collateral(0), input.clone()),
+            (collateral(1), input),
+        ];
+        let mut env = free_env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = env.prot_params else {
+            unreachable!()
+        };
+        pp.max_collateral_inputs = 1;
+        let with_collateral = |count| {
+            let mut tx = tx.clone();
+            tx.transaction_body.collateral =
+                n::NonEmptySet::from_vec((0..count).map(collateral).collect());
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &env, &CertState::default())
+        };
+        let result = with_collateral(1);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(with_collateral(2), "PostAlonzo(TooManyCollaterals)");
+    });
+}
+
+#[test]
+fn dijkstra_script_locked_collateral_is_allowed_without_redeemers() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let collateral = n::TransactionInput {
+            transaction_id: [12; 32].into(),
+            index: 0,
+        };
+        let mut locked = input.clone();
+        output_mut(&mut locked).address = pallas_addresses::ShelleyAddress::new(
+            pallas_addresses::Network::Testnet,
+            pallas_addresses::ShelleyPaymentPart::Script(Hash::from([5; 28])),
+            pallas_addresses::ShelleyDelegationPart::Null,
+        )
+        .to_vec()
+        .into();
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input),
+            (collateral.clone(), locked),
+        ];
+        tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![collateral]);
+        dijkstra_tests::sign(&mut tx);
+        let result = run(&tx, &inputs, &free_env(), &CertState::default());
+        assert!(result.is_ok(), "{result:?}");
+    });
+}
+
+#[test]
+fn dijkstra_min_fee_prices_memory_and_steps_separately() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let MultiEraProtocolParameters::Dijkstra(pp) = free_env().prot_params else {
+            unreachable!()
+        };
+        let fee = |mem, steps| {
+            let mut tx = tx.clone();
+            tx.transaction_witness_set.redeemer =
+                Some(KeepRaw::from(n::Redeemers(BTreeMap::from([(
+                    n::RedeemersKey {
+                        tag: n::RedeemerTag::Spend,
+                        index: 0,
+                    },
+                    n::RedeemersValue {
+                        data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+                        ex_units: n::ExUnits { mem, steps },
+                    },
+                )]))));
+            dijkstra::dijkstra_min_fee(&tx, &utxos(&inputs), &pp).unwrap()
+        };
+        // The fixture prices memory at 577/10000 and steps at 721/10000000.
+        assert_eq!(
+            [fee(0, 0), fee(10_000, 0), fee(0, 10_000_000)],
+            [0, 577, 721]
+        );
+    });
+}
+
+#[test]
+fn dijkstra_metadata_text_inside_arrays_and_maps_is_at_most_64_bytes() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        for (size, expected) in [(64, None), (65, Some("DijkstraMalformed(\"metadata\")"))] {
+            let text = || n::Metadatum::Text("x".repeat(size));
+            let nested = [
+                n::Metadatum::Array(vec![text()]),
+                n::Metadatum::Map(KeyValuePairs::Def(vec![(
+                    n::Metadatum::Text("key".into()),
+                    text(),
+                )])),
+            ];
+            for item in nested {
+                set_auxiliary(
+                    &mut tx,
+                    n::AuxiliaryData::Shelley(BTreeMap::from([(674, item)])),
+                );
+                let result = run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default());
+                match expected {
+                    None => assert!(result.is_ok(), "{result:?}"),
+                    Some(expected) => dijkstra_tests::error(result, expected),
+                }
+            }
+        }
+    });
+}
+
+#[test]
+fn dijkstra_output_asset_names_are_at_most_32_bytes() {
+    dijkstra_tests::synthetic(|tx, mut input| {
+        let named = |coin, name: Vec<u8>| {
+            c::Value::Multiasset(
+                coin,
+                BTreeMap::from([(
+                    Hash::from([8; 28]),
+                    BTreeMap::from([(name.into(), 1u64.try_into().unwrap())]),
+                )]),
+            )
+        };
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        output_mut(&mut input).value = named(coin, vec![1; 32]);
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let paying = |name| {
+            let mut tx = tx.clone();
+            let paid = coin - tx.transaction_body.fee;
+            output_mut(first_output(&mut tx)).value = named(paid, name);
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        let result = paying(vec![1; 32]);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            paying(vec![1; 33]),
+            "DijkstraMalformed(\"multi-asset value\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_an_indefinite_length_body_map_is_accepted() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let definite = minicbor::to_vec(&tx.transaction_body).unwrap();
+        assert!((0xa1..=0xb7).contains(&definite[0]));
+        let mut indefinite = vec![0xbf];
+        indefinite.extend(&definite[1..]);
+        indefinite.push(0xff);
+        for raw in [definite, indefinite] {
+            let raw: &'static [u8] = Box::leak(raw.into_boxed_slice());
+            let mut tx = tx.clone();
+            tx.transaction_body = minicbor::decode(raw).unwrap();
+            dijkstra_tests::sign(&mut tx);
+            let result = run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default());
+            assert!(result.is_ok(), "{:02x} {result:?}", raw[0]);
+        }
+    });
+}

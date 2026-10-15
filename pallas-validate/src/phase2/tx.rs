@@ -13,6 +13,8 @@ use pallas_primitives::{
     ExUnits, PlutusData,
     conway::{Language, Redeemer, RedeemerTag},
 };
+#[cfg(feature = "unstable")]
+use pallas_traverse::MultiEraRedeemerTag;
 use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
 
 use tracing::{debug, instrument};
@@ -25,6 +27,62 @@ pub struct TxEvalResult {
     pub success: bool,
     pub logs: Vec<String>,
     pub failure_message: Option<String>,
+}
+
+#[cfg(feature = "unstable")]
+#[derive(Debug)]
+pub struct MultiEraTxEvalResult {
+    /// The index in its batch of the sub transaction whose redeemer this is, none for a top level redeemer.
+    pub sub_transaction: Option<u32>,
+    pub tag: MultiEraRedeemerTag,
+    pub index: u32,
+    pub units: ExUnits,
+    pub success: bool,
+    pub logs: Vec<String>,
+    pub failure_message: Option<String>,
+}
+
+/// A redeemer with the language of its script and the arguments the script is applied to.
+#[cfg(feature = "unstable")]
+#[derive(Debug)]
+pub struct RedeemerArguments {
+    /// The index in its batch of the sub transaction whose redeemer this is, none for a top level redeemer.
+    pub sub_transaction: Option<u32>,
+    pub tag: MultiEraRedeemerTag,
+    pub index: u32,
+    pub language: pallas_primitives::dijkstra::Language,
+    pub args: Vec<PlutusData>,
+}
+
+#[cfg(feature = "unstable")]
+impl From<TxEvalResult> for MultiEraTxEvalResult {
+    fn from(result: TxEvalResult) -> Self {
+        MultiEraTxEvalResult {
+            sub_transaction: None,
+            tag: result.tag.into(),
+            index: result.index,
+            units: result.units,
+            success: result.success,
+            logs: result.logs,
+            failure_message: result.failure_message,
+        }
+    }
+}
+
+#[cfg(feature = "unstable")]
+pub fn eval_multi_era_tx(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    slot_config: &SlotConfig,
+) -> Result<Vec<MultiEraTxEvalResult>, Error> {
+    match tx.era() {
+        pallas_traverse::Era::Dijkstra => super::dijkstra::eval_tx(tx, pparams, utxos, slot_config),
+        _ => Ok(eval_tx(tx, pparams, utxos, slot_config)?
+            .into_iter()
+            .map(Into::into)
+            .collect()),
+    }
 }
 
 pub fn eval_tx(
@@ -51,6 +109,22 @@ pub fn eval_tx(
     let protocol_version_major = pparams.protocol_version() as u32;
 
     let redeemers = tx.redeemers();
+
+    #[cfg(feature = "unstable")]
+    if tx.as_dijkstra().is_some_and(|x| {
+        x.transaction_body
+            .sub_transactions
+            .iter()
+            .flatten()
+            .any(|sub| {
+                sub.transaction_witness_set
+                    .redeemer
+                    .as_ref()
+                    .is_some_and(|x| !x.is_empty())
+            })
+    }) {
+        return Err(Error::WrongEra());
+    }
 
     let redeemers = redeemers
         .iter()

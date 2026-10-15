@@ -1,8 +1,9 @@
-use std::{collections::BTreeMap, ops::Deref};
+use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 use super::data::Data;
 use super::script_context::{
-    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, from_alonzo_output,
+    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, V1TxInfo, V2TxInfo,
+    V3TxInfo, from_alonzo_output,
 };
 use pallas_addresses::{
     Address, ShelleyDelegationPart, ShelleyPaymentPart, StakeAddress, StakePayload,
@@ -13,12 +14,14 @@ use pallas_codec::utils::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::NonZeroInt;
 use pallas_primitives::conway::{
-    AssetName, BigInt, Certificate, Coin, Constitution, Constr, DRep, DRepVotingThresholds,
-    DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint, PlutusData, PolicyId,
-    PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate, RationalNumber, Redeemer,
-    ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
-    VotingProcedure,
+    AssetName, BigInt, Certificate, Coin, Constitution, Constr, CostModels, DRep,
+    DRepVotingThresholds, DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint,
+    PlutusData, PolicyId, PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate,
+    RationalNumber, Redeemer, ScriptRef, StakeCredential, TransactionInput, TransactionOutput,
+    Value, Vote, Voter, VotingProcedure,
 };
+#[cfg(feature = "unstable")]
+use pallas_primitives::dijkstra;
 use pallas_traverse::ComputeHash;
 
 pub fn convert_tag_to_constr(tag: u64) -> Option<u64> {
@@ -43,7 +46,7 @@ pub fn convert_constr_to_tag(constr: u64) -> Option<u64> {
 
 pub static ANY_TAG: u64 = 102;
 
-fn wrap_multiple_with_constr(index: u64, data: Vec<PlutusData>) -> PlutusData {
+pub(super) fn wrap_multiple_with_constr(index: u64, data: Vec<PlutusData>) -> PlutusData {
     let converted = convert_constr_to_tag(index);
     PlutusData::Constr(Constr {
         tag: converted.unwrap_or(ANY_TAG),
@@ -60,11 +63,11 @@ fn empty_constr(index: u64) -> PlutusData {
     wrap_multiple_with_constr(index, vec![])
 }
 
-struct WithWrappedTransactionId<'a, T>(&'a T);
+pub(super) struct WithWrappedTransactionId<'a, T>(pub(super) &'a T);
 
 struct WithWrappedStakeCredential<'a, T>(&'a T);
 
-struct WithZeroAdaAsset<'a, T>(&'a T);
+pub(super) struct WithZeroAdaAsset<'a, T>(pub(super) &'a T);
 
 struct WithOptionDatum<'a, T>(&'a T);
 
@@ -72,7 +75,7 @@ struct WithArrayRational<'a, T>(&'a T);
 
 struct WithPartialCertificates<'a, T>(&'a T);
 
-struct WithRegistrationDeposit<'a, T>(&'a T, bool);
+pub(super) struct WithRegistrationDeposit<'a, T>(pub(super) &'a T, pub(super) bool);
 
 pub trait ToPlutusData {
     fn to_plutus_data(&self) -> PlutusData;
@@ -228,7 +231,9 @@ where
     }
 }
 
-impl ToPlutusData for WithWrappedTransactionId<'_, KeyValuePairs<ScriptPurpose, Redeemer>> {
+impl<P: Clone + Debug> ToPlutusData
+    for WithWrappedTransactionId<'_, KeyValuePairs<ScriptPurpose<P>, Redeemer>>
+{
     fn to_plutus_data(&self) -> PlutusData {
         let mut data_vec: Vec<(PlutusData, PlutusData)> = vec![];
         for (key, value) in self.0.iter() {
@@ -251,7 +256,9 @@ impl ToPlutusData for WithRegistrationDeposit<'_, Vec<Certificate>> {
     }
 }
 
-impl ToPlutusData for WithRegistrationDeposit<'_, KeyValuePairs<ScriptPurpose, Redeemer>> {
+impl<P: Clone + ToPlutusData> ToPlutusData
+    for WithRegistrationDeposit<'_, KeyValuePairs<ScriptPurpose<P>, Redeemer>>
+{
     fn to_plutus_data(&self) -> PlutusData {
         let mut data_vec: Vec<(PlutusData, PlutusData)> = vec![];
         for (key, value) in self.0.iter() {
@@ -524,29 +531,6 @@ impl ToPlutusData for ScriptRef<'_> {
     }
 }
 
-impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, Vec<TransactionOutput<'_>>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .0
-                .iter()
-                .map(|p| WithOptionDatum(&WithZeroAdaAsset(p)).to_plutus_data())
-                .collect(),
-        ))
-    }
-}
-
-impl ToPlutusData for WithZeroAdaAsset<'_, Vec<TransactionOutput<'_>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .iter()
-                .map(|p| WithZeroAdaAsset(p).to_plutus_data())
-                .collect(),
-        ))
-    }
-}
-
 impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, TransactionOutput<'_>>> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0.0 {
@@ -652,26 +636,24 @@ impl ToPlutusData for WithPartialCertificates<'_, Vec<Certificate>> {
 impl ToPlutusData for WithPartialCertificates<'_, Certificate> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
-            Certificate::StakeRegistration(stake_credential) => {
-                wrap_with_constr(0, stake_credential.to_plutus_data())
-            }
-
-            // Conway translates explicit registration to DCertDelegRegKey,
-            // whose credential is wrapped in the V1/V2 StakingHash constructor.
-            Certificate::Reg(stake_credential, _) => wrap_with_constr(
+            // The V1/V2 certificate credential is wrapped in the StakingHash constructor.
+            Certificate::StakeRegistration(stake_credential)
+            | Certificate::Reg(stake_credential, _) => wrap_with_constr(
                 0,
                 WithWrappedStakeCredential(stake_credential).to_plutus_data(),
             ),
 
-            Certificate::StakeDeregistration(stake_credential) => {
-                wrap_with_constr(1, stake_credential.to_plutus_data())
-            }
+            Certificate::StakeDeregistration(stake_credential)
+            | Certificate::UnReg(stake_credential, _) => wrap_with_constr(
+                1,
+                WithWrappedStakeCredential(stake_credential).to_plutus_data(),
+            ),
 
             Certificate::StakeDelegation(stake_credential, pool_keyhash) => {
                 wrap_multiple_with_constr(
                     2,
                     vec![
-                        stake_credential.to_plutus_data(),
+                        WithWrappedStakeCredential(stake_credential).to_plutus_data(),
                         pool_keyhash.to_plutus_data(),
                     ],
                 )
@@ -917,36 +899,36 @@ impl ToPlutusData for TimeRange {
     }
 }
 
-impl<'a> ToPlutusData
-    for WithOptionDatum<'a, WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>>>
-{
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .0
-                .0
-                .iter()
-                .map(|p| {
-                    WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(p)))
-                        .to_plutus_data()
-                })
-                .collect(),
-        ))
+/// A context input or output in the forms the V1 and V2 script contexts encode.
+pub(super) trait LegacyContextData {
+    fn to_plutus_data_v1(&self) -> PlutusData;
+    fn to_plutus_data_v2(&self) -> PlutusData;
+}
+
+impl LegacyContextData for TransactionOutput<'_> {
+    fn to_plutus_data_v1(&self) -> PlutusData {
+        WithOptionDatum(&WithZeroAdaAsset(self)).to_plutus_data()
+    }
+
+    fn to_plutus_data_v2(&self) -> PlutusData {
+        WithZeroAdaAsset(self).to_plutus_data()
     }
 }
 
-impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array({
-            pallas_codec::utils::MaybeIndefArray::Def(
-                self.0
-                    .0
-                    .iter()
-                    .map(|p| WithZeroAdaAsset(&WithWrappedTransactionId(p)).to_plutus_data())
-                    .collect(),
-            )
-        })
+impl LegacyContextData for TxInInfo<'_> {
+    fn to_plutus_data_v1(&self) -> PlutusData {
+        WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(self))).to_plutus_data()
     }
+
+    fn to_plutus_data_v2(&self) -> PlutusData {
+        WithZeroAdaAsset(&WithWrappedTransactionId(self)).to_plutus_data()
+    }
+}
+
+fn legacy_array<A>(items: &[A], encode: impl Fn(&A) -> PlutusData) -> PlutusData {
+    PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
+        items.iter().map(encode).collect(),
+    ))
 }
 
 impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, TxInInfo<'_>>> {
@@ -991,7 +973,7 @@ impl ToPlutusData for TxInInfo<'_> {
 // wrapped is needed for V1 and V2, and it also appears that for V1 and V2, the
 // certifying purpose mustn't include the certificate index. So, we also
 // short-circuit it here.
-impl ToPlutusData for WithWrappedTransactionId<'_, ScriptPurpose> {
+impl<P: Debug> ToPlutusData for WithWrappedTransactionId<'_, ScriptPurpose<P>> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
             ScriptPurpose::Minting(policy_id) => wrap_with_constr(0, policy_id.to_plutus_data()),
@@ -1012,7 +994,7 @@ impl ToPlutusData for WithWrappedTransactionId<'_, ScriptPurpose> {
     }
 }
 
-impl ToPlutusData for WithRegistrationDeposit<'_, ScriptPurpose> {
+impl<P: ToPlutusData> ToPlutusData for WithRegistrationDeposit<'_, ScriptPurpose<P>> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
             ScriptPurpose::Minting(policy_id) => wrap_with_constr(0, policy_id.to_plutus_data()),
@@ -1073,6 +1055,22 @@ impl ToPlutusData for GovActionId {
                 self.action_index.to_plutus_data(),
             ],
         )
+    }
+}
+
+impl ToPlutusData for CostModels {
+    fn to_plutus_data(&self) -> PlutusData {
+        let mut models = self.unknown.clone();
+        for (key, model) in [
+            (0, &self.plutus_v1),
+            (1, &self.plutus_v2),
+            (2, &self.plutus_v3),
+        ] {
+            if let Some(model) = model {
+                models.insert(key, model.clone());
+            }
+        }
+        models.to_plutus_data()
     }
 }
 
@@ -1140,9 +1138,8 @@ impl ToPlutusData for ProtocolParamUpdate {
             push(17, p.to_plutus_data());
         }
 
-        #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = self.cost_models_for_script_languages {
-            unimplemented!("TODO: ToPlutusData for cost models.");
+        if let Some(ref p) = self.cost_models_for_script_languages {
+            push(18, p.to_plutus_data());
         }
 
         if let Some(ref p) = self.execution_costs {
@@ -1206,6 +1203,213 @@ impl ToPlutusData for ProtocolParamUpdate {
         }
 
         Data::map(pparams)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::CostModels {
+    fn to_plutus_data(&self) -> PlutusData {
+        let mut models = self.unknown.clone();
+        for (key, model) in [
+            (0, &self.plutus_v1),
+            (1, &self.plutus_v2),
+            (2, &self.plutus_v3),
+            (3, &self.plutus_v4),
+        ] {
+            if let Some(model) = model {
+                models.insert(key, model.clone());
+            }
+        }
+        models.to_plutus_data()
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::ProtocolParamUpdate {
+    fn to_plutus_data(&self) -> PlutusData {
+        let dijkstra::ProtocolParamUpdate {
+            minfee_a,
+            minfee_b,
+            max_block_body_size,
+            max_transaction_size,
+            max_block_header_size,
+            key_deposit,
+            pool_deposit,
+            maximum_epoch,
+            desired_number_of_stake_pools,
+            pool_pledge_influence,
+            expansion_rate,
+            treasury_growth_rate,
+            min_pool_cost,
+            ada_per_utxo_byte,
+            cost_models_for_script_languages,
+            execution_costs,
+            max_tx_ex_units,
+            max_block_ex_units,
+            max_value_size,
+            collateral_percentage,
+            max_collateral_inputs,
+            pool_voting_thresholds,
+            drep_voting_thresholds,
+            min_committee_size,
+            committee_term_limit,
+            governance_action_validity_period,
+            governance_action_deposit,
+            drep_deposit,
+            drep_inactivity_period,
+            minfee_refscript_cost_per_byte,
+            max_ref_script_size_per_block,
+            max_ref_script_size_per_tx,
+            ref_script_cost_stride,
+            ref_script_cost_multiplier,
+            max_pledge_leverage,
+            min_pool_margin,
+            leios_announcement_period_length,
+            leios_vote_period_length,
+            leios_diffusion_period_length,
+            leios_committee_size,
+            leios_quorum_stake_threshold,
+            max_endorser_block_references_size,
+            max_endorser_block_txs_size,
+            max_endorser_block_execution_units,
+            max_ref_script_size_per_endorser_block,
+            peras_min_candidate_block_age,
+            peras_healing_factor,
+            peras_cert_boost,
+            peras_target_committee_size,
+            peras_bootstrap_round,
+            peras_quorum_threshold_safety_margin,
+            ref_inputs_cost_per_multi_asset_policy,
+            ref_inputs_cost_per_datum_byte,
+        } = self;
+        fn value<T: ToPlutusData>(x: &Option<T>) -> Option<PlutusData> {
+            x.as_ref().map(ToPlutusData::to_plutus_data)
+        }
+        fn rational(x: &Option<RationalNumber>) -> Option<PlutusData> {
+            x.as_ref().map(|x| WithArrayRational(x).to_plutus_data())
+        }
+        let leverage = max_pledge_leverage.as_ref().map(|x| match x {
+            Nullable::Some(x) => wrap_with_constr(0, WithArrayRational(x).to_plutus_data()),
+            Nullable::Null | Nullable::Undefined => empty_constr(1),
+        });
+        let entries = [
+            (0u64, value(minfee_a)),
+            (1, value(minfee_b)),
+            (2, value(max_block_body_size)),
+            (3, value(max_transaction_size)),
+            (4, value(max_block_header_size)),
+            (5, value(key_deposit)),
+            (6, value(pool_deposit)),
+            (7, value(maximum_epoch)),
+            (8, value(desired_number_of_stake_pools)),
+            (9, rational(pool_pledge_influence)),
+            (10, rational(expansion_rate)),
+            (11, rational(treasury_growth_rate)),
+            (16, value(min_pool_cost)),
+            (17, value(ada_per_utxo_byte)),
+            (18, value(cost_models_for_script_languages)),
+            (19, value(execution_costs)),
+            (20, value(max_tx_ex_units)),
+            (21, value(max_block_ex_units)),
+            (22, value(max_value_size)),
+            (23, value(collateral_percentage)),
+            (24, value(max_collateral_inputs)),
+            (25, value(pool_voting_thresholds)),
+            (26, value(drep_voting_thresholds)),
+            (27, value(min_committee_size)),
+            (28, value(committee_term_limit)),
+            (29, value(governance_action_validity_period)),
+            (30, value(governance_action_deposit)),
+            (31, value(drep_deposit)),
+            (32, value(drep_inactivity_period)),
+            (33, rational(minfee_refscript_cost_per_byte)),
+            (34, value(max_ref_script_size_per_block)),
+            (35, value(max_ref_script_size_per_tx)),
+            (36, value(ref_script_cost_stride)),
+            (37, rational(ref_script_cost_multiplier)),
+            (38, leverage),
+            (39, rational(min_pool_margin)),
+            (40, value(leios_announcement_period_length)),
+            (41, value(leios_vote_period_length)),
+            (42, value(leios_diffusion_period_length)),
+            (43, value(leios_committee_size)),
+            (44, rational(leios_quorum_stake_threshold)),
+            (45, value(max_endorser_block_references_size)),
+            (46, value(max_endorser_block_txs_size)),
+            (47, value(max_endorser_block_execution_units)),
+            (48, value(max_ref_script_size_per_endorser_block)),
+            (49, value(peras_min_candidate_block_age)),
+            (50, rational(peras_healing_factor)),
+            (51, value(peras_cert_boost)),
+            (52, value(peras_target_committee_size)),
+            (53, value(peras_bootstrap_round)),
+            (54, rational(peras_quorum_threshold_safety_margin)),
+            (55, value(ref_inputs_cost_per_multi_asset_policy)),
+            (56, value(ref_inputs_cost_per_datum_byte)),
+        ];
+        Data::map(
+            entries
+                .into_iter()
+                .filter_map(|(key, x)| Some((key.to_plutus_data(), x?)))
+                .collect(),
+        )
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::ProposalProcedure {
+    fn to_plutus_data(&self) -> PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.deposit.to_plutus_data(),
+                Address::from_bytes(&self.reward_account)
+                    .unwrap()
+                    .to_plutus_data(),
+                self.gov_action.to_plutus_data(),
+            ],
+        )
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::GovAction {
+    fn to_plutus_data(&self) -> PlutusData {
+        match self {
+            dijkstra::GovAction::ParameterChange(previous_action, params, guardrail) => {
+                wrap_multiple_with_constr(
+                    0,
+                    vec![
+                        previous_action.to_plutus_data(),
+                        params.as_ref().to_plutus_data(),
+                        guardrail.to_plutus_data(),
+                    ],
+                )
+            }
+            dijkstra::GovAction::HardForkInitiation(previous_action, version) => {
+                GovAction::HardForkInitiation(previous_action.clone(), *version).to_plutus_data()
+            }
+            dijkstra::GovAction::TreasuryWithdrawals(withdrawals, guardrail) => {
+                GovAction::TreasuryWithdrawals(withdrawals.clone(), *guardrail).to_plutus_data()
+            }
+            dijkstra::GovAction::NoConfidence(previous_action) => {
+                GovAction::NoConfidence(previous_action.clone()).to_plutus_data()
+            }
+            dijkstra::GovAction::UpdateCommittee(previous_action, removed, added, quorum) => {
+                GovAction::UpdateCommittee(
+                    previous_action.clone(),
+                    removed.to_vec().into(),
+                    added.clone(),
+                    quorum.clone(),
+                )
+                .to_plutus_data()
+            }
+            dijkstra::GovAction::NewConstitution(previous_action, constitution) => {
+                GovAction::NewConstitution(previous_action.clone(), constitution.clone())
+                    .to_plutus_data()
+            }
+            dijkstra::GovAction::Information => GovAction::Information.to_plutus_data(),
+        }
     }
 }
 
@@ -1410,9 +1614,10 @@ impl ToPlutusData for Vote {
     }
 }
 
-impl<T> ToPlutusData for WithRegistrationDeposit<'_, ScriptInfo<T>>
+impl<T, P> ToPlutusData for WithRegistrationDeposit<'_, ScriptInfo<T, P>>
 where
     T: ToPlutusData,
+    P: ToPlutusData,
 {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
@@ -1448,67 +1653,115 @@ impl TxInfo<'_> {
     /// V3 Conway bootstrap encoding is retained only through protocol 9.
     pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
         match self {
-            TxInfo::V1(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(
-                        &tx_info.inputs,
-                    )))
-                    .to_plutus_data(),
-                    WithOptionDatum(&WithZeroAdaAsset(&tx_info.outputs)).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.fee).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.mint).to_plutus_data(),
-                    WithPartialCertificates(&tx_info.certificates).to_plutus_data(),
-                    WithWrappedStakeCredential(&tx_info.withdrawals).to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    wrap_with_constr(0, tx_info.id.to_plutus_data()),
-                ],
-            ),
-            TxInfo::V2(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    WithZeroAdaAsset(&WithWrappedTransactionId(&tx_info.inputs)).to_plutus_data(),
-                    WithZeroAdaAsset(&WithWrappedTransactionId(&tx_info.reference_inputs))
-                        .to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.outputs).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.fee).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.mint).to_plutus_data(),
-                    WithPartialCertificates(&tx_info.certificates).to_plutus_data(),
-                    WithWrappedStakeCredential(&tx_info.withdrawals).to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    WithWrappedTransactionId(&tx_info.redeemers).to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    wrap_with_constr(0, tx_info.id.to_plutus_data()),
-                ],
-            ),
-            TxInfo::V3(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.inputs.to_plutus_data(),
-                    tx_info.reference_inputs.to_plutus_data(),
-                    tx_info.outputs.to_plutus_data(),
-                    tx_info.fee.to_plutus_data(),
-                    tx_info.mint.to_plutus_data(),
-                    WithRegistrationDeposit(&tx_info.certificates, protocol_major > 9)
-                        .to_plutus_data(),
-                    tx_info.withdrawals.to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    WithRegistrationDeposit(&tx_info.redeemers, protocol_major > 9)
-                        .to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    tx_info.id.to_plutus_data(),
-                    tx_info.votes.to_plutus_data(),
-                    tx_info.proposal_procedures.to_plutus_data(),
-                    tx_info.current_treasury_amount.to_plutus_data(),
-                    tx_info.treasury_donation.to_plutus_data(),
-                ],
-            ),
+            TxInfo::V1(tx_info) => tx_info.to_plutus_data(),
+            TxInfo::V2(tx_info) => tx_info.to_plutus_data(),
+            TxInfo::V3(tx_info) => tx_info.to_plutus_data_with_protocol(protocol_major),
         }
     }
+}
+
+impl<I, O, P: Clone> V1TxInfo<I, O, P> {
+    pub(super) fn to_plutus_data(&self) -> PlutusData
+    where
+        I: LegacyContextData,
+        O: LegacyContextData,
+    {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                legacy_array(&self.inputs, I::to_plutus_data_v1),
+                legacy_array(&self.outputs, O::to_plutus_data_v1),
+                WithZeroAdaAsset(&self.fee).to_plutus_data(),
+                WithZeroAdaAsset(&self.mint).to_plutus_data(),
+                WithPartialCertificates(&self.certificates).to_plutus_data(),
+                WithWrappedStakeCredential(&self.withdrawals).to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                self.data.to_plutus_data(),
+                wrap_with_constr(0, self.id.to_plutus_data()),
+            ],
+        )
+    }
+}
+
+impl<I, O, P: Clone + Debug> V2TxInfo<I, O, P> {
+    pub(super) fn to_plutus_data(&self) -> PlutusData
+    where
+        I: LegacyContextData,
+        O: LegacyContextData,
+    {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                legacy_array(&self.inputs, I::to_plutus_data_v2),
+                legacy_array(&self.reference_inputs, I::to_plutus_data_v2),
+                legacy_array(&self.outputs, O::to_plutus_data_v2),
+                WithZeroAdaAsset(&self.fee).to_plutus_data(),
+                WithZeroAdaAsset(&self.mint).to_plutus_data(),
+                WithPartialCertificates(&self.certificates).to_plutus_data(),
+                WithWrappedStakeCredential(&self.withdrawals).to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                WithWrappedTransactionId(&self.redeemers).to_plutus_data(),
+                self.data.to_plutus_data(),
+                wrap_with_constr(0, self.id.to_plutus_data()),
+            ],
+        )
+    }
+}
+
+impl<I: ToPlutusData, O: ToPlutusData, P: Clone + ToPlutusData> V3TxInfo<I, O, P> {
+    pub(super) fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.inputs.to_plutus_data(),
+                self.reference_inputs.to_plutus_data(),
+                self.outputs.to_plutus_data(),
+                self.fee.to_plutus_data(),
+                self.mint.to_plutus_data(),
+                WithRegistrationDeposit(&self.certificates, protocol_major > 9).to_plutus_data(),
+                self.withdrawals.to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                WithRegistrationDeposit(&self.redeemers, protocol_major > 9).to_plutus_data(),
+                self.data.to_plutus_data(),
+                self.id.to_plutus_data(),
+                self.votes.to_plutus_data(),
+                self.proposal_procedures.to_plutus_data(),
+                self.current_treasury_amount.to_plutus_data(),
+                self.treasury_donation.to_plutus_data(),
+            ],
+        )
+    }
+}
+
+/// Encode the V3 context envelope independently of the ledger era of its outputs.
+pub(super) fn v3_script_context_data<P: ToPlutusData>(
+    tx_info: PlutusData,
+    redeemer: &PlutusData,
+    purpose: &ScriptInfo<Option<PlutusData>, P>,
+    protocol_major: u32,
+) -> PlutusData {
+    wrap_multiple_with_constr(
+        0,
+        vec![
+            tx_info,
+            redeemer.to_plutus_data(),
+            WithRegistrationDeposit(purpose, protocol_major > 9).to_plutus_data(),
+        ],
+    )
+}
+
+/// Encode the V1 and V2 context envelope independently of the ledger era of its outputs.
+pub(super) fn v1v2_script_context_data<P: Debug>(
+    tx_info: PlutusData,
+    purpose: &ScriptPurpose<P>,
+) -> PlutusData {
+    wrap_multiple_with_constr(
+        0,
+        vec![tx_info, WithWrappedTransactionId(purpose).to_plutus_data()],
+    )
 }
 
 impl ToPlutusData for ScriptContext<'_> {
@@ -1521,24 +1774,19 @@ impl ScriptContext<'_> {
     /// Encode all V3 certificate occurrences with the same protocol rule.
     pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
         match self {
-            ScriptContext::V1V2 { tx_info, purpose } => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.to_plutus_data_with_protocol(protocol_major),
-                    WithWrappedTransactionId(purpose.as_ref()).to_plutus_data(),
-                ],
+            ScriptContext::V1V2 { tx_info, purpose } => v1v2_script_context_data(
+                tx_info.to_plutus_data_with_protocol(protocol_major),
+                purpose,
             ),
             ScriptContext::V3 {
                 tx_info,
                 redeemer,
                 purpose,
-            } => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.to_plutus_data_with_protocol(protocol_major),
-                    redeemer.to_plutus_data(),
-                    WithRegistrationDeposit(purpose.as_ref(), protocol_major > 9).to_plutus_data(),
-                ],
+            } => v3_script_context_data(
+                tx_info.to_plutus_data_with_protocol(protocol_major),
+                redeemer,
+                purpose,
+                protocol_major,
             ),
         }
     }
