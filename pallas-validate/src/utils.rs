@@ -19,11 +19,47 @@ use pallas_primitives::{
     conway::{Multiasset as ConwayMultiasset, Tx as ConwayTx, Value as ConwayValue},
 };
 
-use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraUpdate, time::Slot};
+use pallas_traverse::{
+    Era, MultiEraCert, MultiEraCertKind, MultiEraInput, MultiEraOutput, MultiEraUpdate, time::Slot,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 pub use validation::*;
+
+#[cfg(test)]
+mod registration_deposits;
+
+// The stake-registration component of produced value, shared by Conway and
+// Dijkstra. Each registration (including registration with delegation) costs
+// the protocol key deposit. DELEG checks the declared amount and credential
+// state separately. Other deposits and refunds are outside this calculation.
+pub(crate) fn add_fee_and_stake_deposits(
+    outputs: &ConwayValue,
+    fee: Coin,
+    certificates: &[MultiEraCert<'_>],
+    key_deposit: Coin,
+) -> Result<ConwayValue, ValidationError> {
+    let err = ValidationError::PostAlonzo(PostAlonzoError::NegativeValue);
+    let produced = conway_add_values(outputs, &ConwayValue::Coin(fee), &err)?;
+    let deposits = certificates.iter().try_fold(0u64, |total, cert| {
+        if matches!(
+            cert.kind(),
+            Some(
+                MultiEraCertKind::StakeRegistration(..)
+                    | MultiEraCertKind::Reg(..)
+                    | MultiEraCertKind::StakeRegDeleg(..)
+                    | MultiEraCertKind::VoteRegDeleg(..)
+                    | MultiEraCertKind::StakeVoteRegDeleg(..)
+            )
+        ) {
+            total.checked_add(key_deposit).ok_or_else(|| err.clone())
+        } else {
+            Ok(total)
+        }
+    })?;
+    conway_add_values(&produced, &ConwayValue::Coin(deposits), &err)
+}
 
 pub type TxHash = Hash<32>;
 pub type TxoIdx = u32;
