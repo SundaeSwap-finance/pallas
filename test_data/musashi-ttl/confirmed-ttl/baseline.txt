@@ -1,0 +1,31 @@
+running 4 tests
+test captured_ttl_phase_one_succeeds ... FAILED
+test captured_ttl_signatures_are_valid ... ok
+test captured_ttl_estimation_succeeds ... FAILED
+test captured_ttl_phase_two_succeeds ... FAILED
+
+failures:
+
+---- captured_ttl_phase_one_succeeds stdout ----
+
+thread 'captured_ttl_phase_one_succeeds' (121120) panicked at pallas-validate/tests/dijkstra_ttl.rs:267:5:
+captured bounded native transaction must pass phase one: Err(DijkstraUnsupported("Plutus validity upper bound requires forecast state"))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- captured_ttl_estimation_succeeds stdout ----
+
+thread 'captured_ttl_estimation_succeeds' (121119) panicked at pallas-validate/tests/dijkstra_ttl.rs:291:14:
+captured bounded native transaction must estimate: DijkstraUnsupported("upper validity bound requires forecast state")
+
+---- captured_ttl_phase_two_succeeds stdout ----
+
+thread 'captured_ttl_phase_two_succeeds' (121121) panicked at pallas-validate/tests/dijkstra_ttl.rs:279:14:
+captured bounded native transaction must evaluate: DijkstraUnsupported("upper validity bound requires forecast state")
+
+
+failures:
+    captured_ttl_estimation_succeeds
+    captured_ttl_phase_one_succeeds
+    captured_ttl_phase_two_succeeds
+
+test result: FAILED. 1 passed; 3 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s

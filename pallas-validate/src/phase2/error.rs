@@ -4,14 +4,63 @@ use pallas_primitives::{
     conway::{ExUnits, Language},
 };
 
+/// A construct the native Dijkstra evaluation does not implement, named by its label.
+#[cfg(feature = "unstable")]
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("unsupported native Dijkstra evaluation: {0}")]
+pub struct Unsupported(pub UnsupportedEvaluation);
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A construct the native Dijkstra evaluation does not implement.
+    pub enum UnsupportedEvaluation {
+        ParametersRequireDijkstra => "protocol parameters require Dijkstra",
+        ProtocolVersion => "protocol version (requires 12.0)",
+        ReferenceScriptLanguage => "reference script language (requires V3)",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a native Dijkstra evaluation breaks.
+    pub enum EvaluationFailure {
+        CpuBudgetOverflow => "CPU budget overflow",
+        DuplicateInput => "duplicate input",
+        ExecutionLimitOverflow => "transaction execution limit overflow",
+        InputAddress => "input address",
+        InputDecodingForOriginalEra => "input decoding for original era",
+        InputIndex => "input index",
+        MemoryBudgetOverflow => "memory budget overflow",
+        ScriptGuards => "script guards",
+        TrailingScriptCbor => "trailing script CBOR",
+        @nested Context(crate::utils::ContextFailure),
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
+#[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum Error {
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra time translation: {0}")]
+    DijkstraTime(#[from] crate::utils::DijkstraTimeError),
+    #[cfg(feature = "unstable")]
+    #[error(transparent)]
+    DijkstraUnsupported(Unsupported),
+    #[cfg(feature = "unstable")]
+    #[error("invalid native Dijkstra evaluation: {0}")]
+    DijkstraInvalid(EvaluationFailure),
+    #[cfg(feature = "unstable")]
+    #[error("cost model not found for language\n{:>13} {:?}", "Language", .0)]
+    DijkstraCostModelNotFound(pallas_primitives::dijkstra::Language),
     #[error("address error: {0}")]
     Address(#[from] pallas_addresses::Error),
     #[error("only shelley reward addresses can be a part of withdrawals")]
     BadWithdrawalAddress,
     #[error("flat decode error: {0}")]
     FlatDecode(#[from] FlatDecodeError),
+    #[cfg(feature = "unstable")]
+    #[error("native flat decode error: {0}")]
+    NativeFlatDecode(#[from] amaru_uplc_native::flat::FlatDecodeError),
     #[error("fragment decode error: {0}")]
     FragmentDecode(#[from] pallas_primitives::Error),
     #[error(
@@ -55,7 +104,7 @@ pub enum Error {
     NoGuardrailScriptForProcedure,
     #[error("cost model not found for language\n{:>13} {:?}", "Language", .0)]
     CostModelNotFound(Language),
-    #[error("unsupported era, please use Conway")]
+    #[error("unsupported transaction era for this evaluation entry point")]
     WrongEra(),
     #[error("decoding error\n{:>13} {}", "Decoder error", .0)]
     DecodeError(#[from] pallas_codec::minicbor::decode::Error),
