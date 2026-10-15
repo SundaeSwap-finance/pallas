@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "classification": "Offline reference evaluation; synthetic native reference-script carrier on extracted unchanged registration; no admission/on-chain claim",
+  "network_magic": 164,
+  "era": "Dijkstra",
+  "protocol_version": [
+    12,
+    0
+  ],
+  "capture_tx_id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+  "reference": {
+    "binary": "cardano-cli 11.2.2.0",
+    "reported_revision": "afa091b4af2795d1d9c46e59145ed16127760f7b",
+    "reported_revision_repository": "IntersectMBO/cardano-node",
+    "binary_sha256": "9bf4a2576754ff76533c387687cfb8fbe0713fac6952a0db973356b00a376e9d",
+    "source_manifest_url": "https://github.com/IntersectMBO/cardano-node/blob/afa091b4af2795d1d9c46e59145ed16127760f7b/cabal.project",
+    "ledger_revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0",
+    "api_revision": "e32d8c07035283233fbdca4beeafbd78abc66512",
+    "cli_source_revision": "517ffe9ed02bba2b9ed644454a74c280ad62c2fa",
+    "plutus_constraint": "plutus-ledger-api >=1.68; exact resolved version unknown",
+    "deployed_accepting_node_revision": "unknown",
+    "reference_source_revision_current_comparison": "af08d7b551a31a3e87cf9b46dfa65bf99588294b",
+    "cips_revision": "cc548aa2e5b24a8c5309abcd43fa911418f92896",
+    "plutus_current_comparison_revision": "cf3c0feff7034c73c1fa840a9f0b51a2f2354272"
+  },
+  "expected_units": {
+    "memory": 18485,
+    "steps": 4805428
+  },
+  "limitations": [
+    "Mutated bodies do not have valid original signatures; not phase-one admission evidence",
+    "No original native RequireGuard capture available; scripts are explicitly synthetic",
+    "Synthetic era history is irrelevant because original and all mutated bodies have no validity bounds",
+    "CLI input/reference-input native guards unavailable: UTxO JSON decoder uses Allegra Timelock and rejects constructor 6",
+    "CLI script-guard negative unavailable: API panics converting DijkstraGuarding purpose",
+    "Required-guard negative uses historical native field24 map, not current array CDDL; rejects RequiredTopLevelGuardsNotSupported",
+    "No service operations, funding, signing or submission"
+  ],
+  "capture_sources": [
+    "../musashi-registration/provenance.json",
+    "../musashi-phase1/provenance.json"
+  ],
+  "capture_tool_revision": "See capture_sources for the historical capture tool; original capture bytes are unchanged",
+  "script_fixtures": {
+    "direct.hex": {
+      "kind": "synthetic native Dijkstra script; no network-capture claim",
+      "decoded_cbor_sha256": "a1c30a5ef5d4c05c8c0287643d50f3c4a97719b55d24824c9a8bfc514de1a886",
+      "ledger_script_hash": "0e38a5f6b8aa47e2e29e7068cd422627b55ccb9e2e21835779a57d63"
+    },
+    "nested.hex": {
+      "kind": "synthetic native Dijkstra script; no network-capture claim",
+      "decoded_cbor_sha256": "4e6716b56050602e44345694117752dfe5d51df0feb529b2b667114f7460ae8a",
+      "ledger_script_hash": "c0288db41e05da5eb65c866df5d28433d2f071cd690c5b43c351a295"
+    },
+    "script-credential.hex": {
+      "kind": "synthetic native Dijkstra script; no network-capture claim",
+      "decoded_cbor_sha256": "3c62be24bd8286fb9ab326ed24e75a35159ff540f721a78b339859a32eea8a97",
+      "ledger_script_hash": "37b0dc31758768a00660f2a5d284962ea98ba49ebf5b7fb0acb76d8b"
+    }
+  },
+  "offline_results": {
+    "original_registration": "success: 18485 memory / 4805428 steps",
+    "direct_output_reference": "success: same units",
+    "nested_output_reference": "success: same units",
+    "script_credential_output_reference": "success: same units",
+    "nonempty_required_guard": "RequiredTopLevelGuardsNotSupported (historical field24 map)",
+    "input_carrier": "unavailable: CLI JSON decoder rejects constructor 6 as Allegra Timelock",
+    "script_guard_field14": "unavailable: CLI purpose conversion panics on DijkstraGuarding"
+  },
+  "reproduction": "README.md and reproduce.py; outputs/logs intentionally outside Git",
+  "export_tool": {
+    "checkout_head": "4d4bb129957ac24e9388821c9cd01094673b204b",
+    "working_tree": "in-progress guard-reference increment; export source not separately committed",
+    "control": "Exported body compared byte-for-byte with musashi-registration/settings.body.hex"
+  }
+}
