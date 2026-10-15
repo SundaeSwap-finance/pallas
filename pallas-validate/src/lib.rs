@@ -54,6 +54,10 @@
 //!
 //! [`pallas`]: https://crates.io/crates/pallas
 
+#[cfg(feature = "unstable")]
+#[macro_use]
+mod labels;
+
 /// Phase-1 (structural / rule-based) validation, with one module per era.
 pub mod phase1;
 /// Shared input types: [`utils::Environment`], [`utils::UTxOs`],

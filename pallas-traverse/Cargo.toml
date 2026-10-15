@@ -24,5 +24,8 @@ itertools.workspace = true
 # TODO: remove once GenesisValue moves into new genesis crate
 serde.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [features]
 unstable = ["pallas-primitives/unstable"]

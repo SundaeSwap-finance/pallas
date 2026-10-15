@@ -1,0 +1,216 @@
+{
+  "fixture_id": "musashi-phase2-guard-discovery-20261106",
+  "classification": "synthetic mutations of unchanged native network captures, plus synthetic helper boundaries",
+  "network": {
+    "magic": 164,
+    "genesis_start": "2026-09-07T00:00:00Z",
+    "shelley_genesis_blake2b_256": "1944510a4fd91415444285231058f6f6ff0f6f3ff3d0356c76c00c5a77f29567",
+    "node_version": "unknown; N2N handshake version 15 only"
+  },
+  "era": "Dijkstra",
+  "protocol_version": [
+    12,
+    0
+  ],
+  "parent_provenance": "../musashi-registration/provenance.json",
+  "capture": {
+    "date": "2026-09-25",
+    "peer": "52.58.138.208:3001",
+    "tool": "Pallas harvest",
+    "pallas_revision": "385599890cda4c6384dbfc102849709f7adc9d97",
+    "method": "block-fetch, with header hashes from a separate chain-sync index"
+  },
+  "blocks": [
+    {
+      "path": "test_data/musashi-registration/blocks/1401365.block",
+      "classification": "captured",
+      "slot": 1401365,
+      "header_hash": "c73d2e1f1c280344d1145b023744c635be3da150be753e5cda1419d6e32fac8b",
+      "block_number": 62988,
+      "decoded_bytes": 1292,
+      "sha256_decoded_bytes": "fb6d1e959d5f64aff41f8c932baa4a94050d14b74d62c97558e41b70de84d0b4",
+      "blake2b_256_decoded_bytes": "187c7d8bf644a700a0caaf044671816da3c7351ddc90ccf4c91a544f7ac710fd"
+    },
+    {
+      "path": "test_data/musashi-registration/blocks/1401345.block",
+      "classification": "captured",
+      "slot": 1401345,
+      "header_hash": "51243e1756d43553fe9dd469169f9733fe89c05d8a3c944312526577947fab02",
+      "block_number": 62987,
+      "decoded_bytes": 4951,
+      "sha256_decoded_bytes": "3fd9508c06aeb45c8bd55fff119356ce48b268da9bd27d452f87a5f952deda44",
+      "blake2b_256_decoded_bytes": "91aff938e15b1c5afb8d1854c9ebea2cd9b7dcad5e612faab25e892a0149cc81"
+    }
+  ],
+  "transaction": {
+    "id": "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6",
+    "slot": 1401365,
+    "transaction_index": 0,
+    "application": "RealFi settings validator registration; settings means application configuration"
+  },
+  "utxos": {
+    "producer_transaction_id": "3171608e4d1b0812131e64e40f670ab7cdeef7f8e0cbad096b0d15dc62b76ba9",
+    "transaction_index": 0,
+    "slot": 1401345,
+    "reference_script_output_index": 0,
+    "spending_output_index": 1,
+    "representation": "outputs decoded natively from captured producer block; phase-two UTxO carriers re-encoded by existing fixture helper",
+    "current_spendability": "unknown"
+  },
+  "parameters": {
+    "epoch": 64,
+    "source": "GET /epochs/64/parameters on a frozen copy of the deployment Dolos archive",
+    "source_limits": "Only fields needed for this rule are retained; this is an excerpt of the historical Dolos response, not independent node parameter verification.",
+    "files": [
+      {
+        "path": "test_data/musashi-phase1/historical-parameters.json",
+        "sha256_file_bytes": "55c0e4808f6bb11b86a320ed6a39b4397aac6b82c393e56fa9b7ff9f7de23da4"
+      },
+      {
+        "path": "test_data/musashi-phase1/registration-epoch64-parameters.json",
+        "sha256_file_bytes": "56dae0ae1d97b172225555804c621a1dc74ff58f5f4963b9118add52592acea6"
+      },
+      {
+        "path": "test_data/musashi-phase1/registration-dijkstra-genesis.json",
+        "sha256_file_bytes": "e3a0f8edd086e0c1fccc9fa04b58fa76b8f735ce1214f854072078f7c823e8be"
+      }
+    ],
+    "helper": "phase1::dijkstra_registration_tests::params plus phase2::dijkstra_evaluation_tests::guard_params",
+    "models_supplied": [
+      "PlutusV3",
+      "PlutusV4"
+    ],
+    "slot_config": {
+      "zero_slot": 0,
+      "zero_time_ms": 1788739200000,
+      "slot_length_ms": 1000
+    },
+    "certificate_state": "not supplied or checked by these phase-two APIs",
+    "model_lengths": {
+      "PlutusV3": 350,
+      "PlutusV4": 251
+    }
+  },
+  "synthetic_v4_script": {
+    "hex": "450101002499",
+    "sha256_decoded_bytes": "87854edb98b0f797bc07902c49b792e77a31cf3270a1ca3050b482f1141f504f",
+    "script_hash_blake2b_224_tag_4": "31a78786b5989dc6fd2d4ab15b297069e94106ecacceb8eb29e1b681",
+    "purpose": "Matches the optional V4 witness to the guard hash; missing-redeemer regression does not execute it, while the positive control evaluates it."
+  },
+  "baseline_revision": "b7a9d8661c225b2df04dfa94770f58a049211fcd",
+  "backend_revision": "1b86d6c05e15e68c07e448e181de4cb30b546abe",
+  "ledger_rule": {
+    "revision": "9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c",
+    "path": "eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxO.hs",
+    "function": "getDijkstraScriptsNeeded / guardingScriptsNeeded",
+    "sha256_source": "a7a7e8a10815635a4de65a6c269d37539acbb98f46400d710b854da3b4baf0e5",
+    "rule": "enumerate the original credential sequence, then select script hashes"
+  },
+  "regressions": [
+    {
+      "test": "native_guard_without_witness_is_rejected",
+      "expected": "MissingRequiredScript from both evaluation and estimation"
+    },
+    {
+      "test": "native_guard_with_v4_witness_requires_redeemer",
+      "expected": "RequiredRedeemersMismatch with missing=[Guarding[0]], extra=[] from both evaluation and estimation"
+    }
+  ],
+  "controls_and_boundaries": {
+    "native_guard_absent_returns_empty_report": "No certificate purposes, guards, V3/V4 witnesses or redeemers: both APIs return Ok([]).",
+    "native_guard_native_script_is_filtered_before_redeemer_checks": "Synthetic ScriptAll([]) guard supplied in witness or reference UTxO; no certificate purposes or redeemers; both APIs return Ok([]). Reference carrier replacement is synthetic.",
+    "native_guard_legacy_languages_remain_excluded": "Synthetic (program 1.0.0 (lam ctx (con unit ()))) supplied under V1, V2 and V3 separately; each API rejects script guards during legacy context translation.",
+    "native_guard_indices_keep_key_positions": "Synthetic keys [1;28], [2;28] and hashes [11;28], [22;28] in key/script/key/script order produce exactly Guarding[1] and Guarding[3] through the shared redeemer_scripts collector.",
+    "native_guard_empty_and_key_only_forms_need_no_scripts": "None, AddrKeyhashes and key-only Credentials produce no script requirements through redeemer_scripts.",
+    "native_guard_with_redeemer_evaluates_v4": "Synthetic positive control: the supplied V4 script and Guarding redeemer produce one successful Guarding[0] result from both APIs using the existing v4_params conformance model."
+  },
+  "limitations": [
+    "Original captured CBOR files remain unchanged; transaction and reference-carrier changes are deliberate in-memory mutations.",
+    "Original signatures and integrity commitments are not recomputed; these transactions are not admission fixtures.",
+    "The positive V4 control is synthetic execution evidence only. It does not establish full native Dijkstra validation, Dolos submission or on-chain acceptance.",
+    "Upstream V4 and subtransaction support is preserved, not implemented by this regression-only rebased commit.",
+    "The archived parameter source is a Dolos response, not an independent consensus replay. Unknown historical node version and current spendability remain unknown."
+  ],
+  "historical_pre_rebase_verification": {
+    "date": "2026-11-06",
+    "toolchain": "nightly-2026-09-04",
+    "evaluation_tests_sha256": "77d62bb6de54631bb2e9294fe9a4222ac727ae91ed5ccef9fb04dbd84ee3202c",
+    "baseline_production_sha256": "4aeb06ce394d63bdeeaa5505802b57db0feded5d11074c22aa08996251efa180",
+    "fixed_production_sha256": "71151784cf1324c304d842d280eb41e331913b183afe53be38986ce0f27e8f71",
+    "same_test_source_in_both_checkouts": true,
+    "separate_build_outputs": true,
+    "regression_results": "Both listed regression assertions fail at runtime on the baseline after printing Ok([]) from both APIs, then pass on the fixed checkout. The absent-guard control passes in both.",
+    "log_index": "MUSASHI_FIX_PLAN.md in the companion Dolos checkout records the durable command and log directory.",
+    "scope": "Historical pre-rebase proof only. The original source and results remain preserved at this commit/tag; these hashes do not identify the rebased tests.",
+    "fixed_commit": "0d4bfc58bf21bfc1b0aacd7e094d5df9da31b23b"
+  },
+  "historical_pre_rebase_regressions": [
+    {
+      "test": "native_guard_without_witness_is_rejected",
+      "changes": [
+        "certificates=None",
+        "guards=[synthetic V4 ScriptHash]",
+        "plutus_v3_script=None",
+        "plutus_v4_script=None",
+        "redeemer=None"
+      ],
+      "baseline_expected": "evaluate_tx and estimate_tx incorrectly return Ok([])",
+      "fixed_expected": "MissingRequiredScript"
+    },
+    {
+      "test": "native_guard_with_v4_witness_is_rejected",
+      "changes": [
+        "certificates=None",
+        "guards=[synthetic V4 ScriptHash]",
+        "plutus_v3_script=None",
+        "plutus_v4_script=[synthetic V4 script]",
+        "redeemer=None"
+      ],
+      "baseline_expected": "evaluate_tx and estimate_tx incorrectly return Ok([])",
+      "fixed_expected": "DijkstraUnsupported: reference script language (requires V3)"
+    }
+  ],
+  "rebase": {
+    "onto": "924e3f2d80d4e454e8226324fdd71decc8221f04",
+    "original_local_commit": "0d4bfc58bf21bfc1b0aacd7e094d5df9da31b23b",
+    "production_resolution": "Preserve upstream phase2/dijkstra.rs exactly. Its scope() calls phase1::dijkstra_ledger::redeemer_scripts(), which already enumerates guard credentials before filtering and serves top-level/subtransaction scopes.",
+    "test_resolution": "Keep omission and boundary coverage; require a missing Guarding redeemer instead of a blanket V4 refusal, and retain a positive V4 execution control. Restore the upstream supplied-witness legacy feature expectation.",
+    "synthetic_index_body": {
+      "hex": "a3008001800200",
+      "meaning": "empty inputs, empty outputs, zero fee; used only to build a Level for script discovery, not transaction admission",
+      "sha256_decoded_bytes": "533cac4d3d964e1547872ee57a05c92129b8a5262efb1ff307b956c5788b54ce"
+    },
+    "positive_v4_control_parameters": {
+      "helper": "v4_params",
+      "source": "test_data/dijkstra-plutus-v4/1896.json",
+      "sha256_file_bytes": "acb8eaa6b99e403476e175329c2db27ba06d05ad89fb9eeede89e10b1771b25b",
+      "plutus_v4_model_length": 369,
+      "classification": "existing upstream ledger conformance fixture; used only by the synthetic positive execution control"
+    },
+    "historical_models": "The two omission cases continue to use the unchanged archived V3/V4 models. They fail before machine execution.",
+    "verification": {
+      "date": "2026-11-06",
+      "toolchain": "nightly-2026-09-04",
+      "focused_guard_tests_passed": 10,
+      "native_tests": {
+        "passed": 408,
+        "failed": 0,
+        "ignored": 3
+      },
+      "legacy_tests": {
+        "passed": 179,
+        "failed": 0,
+        "ignored": 1
+      },
+      "other_checks": [
+        "stable cargo fmt --all --check",
+        "native Clippy all-targets with warnings denied",
+        "workspace all-targets all-features check"
+      ],
+      "production_identical_to_onto": true,
+      "evaluation_tests_sha256": "7bf8c0944b2311f6335b656d616581fdc31722f3b080b18315abcb6825b634a3",
+      "native_context_tests_sha256": "b8319a6d657056685a94c8b62c81d154047a06a043c299bf27c97da1e4fcc1b7",
+      "scope": "Focused and affected-suite rebase verification; the older full 14-gate matrix and Rust 1.97 comparison remain historical."
+    }
+  }
+}

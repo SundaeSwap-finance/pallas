@@ -4,6 +4,20 @@ pub mod alonzo;
 pub mod babbage;
 pub mod byron;
 pub mod conway;
+#[cfg(feature = "unstable")]
+pub mod dijkstra;
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_batch_tests;
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_ledger;
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_native_tests;
+#[cfg(all(test, feature = "unstable"))]
+pub(crate) mod dijkstra_records_tests;
+#[cfg(all(test, feature = "unstable"))]
+pub(crate) mod dijkstra_registration_tests;
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_tests;
 pub mod shelley_ma;
 
 use alonzo::validate_alonzo_tx;
@@ -92,12 +106,59 @@ pub fn validate_tx(
             _ => Err(TxAndProtParamsDiffer),
         },
         #[cfg(feature = "unstable")]
-        (MultiEraProtocolParameters::Dijkstra(_), _) => match metx {
-            MultiEraTx::Dijkstra(_) | MultiEraTx::DijkstraSub(..) => {
-                unimplemented!("validate_tx is not yet implemented for Dijkstra")
-            }
+        (MultiEraProtocolParameters::Dijkstra(pp), _) => match metx {
+            MultiEraTx::Dijkstra(tx) => apply_dijkstra_tx(tx, env, pp, utxos, cert_state, None),
+            MultiEraTx::DijkstraSub(..) => Err(crate::utils::ValidationError::DijkstraUnsupported(
+                crate::utils::UnsupportedFeature::Subtransactions,
+            )),
             _ => Err(TxAndProtParamsDiffer),
         },
         (_, None) => Err(EnvMissingAccountState),
     }
 }
+
+/// Validate with explicit historical time information for Dijkstra Plutus.
+/// Earlier eras retain their existing validation entry point. Supply the same
+/// context to native phase two.
+#[cfg(feature = "unstable")]
+pub fn validate_tx_with_time(
+    metx: &MultiEraTx,
+    txix: TransactionIndex,
+    env: &Environment,
+    utxos: &UTxOs,
+    cert_state: &mut CertState,
+    time: &crate::utils::DijkstraTimeContext,
+) -> ValidationResult {
+    if let (MultiEraProtocolParameters::Dijkstra(pp), MultiEraTx::Dijkstra(tx)) =
+        (env.prot_params(), metx)
+    {
+        return apply_dijkstra_tx(tx, env, pp, utxos, cert_state, Some(time));
+    }
+    validate_tx(metx, txix, env, utxos, cert_state)
+}
+
+/// Validates a Dijkstra transaction and applies its changes to `cert_state`.
+#[cfg(feature = "unstable")]
+fn apply_dijkstra_tx(
+    tx: &pallas_primitives::dijkstra::BlockTransaction<'_>,
+    env: &Environment,
+    pp: &crate::utils::DijkstraProtParams,
+    utxos: &UTxOs,
+    cert_state: &mut CertState,
+    time: Option<&crate::utils::DijkstraTimeContext>,
+) -> ValidationResult {
+    let delta = dijkstra::validate_dijkstra_tx_inner(
+        tx,
+        utxos,
+        pp,
+        env.block_slot(),
+        env.network_id(),
+        &cert_state.dijkstra,
+        time,
+    )?;
+    cert_state.dijkstra.apply(delta);
+    Ok(())
+}
+
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_transaction_tests;

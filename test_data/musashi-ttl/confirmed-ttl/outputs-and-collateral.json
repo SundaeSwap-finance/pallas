@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "nativeBytes": "glgdYB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66XgaAA9CQA==",
+      "txoRef": {
+        "hash": "sY4OhruSGkVFqV3xDRh2rbljAGA/Mi14C7iAYsm13AQ=",
+        "index": 1
+      },
+      "blockRef": {
+        "slot": "1108974",
+        "hash": "KkxXo4IgLHy5c3jlVOTUoXmjeAPOn40wrZ8r/ZMVIQs=",
+        "height": "49235",
+        "timestamp": "1793390574000"
+      },
+      "cardano": {
+        "address": "YB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66Xg=",
+        "coin": {
+          "int": "1000000"
+        },
+        "datum": {},
+        "originalCbor": "glgdYB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66XgaAA9CQA=="
+      }
+    },
+    {
+      "nativeBytes": "glgdYB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66XgaABu/oA==",
+      "txoRef": {
+        "hash": "mzVLD5sELGd//bFWZakUSZ0r3O8JPNg01c4FOLIS9W8="
+      },
+      "blockRef": {
+        "slot": "1109288",
+        "hash": "Xbf2hahoI/QDSWkH/6UDJltJqn2zkr0rTL07v49a/Xk=",
+        "height": "49245",
+        "timestamp": "1793390888000"
+      },
+      "cardano": {
+        "address": "YB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66Xg=",
+        "coin": {
+          "int": "1818528"
+        },
+        "datum": {},
+        "originalCbor": "glgdYB7IPxnJL2qnPf3ooaCWyFrK7fTt7UOA3to66XgaABu/oA=="
+      }
+    }
+  ],
+  "ledgerTip": {
+    "slot": "1109836",
+    "hash": "/DlTqlr64J1fFv9NmJ1sF2+3gbQgYsGqTs0hL8lk0dE="
+  }
+}

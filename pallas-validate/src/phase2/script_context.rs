@@ -47,19 +47,19 @@ pub fn output_datum<'a>(output: &'a TransactionOutput<'a>) -> Option<DatumOption
 /// The ScriptPurpose is part of the ScriptContext is the case of Plutus V1 and
 /// V2. It is superseded by the ScriptInfo in PlutusV3.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum ScriptInfo<T> {
+pub enum ScriptInfo<T, P = ProposalProcedure> {
     Minting(PolicyId),
     Spending(TransactionInput, T),
     Rewarding(StakeCredential),
     Certifying(usize, Certificate),
     Voting(Voter),
-    Proposing(usize, ProposalProcedure),
+    Proposing(usize, P),
 }
 
-pub type ScriptPurpose = ScriptInfo<()>;
+pub type ScriptPurpose<P = ProposalProcedure> = ScriptInfo<(), P>;
 
-impl ScriptPurpose {
-    pub fn into_script_info<T>(self, datum: T) -> ScriptInfo<T> {
+impl<P> ScriptPurpose<P> {
+    pub fn into_script_info<T>(self, datum: T) -> ScriptInfo<T, P> {
         match self {
             Self::Minting(policy_id) => ScriptInfo::Minting(policy_id),
             Self::Spending(transaction_output, ()) => {
@@ -158,9 +158,9 @@ impl DataLookupTable {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV1<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V1TxInfo<I, O, P: Clone = ProposalProcedure> {
+    pub inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -168,9 +168,12 @@ pub struct TxInfoV1<'a> {
     pub valid_range: TimeRange,
     pub signatories: Vec<AddrKeyhash>,
     pub data: Vec<(DatumHash, PlutusData)>,
-    pub redeemers: KeyValuePairs<ScriptPurpose, Redeemer>,
+    pub redeemers: KeyValuePairs<ScriptPurpose<P>, Redeemer>,
     pub id: Hash<32>,
 }
+
+/// The Conway-backed V1 context used by the existing evaluation APIs.
+pub type TxInfoV1<'a> = V1TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV1<'_> {
     pub fn from_transaction<'a>(
@@ -210,20 +213,23 @@ impl TxInfoV1<'_> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV2<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub reference_inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V2TxInfo<I, O, P: Clone = ProposalProcedure> {
+    pub inputs: Vec<I>,
+    pub reference_inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
     pub withdrawals: KeyValuePairs<Address, Coin>,
     pub valid_range: TimeRange,
     pub signatories: Vec<AddrKeyhash>,
-    pub redeemers: KeyValuePairs<ScriptPurpose, Redeemer>,
+    pub redeemers: KeyValuePairs<ScriptPurpose<P>, Redeemer>,
     pub data: KeyValuePairs<DatumHash, PlutusData>,
     pub id: Hash<32>,
 }
+
+/// The Conway-backed V2 context used by the existing evaluation APIs.
+pub type TxInfoV2<'a> = V2TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV2<'_> {
     pub fn from_transaction<'a>(
@@ -268,24 +274,29 @@ impl TxInfoV2<'_> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV3<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub reference_inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V3TxInfo<I, O, P: Clone = ProposalProcedure> {
+    pub inputs: Vec<I>,
+    pub reference_inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Coin,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
     pub withdrawals: KeyValuePairs<Address, Coin>,
     pub valid_range: TimeRange,
     pub signatories: Vec<AddrKeyhash>,
-    pub redeemers: KeyValuePairs<ScriptPurpose, Redeemer>,
+    pub redeemers: KeyValuePairs<ScriptPurpose<P>, Redeemer>,
     pub data: KeyValuePairs<DatumHash, PlutusData>,
     pub id: Hash<32>,
     pub votes: KeyValuePairs<Voter, KeyValuePairs<GovActionId, VotingProcedure>>,
-    pub proposal_procedures: Vec<ProposalProcedure>,
+    pub proposal_procedures: Vec<P>,
     pub current_treasury_amount: Option<Coin>,
     pub treasury_donation: Option<PositiveCoin>,
 }
+
+/// The Conway-backed V3 context used by the existing evaluation APIs.
+/// Native eras can provide their own input and output projections without
+/// translating reference script constructors into Conway.
+pub type TxInfoV3<'a> = V3TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV3<'_> {
     pub fn from_transaction<'a>(
@@ -1296,3 +1307,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "unstable"))]
+mod registration_scripts;

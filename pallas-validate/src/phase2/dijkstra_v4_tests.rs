@@ -1,0 +1,264 @@
+//! PlutusV4 redeemers of ledger conformance records, against the contexts the ledger built and the budgets it spent.
+use super::*;
+use crate::phase1::dijkstra_records_tests::{bytes, params, read};
+use crate::utils::{EraCbor, TxoRef};
+use pallas_codec::minicbor;
+use pallas_primitives::dijkstra as n;
+use pallas_traverse::{Era, MultiEraRedeemerTag, MultiEraTx};
+
+const RECORDS: [u32; 10] = [890, 900, 1344, 1896, 2109, 2113, 2165, 2302, 9820, 9846];
+
+pub(super) fn utxos(fixture: &serde_json::Value) -> UtxoMap {
+    fixture["utxos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pair| {
+            let input: n::TransactionInput = minicbor::decode(&bytes(&pair[0])).unwrap();
+            (
+                TxoRef(input.transaction_id, input.index as u32),
+                EraCbor(Era::Dijkstra, bytes(&pair[1])),
+            )
+        })
+        .collect()
+}
+
+pub(super) fn slots() -> SlotConfig {
+    SlotConfig {
+        zero_slot: 0,
+        zero_time: 1506203091000,
+        slot_length: 1000,
+    }
+}
+
+/// The sub transaction index, redeemer tag and index a fixture redeemer names.
+pub(super) fn purpose(redeemer: &serde_json::Value) -> (Option<u32>, MultiEraRedeemerTag, u32) {
+    let sub = redeemer.get("sub").map(|x| x.as_u64().unwrap() as u32);
+    let (tag, index): (u8, u32) = minicbor::decode(&bytes(&redeemer["purpose"])).unwrap();
+    let tag = match tag {
+        0 => MultiEraRedeemerTag::Spend,
+        1 => MultiEraRedeemerTag::Mint,
+        2 => MultiEraRedeemerTag::Cert,
+        3 => MultiEraRedeemerTag::Reward,
+        4 => MultiEraRedeemerTag::Vote,
+        5 => MultiEraRedeemerTag::Propose,
+        6 => MultiEraRedeemerTag::Guarding,
+        other => panic!("purpose tag {other}"),
+    };
+    (sub, tag, index)
+}
+
+/// The tree of `data` with its definite and indefinite encodings identified.
+fn shape(data: &n::PlutusData) -> String {
+    let all = |xs: &[n::PlutusData]| xs.iter().map(shape).collect::<Vec<_>>().join(",");
+    match data {
+        n::PlutusData::Constr(x) => {
+            format!("C{}/{:?}[{}]", x.tag, x.any_constructor, all(&x.fields))
+        }
+        n::PlutusData::Map(x) => {
+            let pairs: Vec<_> = x
+                .iter()
+                .map(|(k, v)| format!("{}:{}", shape(k), shape(v)))
+                .collect();
+            format!("M{{{}}}", pairs.join(","))
+        }
+        n::PlutusData::Array(x) => format!("L[{}]", all(x)),
+        n::PlutusData::BigInt(x) => format!("I{x:?}"),
+        n::PlutusData::BoundedBytes(x) => format!("B{}", hex::encode(x.as_slice())),
+    }
+}
+
+#[test]
+fn plutus_v4_contexts_equal_the_ledger_contexts() {
+    for record in RECORDS {
+        let fixture = read(record);
+        let raw = bytes(&fixture["tx"]);
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+        let time = dijkstra::linear_time(&slots()).unwrap();
+        let runs = dijkstra::runs(&tx, &params(&fixture), &utxos(&fixture), &time, false)
+            .unwrap_or_else(|e| panic!("record {record}: {e:?}"));
+        let want = fixture["redeemers"].as_array().unwrap();
+        assert_eq!(runs.len(), want.len(), "record {record}");
+        for redeemer in want {
+            let key = purpose(redeemer);
+            let run = runs
+                .iter()
+                .find(|r| (r.sub, MultiEraRedeemerTag::from(r.tag), r.index) == key)
+                .unwrap_or_else(|| panic!("record {record}: no run for {key:?}"));
+            assert_eq!(
+                run.language,
+                n::Language::PlutusV4,
+                "record {record} {key:?}"
+            );
+            let context: n::PlutusData = minicbor::decode(&bytes(&redeemer["context"])).unwrap();
+            assert_eq!(run.args.len(), 1, "record {record} {key:?}");
+            assert_eq!(
+                shape(&run.args[0]),
+                shape(&context),
+                "record {record} {key:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn redeemer_arguments_give_a_sub_transaction_redeemer_the_ledger_context() {
+    let fixture = read(890);
+    let raw = bytes(&fixture["tx"]);
+    let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+    let time = dijkstra::linear_time(&slots()).unwrap();
+    let (pparams, utxos) = (params(&fixture), utxos(&fixture));
+    let arguments = redeemer_arguments(&tx, &pparams, &utxos, &time).unwrap();
+    let estimates = estimate_tx_calls_with_time(&tx, &pparams, &utxos, &time).unwrap();
+    let keys: Vec<_> = estimates
+        .iter()
+        .map(|(r, _)| (r.sub_transaction, r.tag, r.index))
+        .collect();
+    let named: Vec<_> = arguments
+        .iter()
+        .map(|a| (a.sub_transaction, a.tag, a.index))
+        .collect();
+    assert_eq!(named, keys);
+    let want = &fixture["redeemers"][0];
+    let key = purpose(want);
+    assert_eq!(key, (Some(0), MultiEraRedeemerTag::Spend, 0));
+    let got = arguments
+        .iter()
+        .find(|a| (a.sub_transaction, a.tag, a.index) == key)
+        .unwrap();
+    let context: n::PlutusData = minicbor::decode(&bytes(&want["context"])).unwrap();
+    assert_eq!(got.language, n::Language::PlutusV4);
+    assert_eq!(got.args.len(), 1);
+    assert_eq!(shape(&got.args[0]), shape(&context));
+}
+
+#[test]
+fn plutus_v4_redeemers_spend_the_ledger_budget() {
+    for record in RECORDS {
+        let fixture = read(record);
+        let raw = bytes(&fixture["tx"]);
+        let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+        let report = evaluate_multi_era_tx(&tx, &params(&fixture), &utxos(&fixture), &slots())
+            .unwrap_or_else(|e| panic!("record {record}: {e:?}"));
+        let want = fixture["redeemers"].as_array().unwrap();
+        assert_eq!(report.len(), want.len(), "record {record}: {report:?}");
+        for redeemer in want {
+            let key = purpose(redeemer);
+            let got = report
+                .iter()
+                .find(|r| (r.sub_transaction, r.tag, r.index) == key)
+                .unwrap_or_else(|| panic!("record {record}: no result for {key:?}"));
+            assert!(got.success, "record {record}: {got:?}");
+            assert_eq!(
+                (got.units.mem, got.units.steps),
+                (
+                    redeemer["mem"].as_u64().unwrap(),
+                    redeemer["steps"].as_u64().unwrap()
+                ),
+                "record {record} {key:?}"
+            );
+        }
+    }
+}
+
+/// The field `index` of a data list or constructor.
+fn at(data: &n::PlutusData, index: usize) -> &n::PlutusData {
+    match data {
+        n::PlutusData::Array(x) => &x[index],
+        n::PlutusData::Constr(x) => &x.fields[index],
+        other => panic!("{other:?}"),
+    }
+}
+
+/// The values of a data map, in its order.
+fn values(data: &n::PlutusData) -> Vec<n::PlutusData> {
+    match data {
+        n::PlutusData::Map(x) => x.iter().map(|(_, v)| v.clone()).collect(),
+        other => panic!("{other:?}"),
+    }
+}
+
+/// A reward account of a key credential of 28 `byte`s.
+fn account(byte: u8) -> n::RewardAccount {
+    [vec![0xe0], vec![byte; 28]].concat().into()
+}
+
+/// A lovelace amount as script data.
+fn lovelace(amount: i128) -> n::PlutusData {
+    n::PlutusData::BigInt(n::BigInt::Int(amount.try_into().unwrap()))
+}
+
+/// The batch fields the top level guard of record 1344 sees after `change` edits its top level body and its sub transaction body.
+fn batch_view(
+    change: impl FnOnce(&mut n::TransactionBody<'_>, &mut n::SubTransactionBody<'_>),
+) -> n::PlutusData {
+    let fixture = read(1344);
+    let raw = bytes(&fixture["tx"]);
+    let tx: n::MempoolTransaction = minicbor::decode(&raw).unwrap();
+    let mut tx: n::BlockTransaction = tx.into();
+    let mut body = (*tx.transaction_body).clone();
+    let mut subs = body.sub_transactions.clone().unwrap().to_vec();
+    let mut sub = (*subs[0].sub_transaction_body).clone();
+    change(&mut body, &mut sub);
+    subs[0].sub_transaction_body = sub.into();
+    body.sub_transactions = n::NonEmptySet::from_vec(subs);
+    tx.transaction_body = body.into();
+    let time = dijkstra::linear_time(&slots()).unwrap();
+    let runs = dijkstra::runs(
+        &MultiEraTx::from_dijkstra(&tx),
+        &params(&fixture),
+        &utxos(&fixture),
+        &time,
+        false,
+    )
+    .unwrap();
+    let run = runs
+        .iter()
+        .find(|r| {
+            r.sub.is_none() && MultiEraRedeemerTag::from(r.tag) == MultiEraRedeemerTag::Guarding
+        })
+        .unwrap();
+    let top = at(at(at(&run.args[0], 2), 1), 0);
+    at(top, 3).clone()
+}
+
+#[test]
+fn a_top_guard_sees_each_account_withdrawal_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.withdrawals = Some(std::collections::BTreeMap::from([(account(1), 4_000_000)]));
+        sub.withdrawals = Some(std::collections::BTreeMap::from([
+            (account(1), 3_000_000),
+            (account(2), 5_000_000),
+        ]));
+    });
+    assert_eq!(
+        values(at(&view, 7)),
+        [lovelace(7_000_000), lovelace(5_000_000)]
+    );
+}
+
+#[test]
+fn a_top_guard_sees_each_account_direct_deposit_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.direct_deposits = Some(std::collections::BTreeMap::from([(account(1), 4_000_000)]));
+        sub.direct_deposits = Some(std::collections::BTreeMap::from([
+            (account(1), 3_000_000),
+            (account(2), 5_000_000),
+        ]));
+    });
+    assert_eq!(
+        values(at(&view, 8)),
+        [lovelace(7_000_000), lovelace(5_000_000)]
+    );
+}
+
+#[test]
+fn a_top_guard_sees_the_donations_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.donation = Some(4_000_000.try_into().unwrap());
+        sub.donation = Some(3_000_000.try_into().unwrap());
+    });
+    assert_eq!(at(&view, 17), &lovelace(7_000_000));
+    let view = batch_view(|top, _| top.donation = Some(4_000_000.try_into().unwrap()));
+    assert_eq!(at(&view, 17), &lovelace(4_000_000));
+}
