@@ -35,6 +35,8 @@ use std::ops::Deref;
 mod certificate_witnesses;
 #[cfg(test)]
 mod input_eras;
+#[cfg(all(test, feature = "unstable"))]
+mod native_inputs;
 #[cfg(test)]
 mod registration_deposits;
 
@@ -607,7 +609,10 @@ fn check_minting(tx_body: &TransactionBody, mtx: &Tx, utxos: &UTxOs) -> Validati
                 .map(compute_plutus_v3_script_hash);
 
             let ref_scripts = reference_script_inputs(tx_body)
-                .filter_map(|x| get_script_hash_from_reference_input(x, utxos));
+                .map(|x| get_script_hash_from_reference_input(x, utxos))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .flatten();
 
             let all_scripts_wits: Vec<_> = native_script_wits
                 .chain(v1_scripts_wits)
@@ -677,7 +682,7 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     // Script-presence checks need every reference script, native included: a
     // native script supplied only by reference input still satisfies the
     // spending and minting requirements.
-    let reference_scripts: Vec<PolicyId> = get_reference_script_hashes(tx_body, utxos);
+    let reference_scripts: Vec<PolicyId> = get_reference_script_hashes(tx_body, utxos)?;
     check_needed_scripts(
         tx_body,
         utxos,
@@ -692,7 +697,7 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
     // Redeemer pointers are only built for phase-2 scripts, so the Plutus-only
     // view of the reference inputs is what `check_redeemers` needs.
     let plutus_reference_scripts: Vec<PolicyId> =
-        get_plutus_reference_script_hashes(tx_body, utxos);
+        get_plutus_reference_script_hashes(tx_body, utxos)?;
     check_redeemers(
         &plutus_v1_scripts,
         &plutus_v2_scripts,
@@ -818,14 +823,17 @@ fn check_needed_scripts(
 ///
 /// Native and Plutus scripts alike: this list answers "is this script available
 /// to the tx", and a native script reached through a reference input is.
-fn get_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+fn get_reference_script_hashes(
+    tx_body: &TransactionBody,
+    utxos: &UTxOs,
+) -> Result<Vec<PolicyId>, ValidationError> {
     let mut res: Vec<PolicyId> = Vec::new();
     for input in reference_script_inputs(tx_body) {
-        if let Some(script_hash) = get_script_hash_from_reference_input(input, utxos) {
+        if let Some(script_hash) = get_script_hash_from_reference_input(input, utxos)? {
             res.push(script_hash);
         }
     }
-    res
+    Ok(res)
 }
 
 /// The Plutus reference-script hashes a tx supplies, in reference-input order.
@@ -833,18 +841,21 @@ fn get_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<
 /// Native reference scripts are skipped: `is_phase_2_script` matches on hash
 /// alone, so a native script in this list would be read as a phase-2 script
 /// and get a redeemer pointer it has no redeemer for.
-fn get_plutus_reference_script_hashes(tx_body: &TransactionBody, utxos: &UTxOs) -> Vec<PolicyId> {
+fn get_plutus_reference_script_hashes(
+    tx_body: &TransactionBody,
+    utxos: &UTxOs,
+) -> Result<Vec<PolicyId>, ValidationError> {
     let mut res: Vec<PolicyId> = Vec::new();
     if let Some(reference_inputs) = &tx_body.reference_inputs {
         for input in reference_inputs.iter() {
             if let Some(ScriptKind::Plutus(script_hash)) =
-                get_script_kind_from_reference_input(input, utxos)
+                get_script_kind_from_reference_input(input, utxos)?
             {
                 res.push(script_hash)
             }
         }
     }
-    res
+    Ok(res)
 }
 
 // Conway's legacy registration has no author. Every other credential-bearing
@@ -880,16 +891,44 @@ fn reference_script_inputs<'a>(
         .chain(body.reference_inputs.iter().flatten())
 }
 
+// Only the script is projected into the representation supported by this
+// validator. The UTxO, its era, address, value, datum and original CBOR stay intact.
+// Dijkstra adds V4 and native guards; neither has Conway evaluation semantics.
 fn reference_script<'a>(
     input: &'a TransactionInput,
     utxos: &'a UTxOs<'_>,
-) -> Option<ScriptRef<'a>> {
-    let script = utxos
+) -> Result<Option<ScriptRef<'a>>, ValidationError> {
+    let Some(script) = utxos
         .get(&MultiEraInput::from_alonzo_compatible(input))
-        .and_then(MultiEraOutput::multi_era_script_ref)?;
+        .and_then(MultiEraOutput::multi_era_script_ref)
+    else {
+        return Ok(None);
+    };
     match script {
-        MultiEraScriptRef::Conway(script) => Some(script.into_owned()),
-        _ => None,
+        MultiEraScriptRef::Conway(script) => Ok(Some(script.into_owned())),
+        #[cfg(feature = "unstable")]
+        MultiEraScriptRef::Dijkstra(script) => {
+            use pallas_primitives::dijkstra::ScriptRef as DijkstraScript;
+            Ok(Some(match script.as_ref() {
+                DijkstraScript::NativeScript(native) => {
+                    // Decode the original native bytes with the existing timelock
+                    // codec. A guard anywhere in the tree is explicitly refused.
+                    let bytes =
+                        pallas_codec::minicbor::to_vec(native).expect("infallible encoding");
+                    let compatible: KeepRaw<pallas_primitives::alonzo::NativeScript> =
+                        pallas_codec::minicbor::decode(&bytes)
+                            .map_err(|_| PostAlonzo(UnsupportedNativeScript))?;
+                    ScriptRef::NativeScript(compatible.to_owned())
+                }
+                DijkstraScript::PlutusV1Script(script) => ScriptRef::PlutusV1Script(script.clone()),
+                DijkstraScript::PlutusV2Script(script) => ScriptRef::PlutusV2Script(script.clone()),
+                DijkstraScript::PlutusV3Script(script) => ScriptRef::PlutusV3Script(script.clone()),
+                DijkstraScript::PlutusV4Script(_) => {
+                    return Err(PostAlonzo(UnsupportedPlutusLanguage));
+                }
+            }))
+        }
+        _ => Err(PostAlonzo(InputDecoding)),
     }
 }
 
@@ -901,9 +940,9 @@ fn check_certificate_native_scripts(mtx: &Tx, utxos: &UTxOs) -> ValidationResult
         .as_ref()
         .map(|x| x.clone().to_vec())
         .unwrap_or_default();
-    let references: Vec<_> = reference_script_inputs(body)
+    let references = reference_script_inputs(body)
         .map(|input| reference_script(input, utxos))
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     let scripts = witnesses
         .native_script
         .iter()
@@ -1017,48 +1056,19 @@ enum ScriptKind {
 fn get_script_kind_from_reference_input(
     ref_input: &TransactionInput,
     utxos: &UTxOs,
-) -> Option<ScriptKind> {
-    match utxos
-        .get(&MultiEraInput::from_alonzo_compatible(ref_input))
-        .and_then(MultiEraOutput::as_conway)
-    {
-        Some(TransactionOutput::Legacy(_)) => None,
-        Some(TransactionOutput::PostAlonzo(output)) => {
-            let script_ref_cborwrap = output.script_ref.as_ref()?;
-            Some(match script_ref_cborwrap.clone().unwrap() {
-                ScriptRef::NativeScript(_) => ScriptKind::Native,
-                ScriptRef::PlutusV1Script(plutus_v1_script) => {
-                    // First, the PlutusV1Script header.
-                    let mut val_to_hash: Vec<u8> = vec![1];
-                    // Then, the CBOR content.
-                    val_to_hash.extend_from_slice(plutus_v1_script.as_ref());
-                    ScriptKind::Plutus(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash))
-                }
-                ScriptRef::PlutusV2Script(plutus_v2_script) => {
-                    // First, the PlutusV2Script header.
-                    let mut val_to_hash: Vec<u8> = vec![2];
-                    // Then, the CBOR content.
-                    val_to_hash.extend_from_slice(plutus_v2_script.as_ref());
-                    ScriptKind::Plutus(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash))
-                }
-                ScriptRef::PlutusV3Script(plutus_v3_script) => {
-                    // First, the PlutusV3Script header.
-                    let mut val_to_hash: Vec<u8> = vec![3];
-                    // Then, the CBOR content.
-                    val_to_hash.extend_from_slice(plutus_v3_script.as_ref());
-                    ScriptKind::Plutus(pallas_crypto::hash::Hasher::<224>::hash(&val_to_hash))
-                }
-            })
-        }
-        _ => None,
-    }
+) -> Result<Option<ScriptKind>, ValidationError> {
+    Ok(reference_script(ref_input, utxos)?.map(|script| match script {
+        ScriptRef::NativeScript(_) => ScriptKind::Native,
+        script => ScriptKind::Plutus(MultiEraScriptRef::from_conway(&script).hash()),
+    }))
 }
 
 fn get_script_hash_from_reference_input(
     ref_input: &TransactionInput,
     utxos: &UTxOs,
-) -> Option<PolicyId> {
-    reference_script(ref_input, utxos).map(|script| MultiEraScriptRef::from_conway(&script).hash())
+) -> Result<Option<PolicyId>, ValidationError> {
+    Ok(reference_script(ref_input, utxos)?
+        .map(|script| MultiEraScriptRef::from_conway(&script).hash()))
 }
 
 fn check_minting_policies(
@@ -1610,7 +1620,7 @@ fn check_remaining_vk_wits(
 }
 
 fn check_languages(mtx: &Tx, utxos: &UTxOs, prot_pps: &ConwayProtParams) -> ValidationResult {
-    let used_langs = tx_languages(mtx, utxos);
+    let used_langs = tx_languages(mtx, utxos)?;
     let allowed_langs: Vec<Language> = allowed_tx_langs(mtx, utxos);
     let available_langs: Vec<Language> = available_langs(prot_pps);
 
@@ -1698,7 +1708,7 @@ fn any_reference_inputs(reference_inputs: &Option<Vec<TransactionInput>>) -> boo
     }
 }
 
-fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
+fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Result<Vec<Language>, ValidationError> {
     let mut v1_scripts: bool = false;
     let mut v2_scripts: bool = false;
     let mut v3_scripts: bool = false;
@@ -1718,7 +1728,7 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
         v3_scripts = true;
     }
     for input in reference_script_inputs(&mtx.transaction_body) {
-        match reference_script(input, utxos) {
+        match reference_script(input, utxos)? {
             Some(ScriptRef::PlutusV1Script(_)) => v1_scripts = true,
             Some(ScriptRef::PlutusV2Script(_)) => v2_scripts = true,
             Some(ScriptRef::PlutusV3Script(_)) => v3_scripts = true,
@@ -1735,7 +1745,7 @@ fn tx_languages(mtx: &Tx, utxos: &UTxOs) -> Vec<Language> {
     if v3_scripts {
         langs.push(Language::PlutusV3);
     }
-    langs
+    Ok(langs)
 }
 
 // The metadata of the transaction is valid.
@@ -1761,7 +1771,7 @@ fn check_script_data_hash(
     utxos: &UTxOs,
     prot_pps: &ConwayProtParams,
 ) -> ValidationResult {
-    let tx_languages = tx_languages(mtx, utxos);
+    let tx_languages = tx_languages(mtx, utxos)?;
 
     let Some(provided) = tx_body.script_data_hash else {
         if tx_languages.is_empty() {
@@ -1897,14 +1907,14 @@ mod tests {
 
         let expected_plutus = compute_plutus_v1_script_hash(&plutus_script);
         assert_eq!(
-            get_plutus_reference_script_hashes(&body, &utxos),
+            get_plutus_reference_script_hashes(&body, &utxos).unwrap(),
             vec![expected_plutus],
             "only the Plutus reference script is listed",
         );
 
         let expected_native = compute_native_script_hash(&native_script);
         assert_eq!(
-            get_reference_script_hashes(&body, &utxos),
+            get_reference_script_hashes(&body, &utxos).unwrap(),
             vec![expected_native, expected_plutus],
             "the full list keeps both, in reference-input order",
         );
