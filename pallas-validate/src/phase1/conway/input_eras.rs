@@ -134,12 +134,14 @@ fn a_reference_script_from_an_earlier_era_is_found() {
     let without_script = legacy_output(key_address());
     for era in [Era::Babbage, Era::Conway] {
         assert_eq!(
-            get_reference_script_hashes(body, &utxos(era, &with_script)),
+            get_reference_script_hashes(body, &utxos(era, &with_script)).unwrap(),
             vec![expected],
             "{era:?}"
         );
         assert!(
-            get_reference_script_hashes(body, &utxos(era, &without_script)).is_empty(),
+            get_reference_script_hashes(body, &utxos(era, &without_script))
+                .unwrap()
+                .is_empty(),
             "{era:?}"
         );
     }
@@ -198,11 +200,11 @@ fn a_reference_script_on_a_spent_input_sets_the_language() {
     let without_script = legacy_output(key_address());
 
     assert_eq!(
-        tx_languages(tx, &utxos(Era::Conway, &with_script)),
+        tx_languages(tx, &utxos(Era::Conway, &with_script)).unwrap(),
         vec![Language::PlutusV2]
     );
     assert_eq!(
-        tx_languages(tx, &utxos(Era::Conway, &without_script)),
+        tx_languages(tx, &utxos(Era::Conway, &without_script)).unwrap(),
         vec![]
     );
 }
