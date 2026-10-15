@@ -2,9 +2,7 @@ use std::ops::Deref;
 
 use prost_types::FieldMask;
 
-use pallas_primitives::{alonzo, babbage, conway};
 use pallas_traverse as trv;
-use trv::OriginalHash;
 
 use crate::LedgerContext;
 
@@ -34,96 +32,10 @@ impl<C: LedgerContext> Mapper<C> {
 }
 
 crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1beta::cardano);
-
-// ---- v1beta-specific bodies for methods that diverge from v1alpha -----------
-
-/// The u5c governance action this schema names for an information action,
-/// whose message has no field.
-fn information_action() -> u5c::governance_action::GovernanceAction {
-    u5c::governance_action::GovernanceAction::InfoAction(u5c::InfoAction {})
-}
+crate::before_v1::impl_cardano_mapper_before_v1!();
+crate::since_v1beta::impl_cardano_mapper_since_v1beta!();
 
 impl<C: LedgerContext> Mapper<C> {
-    // v1beta names this variant ScriptPubkeyHash; v1alpha names it
-    // ScriptPubkey. The rest of map_native_script is identical between
-    // versions and lives in shared.rs.
-    fn map_native_script_pubkey(bytes: Vec<u8>) -> u5c::native_script::NativeScript {
-        u5c::native_script::NativeScript::ScriptPubkeyHash(bytes.into())
-    }
-
-    pub fn map_tx_datum(
-        &self,
-        x: &trv::MultiEraOutput,
-        tx: Option<&trv::MultiEraTx>,
-    ) -> u5c::Datum {
-        u5c::Datum {
-            hash: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => x.original_hash().to_vec().into(),
-                Some(babbage::DatumOption::Hash(x)) => x.to_vec().into(),
-                _ => vec![].into(),
-            },
-            payload: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => self.map_plutus_datum(&x.0).into(),
-                Some(babbage::DatumOption::Hash(x)) => tx
-                    .and_then(|tx| tx.find_plutus_data(&x))
-                    .map(|d| self.map_plutus_datum(d)),
-                _ => None,
-            },
-            original_cbor: match x.datum() {
-                Some(babbage::DatumOption::Data(x)) => Some(x.raw_cbor().to_vec().into()),
-                _ => None,
-            },
-        }
-    }
-
-    pub fn map_tx_output(
-        &self,
-        x: &trv::MultiEraOutput,
-        tx: Option<&trv::MultiEraTx>,
-    ) -> u5c::TxOutput {
-        u5c::TxOutput {
-            address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
-            coin: u64_to_bigint(x.value().coin()),
-            // TODO: this is wrong, we're crating a new item for each asset even if they share
-            // the same policy id. We need to adjust Pallas' interface to make this mapping more
-            // ergonomic.
-            assets: x
-                .value()
-                .assets()
-                .iter()
-                .map(|x| self.map_policy_assets(x))
-                .collect(),
-            datum: self.map_tx_datum(x, tx).into(),
-            script: self.map_output_script(x),
-            original_cbor: Some(x.encode().into()),
-        }
-    }
-
-    fn map_output_script(&self, x: &trv::MultiEraOutput) -> Option<u5c::Script> {
-        x.multi_era_script_ref().map(|x| self.map_script_ref(&x))
-    }
-
-    pub fn map_asset(&self, x: &trv::MultiEraAsset) -> u5c::Asset {
-        let quantity = if let Some(v) = x.output_coin() {
-            u64_to_bigint(v)
-        } else if let Some(v) = x.mint_coin() {
-            i64_to_bigint(v)
-        } else {
-            None
-        };
-        u5c::Asset {
-            name: x.name().to_vec().into(),
-            quantity,
-        }
-    }
-
-    pub fn map_policy_assets(&self, x: &trv::MultiEraPolicyAssets) -> u5c::Multiasset {
-        u5c::Multiasset {
-            policy_id: x.policy().to_vec().into(),
-            assets: x.assets().iter().map(|x| self.map_asset(x)).collect(),
-        }
-    }
-
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
@@ -226,100 +138,6 @@ impl<C: LedgerContext> Mapper<C> {
             .into(),
         }
     }
-
-    // ---- v1beta-only types (no v1alpha counterpart) -------------------------
-
-    pub fn map_bootstrap_witness(&self, x: &alonzo::BootstrapWitness) -> u5c::BootstrapWitness {
-        u5c::BootstrapWitness {
-            vkey: x.public_key.to_vec().into(),
-            signature: x.signature.to_vec().into(),
-            chain_code: x.chain_code.to_vec().into(),
-            attributes: x.attributes.to_vec().into(),
-        }
-    }
-
-    pub fn map_vote(&self, x: &conway::Vote) -> u5c::Vote {
-        match x {
-            conway::Vote::No => u5c::Vote::No,
-            conway::Vote::Yes => u5c::Vote::Yes,
-            conway::Vote::Abstain => u5c::Vote::Abstain,
-        }
-    }
-
-    pub fn map_voting_procedure(
-        &self,
-        gov_action_id: &conway::GovActionId,
-        x: &conway::VotingProcedure,
-    ) -> u5c::VotingProcedure {
-        u5c::VotingProcedure {
-            gov_action_id: Some(u5c::GovernanceActionId {
-                transaction_id: gov_action_id.transaction_id.to_vec().into(),
-                governance_action_index: gov_action_id.action_index,
-            }),
-            vote: self.map_vote(&x.vote) as i32,
-            anchor: x.anchor.as_ref().map(map_anchor),
-        }
-    }
-
-    fn map_voter(&self, voter: &conway::Voter) -> u5c::voter_votes::Voter {
-        match voter {
-            conway::Voter::ConstitutionalCommitteeKey(hash) => {
-                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
-                    stake_credential: u5c::stake_credential::StakeCredential::AddrKeyHash(
-                        hash.to_vec().into(),
-                    )
-                    .into(),
-                })
-            }
-            conway::Voter::ConstitutionalCommitteeScript(hash) => {
-                u5c::voter_votes::Voter::ConstitutionalCommittee(u5c::StakeCredential {
-                    stake_credential: u5c::stake_credential::StakeCredential::ScriptHash(
-                        hash.to_vec().into(),
-                    )
-                    .into(),
-                })
-            }
-            conway::Voter::DRepKey(hash) => u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
-                stake_credential: u5c::stake_credential::StakeCredential::AddrKeyHash(
-                    hash.to_vec().into(),
-                )
-                .into(),
-            }),
-            conway::Voter::DRepScript(hash) => {
-                u5c::voter_votes::Voter::Drep(u5c::StakeCredential {
-                    stake_credential: u5c::stake_credential::StakeCredential::ScriptHash(
-                        hash.to_vec().into(),
-                    )
-                    .into(),
-                })
-            }
-            conway::Voter::StakePoolKey(hash) => u5c::voter_votes::Voter::Spo(hash.to_vec().into()),
-        }
-    }
-
-    /// Map the transaction's voting procedures into the v1beta `votes` field.
-    /// Conway and Dijkstra share the type.
-    pub fn map_votes(&self, tx: &trv::MultiEraTx) -> Vec<u5c::VoterVotes> {
-        #[cfg(feature = "unstable")]
-        if tx.era() == trv::Era::Dijkstra {
-            unimplemented!("map_votes is not yet implemented for Dijkstra")
-        }
-
-        let Some(procedures) = tx.voting_procedures() else {
-            return Vec::new();
-        };
-
-        procedures
-            .iter()
-            .map(|(voter, ballots)| u5c::VoterVotes {
-                voter: Some(self.map_voter(voter)),
-                votes: ballots
-                    .iter()
-                    .map(|(gov_id, procedure)| self.map_voting_procedure(gov_id, procedure))
-                    .collect(),
-            })
-            .collect()
-    }
 }
 
 /// The block fixtures this schema has a snapshot of, each with the snapshot
@@ -341,35 +159,6 @@ mod tests {
     use super::*;
     use crate::testing::*;
     use pretty_assertions::assert_eq;
-
-    #[test]
-    fn a_pubkey_clause_maps_to_the_member_this_schema_names() {
-        let script = alonzo::NativeScript::ScriptPubkey([0x44; 28].into());
-        let script = trv::MultiEraNativeScript::from_decoded_alonzo_compatible(&script);
-
-        assert_eq!(
-            Mapper::<NoLedger>::map_multi_era_native_script(&script).native_script,
-            Some(u5c::native_script::NativeScript::ScriptPubkeyHash(
-                [0x44; 28].to_vec().into()
-            )),
-            "this schema names the required signature member ScriptPubkeyHash and carries the key hash in it"
-        );
-    }
-
-    #[test]
-    fn an_information_action_maps_to_the_value_this_schema_names() {
-        let mapper = Mapper::new(NoLedger);
-
-        assert_eq!(
-            mapper
-                .map_gov_action(&trv::MultiEraGovAction::from_conway(&conway_information()))
-                .governance_action,
-            Some(u5c::governance_action::GovernanceAction::InfoAction(
-                u5c::InfoAction {}
-            )),
-            "this schema types the information member a message with no field"
-        );
-    }
 
     #[test]
     #[allow(deprecated)]
