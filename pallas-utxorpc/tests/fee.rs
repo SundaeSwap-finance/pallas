@@ -1,0 +1,43 @@
+use pallas_traverse::{Era, MultiEraTx};
+use pallas_utxorpc::{LedgerContext, TxoRef, UtxoMap, v1alpha, v1beta};
+
+#[derive(Clone)]
+struct NoLedger;
+
+impl LedgerContext for NoLedger {
+    fn get_utxos(&self, _refs: &[TxoRef]) -> Option<UtxoMap> {
+        None
+    }
+
+    fn get_slot_timestamp(&self, _slot: u64) -> Option<u64> {
+        None
+    }
+}
+
+#[test]
+fn a_byron_transaction_maps_no_fee() {
+    let cbor = hex::decode(include_str!("../../test_data/byron1.tx")).unwrap();
+    let tx = MultiEraTx::decode_for_era(Era::Byron, &cbor).unwrap();
+
+    assert_eq!(v1alpha::Mapper::new(NoLedger).map_tx(&tx).fee, None);
+    assert_eq!(v1beta::Mapper::new(NoLedger).map_tx(&tx).fee, None);
+}
+
+#[test]
+fn a_conway_transaction_maps_its_fee() {
+    let cbor = hex::decode(include_str!("../../test_data/conway9.tx")).unwrap();
+    let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+    let fee = tx.fee().unwrap() as i64;
+
+    let alpha = v1alpha::Mapper::new(NoLedger).map_tx(&tx).fee;
+    let beta = v1beta::Mapper::new(NoLedger).map_tx(&tx).fee;
+
+    assert_eq!(
+        alpha.and_then(|x| x.big_int),
+        Some(v1alpha::spec::cardano::big_int::BigInt::Int(fee))
+    );
+    assert_eq!(
+        beta.and_then(|x| x.big_int),
+        Some(v1beta::spec::cardano::big_int::BigInt::Int(fee))
+    );
+}
