@@ -1,0 +1,222 @@
+   Compiling pallas-primitives v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-primitives)
+   Compiling pallas-traverse v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-traverse)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.61s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-fbde861af1343ff1)
+
+running 35 tests
+test phase1::conway::registration_deposits::removing_registration_leaves_unbalanced_value ... ok
+test phase1::shelley_ma::tests::invalid_before ... ok
+test phase1::conway::registration_deposits::one_lovelace_imbalance_fails_for_both_encodings ... ok
+test phase1::conway::registration_deposits::absent_or_delegation_only_certificates_do_not_charge_a_deposit ... ok
+test phase1::shelley_ma::tests::invalid_hereafter ... ok
+test phase1::conway::certificate_witnesses::all_plutus_versions_can_supply_certificate_scripts ... ok
+test phase1::shelley_ma::tests::n_of_k_threshold ... ok
+test phase1::shelley_ma::tests::nested_timelocks ... ok
+test phase2::evaluator::tests::flat_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::script_cbor_decode_failure_is_typed ... ok
+test phase1::conway::registration_deposits::declared_deposit_cannot_override_protocol_accounting ... ok
+test phase1::conway::certificate_witnesses::legacy_registration_requires_neither_key_script_nor_redeemer ... ok
+test phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context ... ok
+test phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context ... ok
+test phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic ... ok
+test phase2::evaluator::tests::machine_failure_keeps_logs ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::script_context::tests::a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::script_context::tests::a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test utils::registration_deposits::adding_fees_and_deposits_cannot_overflow_produced_value ... ok
+test utils::registration_deposits::deposits_preserve_native_assets ... ok
+test utils::registration_deposits::stake_deposit_sum_overflow_is_rejected ... ok
+test utils::registration_deposits::unrelated_certificate_deposits_are_not_stake_deposits ... ok
+test phase1::conway::certificate_witnesses::native_reference_authorization_uses_original_script_hash ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... ok
+test phase1::conway::registration_deposits::all_stake_registration_forms_charge_the_protocol_deposit ... ok
+test phase1::conway::certificate_witnesses::native_and_key_certificates_reject_unnecessary_redeemers ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution ... ok
+test phase1::conway::certificate_witnesses::native_reference_certificate_needs_no_redeemer ... ok
+test phase1::conway::certificate_witnesses::native_certificate_timelocks_and_thresholds_are_evaluated ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_script_and_plutus_redeemer ... ok
+test phase1::conway::certificate_witnesses::pool_certificates_require_operator_and_registration_owners ... ok
+test phase1::conway::certificate_witnesses::certificate_pointers_use_full_positions_and_distinct_purposes ... ok
+test phase1::conway::certificate_witnesses::native_certificate_checks_authorization_without_redeemers ... ok
+test phase1::conway::certificate_witnesses::every_credential_certificate_requires_its_key_and_valid_signature ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/alonzo.rs (target/debug/deps/alonzo-89e4f38cddd3d5e4)
+
+running 33 tests
+test alonzo_tests::max_tx_size_exceeded ... ok
+test alonzo_tests::empty_ins ... ok
+test alonzo_tests::min_lovelace_unreached ... ok
+test alonzo_tests::min_fee_unreached ... ok
+test alonzo_tests::max_val_exceeded ... ok
+test alonzo_tests::collateral_without_min_lovelace ... ok
+test alonzo_tests::auxiliary_data_removed ... ok
+test alonzo_tests::collateral_with_other_assets ... ok
+test alonzo_tests::missing_vk_witness ... ok
+test alonzo_tests::minting_lacks_policy ... ok
+test alonzo_tests::collateral_is_not_verification_key_locked ... ok
+test alonzo_tests::extra_redeemer ... ok
+test alonzo_tests::no_collateral_inputs ... ok
+test alonzo_tests::output_network_ids ... ok
+test alonzo_tests::missing_input_datum ... ok
+test alonzo_tests::missing_redeemer ... ok
+test alonzo_tests::extra_plutus_script ... ok
+test alonzo_tests::extra_input_datum ... ok
+test alonzo_tests::missing_plutus_script ... ok
+test alonzo_tests::too_many_collateral_inputs ... ok
+test alonzo_tests::tx_ex_units_exceeded ... ok
+test alonzo_tests::successful_mainnet_tx_with_minting ... ok
+test alonzo_tests::missing_required_signer ... ok
+test alonzo_tests::preservation_of_value ... ok
+test alonzo_tests::unfound_utxo_input ... ok
+test alonzo_tests::validity_interval_upper_bound_surpassed ... ok
+test alonzo_tests::validity_interval_lower_bound_unreached ... ok
+test alonzo_tests::tx_network_id ... ok
+test alonzo_tests::successful_mainnet_tx ... ok
+test alonzo_tests::successful_mainnet_tx_with_metadata ... ok
+test alonzo_tests::wrong_signature ... ok
+test alonzo_tests::successful_mainnet_tx_with_plutus_script ... ok
+test alonzo_tests::script_integrity_hash ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/babbage.rs (target/debug/deps/babbage-9221625d68824dd2)
+
+running 33 tests
+test babbage_tests::empty_ins ... ok
+test babbage_tests::max_tx_size_exceeded ... ok
+test babbage_tests::max_val_exceeded ... ok
+test babbage_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test babbage_tests::min_fee_unreached ... ok
+test babbage_tests::output_network_id ... ok
+test babbage_tests::preservation_of_value ... ok
+test babbage_tests::collateral_min_lovelace ... ok
+test babbage_tests::collateral_is_not_verification_key_locked ... ok
+test babbage_tests::collateral_with_other_assets ... ok
+test babbage_tests::collateral_annotation ... ok
+test babbage_tests::successful_mainnet_tx ... ok
+test babbage_tests::extra_redeemer ... ok
+test babbage_tests::minting_lacks_policy ... ok
+test babbage_tests::min_lovelace_unreached ... ok
+test babbage_tests::no_collateral_inputs ... ok
+test babbage_tests::script_input_lacks_script ... ok
+test babbage_tests::extra_input_datum ... ok
+test babbage_tests::missing_input_datum ... ok
+test babbage_tests::auxiliary_data_removed ... ok
+test babbage_tests::script_integrity_hash ... ok
+test babbage_tests::successful_mainnet_tx_with_metadata ... ok
+test babbage_tests::tx_network_id ... ok
+test babbage_tests::unfound_utxo_input ... ok
+test babbage_tests::validity_interval_lower_bound_unreached ... ok
+test babbage_tests::validity_interval_upper_bound_surpassed ... ok
+test babbage_tests::successful_mainnet_tx_with_minting ... ok
+test babbage_tests::tx_ex_units_exceeded ... ok
+test babbage_tests::too_many_collateral_inputs ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v1_script ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v2_script ... ok
+test babbage_tests::successful_preprod_tx_with_plutus_v2_script ... ok
+test babbage_tests::successful_preview_tx_with_plutus_v2_script ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/byron.rs (target/debug/deps/byron-9c6b31003c1cb44e)
+
+running 10 tests
+test byron_tests::empty_ins ... ok
+test byron_tests::not_enough_fees ... ok
+test byron_tests::empty_outs ... ok
+test byron_tests::missing_witness ... ok
+test byron_tests::unfound_utxo ... ok
+test byron_tests::output_without_lovelace ... ok
+test byron_tests::tx_size_exceeds_max ... ok
+test byron_tests::successful_mainnet_tx ... ok
+test byron_tests::wrong_signature ... ok
+test byron_tests::successful_mainnet_tx_with_genesis_utxos ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/common.rs (target/debug/deps/common-658e8e83e2b13f78)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conway.rs (target/debug/deps/conway-6b493e92e484a8fc)
+
+running 22 tests
+test conway_tests::empty_ins ... ok
+test conway_tests::collateral_min_lovelace ... ok
+test conway_tests::collateral_with_other_assets ... ok
+test conway_tests::max_tx_size_exceeded ... ok
+test conway_tests::collateral_annotation ... ok
+test conway_tests::max_val_exceeded ... ok
+test conway_tests::collateral_is_not_verification_key_locked ... ok
+test conway_tests::min_lovelace_unreached ... ok
+test conway_tests::certificate_script_is_required_through_dispatch ... ok
+test conway_tests::no_collateral_inputs ... ok
+test conway_tests::min_fee_unreached ... ok
+test conway_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test conway_tests::preservation_of_value ... ok
+test conway_tests::unfound_utxo_input ... ok
+test conway_tests::tx_network_id ... ok
+test conway_tests::registration_deposit_is_required_through_dispatch ... ok
+test conway_tests::too_many_collateral_inputs ... ok
+test conway_tests::validity_interval_upper_bound_surpassed ... ok
+test conway_tests::validity_interval_lower_bound_unreached ... ok
+test conway_tests::mainnet_reference_script_rejects_underfunded_collateral ... ok
+test conway_tests::successful_mainnet_tx ... ok
+test conway_tests::preview_reference_script_rejects_underfunded_collateral ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/shelley_ma.rs (target/debug/deps/shelley_ma-6ae49aa7c0febc95)
+
+running 25 tests
+test shelley_ma_tests::max_tx_size_exceeded ... ok
+test shelley_ma_tests::empty_ins ... ok
+test shelley_ma_tests::fee_below_minimum ... ok
+test shelley_ma_tests::auxiliary_data_removed ... ok
+test shelley_ma_tests::delegation_before_registration ... ok
+test shelley_ma_tests::missing_native_script_witness ... ok
+test shelley_ma_tests::missing_ttl ... ok
+test shelley_ma_tests::output_below_min_lovelace ... ok
+test shelley_ma_tests::missing_signature_native_script ... ok
+test shelley_ma_tests::preservation_of_value ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx ... ok
+test shelley_ma_tests::missing_vk_witness ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_minting ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_stk_deleg ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_changed_script ... ok
+test shelley_ma_tests::successful_mainnet_mary_tx_with_pool_reg ... ok
+test shelley_ma_tests::successful_mainnet_allegra_tx_with_mir ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_metadata ... ok
+test shelley_ma_tests::successful_mainnet_shelley_tx_with_script ... ok
+test shelley_ma_tests::ttl_exceeded ... ok
+test shelley_ma_tests::too_late_for_mir ... ok
+test shelley_ma_tests::unfound_utxo ... ok
+test shelley_ma_tests::unregistered_pool ... ok
+test shelley_ma_tests::wrong_network_id ... ok
+test shelley_ma_tests::vk_witness_changed ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/utils.rs (target/debug/deps/utils-c2d249606f3295a2)
+
+running 4 tests
+test add_minted_value_rejects_burn_below_zero ... ok
+test add_minted_value_rejects_burn_of_missing_asset ... ok
+test add_values_rejects_lovelace_overflow ... ok
+test conway_add_values_rejects_lovelace_overflow ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pallas_validate
+
+running 1 test
+test pallas-validate/src/lib.rs - (line 10) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.19s; merged doctests compilation took 0.18s

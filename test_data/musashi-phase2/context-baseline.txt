@@ -1,0 +1,29 @@
+   Compiling pallas-validate v1.4.0 (/tmp/musashi-s06/baseline/pallas-validate)
+    Finished `test` profile [unoptimized] target(s) in 2.06s
+     Running unittests src/lib.rs (/tmp/musashi-s06/baseline-target/debug/deps/pallas_validate-ebbbc619acd94472)
+
+running 3 tests
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+
+thread 'phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence' (305) panicked at pallas-validate/src/phase2/v3_deposit_context_tests.rs:73:17:
+assertion `left == right` failed: certificate list protocol 10
+  left: Array(Def([Constr(Constr { tag: 121, any_constructor: None, fields: Indef([Constr(Constr { tag: 122, any_constructor: None, fields: Indef([BoundedBytes(BoundedBytes([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]))]) }), Constr(Constr { tag: 122, any_constructor: None, fields: Indef([]) })]) })]))
+ right: Array(Def([Constr(Constr { tag: 121, any_constructor: None, fields: Def([Constr(Constr { tag: 122, any_constructor: None, fields: Indef([BoundedBytes(BoundedBytes([7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7]))]) }), Constr(Constr { tag: 121, any_constructor: None, fields: Indef([BigInt(Int(Int(Int { neg: false, val: 0 })))]) })]) })]))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... FAILED
+
+thread 'phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution' (306) panicked at pallas-validate/src/phase2/v3_deposit_context_tests.rs:162:13:
+assertion `left == right` failed: protocol 10: TxEvalResult { tag: Cert, index: 2, units: ExUnits { mem: 612, steps: 1325672 }, success: false, logs: [], failure_message: Some("Empty list") }
+  left: false
+ right: true
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution ... FAILED
+
+failures:
+
+failures:
+    phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence
+    phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 89 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

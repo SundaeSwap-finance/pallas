@@ -1,0 +1,61 @@
+{
+  "normalization": "trailing line whitespace and trailing blank lines stripped; one final newline retained",
+  "files": {
+    "phase1.txt": {
+      "raw_sha256": "3f6dbb0f18996d451b31f528dda9c250b9d2f345867413838b0d26d6bba652a0",
+      "tracked_sha256": "42e1e9e9fef8bf07f039773a89f23cfe0bebc9a997f8e014ca09dca98946dc38"
+    },
+    "remaining-integrations.txt": {
+      "raw_sha256": "b3aa6fac33e8590ab08cd255eb9b300daaa9c57fb0daebb56fdc0d45da374f85",
+      "tracked_sha256": "1b57ea5ae8a2f01792f5a26e0f866f5d8773f47202b606c085639cdc43b936fc"
+    },
+    "dependency-lock.txt": {
+      "raw_sha256": "f38aea2bde35e9d07b8c5026c1c37c5a19aeaca99e5f7eb8d8e83521df2c7043",
+      "tracked_sha256": "f38aea2bde35e9d07b8c5026c1c37c5a19aeaca99e5f7eb8d8e83521df2c7043"
+    },
+    "changed-format.txt": {
+      "raw_sha256": "dacbc2f23184acc077d2b18fcf95c46131b1faa8471c8fefd1c943deb4e8eca3",
+      "tracked_sha256": "dacbc2f23184acc077d2b18fcf95c46131b1faa8471c8fefd1c943deb4e8eca3"
+    },
+    "workspace-format.txt": {
+      "raw_sha256": "07c1899ca31bae9f67c09aafc9ef6e5ce297a0090a8ac96356587c324d0af076",
+      "tracked_sha256": "655fba955f26fc93eac964afa9483dfddcba50fc7681ff591a42deb62effd75d"
+    },
+    "fork-native.txt": {
+      "raw_sha256": "47a6e6a9fe8897828f966788e644191355b69f1e5bf14b1ca269ff913e72172e",
+      "tracked_sha256": "feba0a47ea716bb89b1ed045fe15fb06dc2573957ccb0bb52729676531be3a17"
+    },
+    "local-path-first-run.txt": {
+      "raw_sha256": "97062c49b930d8ede075d58506876025adcf4ad27f682c879493bee090765856",
+      "tracked_sha256": "97062c49b930d8ede075d58506876025adcf4ad27f682c879493bee090765856"
+    },
+    "prior-independent-cli-result.txt": {
+      "raw_sha256": "69c98e632639d714c78d2242e3a5fb6111a7c50d94696faeda9f381049f47b5f",
+      "tracked_sha256": "69c98e632639d714c78d2242e3a5fb6111a7c50d94696faeda9f381049f47b5f"
+    },
+    "rust188-without-phase2.txt": {
+      "raw_sha256": "c0925236ebb807c09d24be5a6dea7efa641ce986d8d7ee0b281560b3236a75fe",
+      "tracked_sha256": "c0925236ebb807c09d24be5a6dea7efa641ce986d8d7ee0b281560b3236a75fe"
+    },
+    "rust188-phase2.txt": {
+      "raw_sha256": "742903d48161096947794db9a364a9bb26ef2f9730bf0f1b55debe72bdf009e5",
+      "tracked_sha256": "cbff4091a03e040bfdf799be6fea66339404bdb236868cfe8efc9a2b1108b5a6"
+    },
+    "validate-docs.txt": {
+      "raw_sha256": "14bcea60acc5c339f00410bc2ae4641283011c73b1925792af0fa96d7ba9fdc4",
+      "tracked_sha256": "14bcea60acc5c339f00410bc2ae4641283011c73b1925792af0fa96d7ba9fdc4"
+    },
+    "validate-clippy.txt": {
+      "raw_sha256": "7265f5e5908d4f1fd6d9260edb024d7c50d07578b7f0148a38063dca570f3633",
+      "tracked_sha256": "7265f5e5908d4f1fd6d9260edb024d7c50d07578b7f0148a38063dca570f3633"
+    },
+    "earlier-era-integrations.txt": {
+      "raw_sha256": "bb5d8abb2317fe500f12637971fe2e787f8491c01e603e90aacac72bdd16b34a",
+      "tracked_sha256": "bb5d8abb2317fe500f12637971fe2e787f8491c01e603e90aacac72bdd16b34a"
+    },
+    "phase2-regressions.txt": {
+      "raw_sha256": "d1e6fdc177c1a32b2bf5e43beb1e8f726b8e2f3fbf11f90838dd6656ef4b080d",
+      "tracked_sha256": "d1e6fdc177c1a32b2bf5e43beb1e8f726b8e2f3fbf11f90838dd6656ef4b080d"
+    }
+  }
+}

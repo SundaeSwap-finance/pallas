@@ -1,0 +1,53 @@
+warning: /home/rodrigo/projects/amaru-stable-compat/crates/amaru-deps/Cargo.toml: unused manifest key `lints.cargo` (may be supported in a future version)
+
+this Cargo does not support nightly features, but if you
+switch to nightly channel you can pass
+`-Zcargo-lints` to enable this feature.
+    Blocking waiting for file lock on build directory
+   Compiling secp256k1-sys v0.10.1
+   Compiling proc-macro2-diagnostics v0.10.1
+   Compiling same-file v1.0.6
+   Compiling allocator-api2 v0.2.21
+   Compiling indoc v2.0.7
+   Compiling chumsky v1.0.0-alpha.8
+   Compiling yansi v1.0.1
+   Compiling foldhash v0.1.5
+   Compiling unicode-segmentation v1.13.3
+   Compiling heck v0.4.1
+   Compiling diff v0.1.13
+   Compiling amaru-kernel v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-kernel)
+   Compiling bumpalo v3.20.3
+   Compiling append-only-vec v0.1.8
+   Compiling aliasable v0.1.3
+   Compiling walkdir v2.5.0
+   Compiling hamming v0.1.3
+   Compiling amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-uplc)
+   Compiling pretty_assertions v1.4.1
+   Compiling hashbrown v0.15.5
+   Compiling ouroboros_macro v0.18.5
+   Compiling ouroboros v0.18.5
+   Compiling secp256k1 v0.30.0
+    Finished `test` profile [optimized] target(s) in 30.26s
+     Running tests/operand_bounds.rs (/home/rodrigo/projects/pallas/target/amaru-stable-compat-tests/debug/deps/operand_bounds-c766e23f7f9d6d39)
+
+running 2 tests
+test integer_results_equality_and_data_remain_unrestricted ... ok
+test integer_operands_obey_signed_range_at_protocol_11 ... FAILED
+
+failures:
+
+---- integer_operands_obey_signed_range_at_protocol_11 stdout ----
+
+thread 'integer_operands_obey_signed_range_at_protocol_11' (2857732) panicked at crates/amaru-uplc/tests/operand_bounds.rs:209:25:
+assertion `left == right` failed: V1 protocol 11 AddInteger position 0 in_range false
+  left: true
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    integer_operands_obey_signed_range_at_protocol_11
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p amaru-uplc --test operand_bounds`

@@ -1,0 +1,181 @@
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:294:
+                 for tx in &txs {
+                     certs.extend(cert_kinds(tx));
+                 }
+-                let tx_hashes: Vec<String> =
+-                    txs.iter().map(|tx| tx.hash().to_string()).collect();
++                let tx_hashes: Vec<String> = txs.iter().map(|tx| tx.hash().to_string()).collect();
+
+                 fs::write(
+                     dir.join(format!("{slot}.block")),
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:544:
+                 for (i, tx) in got.iter().enumerate() {
+                     txs.insert(base + i, tx.raw_bytes().to_vec());
+                 }
+-                tracing::info!(window = next_window - 1, got = got.len(), have = txs.len(), "transactions fetched");
++                tracing::info!(
++                    window = next_window - 1,
++                    got = got.len(),
++                    have = txs.len(),
++                    "transactions fetched"
++                );
+
+                 if txs.len() >= total {
+                     break;
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:567:
+     }
+
+     let Some(body) = body else {
+-        tracing::error!(slot, hash, "the peer served no body for this endorser block");
++        tracing::error!(
++            slot,
++            hash,
++            "the peer served no body for this endorser block"
++        );
+         std::process::exit(3);
+     };
+
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:581:
+                 lines.push('\n');
+             }
+             None => {
+-                tracing::error!(index = i, "a transaction of this endorser block never arrived");
++                tracing::error!(
++                    index = i,
++                    "a transaction of this endorser block never arrived"
++                );
+                 std::process::exit(4);
+             }
+         }
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:688:
+             let computed = block.header().hash().to_string();
+
+             if &computed != expected {
+-                eprintln!("refused {name}: the header hashes to {computed}, the node reported {expected}");
++                eprintln!(
++                    "refused {name}: the header hashes to {computed}, the node reported {expected}"
++                );
+                 std::process::exit(5);
+             }
+
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:732:
+             let computed = Hasher::<256>::hash(&body).to_string();
+
+             if &computed != expected {
+-                eprintln!("refused {name}: the body hashes to {computed}, the block announced {expected}");
++                eprintln!(
++                    "refused {name}: the body hashes to {computed}, the block announced {expected}"
++                );
+                 std::process::exit(5);
+             }
+
+Diff in /tmp/pallas-amaru-integration/examples/leios-testnet/src/bin/harvest.rs:741:
+             let count = txs_text.split_whitespace().count();
+             let committed = eb_tx_count(&body);
+             if count != committed {
+-                eprintln!("refused {name}: {count} transactions on file, the body commits to {committed}");
++                eprintln!(
++                    "refused {name}: {count} transactions on file, the body commits to {committed}"
++                );
+                 std::process::exit(6);
+             }
+
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Diff in /tmp/pallas-amaru-integration/pallas-validate/src/phase2/error.rs:1:
+ use amaru_uplc::flat::FlatDecodeError;
+ use pallas_primitives::{
+-    conway::{ExUnits, Language},
+     TransactionInput,
++    conway::{ExUnits, Language},
+ };
+
+ #[derive(thiserror::Error, Debug)]
+Diff in /tmp/pallas-amaru-integration/pallas-validate/src/phase2/registration_evaluator_tests.rs:2:
+ use super::{error::Error, evaluator::eval_native_v3};
+ use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
+ use pallas_codec::minicbor;
+-use pallas_primitives::{conway::ExUnits, PlutusData};
++use pallas_primitives::{PlutusData, conway::ExUnits};
+
+ fn evaluate(body: &str) -> Result<super::evaluator::ScriptEvalResult, Error> {
+     let arena = Arena::new();
+Diff in /tmp/pallas-amaru-integration/pallas-validate/src/phase2/registration_evaluator_tests.rs:49:
+             let result = evaluate(&body).unwrap();
+             assert_eq!(result.success, success, "{builtin}, {rounds}: {result:?}");
+             if !success {
+-                assert!(result
+-                    .failure
+-                    .unwrap()
+-                    .message
+-                    .contains("operand exceeds 65536"));
++                assert!(
++                    result
++                        .failure
++                        .unwrap()
++                        .message
++                        .contains("operand exceeds 65536")
++                );
+             }
+         }
+     }
+Diff in /tmp/pallas-amaru-integration/pallas-validate/src/phase2/registration_evaluator_tests.rs:85:
+     ] {
+         let result = evaluate(&ignore(&grow_bytes(body, 17))).unwrap();
+         assert!(!result.success, "{body}: {result:?}");
+-        assert!(result
+-            .failure
+-            .unwrap()
+-            .message
+-            .contains("operand exceeds 65536"));
++        assert!(
++            result
++                .failure
++                .unwrap()
++                .message
++                .contains("operand exceeds 65536")
++        );
+     }
+ }
+
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.
+Warning: can't set `wrap_comments = true`, unstable features are only available in nightly channel.

@@ -1,0 +1,10 @@
+   Compiling amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-uplc)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.55s
+     Running unittests src/lib.rs (target/debug/deps/pallas_validate-4298df4a54c59140)
+
+running 1 test
+original validity: None None
+test phase2::dijkstra_evaluation_tests::export_registration_cli_comparison ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 114 filtered out; finished in 4.69s

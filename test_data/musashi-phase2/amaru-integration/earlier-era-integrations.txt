@@ -1,0 +1,428 @@
+warning: unused workspace dependency `pallas`
+  --> Cargo.toml:53:1
+   |
+53 | pallas = { version = "=1.4.0", path = "pallas" }
+   | ^^^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `pallas`
+warning: unused workspace dependency `pallas-math`
+  --> Cargo.toml:65:1
+   |
+65 | pallas-math = { version = "=1.4.0", path = "pallas-math" }
+   | ^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `pallas-math`
+warning: workspace (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-codec/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-codec/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-codec` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-addresses/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-addresses/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-addresses` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-utxorpc/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-utxorpc/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-utxorpc` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-configs/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-configs/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-configs` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-validate/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-validate/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-validate` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-hardano/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-hardano/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-hardano` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-math/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-math/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-math` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network2/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network2/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network2` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-txbuilder/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-txbuilder/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-txbuilder` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-traverse/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-traverse/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-traverse` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-crypto/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-crypto/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-crypto` (manifest) generated 2 warnings
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas` (manifest) generated 1 warning
+warning: explicit `package.readme` can be inferred
+  --> pallas-primitives/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-primitives/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-primitives` (manifest) generated 2 warnings
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.43s
+     Running tests/alonzo.rs (target/debug/build/pallas-validate/c32b1a83849bce4e/out/alonzo-c32b1a83849bce4e)
+
+running 33 tests
+test alonzo_tests::empty_ins ... ok
+test alonzo_tests::auxiliary_data_removed ... ok
+test alonzo_tests::collateral_is_not_verification_key_locked ... ok
+test alonzo_tests::collateral_without_min_lovelace ... ok
+test alonzo_tests::collateral_with_other_assets ... ok
+test alonzo_tests::max_tx_size_exceeded ... ok
+test alonzo_tests::min_fee_unreached ... ok
+test alonzo_tests::min_lovelace_unreached ... ok
+test alonzo_tests::output_network_ids ... ok
+test alonzo_tests::preservation_of_value ... ok
+test alonzo_tests::missing_vk_witness ... ok
+test alonzo_tests::missing_plutus_script ... ok
+test alonzo_tests::missing_redeemer ... ok
+test alonzo_tests::max_val_exceeded ... ok
+test alonzo_tests::no_collateral_inputs ... ok
+test alonzo_tests::extra_plutus_script ... ok
+test alonzo_tests::extra_input_datum ... ok
+test alonzo_tests::missing_input_datum ... ok
+test alonzo_tests::minting_lacks_policy ... ok
+test alonzo_tests::successful_mainnet_tx ... ok
+test alonzo_tests::extra_redeemer ... ok
+test alonzo_tests::missing_required_signer ... ok
+test alonzo_tests::unfound_utxo_input ... ok
+test alonzo_tests::tx_network_id ... ok
+test alonzo_tests::validity_interval_lower_bound_unreached ... ok
+test alonzo_tests::validity_interval_upper_bound_surpassed ... ok
+test alonzo_tests::successful_mainnet_tx_with_metadata ... ok
+test alonzo_tests::too_many_collateral_inputs ... ok
+test alonzo_tests::tx_ex_units_exceeded ... ok
+test alonzo_tests::wrong_signature ... ok
+test alonzo_tests::successful_mainnet_tx_with_minting ... ok
+test alonzo_tests::script_integrity_hash ... ok
+test alonzo_tests::successful_mainnet_tx_with_plutus_script ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/babbage.rs (target/debug/build/pallas-validate/8982233e1f457300/out/babbage-8982233e1f457300)
+
+running 33 tests
+test babbage_tests::empty_ins ... ok
+test babbage_tests::max_tx_size_exceeded ... ok
+test babbage_tests::min_fee_unreached ... ok
+test babbage_tests::min_lovelace_unreached ... ok
+test babbage_tests::max_val_exceeded ... ok
+test babbage_tests::collateral_is_not_verification_key_locked ... ok
+test babbage_tests::collateral_annotation ... ok
+test babbage_tests::collateral_with_other_assets ... ok
+test babbage_tests::collateral_min_lovelace ... ok
+test babbage_tests::output_network_id ... ok
+test babbage_tests::minting_lacks_policy ... ok
+test babbage_tests::extra_input_datum ... ok
+test babbage_tests::successful_mainnet_tx ... ok
+test babbage_tests::no_collateral_inputs ... ok
+test babbage_tests::auxiliary_data_removed ... ok
+test babbage_tests::missing_input_datum ... ok
+test babbage_tests::script_input_lacks_script ... ok
+test babbage_tests::extra_redeemer ... ok
+test babbage_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test babbage_tests::successful_preprod_tx_with_plutus_v2_script ... ok
+test babbage_tests::preservation_of_value ... ok
+test babbage_tests::script_integrity_hash ... ok
+test babbage_tests::successful_mainnet_tx_with_metadata ... ok
+test babbage_tests::unfound_utxo_input ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v1_script ... ok
+test babbage_tests::successful_mainnet_tx_with_plutus_v2_script ... ok
+test babbage_tests::validity_interval_lower_bound_unreached ... ok
+test babbage_tests::successful_mainnet_tx_with_minting ... ok
+test babbage_tests::validity_interval_upper_bound_surpassed ... ok
+test babbage_tests::tx_network_id ... ok
+test babbage_tests::successful_preview_tx_with_plutus_v2_script ... ok
+test babbage_tests::too_many_collateral_inputs ... ok
+test babbage_tests::tx_ex_units_exceeded ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/byron.rs (target/debug/build/pallas-validate/22830227839f86c6/out/byron-22830227839f86c6)
+
+running 10 tests
+test byron_tests::empty_ins ... ok
+test byron_tests::empty_outs ... ok
+test byron_tests::not_enough_fees ... ok
+test byron_tests::output_without_lovelace ... ok
+test byron_tests::missing_witness ... ok
+test byron_tests::tx_size_exceeds_max ... ok
+test byron_tests::unfound_utxo ... ok
+test byron_tests::successful_mainnet_tx ... ok
+test byron_tests::successful_mainnet_tx_with_genesis_utxos ... ok
+test byron_tests::wrong_signature ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/common.rs (target/debug/build/pallas-validate/616857a37af53656/out/common-616857a37af53656)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/conway.rs (target/debug/build/pallas-validate/83b65633a02ddac5/out/conway-83b65633a02ddac5)
+
+running 22 tests
+test conway_tests::empty_ins ... ok
+test conway_tests::collateral_min_lovelace ... ok
+test conway_tests::collateral_with_other_assets ... ok
+test conway_tests::collateral_is_not_verification_key_locked ... ok
+test conway_tests::max_val_exceeded ... ok
+test conway_tests::collateral_annotation ... ok
+test conway_tests::min_fee_unreached ... ok
+test conway_tests::max_tx_size_exceeded ... ok
+test conway_tests::certificate_script_is_required_through_dispatch ... ok
+test conway_tests::min_lovelace_unreached ... ok
+test conway_tests::no_collateral_inputs ... ok
+test conway_tests::preservation_of_value_allows_empty_multiasset_to_equal_coin ... ok
+test conway_tests::preservation_of_value ... ok
+test conway_tests::tx_network_id ... ok
+test conway_tests::registration_deposit_is_required_through_dispatch ... ok
+test conway_tests::unfound_utxo_input ... ok
+test conway_tests::mainnet_reference_script_rejects_underfunded_collateral ... FAILED
+test conway_tests::validity_interval_upper_bound_surpassed ... ok
+test conway_tests::validity_interval_lower_bound_unreached ... ok
+test conway_tests::too_many_collateral_inputs ... ok
+test conway_tests::preview_reference_script_rejects_underfunded_collateral ... FAILED
+test conway_tests::successful_mainnet_tx ... ok
+
+failures:
+
+---- conway_tests::mainnet_reference_script_rejects_underfunded_collateral stdout ----
+collateral: supplied=49731771, returned=49731771, fee=178819
+
+thread 'conway_tests::mainnet_reference_script_rejects_underfunded_collateral' (2817150) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (7, 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- conway_tests::preview_reference_script_rejects_underfunded_collateral stdout ----
+[pallas-validate/tests/conway.rs:188:9] &metx.hash() = Hash<32>(
+    "b41ebebf5234b645f9b0767ac541e1d9ea680b763d9b105554ef3b41acdbd36f",
+)
+collateral: supplied=2554439518, returned=2554439518, fee=180403
+
+thread 'conway_tests::preview_reference_script_rejects_underfunded_collateral' (2817158) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (8, 0)
+
+
+failures:
+    conway_tests::mainnet_reference_script_rejects_underfunded_collateral
+    conway_tests::preview_reference_script_rejects_underfunded_collateral
+
+test result: FAILED. 20 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p pallas-validate --test conway`

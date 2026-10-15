@@ -1,0 +1,128 @@
+[
+  {
+    "path": "cli-integer/data-outside/cli.stderr",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/data-outside/cli.stdout",
+    "raw_sha256": "ae8314b78f9a06fc509b1883777c7a854d86b0bd14f1e7dc7cf05fe284a4e2ee",
+    "tracked_sha256": "ae8314b78f9a06fc509b1883777c7a854d86b0bd14f1e7dc7cf05fe284a4e2ee",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/data-outside/export.txt",
+    "raw_sha256": "3373f22eafae9d52f9a961359f013e72f6c3b31014c5b47ca08c1e6098fb2dd3",
+    "tracked_sha256": "93a63419fa98203ee839c85e8eacd5c4fff925f2050529b1a8aa011a48269d8d",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/equality-outside/cli.stderr",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/equality-outside/cli.stdout",
+    "raw_sha256": "fb2e418ef14e7f62feee1c113839f818ce1b0ed81d3e8334498d88a63e622d21",
+    "tracked_sha256": "fb2e418ef14e7f62feee1c113839f818ce1b0ed81d3e8334498d88a63e622d21",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/equality-outside/export.txt",
+    "raw_sha256": "58127821f9d2b6aeecbf119fbc09093fe4458c3652f27b7674c427384348c34b",
+    "tracked_sha256": "29330d4b01150c932a67fb037ad8f35429df98662ae4e9d06f0ca1e96c78416f",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-inside/cli.stderr",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-inside/cli.stdout",
+    "raw_sha256": "0504a17b8b8e4baba4d4f2ea71ab1f11c097940dbc3fed4ec510c935cb5ef2ea",
+    "tracked_sha256": "0504a17b8b8e4baba4d4f2ea71ab1f11c097940dbc3fed4ec510c935cb5ef2ea",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-inside/export.txt",
+    "raw_sha256": "a74bce52ac38ae4da13193c88e640a0e2df4668d512cfd98f472fd3bb06c21e1",
+    "tracked_sha256": "d5f79cf12bc8c80af45ee0ff6f24d884a5bc1a9bf6b66fb9ec08af9d15cc7139",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-outside/cli.stderr",
+    "raw_sha256": "f33eea4a1b5a2ef69bfcaf75c30193930dc7979d00f75f433d83ed5d85577ce5",
+    "tracked_sha256": "91ff52ce46a4a3c06d29a3d57deb7cd4b2831997d2914e0a9c653db31cb7ab91",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-outside/cli.stdout",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/negative-outside/export.txt",
+    "raw_sha256": "869fb75d30ac3eed768f1a7d84f2a9512c766ef0baee957e829c35083862b9ad",
+    "tracked_sha256": "c1eecb6c753472c04ca0e664f5e099174d5c17af927a93ffe5058c73add34564",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-inside/cli.stderr",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-inside/cli.stdout",
+    "raw_sha256": "54844486436adb715d7d812b05030c7e2d4e3fc94423b53273db0fa63a5c16c0",
+    "tracked_sha256": "54844486436adb715d7d812b05030c7e2d4e3fc94423b53273db0fa63a5c16c0",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-inside/export.txt",
+    "raw_sha256": "41082610d7aeee93ebed708f71b3fd2866192b718beff5cc74de796f23d5a277",
+    "tracked_sha256": "10e42a60d5aab345bfeeee2a616a4983feed32984ac780c6460d0c10bd481dbb",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside/cli.stderr",
+    "raw_sha256": "c30516919aeeda847638e9d6442ae7283b3f3a02eb5e017e2f1ab66dc0118935",
+    "tracked_sha256": "75934141e3386144d4dc1ae629e9609cc8f61af816f9e7e51fc874e2f545350e",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside/cli.stdout",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside/export.txt",
+    "raw_sha256": "fbd3da5bf28cd1b956a685e9c5991108b1ebc80b9124be9364f5c9859d8f4fe5",
+    "tracked_sha256": "d84f4de8d15d2bf348203ff9b42fa435348b85d7b19e7008b6ef5c726b94a9c0",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside-fixed/cli.stderr",
+    "raw_sha256": "c30516919aeeda847638e9d6442ae7283b3f3a02eb5e017e2f1ab66dc0118935",
+    "tracked_sha256": "75934141e3386144d4dc1ae629e9609cc8f61af816f9e7e51fc874e2f545350e",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside-fixed/cli.stdout",
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tracked_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "normalization": "strip line-end whitespace and final blank lines"
+  },
+  {
+    "path": "cli-integer/positive-outside-fixed/export.txt",
+    "raw_sha256": "22c3fe6e9130020e0c355739deeb371249c0a7da77a7cb5203c115a590b8c321",
+    "tracked_sha256": "f1d27ffafb98a23d209f504b423848e3e98431c87800dc2ba01f56d4553b3df9",
+    "normalization": "strip line-end whitespace and final blank lines"
+  }
+]

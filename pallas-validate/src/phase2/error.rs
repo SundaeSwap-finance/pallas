@@ -6,12 +6,19 @@ use pallas_primitives::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("unsupported native Dijkstra evaluation: {0}")]
+    DijkstraUnsupported(&'static str),
+    #[error("invalid native Dijkstra evaluation: {0}")]
+    DijkstraInvalid(&'static str),
     #[error("address error: {0}")]
     Address(#[from] pallas_addresses::Error),
     #[error("only shelley reward addresses can be a part of withdrawals")]
     BadWithdrawalAddress,
     #[error("flat decode error: {0}")]
     FlatDecode(#[from] FlatDecodeError),
+    #[cfg(feature = "unstable")]
+    #[error("native flat decode error: {0}")]
+    NativeFlatDecode(#[from] amaru_uplc_native::flat::FlatDecodeError),
     #[error("fragment decode error: {0}")]
     FragmentDecode(#[from] pallas_primitives::Error),
     #[error(
@@ -55,7 +62,7 @@ pub enum Error {
     NoGuardrailScriptForProcedure,
     #[error("cost model not found for language\n{:>13} {:?}", "Language", .0)]
     CostModelNotFound(Language),
-    #[error("unsupported era, please use Conway")]
+    #[error("unsupported transaction era for this evaluation entry point")]
     WrongEra(),
     #[error("decoding error\n{:>13} {}", "Decoder error", .0)]
     DecodeError(#[from] pallas_codec::minicbor::decode::Error),

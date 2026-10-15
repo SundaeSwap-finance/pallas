@@ -1,0 +1,32 @@
+    Checking hyper-util v0.1.21
+    Checking pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+    Checking pallas-configs v1.4.0 (/tmp/pallas-amaru-integration/pallas-configs)
+    Checking pallas-network2 v1.4.0 (/tmp/pallas-amaru-integration/pallas-network2)
+    Checking pallas-network v1.4.0 (/tmp/pallas-amaru-integration/pallas-network)
+    Checking utxorpc-spec v0.19.2
+    Checking pallas-txbuilder v1.4.0 (/tmp/pallas-amaru-integration/pallas-txbuilder)
+    Checking pallas-hardano v1.4.0 (/tmp/pallas-amaru-integration/pallas-hardano)
+    Checking leios-testnet v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-testnet)
+    Checking hyper-rustls v0.27.10
+    Checking hyper-timeout v0.5.2
+    Checking reqwest v0.12.28
+    Checking tonic v0.13.1
+    Checking reqwest v0.13.5
+    Checking opentelemetry-http v0.30.0
+    Checking amaru-deps v0.0.0 (file:///home/rodrigo/projects/amaru?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking opentelemetry-proto v0.30.0
+    Checking amaru-minicbor-extra v0.1.2 (file:///home/rodrigo/projects/amaru?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking amaru-kernel v0.1.2 (file:///home/rodrigo/projects/amaru?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking opentelemetry-otlp v0.30.0
+    Checking p2p-discovery v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-discovery)
+    Checking p2p-responder v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-responder)
+    Checking amaru-uplc v0.4.0 (file:///home/rodrigo/projects/amaru?rev=e122ffb2018196ba9c57f42b70b94ada603d3fbc#e122ffb2)
+    Checking pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Checking pallas-utxorpc v1.4.0 (/tmp/pallas-amaru-integration/pallas-utxorpc)
+    Checking pallas v1.4.0 (/tmp/pallas-amaru-integration/pallas)
+    Checking crawler v0.1.0 (/tmp/pallas-amaru-integration/examples/crawler)
+    Checking n2n-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2n-miniprotocols)
+    Checking block-download v0.1.0 (/tmp/pallas-amaru-integration/examples/block-download)
+    Checking n2c-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2c-miniprotocols)
+    Checking byron-decoder v0.1.0 (/tmp/pallas-amaru-integration/examples/block-decode)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.77s

@@ -1,0 +1,12 @@
+warning: /home/rodrigo/projects/amaru-stable-compat/crates/amaru-deps/Cargo.toml: unused manifest key `lints.cargo` (may be supported in a future version)
+
+this Cargo does not support nightly features, but if you
+switch to nightly channel you can pass
+`-Zcargo-lints` to enable this feature.
+    Checking amaru-deps v0.0.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-deps)
+    Checking amaru-minicbor-extra v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-minicbor-extra)
+    Checking amaru-kernel v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-kernel)
+ Documenting amaru-kernel v0.1.2 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-kernel)
+ Documenting amaru-uplc v0.4.0 (/home/rodrigo/projects/amaru-stable-compat/crates/amaru-uplc)
+    Finished `dev` profile [optimized] target(s) in 9.98s
+   Generated /home/rodrigo/projects/pallas/target/amaru-stable-compat-tests/doc/amaru_kernel/index.html and 1 other file

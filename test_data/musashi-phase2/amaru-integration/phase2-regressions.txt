@@ -1,0 +1,378 @@
+warning: unused workspace dependency `pallas`
+  --> Cargo.toml:53:1
+   |
+53 | pallas = { version = "=1.4.0", path = "pallas" }
+   | ^^^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `pallas`
+warning: unused workspace dependency `pallas-math`
+  --> Cargo.toml:65:1
+   |
+65 | pallas-math = { version = "=1.4.0", path = "pallas-math" }
+   | ^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `pallas-math`
+warning: workspace (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-codec/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-codec/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-codec` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-addresses/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-addresses/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-addresses` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-utxorpc/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-utxorpc/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-utxorpc` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-configs/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-configs/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-configs` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-validate/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-validate/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-validate` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-hardano/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-hardano/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-hardano` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-math/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-math/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-math` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network2/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network2/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network2` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-txbuilder/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-txbuilder/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-txbuilder` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-traverse/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-traverse/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-traverse` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-crypto/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-crypto/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-crypto` (manifest) generated 2 warnings
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas` (manifest) generated 1 warning
+warning: explicit `package.readme` can be inferred
+  --> pallas-primitives/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-primitives/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-primitives` (manifest) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.95s
+     Running unittests src/lib.rs (target/debug/build/pallas-validate/0cb325c408e316f9/out/pallas_validate-0cb325c408e316f9)
+
+running 42 tests
+test phase2::dijkstra_evaluation_tests::export_registration_cli_comparison ... ignored, exports public extracted CLI comparison artifacts to MUSASHI_EVAL_EXPORT
+test phase2::evaluator::tests::flat_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::machine_failure_keeps_logs ... FAILED
+test phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources ... ok
+test phase2::evaluator::tests::script_cbor_decode_failure_is_typed ... ok
+test phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic ... FAILED
+test phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context ... FAILED
+test phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_builtin_inventory ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer ... ok
+test phase2::dijkstra_evaluation_tests::native_post_bootstrap_context_reaches_script ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts ... ok
+test phase2::registration_evaluator_tests::registration_builtin_case_matches_independent_cli_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_resolves_synthetic_earlier_era_outputs ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos ... ok
+test phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view ... FAILED
+test phase2::script_context::registration_scripts::captured_registration_context_has_full_certificate_position ... ok
+test phase2::script_context::registration_scripts::captured_registration_rejects_bad_indices_and_wrong_purpose ... ok
+test phase2::script_context::registration_scripts::captured_registration_requires_correct_script ... ok
+test phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set ... FAILED
+test phase2::script_context::registration_scripts::registration_position_includes_non_script_certificates ... ok
+test phase2::script_context::tests::a_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::script_context::tests::a_reference_native_script_is_keyed_by_the_hash_of_the_bytes_it_arrived_in ... ok
+test phase2::script_context::registration_scripts::registration_v1_v2_context_uses_legacy_registration_encoding ... ok
+test phase2::registration_evaluator_tests::registration_cons_byte_string_keeps_v3_byte_range ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_legacy_certificates_have_no_explicit_amount ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_boundaries_at_every_occurrence ... ok
+test phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution ... FAILED
+test phase2::script_context::registration_scripts::registration_rejects_key_and_exempt_certificate_targets ... ok
+test phase2::registration_evaluator_tests::registration_constructor_tags_fail_without_panicking ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget ... ok
+test phase2::registration_evaluator_tests::registration_casing_rejects_wrong_arity_indices_and_types ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures ... ok
+test phase2::registration_evaluator_tests::registration_casing_selects_and_applies_builtin_fields ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols ... ok
+test phase2::registration_evaluator_tests::registration_checks_each_bounded_bytestring_argument ... ok
+test phase2::registration_evaluator_tests::registration_bytestring_bound_is_on_selected_operands_not_results ... ok
+test phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors ... FAILED
+
+failures:
+
+---- phase2::evaluator::tests::machine_failure_keeps_logs stdout ----
+
+thread 'phase2::evaluator::tests::machine_failure_keeps_logs' (2815912) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context stdout ----
+
+thread 'phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context' (2815914) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic stdout ----
+
+thread 'phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic' (2815916) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context stdout ----
+
+thread 'phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context' (2815913) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view stdout ----
+
+thread 'phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view' (2815926) panicked at pallas-validate/src/phase2/script_context/registration_scripts.rs:117:9:
+expected successful captured script execution, got Err(FlatDecode(TermNotAvailable(9, "case")))
+
+---- phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set stdout ----
+
+thread 'phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set' (2815929) panicked at pallas-validate/src/phase2/script_context/registration_scripts.rs:284:56:
+called `Result::unwrap()` on an `Err` value: FlatDecode(TermNotAvailable(9, "case"))
+
+---- phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution stdout ----
+
+thread 'phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution' (2815937) panicked at /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-uplc/src/builtin/default_function.rs:503:13:
+internal error: entered unreachable code: unsupported protocol version: (9, 0)
+
+---- phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors stdout ----
+
+thread 'phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors' (2815924) panicked at pallas-validate/src/phase2/registration_evaluator_tests.rs:176:27:
+unexpected acceptance
+
+
+failures:
+    phase2::evaluator::tests::machine_failure_keeps_logs
+    phase2::evaluator::tests::plutus_v2_applies_datum_then_redeemer_then_context
+    phase2::evaluator::tests::plutus_v2_skips_missing_datum_and_applies_redeemer_then_context
+    phase2::evaluator::tests::serialise_data_v3_script_evaluates_without_panic
+    phase2::registration_evaluator_tests::registration_integer_bounds_are_explicit_subset_errors
+    phase2::script_context::registration_scripts::captured_registration_executes_reference_script_in_conway_view
+    phase2::script_context::registration_scripts::registration_can_execute_same_script_from_witness_set
+    phase2::v3_deposit_context_tests::v3_deposit_context_protocol_reaches_script_execution
+
+test result: FAILED. 33 passed; 8 failed; 1 ignored; 0 measured; 73 filtered out; finished in 13.52s
+
+error: test failed, to rerun pass `-p pallas-validate --lib`

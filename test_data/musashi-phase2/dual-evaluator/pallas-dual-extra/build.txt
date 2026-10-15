@@ -1,0 +1,13 @@
+    Blocking waiting for file lock on build directory
+   Compiling pallas-network2 v1.4.0 (/tmp/pallas-amaru-integration/pallas-network2)
+   Compiling byron-decoder v0.1.0 (/tmp/pallas-amaru-integration/examples/block-decode)
+   Compiling crawler v0.1.0 (/tmp/pallas-amaru-integration/examples/crawler)
+   Compiling n2n-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2n-miniprotocols)
+   Compiling n2c-miniprotocols v0.1.0 (/tmp/pallas-amaru-integration/examples/n2c-miniprotocols)
+   Compiling p2p-discovery v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-discovery)
+   Compiling p2p-responder v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-responder)
+   Compiling leios-tui v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-tui)
+   Compiling block-download v0.1.0 (/tmp/pallas-amaru-integration/examples/block-download)
+   Compiling p2p-initiator v0.1.0 (/tmp/pallas-amaru-integration/examples/p2p-initiator)
+   Compiling leios-testnet v0.1.0 (/tmp/pallas-amaru-integration/examples/leios-testnet)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.74s

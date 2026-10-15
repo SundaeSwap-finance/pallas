@@ -1,0 +1,74 @@
+{
+  "date": "2026-09-30",
+  "pallas_parent": "9caf75a60f381dda02072bc1fd6e242464df7068",
+  "change": "User-authorized workspace MSRV adoption: 1.88 to 1.97",
+  "checks": [
+    {
+      "check": "workspace-check",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "output": "workspace-check.txt"
+    },
+    {
+      "check": "validation-tests",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2,unstable"
+      ],
+      "exit_code": 0,
+      "output": "validation-tests.txt"
+    }
+  ],
+  "workspace_rust_versions": {
+    "pallas-codec": "1.97",
+    "pallas-addresses": "1.97",
+    "pallas-crypto": "1.97",
+    "pallas-network": "1.97",
+    "pallas-network2": "1.97",
+    "pallas-configs": "1.97",
+    "pallas-primitives": "1.97",
+    "pallas-traverse": "1.97",
+    "pallas-txbuilder": "1.97",
+    "pallas-utxorpc": "1.97",
+    "pallas-validate": "1.97",
+    "pallas-hardano": "1.97",
+    "pallas-math": "1.97",
+    "pallas": "1.97",
+    "block-download": "1.97",
+    "byron-decoder": "1.97",
+    "crawler": "1.97",
+    "n2n-miniprotocols": "1.97",
+    "n2c-miniprotocols": "1.97",
+    "p2p-discovery": "1.97",
+    "p2p-responder": "1.97",
+    "p2p-initiator": "1.97",
+    "leios-testnet": "1.97",
+    "leios-tui": "1.97"
+  },
+  "validation_tests": {
+    "passed": 241,
+    "ignored": 2
+  },
+  "limitations": [
+    "Local dependency URI still requires publication and portable pin before hosted CI can run",
+    "No macOS or Windows execution",
+    "Existing seven harvest.rs format differences remain",
+    "Amaru workspace retry is still running after libclang installation; no full-workspace pass claimed"
+  ],
+  "remote_tips": {
+    "pallas": "a5f93ea58900020058ae22f5108f97b7d69f9373",
+    "dolos": "abe2642391006e7e5439a00493d41db5da280a02"
+  },
+  "normalization": "Logs: strip line-end whitespace and final blank lines"
+}

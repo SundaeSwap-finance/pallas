@@ -1,0 +1,65 @@
+{
+  "date": "2026-09-30",
+  "stage": "merge prepared; user publication and portable dependency verification pending",
+  "parents": [
+    "fee0fac2cf7ad3fde2e19eae96d618ec1d4f52ca",
+    "a5f93ea58900020058ae22f5108f97b7d69f9373"
+  ],
+  "s06_diff_base": "4be4fb2171a73bdb04994c8472e76f601d41318f",
+  "s06_patch_sha256": "52074f2fa04dddccbf1acdabc956ebde07cabfd8d342df0bca6eded62c40a030",
+  "branch": "integration/musashi-s06-amaru",
+  "amaru_commit": "e122ffb2018196ba9c57f42b70b94ada603d3fbc",
+  "amaru_publication": "not visible on last read-only check",
+  "dependency": "local Git URI; portable-pin.patch is prepared but not applied",
+  "completed_checks": [
+    {
+      "name": "native-and-legacy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "test",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2,unstable"
+      ],
+      "exit_code": 0,
+      "output": "native-and-legacy.txt"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "build",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "output": "workspace-build.txt"
+    }
+  ],
+  "pending_checks": [
+    "workspace-tests",
+    "workspace-clippy",
+    "workspace-docs",
+    "all-features",
+    "no-default",
+    "isolated",
+    "unstable",
+    "blueprint",
+    "phase2-only",
+    "native-clippy",
+    "format"
+  ],
+  "running_session": 29563,
+  "tag_refs_sha256": "1216c4b68ad8134d0dd35583265ec69662dfebfaa8652d1ccc924bb673773538",
+  "history": "merge preserves existing commits and tags; remote changes retained exactly outside S06",
+  "files_sha256": {
+    "portable-pin.patch": "3409342fd48718d9ac5f64c8e363c7ca04507b73146da50003bdaae61d1f7387",
+    "dependency-lock-local.txt": "534d2bb78b069a8941c2eb40da3ab396996821c424ac70046184b879ef631ab0",
+    "workspace-build.txt": "b76cc3f65663584245a1cfdbca96eee61eed325965e84388ce9b9ec1f79e25c3",
+    "native-and-legacy.txt": "432a6a89bd49e3a1e23c1fc998cd06077957e59cbec919c4ca13cd2696a09d7a",
+    "README.md": "80da839eac8f8eef5622eb0ec01700f5be2fd34823747d97dd807daee93c9a1c"
+  }
+}

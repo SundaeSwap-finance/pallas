@@ -1,0 +1,308 @@
+warning: unused workspace dependency `pallas`
+  --> Cargo.toml:53:1
+   |
+53 | pallas = { version = "=1.4.0", path = "pallas" }
+   | ^^^^^^
+   |
+   = note: `cargo::unused_workspace_dependencies` is set to `warn` by default
+help: consider removing the workspace dependency `pallas`
+warning: unused workspace dependency `pallas-math`
+  --> Cargo.toml:65:1
+   |
+65 | pallas-math = { version = "=1.4.0", path = "pallas-math" }
+   | ^^^^^^^^^^^
+   |
+help: consider removing the workspace dependency `pallas-math`
+warning: workspace (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-codec/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-codec/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-codec` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-addresses/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-addresses/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-addresses` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-utxorpc/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-utxorpc/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-utxorpc` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-configs/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-configs/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-configs` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-validate/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-validate/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-validate` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-hardano/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-hardano/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-hardano` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-math/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-math/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-math` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network2/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network2/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network2` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-network/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-network/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-network` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-txbuilder/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-txbuilder/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-txbuilder` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-traverse/Cargo.toml:12:1
+   |
+12 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-traverse/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-traverse` (manifest) generated 2 warnings
+warning: explicit `package.readme` can be inferred
+  --> pallas-crypto/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-crypto/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-crypto` (manifest) generated 2 warnings
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas` (manifest) generated 1 warning
+warning: explicit `package.readme` can be inferred
+  --> pallas-primitives/Cargo.toml:11:1
+   |
+11 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `package.homepage` is redundant with `package.repository`
+ --> pallas-primitives/Cargo.toml:8:1
+  |
+7 | repository.workspace = true
+  | ----------
+8 | homepage.workspace = true
+  | ^^^^^^^^
+  |
+  = note: `cargo::redundant_homepage` is set to `warn` by default
+help: consider removing `package.homepage`
+warning: `pallas-primitives` (manifest) generated 2 warnings
+    Updating git repository `https://github.com/rodrigomd94/amaru.git`
+     Locking 4 packages to highest compatible versions
+      Adding amaru-deps v0.0.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+      Adding amaru-kernel v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+      Adding amaru-minicbor-extra v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+      Adding amaru-uplc v0.4.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-deps v0.0.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-uplc v0.4.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-minicbor-extra v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-kernel v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling pallas-validate v1.4.0 (/tmp/pallas-amaru-integration/pallas-validate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.96s
+     Running unittests src/lib.rs (target/debug/build/pallas-validate/0cb325c408e316f9/out/pallas_validate-0cb325c408e316f9)
+
+running 15 tests
+test phase2::dijkstra_evaluation_tests::export_registration_cli_comparison ... ignored, exports public extracted CLI comparison artifacts to MUSASHI_EVAL_EXPORT
+captured builtin inventory: {"AddInteger", "AppendByteString", "BData", "Blake2b_224", "Blake2b_256", "ChooseData", "ChooseList", "ConsByteString", "ConstrData", "DivideInteger", "EqualsByteString", "EqualsData", "EqualsInteger", "FstPair", "HeadList", "IData", "IfThenElse", "LengthOfByteString", "LessThanEqualsByteString", "LessThanEqualsInteger", "LessThanInteger", "ListData", "MapData", "MkCons", "MkPairData", "ModInteger", "SerialiseData", "SndPair", "TailList", "UnBData", "UnConstrData", "UnIData", "UnListData", "UnMapData", "VerifyEd25519Signature"}
+test phase2::dijkstra_evaluation_tests::native_registration_builtin_inventory ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_excludes_collateral_and_unrelated_script_sources ... ok
+test phase2::dijkstra_evaluation_tests::native_post_bootstrap_context_reaches_script ... ok
+native historical result: [TxEvalResult { tag: Cert, index: 0, units: ExUnits { mem: 18485, steps: 4805428 }, success: true, logs: [], failure_message: None }]; declared ExUnits { mem: 18485, steps: 4805428 }
+test phase2::dijkstra_evaluation_tests::native_registration_executes_with_historical_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_synthetic_validator_reads_redeemer ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_resolves_synthetic_earlier_era_outputs ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_protocol12_bytestring_operand_boundary ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_missing_inputs_and_unrelated_utxos ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_script_encoding_and_witness_scripts ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_cost_model_is_applied_and_never_truncated ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_invalid_redeemer_and_budget ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_script_presence_language_and_machine_failures ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_redeemer_presence_purpose_and_position ... ok
+test phase2::dijkstra_evaluation_tests::native_registration_rejects_unsupported_features_and_protocols ... ok
+
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 100 filtered out; finished in 0.09s

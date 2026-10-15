@@ -1,0 +1,1354 @@
+--- a/pallas-validate/src/utils/environment.rs
++++ b/pallas-validate/src/utils/environment.rs
+@@ -328 +328 @@
+-/// Parameters needed for native Plutus V3 registration phase one (not evaluation).
++/// Parameters needed for native Plutus V3 registration validation and evaluation.
+--- /dev/null
++++ b/pallas-validate/src/phase2/v3_deposit_context_tests.rs
+@@ -0,0 +1,111 @@
++//! Synthetic encoding boundaries, independent of captured script success.
++use super::{data::Data, script_context::*, to_plutus_data::*};
++use pallas_primitives::conway::{
++    Certificate, ExUnits, PlutusData, Redeemer, RedeemerTag, StakeCredential,
++};
++
++fn fields(data: &PlutusData) -> &[PlutusData] {
++    match data {
++        PlutusData::Constr(c) => &c.fields,
++        _ => panic!("expected constructor: {data:?}"),
++    }
++}
++fn context(cert: Certificate) -> ScriptContext<'static> {
++    let r = Redeemer {
++        tag: RedeemerTag::Cert,
++        index: 2,
++        data: Data::list(vec![]),
++        ex_units: ExUnits {
++            mem: 100,
++            steps: 100,
++        },
++    };
++    let purpose = ScriptPurpose::Certifying(2, cert.clone());
++    TxInfo::V3(TxInfoV3 {
++        inputs: vec![],
++        reference_inputs: vec![],
++        outputs: vec![],
++        fee: 0,
++        mint: MintValue {
++            mint_value: Default::default(),
++        },
++        certificates: vec![cert],
++        withdrawals: vec![].into(),
++        valid_range: TimeRange {
++            lower_bound: None,
++            upper_bound: None,
++        },
++        signatories: vec![],
++        redeemers: vec![(purpose, r.clone())].into(),
++        data: vec![].into(),
++        id: [0; 32].into(),
++        votes: vec![].into(),
++        proposal_procedures: vec![],
++        current_treasury_amount: None,
++        treasury_donation: None,
++    })
++    .into_script_context(&r, None)
++    .unwrap()
++}
++#[test]
++fn v3_deposit_context_protocol_boundaries_at_every_occurrence() {
++    let credential = StakeCredential::ScriptHash([7; 28].into());
++    for protocol in [9, 10, 11, 12] {
++        for amount in [0, 1, 2000000, u64::MAX] {
++            for (tag, cert) in [
++                (0, Certificate::Reg(credential.clone(), amount)),
++                (1, Certificate::UnReg(credential.clone(), amount)),
++            ] {
++                let c = context(cert);
++                let encoded = c.to_plutus_data_with_protocol(protocol);
++                let expected = Data::constr(
++                    tag,
++                    vec![
++                        credential.to_plutus_data(),
++                        if protocol == 9 {
++                            None::<u64>.to_plutus_data()
++                        } else {
++                            Some(amount).to_plutus_data()
++                        },
++                    ],
++                );
++                let info = fields(&fields(&encoded)[0]);
++                assert_eq!(
++                    info[5],
++                    Data::list(vec![expected.clone()]),
++                    "certificate list protocol {protocol}"
++                );
++                assert_eq!(
++                    fields(&fields(&encoded)[2])[1],
++                    expected,
++                    "active purpose protocol {protocol}"
++                );
++                let PlutusData::Map(m) = &info[9] else {
++                    panic!("redeemer map")
++                };
++                assert_eq!(
++                    fields(&m[0].0)[1],
++                    expected,
++                    "redeemer purpose protocol {protocol}"
++                );
++                if protocol == 9 {
++                    assert_eq!(encoded, c.to_plutus_data());
++                }
++            }
++        }
++    }
++}
++#[test]
++fn v3_deposit_context_legacy_certificates_have_no_explicit_amount() {
++    let credential = StakeCredential::AddrKeyhash([3; 28].into());
++    for cert in [
++        Certificate::StakeRegistration(credential.clone()),
++        Certificate::StakeDeregistration(credential),
++    ] {
++        let c = context(cert);
++        assert_eq!(
++            c.to_plutus_data_with_protocol(9),
++            c.to_plutus_data_with_protocol(12)
++        );
++    }
++}
+--- /dev/null
++++ b/pallas-validate/src/phase2/dijkstra_evaluation_tests.rs
+@@ -0,0 +1,680 @@
++//! Unchanged native capture and synthetic phase-two boundaries; no submission.
++use super::*;
++use crate::utils::{DijkstraPlutusParams, DijkstraProtParams, EraCbor, TxoRef};
++use pallas_codec::minicbor;
++use pallas_primitives::{conway as c, dijkstra as n};
++use pallas_traverse::{Era, MultiEraBlock, MultiEraTx};
++
++fn slots() -> SlotConfig {
++    SlotConfig {
++        zero_slot: 0,
++        zero_time: 1788739200000,
++        slot_length: 1000,
++    }
++}
++fn params() -> MultiEraProtocolParameters {
++    let p: serde_json::Value = serde_json::from_str(include_str!(
++        "../../../test_data/musashi-phase1/registration-epoch64-parameters.json"
++    ))
++    .unwrap();
++    MultiEraProtocolParameters::Dijkstra(DijkstraProtParams {
++        system_start: "2026-09-07T00:00:00Z".parse().unwrap(),
++        epoch_length: 21600,
++        slot_length: 1,
++        protocol_version: (12, 0),
++        minfee_a: 44,
++        minfee_b: 155381,
++        max_transaction_size: 16384,
++        ada_per_utxo_byte: 4310,
++        max_value_size: 5000,
++        key_deposit: Some(2000000),
++        plutus: Some(DijkstraPlutusParams {
++            cost_model_v3: serde_json::from_value(p["cost_models_raw"]["PlutusV3"].clone())
++                .unwrap(),
++            execution_costs: pallas_primitives::ExUnitPrices {
++                mem_price: n::RationalNumber {
++                    numerator: 577,
++                    denominator: 10000,
++                },
++                step_price: n::RationalNumber {
++                    numerator: 721,
++                    denominator: 10000000,
++                },
++            },
++            max_tx_ex_units: n::ExUnits {
++                mem: p["max_tx_ex_mem"].as_str().unwrap().parse().unwrap(),
++                steps: p["max_tx_ex_steps"].as_str().unwrap().parse().unwrap(),
++            },
++            collateral_percentage: 150,
++            max_collateral_inputs: 3,
++            minfee_refscript_cost_per_byte: n::RationalNumber {
++                numerator: 15,
++                denominator: 1,
++            },
++            max_ref_script_size_per_tx: 200000,
++            ref_script_cost_stride: 25600,
++            ref_script_cost_multiplier: n::RationalNumber {
++                numerator: 6,
++                denominator: 5,
++            },
++        }),
++    })
++}
++fn fixture(test: impl FnOnce(n::BlockTransaction<'_>, UtxoMap)) {
++    let read = |name| {
++        hex::decode(
++            std::fs::read_to_string(
++                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++                    .join("../test_data/musashi-registration/blocks")
++                    .join(name),
++            )
++            .unwrap()
++            .trim(),
++        )
++        .unwrap()
++    };
++    let raw = read("1401365.block");
++    let raw_producer = read("1401345.block");
++    let block = MultiEraBlock::decode(&raw).unwrap();
++    let producer = MultiEraBlock::decode(&raw_producer).unwrap();
++    let txs = block.txs();
++    let producers = producer.txs();
++    assert_eq!(
++        txs[0].hash().to_string(),
++        "da910a9bfbe657724d64b505099010dd47f86fb573aa1d20b4da0367163e94c6"
++    );
++    let tx = txs[0].as_dijkstra().unwrap();
++    assert!(tx.success);
++    let outputs = producers[0].outputs();
++    let utxos = outputs
++        .iter()
++        .enumerate()
++        .map(|(i, o)| {
++            assert_eq!(o.era(), Era::Dijkstra);
++            (
++                TxoRef(producers[0].hash(), i as u32),
++                EraCbor(o.era(), o.encode()),
++            )
++        })
++        .collect();
++    test(tx.clone(), utxos);
++}
++fn run(tx: &n::BlockTransaction<'_>, u: &UtxoMap) -> Result<EvalReport, Error> {
++    evaluate_tx(&MultiEraTx::from_dijkstra(tx), &params(), u, &slots())
++}
++#[test]
++fn native_registration_executes_with_historical_budget() {
++    fixture(|tx, u| {
++        let original = minicbor::to_vec(&tx).unwrap();
++        let r = run(&tx, &u).expect("native protocol-12 registration must evaluate");
++        assert_eq!(r.len(), 1);
++        assert_eq!((r[0].tag, r[0].index), (c::RedeemerTag::Cert, 0));
++        assert!(r[0].success, "{r:?}");
++        let view = MultiEraTx::from_dijkstra(&tx);
++        let budgets = view.redeemers();
++        let budget = budgets[0].ex_units();
++        assert!(r[0].units.mem > 0 && r[0].units.mem <= budget.mem, "{r:?}");
++        assert!(
++            r[0].units.steps > 0 && r[0].units.steps <= budget.steps,
++            "{r:?}"
++        );
++        assert!(r[0].failure_message.is_none());
++        assert_eq!(minicbor::to_vec(&tx).unwrap(), original);
++        println!("native historical result: {r:?}; declared {budget:?}");
++    });
++}
++
++fn change_redeemer(
++    tx: &mut n::BlockTransaction<'_>,
++    f: impl FnOnce(&mut n::RedeemersKey, &mut n::RedeemersValue),
++) {
++    let mut w = (*tx.transaction_witness_set).clone();
++    let mut redeemers = w.redeemer.as_ref().unwrap().0.clone();
++    let (mut key, mut value) = redeemers.pop_first().unwrap();
++    f(&mut key, &mut value);
++    redeemers.insert(key, value);
++    w.redeemer = Some(n::Redeemers(redeemers).into());
++    tx.transaction_witness_set = w.into();
++}
++fn error(result: Result<EvalReport, Error>, expected: &str) {
++    let actual = format!("{:?}", result.expect_err(expected));
++    assert!(
++        actual.contains(expected),
++        "expected {expected}, got {actual}"
++    );
++}
++#[test]
++fn native_registration_missing_inputs_and_unrelated_utxos() {
++    fixture(|tx, u| {
++        for input in [
++            &tx.transaction_body.inputs[0],
++            &tx.transaction_body.reference_inputs.as_ref().unwrap()[0],
++        ] {
++            let mut missing = u.clone();
++            missing.remove(&TxoRef(input.transaction_id, input.index as u32));
++            error(run(&tx, &missing), "ResolvedInputNotFound");
++        }
++        let mut extra = u.clone();
++        extra.insert(
++            TxoRef([0; 32].into(), 0),
++            EraCbor(Era::Dijkstra, vec![0xff]),
++        );
++        assert!(run(&tx, &extra).unwrap()[0].success);
++    });
++}
++#[test]
++fn native_registration_redeemer_presence_purpose_and_position() {
++    fixture(|tx, u| {
++        let mut missing = tx.clone();
++        let mut w = (*missing.transaction_witness_set).clone();
++        w.redeemer = None;
++        missing.transaction_witness_set = w.into();
++        error(run(&missing, &u), "RequiredRedeemersMismatch");
++        for index in [1, u32::MAX] {
++            let mut bad = tx.clone();
++            change_redeemer(&mut bad, |k, _| k.index = index);
++            error(run(&bad, &u), "MissingScriptForRedeemer");
++        }
++        for tag in [
++            n::RedeemerTag::Spend,
++            n::RedeemerTag::Mint,
++            n::RedeemerTag::Reward,
++            n::RedeemerTag::Vote,
++            n::RedeemerTag::Propose,
++            n::RedeemerTag::Guarding,
++        ] {
++            let mut bad = tx.clone();
++            change_redeemer(&mut bad, |k, _| k.tag = tag);
++            error(run(&bad, &u), "redeemer purpose (requires Cert)");
++        }
++        let mut shifted = tx.clone();
++        let mut b = (*shifted.transaction_body).clone();
++        let mut certificates = b.certificates.as_ref().unwrap().to_vec();
++        certificates.insert(
++            0,
++            n::Certificate::Reg(n::StakeCredential::AddrKeyhash([0; 28].into()), 2000000),
++        );
++        b.certificates = Some(certificates.try_into().unwrap());
++        shifted.transaction_body = b.into();
++        change_redeemer(&mut shifted, |k, _| k.index = 1);
++        let result = run(&shifted, &u).unwrap();
++        assert!(result[0].success);
++        assert_eq!(result[0].index, 1);
++        change_redeemer(&mut shifted, |k, _| k.index = 0);
++        error(run(&shifted, &u), "NonScriptStakeCredential");
++    });
++}
++#[test]
++fn native_registration_invalid_redeemer_and_budget() {
++    fixture(|tx, u| {
++        let mut bad = tx.clone();
++        change_redeemer(&mut bad, |_, v| {
++            v.data = super::data::Data::bytestring(vec![])
++        });
++        let result = run(&bad, &u).unwrap();
++        assert!(
++            result[0].success,
++            "captured registration ignores redeemer data: {result:?}"
++        );
++        for (mem, remaining) in [(true, 0), (false, 0), (true, 18484), (false, 4805427)] {
++            let mut exhausted = tx.clone();
++            change_redeemer(&mut exhausted, |_, v| {
++                if mem {
++                    v.ex_units.mem = remaining
++                } else {
++                    v.ex_units.steps = remaining
++                }
++            });
++            let result = run(&exhausted, &u).unwrap();
++            assert!(!result[0].success, "{result:?}");
++            assert!(result[0].failure_message.is_some());
++        }
++        let mut excess = tx.clone();
++        change_redeemer(&mut excess, |_, v| v.ex_units.steps = u64::MAX);
++        error(
++            run(&excess, &u),
++            "declared transaction budget exceeds maximum",
++        );
++    });
++}
++#[test]
++fn native_registration_cost_model_is_applied_and_never_truncated() {
++    fixture(|tx, u| {
++        let original = run(&tx, &u).unwrap();
++        let mut pp = params();
++        let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
++            unreachable!()
++        };
++        let costs = &mut p.plutus.as_mut().unwrap().cost_model_v3;
++        assert_eq!(costs.len(), 350);
++        costs[29] += 1000; // V3 cekStartupCost-exBudgetCPU, a used historical coefficient.
++        let changed = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()).unwrap();
++        assert_eq!(changed[0].units.steps, original[0].units.steps + 1000);
++        assert!(
++            !changed[0].success,
++            "higher historical cost exceeds unchanged declared budget"
++        );
++        for len in [0, 251, 297, 349, 351] {
++            let mut pp = params();
++            let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
++                unreachable!()
++            };
++            p.plutus.as_mut().unwrap().cost_model_v3.resize(len, 0);
++            error(
++                evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
++                "requires 350 entries",
++            );
++        }
++        let mut pp = params();
++        let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
++            unreachable!()
++        };
++        p.plutus = None;
++        error(
++            evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
++            "CostModelNotFound",
++        );
++    });
++}
++
++#[test]
++fn native_registration_builtin_inventory() {
++    use amaru_uplc::{
++        arena::Arena, binder::DeBruijn, flat, machine::PlutusVersion, program::Program, term::Term,
++    };
++    fixture(|tx, u| {
++        let i = &tx.transaction_body.reference_inputs.as_ref().unwrap()[0];
++        let raw = &u[&TxoRef(i.transaction_id, i.index as u32)].1;
++        let output: n::TransactionOutput = minicbor::decode(raw).unwrap();
++        let n::TransactionOutput::PostAlonzo(o) = output else {
++            panic!()
++        };
++        let n::ScriptRef::PlutusV3Script(s) = &o.script_ref.as_ref().unwrap().0 else {
++            panic!()
++        };
++        let bytes: pallas_codec::minicbor::bytes::ByteVec = minicbor::decode(s.as_ref()).unwrap();
++        let arena = Arena::new();
++        let program: &Program<DeBruijn> =
++            flat::decode(&arena, &bytes, PlutusVersion::V3, 12).unwrap();
++        let mut pending = vec![program.term];
++        let mut names = std::collections::BTreeSet::new();
++        while let Some(t) = pending.pop() {
++            match t {
++                Term::Builtin(f) => {
++                    names.insert(format!("{f:?}"));
++                }
++                Term::Lambda { body, .. } | Term::Delay(body) | Term::Force(body) => {
++                    pending.push(body)
++                }
++                Term::Apply { function, argument } => {
++                    pending.push(function);
++                    pending.push(argument);
++                }
++                Term::Constr { fields, .. } => pending.extend(*fields),
++                Term::Case { constr, branches } => {
++                    pending.push(constr);
++                    pending.extend(*branches);
++                }
++                _ => (),
++            }
++        }
++        println!("captured builtin inventory: {names:?}");
++    });
++}
++
++fn script(source: &str) -> n::PlutusScript<3> {
++    use amaru_uplc::{arena::Arena, flat, syn::parse_program};
++    let arena = Arena::new();
++    let p = parse_program(&arena, source).into_result().unwrap();
++    n::PlutusScript(
++        minicbor::to_vec(pallas_codec::minicbor::bytes::ByteVec::from(
++            flat::encode(p).unwrap(),
++        ))
++        .unwrap()
++        .into(),
++    )
++}
++fn replace_script(
++    tx: &mut n::BlockTransaction<'_>,
++    u: &mut UtxoMap,
++    script: Option<n::ScriptRef<'_>>,
++    update_author: bool,
++) {
++    use pallas_traverse::ComputeHash;
++    let i = &tx.transaction_body.reference_inputs.as_ref().unwrap()[0];
++    let entry = u
++        .get_mut(&TxoRef(i.transaction_id, i.index as u32))
++        .unwrap();
++    let mut o: n::TransactionOutput = minicbor::decode(&entry.1).unwrap();
++    if update_author {
++        let Some(n::ScriptRef::PlutusV3Script(s)) = &script else {
++            panic!()
++        };
++        let mut b = (*tx.transaction_body).clone();
++        b.certificates = Some(
++            vec![n::Certificate::Reg(
++                n::StakeCredential::ScriptHash(s.compute_hash()),
++                2000000,
++            )]
++            .try_into()
++            .unwrap(),
++        );
++        tx.transaction_body = b.into();
++    }
++    let n::TransactionOutput::PostAlonzo(ref mut output) = o else {
++        panic!()
++    };
++    output.script_ref = script.map(pallas_codec::utils::CborWrap);
++    entry.1 = minicbor::to_vec(o).unwrap();
++}
++#[test]
++fn native_registration_script_presence_language_and_machine_failures() {
++    fixture(|tx, u| {
++        for s in [
++            None,
++            Some(n::ScriptRef::PlutusV3Script(script(
++                "(program 1.1.0 (lam ctx (con unit ())))",
++            ))),
++        ] {
++            let mut tx = tx.clone();
++            let mut u = u.clone();
++            replace_script(&mut tx, &mut u, s, false);
++            error(run(&tx, &u), "MissingRequiredScript");
++        }
++        for s in [
++            n::ScriptRef::PlutusV1Script(n::PlutusScript(vec![0].into())),
++            n::ScriptRef::PlutusV2Script(n::PlutusScript(vec![0].into())),
++            n::ScriptRef::PlutusV4Script(n::PlutusScript(vec![0].into())),
++        ] {
++            let mut tx = tx.clone();
++            let mut u = u.clone();
++            replace_script(&mut tx, &mut u, Some(s), false);
++            error(run(&tx, &u), "reference script language (requires V3)");
++        }
++        for source in [
++            "(program 1.1.0 (lam ctx (error)))",
++            "(program 1.1.0 (lam ctx (con integer 1)))",
++        ] {
++            let mut tx = tx.clone();
++            let mut u = u.clone();
++            replace_script(
++                &mut tx,
++                &mut u,
++                Some(n::ScriptRef::PlutusV3Script(script(source))),
++                true,
++            );
++            assert!(!run(&tx, &u).unwrap()[0].success);
++        }
++        let mut tx = tx.clone();
++        let mut u = u.clone();
++        replace_script(
++            &mut tx,
++            &mut u,
++            Some(n::ScriptRef::PlutusV3Script(script(
++                "(program 1.1.0 (lam ctx [(lam ignore (con unit ())) [(builtin complementByteString) (con bytestring #00)]]))",
++            ))),
++            true,
++        );
++        error(
++            run(&tx, &u),
++            "V3 builtin outside audited registration subset",
++        );
++    });
++}
++#[test]
++fn native_registration_synthetic_validator_reads_redeemer() {
++    fixture(|mut tx, mut u| {
++        // ctx is Constr 0 [txInfo, redeemer, scriptInfo]. Require integer 42.
++        let s = integer_validator(&field("ctx", 1), 42);
++        replace_script(&mut tx, &mut u, Some(n::ScriptRef::PlutusV3Script(s)), true);
++        for value in [42, 41] {
++            change_redeemer(&mut tx, |_, v| {
++                v.data = super::data::Data::integer(n::BigInt::Int(value.into()))
++            });
++            let r = run(&tx, &u).unwrap();
++            assert_eq!(r[0].success, value == 42, "{r:?}");
++        }
++    });
++}
++#[test]
++fn native_registration_rejects_unsupported_features_and_protocols() {
++    fixture(|tx, u| {
++        for version in [(9, 0), (11, 0), (12, 1), (13, 0)] {
++            let mut pp = params();
++            let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
++                unreachable!()
++            };
++            p.protocol_version = version;
++            error(
++                evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
++                "protocol version (requires 12.0)",
++            );
++        }
++        for feature in 0..15 {
++            let mut changed = tx.clone();
++            let mut b = (*changed.transaction_body).clone();
++            let expected = match feature {
++                0 => {
++                    b.ttl = Some(1402000);
++                    "upper validity bound"
++                }
++                1 => {
++                    b.direct_deposits = Some(Default::default());
++                    "account features"
++                }
++                2 => {
++                    b.account_balance_intervals = Some(Default::default());
++                    "account features"
++                }
++                3 => {
++                    b.starting_account_balance_intervals = Some(Default::default());
++                    "account features"
++                }
++                4 => {
++                    b.guards = Some(n::Guards::Credentials(
++                        vec![n::StakeCredential::ScriptHash([0; 28].into())]
++                            .try_into()
++                            .unwrap(),
++                    ));
++                    "script guards"
++                }
++                5 => {
++                    b.treasury_value = Some(1);
++                    "mint, withdrawals or governance"
++                }
++                6 => {
++                    b.donation = Some(1.try_into().unwrap());
++                    "mint, withdrawals or governance"
++                }
++                7 => {
++                    b.certificates = Some(
++                        vec![n::Certificate::UnReg(
++                            n::StakeCredential::ScriptHash([0; 28].into()),
++                            2000000,
++                        )]
++                        .try_into()
++                        .unwrap(),
++                    );
++                    "certificate kind"
++                }
++                8 => {
++                    b.reference_inputs = Some(vec![b.inputs[0].clone()].try_into().unwrap());
++                    "overlapping spending/reference inputs"
++                }
++                9 => {
++                    b.required_top_level_guards = Some(Default::default());
++                    "account features"
++                }
++                10 => {
++                    b.mint = Some(Default::default());
++                    "mint, withdrawals or governance"
++                }
++                11 => {
++                    b.withdrawals = Some(Default::default());
++                    "mint, withdrawals or governance"
++                }
++                12 => {
++                    b.voting_procedures = Some(Default::default());
++                    "mint, withdrawals or governance"
++                }
++                13 => {
++                    b.validity_interval_start = Some(u64::MAX);
++                    "slot time overflow"
++                }
++                _ => {
++                    b.inputs = vec![b.inputs[0].clone(), b.inputs[0].clone()].into();
++                    "duplicate input"
++                }
++            };
++            changed.transaction_body = b.into();
++            error(run(&changed, &u), expected);
++        }
++        let bytes =
++            hex::decode(include_str!("../../../test_data/dijkstra-subtx.tx").trim()).unwrap();
++        let batch = MultiEraTx::decode_for_era(Era::Dijkstra, &bytes).unwrap();
++        error(
++            evaluate_tx(&batch, &params(), &u, &slots()),
++            "subtransactions",
++        );
++    });
++}
++
++// UPLC helpers are only for synthetic context-sensitive validators.
++fn field(value: &str, index: usize) -> String {
++    let mut list = format!("[(force (force (builtin sndPair))) [(builtin unConstrData) {value}]]");
++    for _ in 0..index {
++        list = format!("[(force (builtin tailList)) {list}]");
++    }
++    format!("[(force (builtin headList)) {list}]")
++}
++fn integer_validator(data: &str, expected: u64) -> n::PlutusScript<3> {
++    let condition =
++        format!("[[(builtin equalsInteger) [(builtin unIData) {data}]] (con integer {expected})]");
++    script(&format!(
++        "(program 1.1.0 (lam ctx (force [[[(force (builtin ifThenElse)) {condition}] (delay (con unit ()))] (delay (error))])))"
++    ))
++}
++#[test]
++fn native_and_conway_post_bootstrap_context_reaches_script() {
++    use super::script_context::{DataLookupTable, ResolvedInput};
++    use pallas_traverse::MultiEraRedeemer;
++    fixture(|mut tx, mut u| {
++        // Active Certifying[1] -> Reg[1] -> Just[0] -> 2,000,000.
++        let amount = field(&field(&field(&field("ctx", 2), 1), 1), 0);
++        replace_script(
++            &mut tx,
++            &mut u,
++            Some(n::ScriptRef::PlutusV3Script(integer_validator(
++                &amount, 2000000,
++            ))),
++            true,
++        );
++        // Explicitly synthetic Conway view for testing that earlier-era production
++        // eval_redeemer propagates protocol version; NOT native evidence.
++        let body = minicbor::to_vec(&tx.transaction_body).unwrap();
++        let witnesses = minicbor::to_vec(&tx.transaction_witness_set).unwrap();
++        let conway = c::Tx {
++            transaction_body: minicbor::decode(&body).unwrap(),
++            transaction_witness_set: minicbor::decode(&witnesses).unwrap(),
++            success: true,
++            auxiliary_data: pallas_codec::utils::Nullable::Null,
++        };
++        let inputs: Vec<_> = u
++            .iter()
++            .map(|(i, raw)| ResolvedInput {
++                input: n::TransactionInput {
++                    transaction_id: i.0,
++                    index: u64::from(i.1),
++                },
++                output: minicbor::decode(&raw.1).unwrap(),
++            })
++            .collect();
++        let view = MultiEraTx::from_conway(&conway);
++        let lookup = DataLookupTable::from_transaction(&view, &inputs);
++        let redeemers = view.redeemers();
++        let redeemer: &MultiEraRedeemer = &redeemers[0];
++        for version in [9, 10, 12] {
++            let r = super::tx::eval_redeemer(redeemer, &view, &inputs, &lookup, &slots(), version)
++                .unwrap();
++            assert_eq!(r.success, version > 9, "protocol {version}: {r:?}");
++        }
++        assert!(run(&tx, &u).unwrap()[0].success);
++    });
++}
++#[test]
++fn native_registration_earlier_era_inputs_keep_original_labels() {
++    fixture(|tx, u| {
++        let input = &tx.transaction_body.inputs[0];
++        let key = TxoRef(input.transaction_id, input.index as u32);
++        // Synthetic era labels on an earlier-era-compatible legacy output only;
++        // original native acceptance above always uses Dijkstra labels.
++        for era in [Era::Alonzo, Era::Babbage, Era::Conway] {
++            let mut u = u.clone();
++            u.get_mut(&key).unwrap().0 = era;
++            assert!(run(&tx, &u).unwrap()[0].success);
++            assert_eq!(u[&key].0, era);
++        }
++    });
++}
++
++#[test]
++fn native_registration_excludes_collateral_and_unrelated_script_sources() {
++    fixture(|mut tx, u| {
++        let mut b = (*tx.transaction_body).clone();
++        b.collateral = b.reference_inputs.take();
++        tx.transaction_body = b.into();
++        // The original script output is still in UTxO and is now collateral only.
++        error(run(&tx, &u), "MissingRequiredScript");
++    });
++}
++#[test]
++fn native_registration_invalid_script_encoding_and_witness_scripts() {
++    fixture(|tx, u| {
++        for (bytes, expected) in [(vec![1], "DecodeError"), (vec![0x41, 0xff], "FlatDecode")] {
++            let mut tx = tx.clone();
++            let mut u = u.clone();
++            replace_script(
++                &mut tx,
++                &mut u,
++                Some(n::ScriptRef::PlutusV3Script(n::PlutusScript(bytes.into()))),
++                true,
++            );
++            error(run(&tx, &u), expected);
++        }
++        for language in [1, 2, 3] {
++            let mut tx = tx.clone();
++            let mut w = (*tx.transaction_witness_set).clone();
++            match language {
++                1 => {
++                    w.plutus_v1_script =
++                        Some(vec![n::PlutusScript(vec![0].into())].try_into().unwrap())
++                }
++                2 => {
++                    w.plutus_v2_script =
++                        Some(vec![n::PlutusScript(vec![0].into())].try_into().unwrap())
++                }
++                _ => {
++                    w.plutus_v3_script =
++                        Some(vec![n::PlutusScript(vec![0].into())].try_into().unwrap())
++                }
++            };
++            tx.transaction_witness_set = w.into();
++            error(run(&tx, &u), "witness scripts");
++        }
++    });
++}
++
++#[test]
++fn native_registration_protocol12_bytestring_operand_boundary() {
++    fixture(|mut tx,mut u| {
++        // Build 131,072 bytes inside a small script. Protocol-12 semantics E
++        // rejects this argument to blake2b_256 (limit 65,536 bytes).
++        let mut body="[(builtin blake2b_256) bytes]".to_string();
++        for _ in 0..17 { body=format!("[(lam bytes {body}) [[(builtin appendByteString) bytes] bytes]]"); }
++        let source=format!("(program 1.1.0 (lam ctx [(lam ignored (con unit ())) [(lam bytes {body}) (con bytestring #00)]]))");
++        replace_script(&mut tx,&mut u,Some(n::ScriptRef::PlutusV3Script(script(&source))),true);
++        change_redeemer(&mut tx,|_,v|v.ex_units=n::ExUnits{mem:1000000,steps:1000000000});
++        let r=run(&tx,&u).unwrap();
++        assert!(!r[0].success,"protocol-12 must reject oversized builtin operand: {r:?}");
++    });
++}
+--- /dev/null
++++ b/pallas-validate/src/phase2/dijkstra.rs
+@@ -0,0 +1,313 @@
++//! Deliberately scoped native protocol-12 V3 registration evaluation.
++//! Ledger rules and exclusions: test_data/musashi-phase2/README.md.
++use super::{
++    error::Error,
++    evaluator,
++    script_context::{ScriptPurpose, SlotConfig, TimeRange, TxInInfo, TxInfo, TxInfoV3},
++    to_plutus_data::MintValue,
++    tx::TxEvalResult,
++};
++use crate::utils::{MultiEraProtocolParameters, TxoRef, UtxoMap};
++use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart};
++use pallas_codec::utils::CborWrap;
++use pallas_primitives::{conway as c, dijkstra as n};
++use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
++use std::collections::BTreeMap;
++
++fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
++    Err(Error::DijkstraUnsupported(feature))
++}
++
++/// Project checked ledger output fields into the shared V3 TxOut representation.
++/// Decode under the original era first; never decode native CBOR as Conway or
++/// change its era. V3 exposes the same address/value/datum/script-hash fields.
++fn context_output(
++    output: &MultiEraOutput<'_>,
++    reference: bool,
++) -> Result<c::TransactionOutput<'static>, Error> {
++    let address = output.address()?;
++    match &address {
++        Address::Shelley(a)
++            if (reference || matches!(a.payment(), ShelleyPaymentPart::Key(_)))
++                && !matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {}
++        _ => return unsupported("output address (requires Shelley payment key, no pointer)"),
++    }
++    if output.datum().is_some() || !output.value().assets().is_empty() {
++        return unsupported("output datum or multiasset");
++    }
++    let script = match output.multi_era_script_ref() {
++        None => None,
++        Some(MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
++            n::ScriptRef::PlutusV3Script(s) => Some(s.clone()),
++            _ => return unsupported("reference script language (requires V3)"),
++        },
++        Some(MultiEraScriptRef::Conway(s)) => match s.as_ref() {
++            c::ScriptRef::PlutusV3Script(s) => Some(s.clone()),
++            _ => return unsupported("reference script language (requires V3)"),
++        },
++        _ => return unsupported("reference script language (requires V3)"),
++    };
++    Ok(c::TransactionOutput::PostAlonzo(
++        c::PostAlonzoTransactionOutput {
++            address: address.to_vec().into(),
++            value: c::Value::Coin(output.value().coin()),
++            datum_option: None,
++            script_ref: script.map(|s| CborWrap(c::ScriptRef::PlutusV3Script(s))),
++        }
++        .into(),
++    ))
++}
++
++fn resolve(
++    inputs: &[n::TransactionInput],
++    utxos: &UtxoMap,
++    reference: bool,
++) -> Result<Vec<TxInInfo<'static>>, Error> {
++    let mut ordered: Vec<_> = inputs.iter().collect();
++    ordered.sort();
++    if ordered.windows(2).any(|x| x[0] == x[1]) {
++        return Err(Error::DijkstraInvalid("duplicate input"));
++    }
++    ordered
++        .into_iter()
++        .map(|i| {
++            let index =
++                u32::try_from(i.index).map_err(|_| Error::DijkstraInvalid("input index"))?;
++            let raw = utxos
++                .get(&TxoRef(i.transaction_id, index))
++                .ok_or_else(|| Error::ResolvedInputNotFound(i.clone()))?;
++            let output = MultiEraOutput::decode(raw.0, &raw.1)
++                .map_err(|_| Error::DijkstraInvalid("input decoding for original era"))?;
++            Ok(TxInInfo {
++                out_ref: i.clone(),
++                resolved: context_output(&output, reference)?,
++            })
++        })
++        .collect()
++}
++
++pub(super) fn eval_tx(
++    tx: &MultiEraTx,
++    pparams: &MultiEraProtocolParameters,
++    utxos: &UtxoMap,
++    slots: &SlotConfig,
++) -> Result<Vec<TxEvalResult>, Error> {
++    let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
++    let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
++        return unsupported("protocol parameters require Dijkstra");
++    };
++    if pp.protocol_version != (12, 0) {
++        return unsupported("protocol version (requires 12.0)");
++    }
++    let b = &native.transaction_body;
++    let w = &native.transaction_witness_set;
++    if b.sub_transactions.is_some() {
++        return unsupported("subtransactions");
++    }
++    if b.required_top_level_guards.is_some()
++        || b.direct_deposits.is_some()
++        || b.account_balance_intervals.is_some()
++        || b.starting_account_balance_intervals.is_some()
++    {
++        return unsupported("account features or required top-level guards");
++    }
++    if b.mint.is_some()
++        || b.withdrawals.is_some()
++        || b.voting_procedures.is_some()
++        || b.proposal_procedures.is_some()
++        || b.treasury_value.is_some()
++        || b.donation.is_some()
++    {
++        return unsupported("mint, withdrawals or governance");
++    }
++    if b.ttl.is_some() {
++        return unsupported("upper validity bound requires forecast state");
++    }
++    if w.plutus_v1_script.is_some()
++        || w.plutus_v2_script.is_some()
++        || w.plutus_v3_script.is_some()
++        || w.native_script.is_some()
++        || w.bootstrap_witness.is_some()
++        || w.plutus_data.is_some()
++    {
++        return unsupported("witness scripts, bootstrap witnesses or datums");
++    }
++    let mut signatories = match &b.guards {
++        None => vec![],
++        Some(n::Guards::AddrKeyhashes(keys)) => keys.to_vec(),
++        Some(n::Guards::Credentials(credentials)) => credentials
++            .iter()
++            .map(|g| match g {
++                n::StakeCredential::AddrKeyhash(key) => Ok(*key),
++                _ => unsupported("script guards"),
++            })
++            .collect::<Result<Vec<_>, _>>()?,
++    };
++    signatories.sort();
++    signatories.dedup();
++    let certificates = b
++        .certificates
++        .iter()
++        .flat_map(|x| x.iter())
++        .map(|cert| match cert {
++            n::Certificate::Reg(credential, deposit) => {
++                Ok(c::Certificate::Reg(credential.clone(), *deposit))
++            }
++            _ => unsupported("certificate kind (requires Reg)"),
++        })
++        .collect::<Result<Vec<_>, _>>()?;
++    let inputs = resolve(&b.inputs, utxos, false)?;
++    let refs: Vec<_> = b
++        .reference_inputs
++        .iter()
++        .flat_map(|x| x.iter())
++        .cloned()
++        .collect();
++    if refs.iter().any(|r| b.inputs.contains(r)) {
++        return Err(Error::DijkstraInvalid(
++            "overlapping spending/reference inputs",
++        ));
++    }
++    let reference_inputs = resolve(&refs, utxos, true)?;
++    let outputs = b
++        .outputs
++        .iter()
++        .map(|o| context_output(&MultiEraOutput::from_dijkstra(o), false))
++        .collect::<Result<Vec<_>, _>>()?;
++    // Collateral is a phase-one concern and is not part of the V3 context or script lookup.
++    let mut scripts = BTreeMap::new();
++    for i in inputs.iter().chain(&reference_inputs) {
++        if let c::TransactionOutput::PostAlonzo(o) = &i.resolved
++            && let Some(CborWrap(c::ScriptRef::PlutusV3Script(s))) = &o.script_ref
++        {
++            scripts.insert(s.compute_hash(), s.clone());
++        }
++    }
++    let mut expected = BTreeMap::new();
++    for (index, cert) in certificates.iter().enumerate() {
++        if let c::Certificate::Reg(n::StakeCredential::ScriptHash(hash), _) = cert {
++            if !scripts.contains_key(hash) {
++                return Err(Error::MissingRequiredScript {
++                    hash: hash.to_string(),
++                });
++            }
++            expected.insert(index as u32, *hash);
++        }
++    }
++    let redeemers = tx.redeemers();
++    let mut purposes = Vec::new();
++    for r in &redeemers {
++        let (key, value) = r.as_dijkstra().ok_or(Error::WrongEra())?;
++        if key.tag != n::RedeemerTag::Cert {
++            return unsupported("redeemer purpose (requires Cert)");
++        }
++        let cert = certificates
++            .get(key.index as usize)
++            .ok_or(Error::MissingScriptForRedeemer)?;
++        if !expected.contains_key(&key.index) {
++            return Err(Error::NonScriptStakeCredential);
++        }
++        purposes.push((
++            ScriptPurpose::Certifying(key.index as usize, cert.clone()),
++            c::Redeemer {
++                tag: c::RedeemerTag::Cert,
++                index: key.index,
++                data: value.data.clone(),
++                ex_units: value.ex_units,
++            },
++        ));
++    }
++    if purposes.len() != expected.len() {
++        return Err(Error::RequiredRedeemersMismatch {
++            missing: expected
++                .keys()
++                .filter(|i| !purposes.iter().any(|(_, r)| r.index == **i))
++                .map(|i| format!("Cert[{i}]"))
++                .collect(),
++            extra: vec![],
++        });
++    }
++    let lower_bound = b
++        .validity_interval_start
++        .map(|s| {
++            let elapsed = s
++                .checked_sub(slots.zero_slot)
++                .ok_or(Error::SlotTooFarInThePast {
++                    oldest_allowed: slots.zero_slot,
++                })?;
++            elapsed
++                .checked_mul(slots.slot_length)
++                .and_then(|x| slots.zero_time.checked_add(x))
++                .ok_or(Error::DijkstraInvalid("slot time overflow"))
++        })
++        .transpose()?;
++    let info = TxInfo::V3(TxInfoV3 {
++        inputs,
++        reference_inputs,
++        outputs,
++        fee: b.fee,
++        mint: MintValue {
++            mint_value: Default::default(),
++        },
++        certificates,
++        withdrawals: vec![].into(),
++        valid_range: TimeRange {
++            lower_bound,
++            upper_bound: None,
++        },
++        signatories,
++        redeemers: purposes.clone().into(),
++        data: vec![].into(),
++        id: b.original_hash(),
++        votes: vec![].into(),
++        proposal_procedures: vec![],
++        current_treasury_amount: None,
++        treasury_donation: None,
++    });
++    let plutus = pp
++        .plutus
++        .as_ref()
++        .ok_or(Error::CostModelNotFound(c::Language::PlutusV3))?;
++    if plutus.cost_model_v3.len() != 350 {
++        return unsupported("protocol-12 V3 cost model requires 350 entries");
++    }
++    let mut total_mem = 0u64;
++    let mut total_steps = 0u64;
++    for (_, r) in &purposes {
++        total_mem = total_mem
++            .checked_add(r.ex_units.mem)
++            .ok_or(Error::DijkstraInvalid("budget overflow"))?;
++        total_steps = total_steps
++            .checked_add(r.ex_units.steps)
++            .ok_or(Error::DijkstraInvalid("budget overflow"))?;
++    }
++    if total_mem > plutus.max_tx_ex_units.mem || total_steps > plutus.max_tx_ex_units.steps {
++        return Err(Error::DijkstraInvalid(
++            "declared transaction budget exceeds maximum",
++        ));
++    }
++    purposes
++        .iter()
++        .map(|(_, r)| {
++            let context = info
++                .clone()
++                .into_script_context(r, None)
++                .ok_or(Error::ScriptContextBuildError)?;
++            let data = context.to_plutus_data_with_protocol(12);
++            let result = evaluator::eval_native_v3(
++                scripts[&expected[&r.index]].as_ref(),
++                &data,
++                &plutus.cost_model_v3,
++                r.ex_units,
++            )?;
++            Ok(TxEvalResult {
++                tag: r.tag,
++                index: r.index,
++                units: result.units,
++                success: result.success,
++                logs: result.logs,
++                failure_message: result.failure.map(|f| f.message),
++            })
++        })
++        .collect()
++}
+--- a/pallas-validate/src/phase2/tx.rs
++++ b/pallas-validate/src/phase2/tx.rs
+@@ -35,0 +36,5 @@
++    #[cfg(feature = "unstable")]
++    if tx.era() == pallas_traverse::Era::Dijkstra {
++        return super::dijkstra::eval_tx(tx, pparams, utxos, slot_config);
++    }
++
+@@ -84 +89 @@
+-    let script_context_data = script_context.to_plutus_data();
++    let script_context_data = script_context.to_plutus_data_with_protocol(protocol_version_major);
+--- a/pallas-validate/src/phase2/to_plutus_data.rs
++++ b/pallas-validate/src/phase2/to_plutus_data.rs
+@@ -75 +75 @@
+-struct WithNeverRegistrationDeposit<'a, T>(&'a T);
++struct WithRegistrationDeposit<'a, T>(&'a T, bool);
+@@ -244 +244 @@
+-impl ToPlutusData for WithNeverRegistrationDeposit<'_, Vec<Certificate>> {
++impl ToPlutusData for WithRegistrationDeposit<'_, Vec<Certificate>> {
+@@ -248 +248 @@
+-            .map(WithNeverRegistrationDeposit)
++            .map(|cert| WithRegistrationDeposit(cert, self.1))
+@@ -254 +254 @@
+-impl ToPlutusData for WithNeverRegistrationDeposit<'_, KeyValuePairs<ScriptPurpose, Redeemer>> {
++impl ToPlutusData for WithRegistrationDeposit<'_, KeyValuePairs<ScriptPurpose, Redeemer>> {
+@@ -259 +259 @@
+-                WithNeverRegistrationDeposit(key).to_plutus_data(),
++                WithRegistrationDeposit(key, self.1).to_plutus_data(),
+@@ -707 +707 @@
+-impl ToPlutusData for WithNeverRegistrationDeposit<'_, Certificate> {
++impl ToPlutusData for WithRegistrationDeposit<'_, Certificate> {
+@@ -718 +718 @@
+-            Certificate::Reg(stake_credential, _) => wrap_multiple_with_constr(
++            Certificate::Reg(stake_credential, amount) => wrap_multiple_with_constr(
+@@ -719,0 +720,8 @@
++                vec![
++                    stake_credential.to_plutus_data(),
++                    self.1.then_some(*amount).to_plutus_data(),
++                ],
++            ),
++
++            Certificate::StakeDeregistration(stake_credential) => wrap_multiple_with_constr(
++                1,
+@@ -726 +734 @@
+-            Certificate::StakeDeregistration(stake_credential) => wrap_multiple_with_constr(
++            Certificate::UnReg(stake_credential, amount) => wrap_multiple_with_constr(
+@@ -730,9 +738 @@
+-                    None::<PlutusData>.to_plutus_data(),
+-                ],
+-            ),
+-
+-            Certificate::UnReg(stake_credential, _) => wrap_multiple_with_constr(
+-                1,
+-                vec![
+-                    stake_credential.to_plutus_data(),
+-                    None::<PlutusData>.to_plutus_data(),
++                    self.1.then_some(*amount).to_plutus_data(),
+@@ -1015 +1015 @@
+-impl ToPlutusData for WithNeverRegistrationDeposit<'_, ScriptPurpose> {
++impl ToPlutusData for WithRegistrationDeposit<'_, ScriptPurpose> {
+@@ -1027 +1027 @@
+-                    WithNeverRegistrationDeposit(dcert).to_plutus_data(),
++                    WithRegistrationDeposit(dcert, self.1).to_plutus_data(),
+@@ -1413 +1413 @@
+-impl<T> ToPlutusData for WithNeverRegistrationDeposit<'_, ScriptInfo<T>>
++impl<T> ToPlutusData for WithRegistrationDeposit<'_, ScriptInfo<T>>
+@@ -1430 +1430 @@
+-                    WithNeverRegistrationDeposit(dcert).to_plutus_data(),
++                    WithRegistrationDeposit(dcert, self.1).to_plutus_data(),
+@@ -1442,0 +1443,7 @@
++        self.to_plutus_data_with_protocol(9)
++    }
++}
++
++impl TxInfo<'_> {
++    /// V3 Conway bootstrap encoding is retained only through protocol 9.
++    pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
+@@ -1488 +1495,2 @@
+-                    WithNeverRegistrationDeposit(&tx_info.certificates).to_plutus_data(),
++                    WithRegistrationDeposit(&tx_info.certificates, protocol_major > 9)
++                        .to_plutus_data(),
+@@ -1492 +1500,2 @@
+-                    WithNeverRegistrationDeposit(&tx_info.redeemers).to_plutus_data(),
++                    WithRegistrationDeposit(&tx_info.redeemers, protocol_major > 9)
++                        .to_plutus_data(),
+@@ -1506,0 +1516,7 @@
++        self.to_plutus_data_with_protocol(9)
++    }
++}
++
++impl ScriptContext<'_> {
++    /// Encode all V3 certificate occurrences with the same protocol rule.
++    pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
+@@ -1511 +1527 @@
+-                    tx_info.to_plutus_data(),
++                    tx_info.to_plutus_data_with_protocol(protocol_major),
+@@ -1522 +1538 @@
+-                    tx_info.to_plutus_data(),
++                    tx_info.to_plutus_data_with_protocol(protocol_major),
+@@ -1524,6 +1540,6 @@
+-                    WithNeverRegistrationDeposit(purpose.as_ref()).to_plutus_data(),
+-                ],
+-            ),
+-        }
+-    }
+-}
++                    WithRegistrationDeposit(purpose.as_ref(), protocol_major > 9).to_plutus_data(),
++                ],
++            ),
++        }
++    }
++}
+--- a/pallas-validate/src/phase2/mod.rs
++++ b/pallas-validate/src/phase2/mod.rs
+@@ -23,0 +24,9 @@
++
++#[cfg(all(test, feature = "unstable"))]
++mod dijkstra_evaluation_tests;
++
++#[cfg(feature = "unstable")]
++mod dijkstra;
++
++#[cfg(test)]
++mod v3_deposit_context_tests;
+--- a/pallas-validate/src/phase2/evaluator.rs
++++ b/pallas-validate/src/phase2/evaluator.rs
+@@ -118,0 +119,99 @@
++/// Protocol-12 evaluation is intentionally limited to the builtins present in
++/// the retained registration. amaru-uplc 0.1.0 does not implement
++/// the complete 350-parameter protocol-12 builtin set. Pass the FULL model and
++/// reject every unaudited builtin, including those in the model's later suffix.
++#[cfg(feature = "unstable")]
++pub(crate) fn eval_native_v3(
++    script_bytes: &[u8],
++    context: &PlutusData,
++    costs: &[i64],
++    budget: ExUnits,
++) -> Result<ScriptEvalResult, Error> {
++    use amaru_uplc::builtin::DefaultFunction as F;
++    let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
++    let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
++    let program: &Program<DeBruijn> = flat::decode(&arena, &flat_bytes, PlutusVersion::V3, 12)?;
++    let mut pending = vec![program.term];
++    while let Some(term) = pending.pop() {
++        match term {
++            Term::Builtin(f) => match f {
++                F::AddInteger
++                | F::AppendByteString
++                | F::BData
++                | F::Blake2b_224
++                | F::Blake2b_256
++                | F::ChooseData
++                | F::ChooseList
++                | F::ConsByteString
++                | F::ConstrData
++                | F::DivideInteger
++                | F::EqualsByteString
++                | F::EqualsData
++                | F::EqualsInteger
++                | F::FstPair
++                | F::HeadList
++                | F::IData
++                | F::IfThenElse
++                | F::LengthOfByteString
++                | F::LessThanEqualsByteString
++                | F::LessThanEqualsInteger
++                | F::LessThanInteger
++                | F::ListData
++                | F::MapData
++                | F::MkCons
++                | F::MkPairData
++                | F::ModInteger
++                | F::SerialiseData
++                | F::SndPair
++                | F::TailList
++                | F::UnBData
++                | F::UnConstrData
++                | F::UnIData
++                | F::UnListData
++                | F::UnMapData
++                | F::VerifyEd25519Signature => (),
++                _ => {
++                    return Err(Error::DijkstraUnsupported(
++                        "V3 builtin outside audited registration subset",
++                    ));
++                }
++            },
++            Term::Lambda { body, .. } | Term::Delay(body) | Term::Force(body) => pending.push(body),
++            Term::Apply { function, argument } => {
++                pending.push(function);
++                pending.push(argument);
++            }
++            Term::Constr { fields, .. } => pending.extend(*fields),
++            Term::Case { constr, branches } => {
++                pending.push(constr);
++                pending.extend(*branches);
++            }
++            Term::Var(_) | Term::Constant(_) | Term::Error => (),
++        }
++    }
++    let initial = ExBudget {
++        mem: i64::try_from(budget.mem)
++            .map_err(|_| Error::DijkstraInvalid("memory budget overflow"))?,
++        cpu: i64::try_from(budget.steps)
++            .map_err(|_| Error::DijkstraInvalid("CPU budget overflow"))?,
++    };
++    let program = program.apply(&arena, plutus_data_to_term(&arena, context));
++    let result = program.eval_with_params(&arena, PlutusVersion::V3, costs, initial);
++    let units = budget_to_ex_units(result.info.consumed_budget);
++    let logs = result.info.logs;
++    let failure = result.term.as_ref().err().map(|err| MachineFailure {
++        message: err.to_string(),
++        budget: units,
++        logs: logs.clone(),
++    });
++    let success = matches!(result.term, Ok(Term::Constant(c)) if matches!(**c, Constant::Unit))
++        && units.mem <= budget.mem
++        && units.steps <= budget.steps;
++    Ok(ScriptEvalResult {
++        success,
++        units,
++        logs,
++        failure,
++    })
++}
++
+--- a/pallas-validate/src/phase2/error.rs
++++ b/pallas-validate/src/phase2/error.rs
+@@ -8,0 +9,4 @@
++    #[error("unsupported native Dijkstra evaluation: {0}")]
++    DijkstraUnsupported(&'static str),
++    #[error("invalid native Dijkstra evaluation: {0}")]
++    DijkstraInvalid(&'static str),
+@@ -58 +62 @@
+-    #[error("unsupported era, please use Conway")]
++    #[error("unsupported transaction era for this evaluation entry point")]

@@ -80,6 +80,8 @@ jobs:
         run: cargo test -p pallas-primitives --features unstable,blueprint
       - name: Test validation with phase two enabled
         run: cargo test -p pallas-validate --features phase2
+      - name: Test native Dijkstra validation with phase two enabled
+        run: cargo test -p pallas-validate --features phase2,unstable
 
   features:
     name: Features (${{ matrix.flags }})
@@ -113,12 +115,14 @@ jobs:
       - run: cargo check -p pallas-primitives --no-default-features
 
   msrv:
-    name: MSRV (1.88)
+    name: MSRV (1.97)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.97.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets
+      - name: Test validation at the minimum supported Rust version
+        run: cargo test -p pallas-validate --features phase2,unstable

@@ -1132,8 +1132,18 @@ fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     }
 }
 fn well_formed_v3(script: &[u8]) -> ValidationResult {
-    let _ = script;
-    Err(DijkstraUnsupported("new Plutus script validation requires phase2 feature"))
+    #[cfg(feature = "phase2")]
+    {
+        crate::phase2::native_evaluator::check_v3_script(script)
+            .map_err(|_| DijkstraMalformedScript)
+    }
+    #[cfg(not(feature = "phase2"))]
+    {
+        let _ = script;
+        Err(DijkstraUnsupported(
+            "new Plutus script validation requires phase2 feature",
+        ))
+    }
 }
 
 // Ledger v12 Mary.Value requires nonempty policy/name maps, nonzero quantities,

@@ -1,0 +1,339 @@
+    Updating crates.io index
+     Locking 4 packages to latest compatible versions
+      Adding amaru-uplc v0.1.0 (available: v0.4.0)
+      Adding condtype v1.3.0
+      Adding divan v0.1.21
+      Adding divan-macros v0.1.21
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.5
+   Compiling find-msvc-tools v0.1.14
+   Compiling shlex v2.0.1
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling portable-atomic v1.15.0
+   Compiling zerocopy v0.8.59
+   Compiling critical-section v1.2.0
+   Compiling pin-project-lite v0.2.17
+   Compiling log v0.4.34
+   Compiling equivalent v1.0.2
+   Compiling itoa v1.0.18
+   Compiling futures-core v0.3.34
+   Compiling foldhash v0.2.0
+   Compiling stable_deref_trait v1.2.1
+   Compiling typenum v1.20.1
+   Compiling libm v0.2.16
+   Compiling autocfg v1.5.1
+   Compiling futures-sink v0.3.34
+   Compiling pkg-config v0.3.34
+   Compiling fs_extra v1.3.0
+   Compiling hashbrown v0.17.1
+   Compiling dunce v1.0.5
+   Compiling bitflags v2.13.2
+   Compiling subtle v2.6.1
+   Compiling rustix v1.1.5
+   Compiling slab v0.4.12
+   Compiling futures-channel v0.3.34
+   Compiling semver v1.0.28
+   Compiling writeable v0.6.4
+   Compiling zmij v1.0.23
+   Compiling litemap v0.8.3
+   Compiling num-traits v0.2.19
+   Compiling thiserror v2.0.21
+   Compiling smallvec v1.16.2
+   Compiling version_check v0.9.5
+   Compiling linux-raw-sys v0.12.1
+   Compiling aws-lc-rs v1.18.1
+   Compiling rustc_version v0.4.1
+   Compiling object v0.39.1
+   Compiling indexmap v2.14.2
+   Compiling utf8_iter v1.0.4
+   Compiling rand_core v0.10.1
+   Compiling icu_properties_data v2.3.0
+   Compiling futures-io v0.3.34
+   Compiling generic-array v0.14.7
+   Compiling once_cell v1.21.4
+   Compiling serde_json v1.0.151
+   Compiling syn v3.0.6
+   Compiling syn v2.0.119
+   Compiling icu_normalizer_data v2.3.0
+   Compiling percent-encoding v2.3.2
+   Compiling futures-task v0.3.34
+   Compiling hybrid-array v0.4.15
+   Compiling tracing-core v0.1.36
+   Compiling untrusted v0.9.0
+   Compiling either v1.18.0
+   Compiling crossbeam-utils v0.8.23
+   Compiling rustversion v1.0.23
+   Compiling same-file v1.0.6
+   Compiling utf8parse v0.2.2
+   Compiling anstyle-parse v1.0.0
+   Compiling walkdir v2.5.0
+   Compiling anstyle-query v1.1.5
+   Compiling colorchoice v1.0.5
+   Compiling httparse v1.10.1
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling cmov v0.5.4
+   Compiling rustls v0.23.45
+   Compiling anstyle v1.0.14
+   Compiling crossbeam-epoch v0.9.21
+   Compiling getrandom v0.3.4
+   Compiling block-buffer v0.12.1
+   Compiling ctutils v0.4.2
+   Compiling crypto-common v0.2.2
+   Compiling anstream v1.0.0
+   Compiling getrandom v0.4.3
+   Compiling try-lock v0.2.5
+   Compiling jobserver v0.1.35
+   Compiling mio v1.2.3
+   Compiling socket2 v0.6.5
+   Compiling getrandom v0.2.17
+   Compiling fnv v1.0.7
+   Compiling heck v0.5.0
+   Compiling const-oid v0.10.2
+   Compiling cc v1.5.1
+   Compiling num-integer v0.1.47
+   Compiling tower-service v0.3.3
+   Compiling hex v0.4.3
+   Compiling atomic-waker v1.1.2
+   Compiling clap_lex v1.1.1
+   Compiling crossbeam-deque v0.8.8
+   Compiling strsim v0.11.1
+   Compiling want v0.3.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.11.3
+   Compiling form_urlencoded v1.2.2
+   Compiling httpdate v1.0.3
+   Compiling rayon-core v1.13.0
+   Compiling scopeguard v1.2.0
+   Compiling digest v0.10.7
+   Compiling rand_core v0.9.5
+   Compiling num-bigint v0.4.8
+   Compiling encoding_rs v0.8.42
+   Compiling num_cpus v1.17.0
+   Compiling curve25519-dalek v4.1.3
+   Compiling sync_wrapper v1.0.2
+   Compiling plotters-backend v0.3.7
+   Compiling ciborium-io v0.2.2
+   Compiling tower-layer v0.3.3
+   Compiling minicbor v0.26.5
+   Compiling openssl-probe v0.2.1
+   Compiling cpufeatures v0.3.1
+   Compiling typeid v1.0.3
+   Compiling cpufeatures v0.2.17
+   Compiling getrandom v0.1.16
+   Compiling base64 v0.23.1
+   Compiling regex-syntax v0.8.11
+   Compiling ipnet v2.12.2
+   Compiling plotters-svg v0.3.7
+   Compiling terminal_size v0.4.4
+   Compiling cmake v0.1.58
+   Compiling clap_builder v4.6.7
+   Compiling threadpool v1.8.1
+   Compiling num-iter v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling rand_core v0.6.4
+   Compiling itertools v0.13.0
+   Compiling fastrand v2.5.0
+   Compiling signature v2.2.0
+   Compiling erased-serde v0.4.10
+   Compiling ryu v1.0.23
+   Compiling minicbor v0.25.1
+   Compiling core_detect v1.0.0
+   Compiling unicode-width v0.2.0
+   Compiling simdutf8 v0.1.5
+   Compiling multiversion_no_op v1.0.0
+   Compiling cast v0.3.0
+   Compiling regex-lite v0.1.9
+   Compiling rayon v1.12.0
+   Compiling console v0.16.6
+   Compiling aws-lc-sys v0.45.0
+   Compiling ring v0.17.14
+   Compiling blst v0.3.17
+   Compiling alloca v0.4.0
+   Compiling stacker v0.1.25
+   Compiling num-rational v0.4.2
+   Compiling secp256k1-sys v0.10.1
+   Compiling num v0.4.3
+   Compiling tempfile v3.27.0
+   Compiling synstructure v0.14.0
+   Compiling ar_archive_writer v0.5.3
+   Compiling regex-automata v0.4.18
+   Compiling plotters v0.3.7
+   Compiling sha2 v0.11.0
+   Compiling criterion-plot v0.8.2
+   Compiling sha2 v0.10.9
+   Compiling lock_api v0.4.14
+   Compiling page_size v0.6.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling simd-adler32 v0.3.10
+   Compiling mime v0.3.17
+   Compiling similar v2.7.0
+   Compiling oorandom v11.1.5
+   Compiling adler2 v2.0.1
+   Compiling psm v0.1.32
+   Compiling anes v0.1.6
+   Compiling crc-catalog v2.5.0
+   Compiling cryptoxide v0.4.4
+   Compiling anyhow v1.0.104
+   Compiling crc v3.4.0
+   Compiling miniz_oxide v0.8.9
+   Compiling spin v0.10.1
+   Compiling rand_core v0.5.1
+   Compiling serde_derive v1.0.229
+   Compiling zerofrom-derive v0.1.8
+   Compiling zerocopy-derive v0.8.59
+   Compiling zeroize_derive v1.5.0
+   Compiling yoke-derive v0.8.3
+   Compiling zerovec-derive v0.11.6
+   Compiling tokio-macros v2.7.2
+   Compiling displaydoc v0.2.7
+   Compiling tracing-attributes v0.1.31
+   Compiling zeroize v1.9.0
+   Compiling futures-macro v0.3.34
+   Compiling thiserror-impl v2.0.21
+   Compiling rustls-pki-types v1.15.1
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling clap_derive v4.6.7
+   Compiling rustls-native-certs v0.8.4
+   Compiling minicbor-derive v0.16.2
+   Compiling regex v1.13.1
+   Compiling zerofrom v0.1.8
+   Compiling futures-util v0.3.34
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.8
+   Compiling tracing v0.1.44
+   Compiling zerotrie v0.2.5
+   Compiling minicbor-derive v0.15.3
+   Compiling serde_derive_internals v0.29.1
+   Compiling opentelemetry v0.32.0
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling icu_locale_core v2.3.0
+   Compiling clap v4.6.7
+   Compiling uuid v1.26.1
+   Compiling byteorder v1.5.0
+   Compiling foldhash v0.1.5
+   Compiling dashu-int v0.4.3
+   Compiling signature v3.0.0
+   Compiling allocator-api2 v0.2.21
+   Compiling chumsky v1.0.0-alpha.8
+   Compiling schemars v0.8.22
+   Compiling num-modular v0.6.5
+   Compiling base58 v0.2.0
+   Compiling icu_provider v2.3.1
+   Compiling ed25519 v3.0.0
+   Compiling schemars_derive v0.8.22
+   Compiling hashbrown v0.15.5
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling stacksafe-macro v1.0.3
+   Compiling keccak v0.2.2
+   Compiling bytes v1.12.1
+   Compiling ed25519 v2.2.3
+   Compiling serde_urlencoded v0.7.1
+   Compiling tinytemplate v1.2.1
+   Compiling futures-executor v0.3.34
+   Compiling ed25519-dalek v2.2.0
+   Compiling insta v1.48.0
+   Compiling num-order v1.2.0
+   Compiling indoc v2.0.7
+   Compiling unicode-segmentation v1.13.3
+   Compiling static_assertions v1.1.0
+   Compiling dyn-clone v1.0.20
+   Compiling dashu-base v0.4.3
+   Compiling thiserror v1.0.69
+   Compiling sponge-cursor v0.1.0
+   Compiling tokio v1.53.1
+   Compiling http v1.5.0
+   Compiling paste v1.0.15
+   Compiling sha3 v0.12.0
+   Compiling amaru-uplc v0.4.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling ed25519-dalek v3.0.0
+   Compiling stacksafe v1.0.3
+   Compiling thiserror-impl v1.0.69
+   Compiling divan-macros v0.1.21
+   Compiling sysinfo v0.39.6
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling amaru-uplc v0.1.0
+   Compiling http-body v1.1.0
+   Compiling itertools v0.15.0
+   Compiling url v2.5.8
+   Compiling http-body-util v0.1.5
+   Compiling append-only-vec v0.1.8
+   Compiling bech32 v0.11.1
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling bumpalo v3.20.3
+   Compiling bech32 v0.12.0
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.9.0
+   Compiling ciborium v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.9.5
+   Compiling secp256k1 v0.30.0
+   Compiling criterion v0.8.2
+   Compiling hamming v0.1.3
+   Compiling condtype v1.3.0
+   Compiling cryptoxide v0.6.5
+   Compiling divan v0.1.21
+   Compiling itertools v0.14.0
+   Compiling pallas-codec v1.4.0 (/tmp/pallas-amaru-integration/pallas-codec)
+   Compiling iana-time-zone v0.1.65
+   Compiling chrono v0.4.45
+   Compiling pallas-crypto v1.4.0 (/tmp/pallas-amaru-integration/pallas-crypto)
+   Compiling pallas-primitives v1.4.0 (/tmp/pallas-amaru-integration/pallas-primitives)
+   Compiling pallas-addresses v1.4.0 (/tmp/pallas-amaru-integration/pallas-addresses)
+   Compiling tokio-util v0.7.19
+   Compiling tokio-stream v0.1.19
+   Compiling opentelemetry_sdk v0.32.1
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling tower-http v0.6.11
+   Compiling hyper v1.11.1
+   Compiling hyper-util v0.1.21
+   Compiling rustls-webpki v0.103.15
+   Compiling pallas-traverse v1.4.0 (/tmp/pallas-amaru-integration/pallas-traverse)
+   Compiling tokio-rustls v0.26.6
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling amaru-deps v0.0.0 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-minicbor-extra v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+   Compiling amaru-kernel v0.1.2 (https://github.com/rodrigomd94/amaru.git?rev=12dba6c181c1774bde47373bb1ce5fe10a672bea#12dba6c1)
+error[E0506]: cannot assign to `self.storage` because it is borrowed
+   --> /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-kernel/src/data_structures/compact_collections/compact_map.rs:129:21
+    |
+124 |     fn promote(&mut self) -> &mut BTreeMap<K, V> {
+    |                - let's call the lifetime of this reference `'1`
+125 |         loop {
+126 |             match &mut self.storage {
+    |                   ----------------- `self.storage` is borrowed here
+127 |                 MapStorage::Tree(entries) => return entries,
+    |                                                     ------- returning this value requires that `self.storage` is borrowed for `'1`
+128 |                 MapStorage::Small(entries) => {
+129 |                     self.storage = MapStorage::Tree(entries.take().into_iter().collect());
+    |                     ^^^^^^^^^^^^ `self.storage` is assigned to here but it was already borrowed
+
+error[E0506]: cannot assign to `self.storage` because it is borrowed
+  --> /home/rodrigo/.cargo/git/checkouts/amaru-f167074ede9e5474/12dba6c/crates/amaru-kernel/src/data_structures/compact_collections/compact_set.rs:93:21
+   |
+88 |     fn promote(&mut self) -> &mut BTreeSet<T> {
+   |                - let's call the lifetime of this reference `'1`
+89 |         loop {
+90 |             match &mut self.storage {
+   |                   ----------------- `self.storage` is borrowed here
+91 |                 SetStorage::Tree(entries) => return entries,
+   |                                                     ------- returning this value requires that `self.storage` is borrowed for `'1`
+92 |                 SetStorage::Small(entries) => {
+93 |                     self.storage = SetStorage::Tree(entries.take().into_iter().collect());
+   |                     ^^^^^^^^^^^^ `self.storage` is assigned to here but it was already borrowed
+
+For more information about this error, try `rustc --explain E0506`.
+error: could not compile `amaru-kernel` (lib) due to 2 previous errors

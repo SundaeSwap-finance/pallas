@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### ⚙️ Miscellaneous Tasks
+
+- [**breaking**] Raise the workspace minimum supported Rust version from 1.88 to
+  1.97 for the Amaru dependencies used by native Dijkstra script evaluation.
+  This requirement applies to all workspace builds and must ship in a minor release.
+
 ## [1.4.0] - 2026-09-17
 
 ### 🐛 Bug Fixes

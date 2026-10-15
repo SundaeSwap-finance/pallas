@@ -1,0 +1,324 @@
+{
+  "platform": "Linux x86_64",
+  "rustc": "1.98.1 (48a229cea 2026-09-01)",
+  "msrv": "1.97.0",
+  "checks": [
+    {
+      "name": "native-tests",
+      "command": "cargo test --offline --locked -p pallas-validate --features phase2,unstable",
+      "exit_code": 0,
+      "seconds": 32.02,
+      "log": "target/musashi-estimation-checks/native-tests.log",
+      "tests": {
+        "passed": 273,
+        "failed": 0,
+        "ignored": 3
+      },
+      "log_sha256": "20ad461e60adb0f0b511bebfaa5b82891742766bd6d8704aa17de82541e665e4",
+      "diagnostics": []
+    },
+    {
+      "name": "native-clippy",
+      "command": "cargo clippy --offline --locked -p pallas-validate --all-targets --features phase2,unstable -- -D warnings",
+      "exit_code": 0,
+      "seconds": 48.2,
+      "log": "target/musashi-estimation-checks/native-clippy.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "9a5a10a40107ec48ae5cb59e0733db6dc404f9c58ae314a52f29a15793b9bd9d",
+      "diagnostics": []
+    },
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.79,
+      "log": "target/musashi-estimation-checks/fmt.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "8af5d229a43e6cbcc3e26e545baeb1f4a16be1e37b8b29e34e500ff6f3496564",
+      "diagnostics": [
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:294:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:544:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:567:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:581:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:688:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:732:",
+        "Diff in /home/rodrigo/projects/pallas/examples/leios-testnet/src/bin/harvest.rs:741:"
+      ],
+      "resolution": "Seven pre-existing diffs in unchanged harvest.rs; changed-file formatting passes."
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --locked --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 13.22,
+      "log": "target/musashi-estimation-checks/clippy.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "c0bd53abb2714470ced867ef67386dd4c123a15c3164deb12cf35f6b9424a642",
+      "diagnostics": []
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --locked --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 26.41,
+      "log": "target/musashi-estimation-checks/build.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "7221f753b08a61725d077f9d5316943822c08cc727a4531daed90f7888ea1989",
+      "diagnostics": []
+    },
+    {
+      "name": "test",
+      "command": "cargo test --offline --locked --workspace --no-fail-fast",
+      "exit_code": 101,
+      "seconds": 320.54,
+      "log": "target/musashi-estimation-checks/test.log",
+      "tests": {
+        "passed": 1024,
+        "failed": 12,
+        "ignored": 19
+      },
+      "log_sha256": "93023b9bcd970565808113e6b6f19f8ea59c840659579d96d23b2c1063e53c0a",
+      "diagnostics": [
+        "error: test failed, to rerun pass `-p pallas-network --test plexer`",
+        "error: test failed, to rerun pass `-p pallas-network --test protocols`",
+        "error: test failed, to rerun pass `-p pallas-network2 --test initiator_responder`",
+        "error: 3 targets failed:"
+      ],
+      "resolution": "Only plexer/protocols/initiator_responder failed on sandbox socket denials; all three passed with local sockets enabled. All other workspace tests including math and doctests passed."
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline --locked -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 15.62,
+      "log": "target/musashi-estimation-checks/blueprint.log",
+      "tests": {
+        "passed": 250,
+        "failed": 1,
+        "ignored": 0
+      },
+      "log_sha256": "307d69454c8d8d2c8118ff74a1e13edf7d25b5a6be780608587ccd302f1a386c",
+      "diagnostics": [
+        "error: test failed, to rerun pass `-p pallas-network --test plexer`"
+      ],
+      "resolution": "Sandbox socket denial; entire command passed as blueprint-sockets."
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline --locked -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 36.97,
+      "log": "target/musashi-estimation-checks/unstable.log",
+      "tests": {
+        "passed": 669,
+        "failed": 0,
+        "ignored": 1
+      },
+      "log_sha256": "0efc17aee9029593033d582b7ae8fd9296177c252b3d6abb89504ee1e2d981c8",
+      "diagnostics": []
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline --locked -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 22.46,
+      "log": "target/musashi-estimation-checks/phase2.log",
+      "tests": {
+        "passed": 162,
+        "failed": 0,
+        "ignored": 1
+      },
+      "log_sha256": "0834c66d1e242de24977e17bf71fe295bec79a3d15cfbb0f3d4f569d097077a1",
+      "diagnostics": []
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --locked --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 21.51,
+      "log": "target/musashi-estimation-checks/no-default.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "c2bfde56249668d841d00c1c8ca1714bb45d3c1e69260b91a7b29e2865cc9535",
+      "diagnostics": []
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --locked --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 47.54,
+      "log": "target/musashi-estimation-checks/all-features.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "5b92f9f377c4494dd5206e9e9010c1ce3958e02ace2b2fbd198ad84598cb017a",
+      "diagnostics": []
+    },
+    {
+      "name": "isolated",
+      "command": "cargo check --offline --locked -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 7.81,
+      "log": "target/musashi-estimation-checks/isolated.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "85c5acf277d87cd7fed752de89252ff634670f41254e0b6f8110bf5910e668a9",
+      "diagnostics": []
+    },
+    {
+      "name": "docs",
+      "command": "cargo doc --offline --locked --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 69.57,
+      "log": "target/musashi-estimation-checks/docs.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "ab210b5445de92fdb93fa2aab4117a20e8517eae89372f42f227ee452bf23168",
+      "diagnostics": []
+    },
+    {
+      "name": "msrv-check",
+      "command": "cargo +1.97.0 check --offline --locked --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 40.52,
+      "log": "target/musashi-estimation-checks/msrv-check.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "75c2d91b41ba36d84dc8e1d896a5a14c34eceb551f6bb44524e9774b0b2b4f7a",
+      "diagnostics": []
+    },
+    {
+      "name": "msrv-native",
+      "command": "cargo +1.97.0 test --offline --locked -p pallas-validate --features phase2,unstable",
+      "exit_code": 0,
+      "seconds": 92.67,
+      "log": "target/musashi-estimation-checks/msrv-native.log",
+      "tests": {
+        "passed": 273,
+        "failed": 0,
+        "ignored": 3
+      },
+      "log_sha256": "7a6b73cc77105ff4d4a44d40c356381cb7160dd910b15e6464160623e8728fdf",
+      "diagnostics": []
+    },
+    {
+      "name": "network-default",
+      "command": "cargo test --offline --locked -p pallas-network --test plexer --test protocols",
+      "exit_code": 0,
+      "seconds": 25.47,
+      "log": "target/musashi-estimation-checks/network-default.log",
+      "environment": "local loopback sockets enabled",
+      "tests": {
+        "passed": 6,
+        "failed": 0,
+        "ignored": 7
+      },
+      "log_sha256": "cb1e1054e99b44e628a9b72826933a70a7a860b57dbf70472c8ba7bf5fd5039c",
+      "diagnostics": []
+    },
+    {
+      "name": "network2-default",
+      "command": "cargo test --offline --locked -p pallas-network2 --test initiator_responder",
+      "exit_code": 0,
+      "seconds": 14.69,
+      "log": "target/musashi-estimation-checks/network2-default.log",
+      "environment": "local loopback sockets enabled",
+      "tests": {
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "d514898a719f279eb6c996e96d20d5164846699f39b2f4acbd88c17a110af618",
+      "diagnostics": []
+    },
+    {
+      "name": "blueprint-sockets",
+      "command": "cargo test --offline --locked -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0,
+      "seconds": 43.74,
+      "log": "target/musashi-estimation-checks/blueprint-sockets.log",
+      "environment": "local loopback sockets enabled",
+      "tests": {
+        "passed": 392,
+        "failed": 0,
+        "ignored": 8
+      },
+      "log_sha256": "9ca3be7a1e97e17303a8e7da01f544f804e3ddc4e1e63202d5964b68fb54fb22",
+      "diagnostics": []
+    },
+    {
+      "name": "native-docs",
+      "command": "RUSTDOCFLAGS='-D warnings' cargo doc --offline --locked -p pallas-validate --features phase2,unstable --no-deps",
+      "exit_code": 0,
+      "log": "target/musashi-estimation-checks/native-docs.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "5994da184ad84df13c46277927b74cb2fa6099037a9faa079629fea8fc66fe01",
+      "diagnostics": []
+    },
+    {
+      "name": "changed-fmt",
+      "command": "rustfmt --check --edition 2024 pallas-validate/src/phase2/mod.rs pallas-validate/src/phase2/dijkstra.rs pallas-validate/src/phase2/native_evaluator.rs pallas-validate/src/phase2/dijkstra_evaluation_tests.rs pallas-validate/src/phase2/dijkstra_estimation_tests.rs pallas-validate/src/phase1/dijkstra_transaction_tests.rs",
+      "exit_code": 0,
+      "log": "target/musashi-estimation-checks/changed-fmt.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "7f2d1baece04ee898c9572caa783e2fa45bc141f5da4eef1c7a4324638224103",
+      "diagnostics": []
+    },
+    {
+      "name": "existing-fixtures",
+      "command": "python3 test_data/musashi-dijkstra-validation/verify-fixtures.py",
+      "exit_code": 0,
+      "log": "target/musashi-estimation-checks/existing-fixtures.log",
+      "tests": {
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0
+      },
+      "log_sha256": "dcca0b4f579427fadf407723e95523625b011e672aa4646aebd5c66b6fdfc6d3",
+      "diagnostics": []
+    }
+  ],
+  "unavailable": [
+    "macOS and Windows CI runs",
+    "new independent live node evaluation",
+    "Dolos RPC integration (outside scope)"
+  ]
+}

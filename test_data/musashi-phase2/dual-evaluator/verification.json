@@ -1,0 +1,309 @@
+{
+  "date": "2026-09-29",
+  "platform": "Linux x86_64",
+  "checks": [
+    {
+      "check": "workspace-tests",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "test",
+        "--workspace",
+        "--no-fail-fast"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/workspace-tests.txt"
+    },
+    {
+      "check": "workspace-clippy",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/workspace-clippy.txt"
+    },
+    {
+      "check": "workspace-docs",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "doc",
+        "--workspace",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/workspace-docs.txt"
+    },
+    {
+      "check": "phase2-only",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "test",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/phase2-only.txt"
+    },
+    {
+      "check": "all-features",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "exit_code": 101,
+      "output": "pallas-dual-checks/all-features.txt"
+    },
+    {
+      "check": "no-default",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/no-default.txt"
+    },
+    {
+      "check": "unstable",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "test",
+        "-p",
+        "pallas-primitives",
+        "-p",
+        "pallas-traverse",
+        "-p",
+        "pallas-utxorpc",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "unstable"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/unstable.txt"
+    },
+    {
+      "check": "blueprint",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "--config",
+        "/tmp/pallas-dual-compat.toml",
+        "test",
+        "-p",
+        "pallas-network",
+        "-p",
+        "pallas-network2",
+        "--features",
+        "blueprint"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/blueprint.txt"
+    },
+    {
+      "check": "build",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "build",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-extra/build.txt"
+    },
+    {
+      "check": "isolated",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "-p",
+        "pallas-primitives",
+        "--no-default-features"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-extra/isolated.txt"
+    },
+    {
+      "check": "msrv",
+      "command": [
+        "cargo",
+        "+1.88.0",
+        "check",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 1,
+      "output": "pallas-dual-extra/msrv.txt"
+    },
+    {
+      "check": "format",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 1,
+      "output": "pallas-dual-extra/format.txt"
+    },
+    {
+      "check": "crate-docs",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "doc",
+        "-p",
+        "pallas-validate",
+        "--features",
+        "phase2,unstable",
+        "--no-deps"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-extra/crate-docs.txt"
+    },
+    {
+      "check": "all-features-final",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-checks/all-features-final.txt"
+    },
+    {
+      "check": "msrv-final",
+      "command": [
+        "cargo",
+        "+1.88",
+        "check",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-extra/msrv-final.txt"
+    },
+    {
+      "check": "format-final",
+      "command": [
+        "cargo",
+        "+1.97.0",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 1,
+      "output": "pallas-dual-extra/format-final.txt"
+    },
+    {
+      "check": "changed-format",
+      "command": [
+        "rustfmt",
+        "+1.97.0",
+        "--edition",
+        "2024",
+        "--check",
+        "--config",
+        "skip_children=true",
+        "<seven changed Rust files>"
+      ],
+      "exit_code": 0,
+      "output": "pallas-dual-extra/changed-format.txt"
+    },
+    {
+      "check": "native-and-earlier-validation",
+      "command": "cargo +1.97.0 test -p pallas-validate --features phase2,unstable --no-fail-fast",
+      "exit_code": 0,
+      "output": "fixed-pallas-tests.txt",
+      "passed": 241,
+      "ignored": 2
+    },
+    {
+      "check": "validation-clippy",
+      "command": "cargo +1.97.0 clippy -p pallas-validate --all-targets --features phase2,unstable -- -D warnings",
+      "exit_code": 0,
+      "output": "fixed-pallas-clippy.txt"
+    },
+    {
+      "check": "amaru-uplc-tests",
+      "command": "CARGO_ENCODED_RUSTFLAGS='' cargo +1.97.0 test -p amaru-uplc",
+      "exit_code": 0,
+      "passed": 1067,
+      "output": "fixed-amaru-tests.txt"
+    },
+    {
+      "check": "amaru-kernel-collections",
+      "command": "CARGO_ENCODED_RUSTFLAGS='' cargo +1.97.0 test -p amaru-kernel compact_collections",
+      "exit_code": 0,
+      "passed": 5,
+      "output": "fixed-amaru-collections.txt"
+    },
+    {
+      "check": "amaru-clippy",
+      "command": "CARGO_ENCODED_RUSTFLAGS='' cargo +1.97.0 clippy -p amaru-uplc -p amaru-kernel --all-targets -- -D warnings",
+      "exit_code": 0,
+      "output": "fixed-amaru-clippy.txt"
+    },
+    {
+      "check": "amaru-docs",
+      "command": "CARGO_ENCODED_RUSTFLAGS='' RUSTDOCFLAGS='-D warnings' cargo +1.97.0 doc -p amaru-uplc -p amaru-kernel --no-deps",
+      "exit_code": 0,
+      "output": "fixed-amaru-docs.txt"
+    },
+    {
+      "check": "amaru-workspace",
+      "command": "cargo +nightly-2026-09-04 test --workspace",
+      "exit_code": 101,
+      "output": "amaru-workspace-missing-libclang.txt",
+      "reason": "pre-existing missing libclang.so in RocksDB build"
+    }
+  ],
+  "notes": [
+    "Initial --config file patched the git dependency to the same local candidate source while developing; it was replaced by a comment-only file after the exact local git pin was installed. Final-pin validation test/clippy/docs logs use the exact git commit without overrides.",
+    "All-features initially failed from uninitialized blueprint fixtures. Pinned submodule 188183b37081fa012fa890236edb7771f96ae92f was initialized before final success; no gitlink changed.",
+    "Initial +1.88.0 attempted an uninstalled toolchain and failed in sandbox; installed +1.88 then passes the MSRV workspace check. This does not include phase2.",
+    "Initial formatting also detected edition-2021 formatting on changed files; final edition-2024 check leaves only seven pre-existing harvest.rs differences.",
+    "MS Windows and macOS not run; Amaru workspace failure is not an evaluator runtime reproduction.",
+    "Pallas native phase2 uses Rust 1.97; default-workspace MSRV success does not establish phase2 compatibility with 1.88.",
+    "An initial candidate clippy invocation dropped a global cargo patch configuration and compiled the old dependency; exact-pin clippy replaces that diagnostic attempt."
+  ]
+}

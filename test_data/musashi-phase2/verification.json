@@ -1,0 +1,267 @@
+{
+  "date": "2026-09-29",
+  "s06_complete": false,
+  "final_scope": "protocol-aware V3 Reg/UnReg context translation only",
+  "native_evaluation_status": "unsupported in production; rejected candidate archived",
+  "command": "cargo test --offline -p pallas-validate --features unstable,phase2 --lib v3_deposit_context_tests -- --nocapture",
+  "baseline": {
+    "revision": "4be4fb2171a73bdb04994c8472e76f601d41318f",
+    "compiled": true,
+    "passed": 1,
+    "failed": 2,
+    "exit_code": 101,
+    "preparation": "context-baseline-preparation.patch applied with --unidiff-zero plus identical final test module; old behavior preserved",
+    "target": "/tmp/musashi-s06/baseline-target"
+  },
+  "fixed": {
+    "compiled": true,
+    "passed": 3,
+    "failed": 0,
+    "exit_code": 0,
+    "target": "/home/rodrigo/projects/pallas/target"
+  },
+  "candidate": {
+    "initial_phase2_result": "31 passed before semantic counterexample was added",
+    "baseline_initial_result": "18 passed / 13 runtime failures",
+    "capture_result": "success with unchanged native transaction/UTxOs/model/budgets",
+    "later_counterexample": "compiled; failed correct assertion at runtime because candidate incorrectly returned success",
+    "accepted": false
+  },
+  "intermediate_candidate_checks": [
+    {
+      "name": "fixed",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2 --lib phase2 -- --nocapture",
+      "exit_code": 0,
+      "seconds": 1.93,
+      "log_sha256": "174eb4d69f45829c7ee1b3822ba3c4519ffb0c67cd6ce6d00c88fda1b220285b"
+    },
+    {
+      "name": "native-suite",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 6.9,
+      "log_sha256": "eb1d2d3ebc824b5882a926d5bfcb7b2bb6b7a58f5f799918289c0f6f4a60cc7a"
+    },
+    {
+      "name": "clippy-native",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.83,
+      "log_sha256": "a68cf5658a74541764a79ef8163a703b4613950fadf9064368fcd26537a6f895"
+    },
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --check",
+      "exit_code": 1,
+      "seconds": 1.61,
+      "log_sha256": "8af5d229a43e6cbcc3e26e545baeb1f4a16be1e37b8b29e34e500ff6f3496564"
+    },
+    {
+      "name": "clippy-workspace",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "seconds": 2.66,
+      "log_sha256": "2646561dc130d047b23da032f255249d6bd94a76eb5962eb9aa35d54cd72c4f8"
+    },
+    {
+      "name": "docs",
+      "command": "cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 19.71,
+      "log_sha256": "42f1fe9cf852a11fb40a4a03832c0d600b6cfe21cc35b5fd46ff0cee579d3257",
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 8.48,
+      "log_sha256": "5fa9965f7582aef00b59943b1b3c6cd3afc80da0f459f2747a65d30754644b21"
+    },
+    {
+      "name": "unstable",
+      "command": "cargo test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0,
+      "seconds": 11.56,
+      "log_sha256": "76a4db8674cb4dc901ada849b1303d09cfa3ce1b98e2a3ff6d76436206ff5e7a"
+    },
+    {
+      "name": "phase2",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 6.78,
+      "log_sha256": "b495d81b45b67ac10511fbb1fd248ad7a52a32a51c197e81dcd7bfe5c9136632"
+    },
+    {
+      "name": "no-default",
+      "command": "cargo check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0,
+      "seconds": 2.0,
+      "log_sha256": "5befe436f8292b92d78cc7cff2d46b4b68df2469692a460e203da208ab38ce70"
+    },
+    {
+      "name": "all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 3.99,
+      "log_sha256": "394fee54da12418b2fe15f27ddc21916d979d5e1d81ba101a5fb7ea8db4dd202"
+    },
+    {
+      "name": "isolated",
+      "command": "cargo check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0,
+      "seconds": 0.55,
+      "log_sha256": "ec3275bd7cdb61fe7edc4fadcb9a7a8d1c03aef38d75c8a6d05652c57a1d448e"
+    },
+    {
+      "name": "msrv",
+      "command": "cargo +1.88 check --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 3.47,
+      "log_sha256": "cd501bd95341c66cc3f4d65c6ca27f090b22ad9ffd60576ff1b01237d6089fa5"
+    },
+    {
+      "name": "msrv-native",
+      "command": "cargo +1.88 check --offline -p pallas-validate --all-targets --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 3.09,
+      "log_sha256": "744f8bc1de558ba829f92e765e5af9869fd3efe3810cadc43dd8d6f8a3d46408"
+    },
+    {
+      "name": "workspace",
+      "command": "cargo test --offline --workspace",
+      "exit_code": 101,
+      "seconds": 246.36,
+      "log_sha256": "0f5417959c528d9074aa6fd4f2986f5d43791add2af69d80d9d5487356273d57"
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 101,
+      "seconds": 2.21,
+      "log_sha256": "852075419b8abcff8169d66b9cd8321be33c126c0d924e938367e1e09c40caf7"
+    },
+    {
+      "name": "workspace-sockets",
+      "command": "cargo test --offline --workspace --exclude pallas-math",
+      "exit_code": 0
+    },
+    {
+      "name": "blueprint-sockets",
+      "command": "cargo test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0
+    },
+    {
+      "name": "math-docs",
+      "command": "cargo test --offline -p pallas-math --doc",
+      "exit_code": 0
+    }
+  ],
+  "final_production_checks": [
+    {
+      "name": "final-native-suite",
+      "command": "cargo test --offline -p pallas-validate --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 6.18,
+      "log_sha256": "ce1ad2dff3451a8c4d90ca7fb2b9e75c807799d3849cc75a8116d4aabd9629ae"
+    },
+    {
+      "name": "final-phase2",
+      "command": "cargo test --offline -p pallas-validate --features phase2",
+      "exit_code": 0,
+      "seconds": 5.42,
+      "log_sha256": "ca2ef256f0f16683bc22fdb726ee7b7729c2a1af54811fda1bc50f3ec5efbf72"
+    },
+    {
+      "name": "final-clippy",
+      "command": "cargo clippy --offline -p pallas-validate --all-targets --features unstable,phase2 -- -D warnings",
+      "exit_code": 0,
+      "seconds": 1.77,
+      "log_sha256": "478f127abbb8ff7b6f3fb420cfb28ecc7790b1a6cfe8a685dd1f3149fbe0cefc"
+    },
+    {
+      "name": "final-all-features",
+      "command": "cargo check --offline --workspace --all-targets --all-features",
+      "exit_code": 0,
+      "seconds": 2.97,
+      "log_sha256": "77596d22037ad51e8404f660f26125f83fe81a84d06e9439e30927cfdaf12cf2"
+    },
+    {
+      "name": "final-msrv-native",
+      "command": "cargo +1.88 check --offline -p pallas-validate --all-targets --features unstable,phase2",
+      "exit_code": 0,
+      "seconds": 2.2,
+      "log_sha256": "1bd5e6cd1b2bccf9bd620e85cc34e04c8c50926f924dd388de43e0e298a244e9"
+    },
+    {
+      "name": "final-docs",
+      "command": "cargo doc --offline --workspace --no-deps",
+      "exit_code": 0,
+      "seconds": 20.86,
+      "log_sha256": "d77a6384255266b8d8d07c9696903fdb8e370df29a3100ab0e2e9c8a828e30d5",
+      "environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    {
+      "name": "final-build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0,
+      "seconds": 7.16,
+      "log_sha256": "4d53afef2ac88cae616f8144aee978b4e5c4f1d66480aeaa4565b2d0c650da51"
+    },
+    {
+      "name": "final-integrity",
+      "command": "cargo test --offline -p pallas-traverse --features unstable --test musashi_registration",
+      "exit_code": 0,
+      "seconds": 6.05,
+      "log_sha256": "919eba35fc4aa54e545d28e2665c3279fd791b99bff01dbda3de5c504be0931d"
+    }
+  ],
+  "preexisting_failures": [
+    "cargo fmt --all --check: seven unchanged differences in examples/leios-testnet/src/bin/harvest.rs"
+  ],
+  "environmental_failures": [
+    "workspace/blueprint initially failed on sandbox loopback socket creation; socket-enabled reruns passed"
+  ],
+  "math": "19 tests passed in 241.91 seconds; unchanged crate not repeated in socket retry; doctests passed separately",
+  "platform": "Linux; macOS/Windows not run",
+  "source_sha256": {
+    "pallas-validate/src/phase2/mod.rs": "4d7075f41b2d8da1869ec2043573c5890255b862ecf59197e25464cfeebba722",
+    "pallas-validate/src/phase2/to_plutus_data.rs": "58bfaead4d2fbee25f721437c9808254e2ceddd2eec984e3939a15a601c49423",
+    "pallas-validate/src/phase2/tx.rs": "ec1d99a9fe8d88f87f749098468f261bab1f4a15de95698d03c7e0115b1a7b8f",
+    "pallas-validate/src/phase2/v3_deposit_context_tests.rs": "92e74e8f312c454b6fae931da95888bd2c5fd17a20bbc801526689cf21b861b8"
+  },
+  "file_sha256": {
+    "provenance.json": "1952e9146afc3f3393956954ee7f7d9b66c268a0fb4aba17001940924e3d2327",
+    "audit-cost-model.py": "16c99c6822e52d3165d42aa1aba20837bbfd63b3c87473236053efc7c4631297",
+    "candidate-baseline.txt": "8266710959ba66ad6d3b2783e460dd62bb8f27598ad9d365476e2c5446afeb4b",
+    "README.md": "93eeb33cfe5acb23b90ba73f1f91b6de975660b371dd2379d97cd57627eecbbe",
+    "candidate-baseline-preparation.patch": "5501af148d5bbc9cb26f469eac0139d13bd85ba2514b25c8519f2c3aa86ae0c1",
+    "candidate-captured-and-boundary-tests.txt": "4fe20abcbb4833056379748597bdba5b04695f8c0718d01d27c5d5ae2622ba2c",
+    "candidate-semantic-gap.txt": "3992d2c59af27172413f653cf2696b9f91d3b951d0c7a606412ac76b4a86b3b4",
+    "context-baseline.txt": "051a2723a77def1e824d9717222cd81210e4955118ad28b9bf6f55f32fe6327b",
+    "native-candidate.patch": "97df7d14d691b8e7d30f72f6bff591955a268bff7f1ae343acc39c2128b47200",
+    "context-baseline-preparation.patch": "5f2a36cd44bfd2c6c3ece01464a0447e57188d0c0074addcd5c97844a50603e3",
+    "cost-model-audit.json": "fecef42b4ce78173da742986f61bcf1cbc9136c8de7a9b22ecad9737351e00b8",
+    "context-fixed.txt": "0a6ef6f486fcbf51bdfdd6854d5325114d32d1670df7bed80fce5a05381d0d4f"
+  },
+  "remote_snapshot": {
+    "pallas": "4be4fb2171a73bdb04994c8472e76f601d41318f",
+    "dolos": "c431ca8dbaa40af31a715fda498505d9a9415105",
+    "musashi_remote_tags": [],
+    "remote_writes": false
+  },
+  "preserved": {
+    "historical_tags": "all existing tag object IDs unchanged",
+    "dolos_pin": "808857af9c72b78c214486b2e11df82fc90d49d1",
+    "read_only_reference": "3cf1483545d24d0b934673abebc9e368d0ec27a9",
+    "captured_payloads": "unchanged"
+  },
+  "durable_full_logs": ".git/musashi-s06-evidence/",
+  "next_step": "S06 evaluator dependency/backport compatible with Rust 1.88 or explicit compiler-policy decision; prove protocol-12 builtin bounds/casing/model semantics before restoring native dispatch; then repeat capture, budgets and negative cases. Not S07.",
+  "checkpoint": "commit introducing this report; local only; exact revision in local MUSASHI_FIX_PLAN.md",
+  "patch_checks": "native-candidate.patch and context-baseline-preparation.patch apply cleanly to baseline with --unidiff-zero"
+}

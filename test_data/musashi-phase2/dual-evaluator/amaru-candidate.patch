@@ -1,0 +1,210 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 2e614f63b..f75b4bfe5 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -51,0 +52,3 @@ Other guiding principles:
++- **amaru-kernel**: collection promotion compiles with the declared Rust 1.97 minimum version.
++- **amaru-uplc**: reject out-of-range integer operands for builtin semantics D/E while preserving unrestricted integer results, equality and data construction.
++
+diff --git a/crates/amaru-kernel/src/data_structures/compact_collections/compact_map.rs b/crates/amaru-kernel/src/data_structures/compact_collections/compact_map.rs
+index e0e8f1a9e..f1e15df7a 100644
+--- a/crates/amaru-kernel/src/data_structures/compact_collections/compact_map.rs
++++ b/crates/amaru-kernel/src/data_structures/compact_collections/compact_map.rs
+@@ -125,7 +125,6 @@ impl<K: Ord, V, const N: usize> CompactMap<K, V, N> {
+-        loop {
+-            match &mut self.storage {
+-                MapStorage::Tree(entries) => return entries,
+-                MapStorage::Small(entries) => {
+-                    self.storage = MapStorage::Tree(entries.take().into_iter().collect());
+-                }
+-            }
++        if let MapStorage::Small(entries) = &mut self.storage {
++            self.storage = MapStorage::Tree(entries.take().into_iter().collect());
++        }
++        match &mut self.storage {
++            MapStorage::Tree(entries) => entries,
++            MapStorage::Small(_) => unreachable!("small storage was promoted above"),
+diff --git a/crates/amaru-kernel/src/data_structures/compact_collections/compact_set.rs b/crates/amaru-kernel/src/data_structures/compact_collections/compact_set.rs
+index ea42a6629..69c0a5e57 100644
+--- a/crates/amaru-kernel/src/data_structures/compact_collections/compact_set.rs
++++ b/crates/amaru-kernel/src/data_structures/compact_collections/compact_set.rs
+@@ -89,7 +89,6 @@ impl<T: Ord, const N: usize> CompactSet<T, N> {
+-        loop {
+-            match &mut self.storage {
+-                SetStorage::Tree(entries) => return entries,
+-                SetStorage::Small(entries) => {
+-                    self.storage = SetStorage::Tree(entries.take().into_iter().collect());
+-                }
+-            }
++        if let SetStorage::Small(entries) = &mut self.storage {
++            self.storage = SetStorage::Tree(entries.take().into_iter().collect());
++        }
++        match &mut self.storage {
++            SetStorage::Tree(entries) => entries,
++            SetStorage::Small(_) => unreachable!("small storage was promoted above"),
+diff --git a/crates/amaru-uplc/src/machine/error.rs b/crates/amaru-uplc/src/machine/error.rs
+index 6438ee5f7..88bf67da2 100644
+--- a/crates/amaru-uplc/src/machine/error.rs
++++ b/crates/amaru-uplc/src/machine/error.rs
+@@ -63,0 +64,2 @@ pub enum RuntimeError<'a> {
++    #[error("Integer operand is outside the signed 262144-bit range")]
++    IntegerOperandOutOfBounds,
+diff --git a/crates/amaru-uplc/src/machine/runtime.rs b/crates/amaru-uplc/src/machine/runtime.rs
+index afeb79936..3fc56c521 100644
+--- a/crates/amaru-uplc/src/machine/runtime.rs
++++ b/crates/amaru-uplc/src/machine/runtime.rs
+@@ -125,0 +126,16 @@ impl<'a> Machine<'a> {
++    fn unwrap_integer_operand<V>(&self, value: &'a Value<'a, V>) -> Result<&'a Integer, MachineError<'a, V>>
++    where
++        V: Eval<'a>,
++    {
++        // CInteger is [-2^262143, 2^262143 - 1]. The negative endpoint has
++        // one extra magnitude bit; results and unrestricted Integer arguments
++        // (including equalsInteger and iData) do not use this check.
++        static MIN_INTEGER: once_cell::sync::Lazy<Integer> =
++            once_cell::sync::Lazy::new(|| -(Integer::from(1) << 262_143usize));
++        let integer = value.unwrap_integer()?;
++        if self.costs.semantics.integer_operand_range_checks() && integer.bits() > 262_143 && integer != &*MIN_INTEGER {
++            return Err(MachineError::runtime(RuntimeError::IntegerOperandOutOfBounds));
++        }
++        Ok(integer)
++    }
++
+@@ -145,2 +161,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -326 +342,5 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
++                let arg1 = if self.costs.semantics.cons_byte_string_range_checks() {
++                    runtime.args[0].unwrap_integer()?
++                } else {
++                    self.unwrap_integer_operand(runtime.args[0])?
++                };
+@@ -418,2 +438,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -696,2 +716,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -717,2 +737,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -902,2 +922,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -924,2 +944,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -962,2 +982,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -986,2 +1006,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+@@ -1141,2 +1161,2 @@ impl<'a> Machine<'a> {
+-                let arg1 = runtime.args[0].unwrap_integer()?;
+-                let arg2 = runtime.args[1].unwrap_integer()?;
++                let arg1 = self.unwrap_integer_operand(runtime.args[0])?;
++                let arg2 = self.unwrap_integer_operand(runtime.args[1])?;
+diff --git a/crates/amaru-uplc/src/machine/semantics.rs b/crates/amaru-uplc/src/machine/semantics.rs
+index 422438728..ba3c316e8 100644
+--- a/crates/amaru-uplc/src/machine/semantics.rs
++++ b/crates/amaru-uplc/src/machine/semantics.rs
+@@ -61,0 +62,5 @@ impl Semantics {
++    /// Semantics D/E unlift selected operands as signed 262144-bit CInteger.
++    pub fn integer_operand_range_checks(&self) -> bool {
++        matches!(self, Self::D | Self::E)
++    }
++
+diff --git a/crates/amaru-uplc/tests/operand_bounds.rs b/crates/amaru-uplc/tests/operand_bounds.rs
+index 057dbbdfd..1fa19a746 100644
+--- a/crates/amaru-uplc/tests/operand_bounds.rs
++++ b/crates/amaru-uplc/tests/operand_bounds.rs
+@@ -177,0 +178,71 @@ fn valid_boundary_hash_still_obeys_execution_budget() {
++
++// CInteger is used by these arithmetic/comparison operands in semantics D/E.
++// EqualsInteger and IData use unrestricted Integer instead.
++#[test]
++fn integer_operands_obey_signed_range_at_protocol_11() {
++    use amaru_uplc::constant::Integer;
++    let bound = Integer::from(1) << 262_143usize;
++    for language in [PlutusVersion::V1, PlutusVersion::V2, PlutusVersion::V3] {
++        for protocol in [10, 11, 12] {
++            for builtin in [
++                DefaultFunction::AddInteger,
++                DefaultFunction::SubtractInteger,
++                DefaultFunction::MultiplyInteger,
++                DefaultFunction::DivideInteger,
++                DefaultFunction::QuotientInteger,
++                DefaultFunction::RemainderInteger,
++                DefaultFunction::ModInteger,
++                DefaultFunction::LessThanInteger,
++                DefaultFunction::LessThanEqualsInteger,
++            ] {
++                for (integer, in_range) in
++                    [(&bound - 1, true), (-&bound, true), (bound.clone(), false), (-&bound - 1, false)]
++                {
++                    for position in [0, 1] {
++                        let arena = Arena::new();
++                        let large = Term::integer(&arena, arena.alloc_integer(integer.clone()));
++                        let one = Term::integer_from(&arena, 1);
++                        let (left, right) = if position == 0 { (large, one) } else { (one, large) };
++                        let term = Term::<DeBruijn>::builtin(&arena, builtin).apply(&arena, left).apply(&arena, right);
++                        let costs = match language {
++                            PlutusVersion::V1 => CostModel::DEFAULT_V1.as_slice(),
++                            PlutusVersion::V2 => CostModel::DEFAULT_V2.as_slice(),
++                            PlutusVersion::V3 => CostModel::DEFAULT_V3.as_slice(),
++                        };
++                        let program = Program::new(&arena, MachineVersion::V1_0_0, term);
++                        let result = program.eval(
++                            &arena,
++                            CostModel::new(language, ProtocolVersion::new(protocol, 0), costs),
++                            ExBudget::max(),
++                        );
++                        assert_eq!(
++                            result.term.is_ok(),
++                            protocol < 11 || in_range,
++                            "{language:?} protocol {protocol} {builtin:?} position {position} in_range {in_range}"
++                        );
++                    }
++                }
++            }
++        }
++    }
++}
++
++#[test]
++fn integer_results_equality_and_data_remain_unrestricted() {
++    use amaru_uplc::constant::Integer;
++    let arena = Arena::new();
++    let bound = Integer::from(1) << 262_143usize;
++    let outside = Term::integer(&arena, arena.alloc_integer(bound.clone()));
++    let max = Term::integer(&arena, arena.alloc_integer(&bound - 1));
++    let sum = Term::builtin(&arena, DefaultFunction::AddInteger)
++        .apply(&arena, max)
++        .apply(&arena, Term::integer_from(&arena, 1));
++    for term in [
++        sum,
++        Term::builtin(&arena, DefaultFunction::IData).apply(&arena, outside),
++        Term::builtin(&arena, DefaultFunction::EqualsInteger).apply(&arena, outside).apply(&arena, outside),
++    ] {
++        let program = Program::<DeBruijn>::new(&arena, MachineVersion::V1_1_0, term);
++        assert!(program.eval(&arena, CostModel::v3(), ExBudget::max()).term.is_ok());
++    }
++}

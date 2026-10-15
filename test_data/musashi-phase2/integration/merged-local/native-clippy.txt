@@ -1,0 +1,7 @@
+    Checking pallas-codec v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-codec)
+    Checking pallas-crypto v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-crypto)
+    Checking pallas-addresses v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-addresses)
+    Checking pallas-primitives v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-primitives)
+    Checking pallas-traverse v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-traverse)
+    Checking pallas-validate v1.4.0 (/tmp/pallas-musashi-s06-integration/pallas-validate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.01s

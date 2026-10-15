@@ -1,0 +1,14 @@
+--- a/pallas-validate/src/phase2/mod.rs
++++ b/pallas-validate/src/phase2/mod.rs
+@@ -37,0 +38,11 @@
++
++// Baseline-only API adapter: unchanged budget-enforcing evaluation.
++#[cfg(feature = "unstable")]
++pub fn estimate_tx(
++    tx: &MultiEraTx,
++    pparams: &MultiEraProtocolParameters,
++    utxos: &UtxoMap,
++    slot_config: &SlotConfig,
++) -> Result<EvalReport, Error> {
++    evaluate_tx(tx, pparams, utxos, slot_config)
++}
