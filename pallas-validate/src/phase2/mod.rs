@@ -21,3 +21,6 @@ pub fn evaluate_tx(
 ) -> Result<EvalReport, Error> {
     tx::eval_tx(tx, pparams, utxos, slot_config)
 }
+
+#[cfg(test)]
+mod v3_deposit_context_tests;
