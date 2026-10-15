@@ -1111,9 +1111,12 @@ pub fn sort_reward_accounts(a: &Bytes, b: &Bytes) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::{
-        DataLookupTable, Hash, ResolvedInput, ScriptRef, TransactionInput, TransactionOutput,
+        DataLookupTable, Error, Hash, PlutusData, Redeemer, RedeemerTag, ResolvedInput, ScriptRef,
+        ScriptVersion, SlotConfig, TransactionInput, TransactionOutput, TxInfoV1, find_script,
     };
+    use crate::phase2::{data::Data, to_plutus_data::ToPlutusData};
     use pallas_crypto::hash::Hasher;
+    use pallas_primitives::conway::ExUnits;
     use pallas_traverse::{ComputeHash, Era, MultiEraTx};
 
     /// `ScriptAll` over one `ScriptPubkey`, with the child list written as an
@@ -1231,5 +1234,85 @@ mod tests {
             .collect();
 
         assert_eq!(keys, vec![committed]);
+    }
+
+    /// `ScriptPubkey` over a 28 byte key hash.
+    const WITNESS_SCRIPT: [u8; 32] = [
+        0x82, 0x00, 0x58, 0x1c, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+        0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
+        0x1a, 0x1b,
+    ];
+
+    fn conway_tx_registering(credential_kind: u8, credential: &[u8]) -> Vec<u8> {
+        let mut cbor = vec![0x84]; // transaction
+        cbor.extend([0xa4, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]); // body, no inputs, outputs or fee
+        cbor.extend([0x04, 0x81]); // one certificate
+        cbor.extend([0x83, 0x07]); // registration with a deposit
+        cbor.extend([0x82, credential_kind, 0x58, 0x1c]); // a 28 byte credential
+        cbor.extend_from_slice(credential);
+        cbor.push(0x00); // zero deposit
+        cbor.extend_from_slice(&[0xa1, 0x01, 0x81]); // witness set, one native script
+        cbor.extend_from_slice(&WITNESS_SCRIPT);
+        cbor.extend_from_slice(&[0xf5, 0xf6]); // valid, no auxiliary data
+        cbor
+    }
+
+    fn certifying_redeemer() -> Redeemer {
+        Redeemer {
+            tag: RedeemerTag::Cert,
+            index: 0,
+            data: Data::list(vec![]),
+            ex_units: ExUnits { mem: 0, steps: 0 },
+        }
+    }
+
+    #[test]
+    fn a_registration_at_a_script_credential_finds_that_script() {
+        let hash = Hasher::<224>::hash_tagged(&WITNESS_SCRIPT, 0);
+        let cbor = conway_tx_registering(0x01, hash.as_ref());
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+        let table = DataLookupTable::from_transaction(&tx, &[]);
+
+        let found = find_script(&certifying_redeemer(), tx.as_conway().unwrap(), &[], &table);
+
+        assert!(
+            matches!(found, Ok((ScriptVersion::Native(_), None))),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_registration_at_a_key_credential_finds_no_script() {
+        let hash = Hasher::<224>::hash_tagged(&WITNESS_SCRIPT, 0);
+        let cbor = conway_tx_registering(0x00, hash.as_ref());
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+        let table = DataLookupTable::from_transaction(&tx, &[]);
+
+        let found = find_script(&certifying_redeemer(), tx.as_conway().unwrap(), &[], &table);
+
+        assert!(
+            matches!(found, Err(Error::NonScriptStakeCredential)),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_registration_reaches_a_v1_context_as_a_key_registration() {
+        let hash = Hasher::<224>::hash_tagged(&WITNESS_SCRIPT, 0);
+        let cbor = conway_tx_registering(0x01, hash.as_ref());
+        let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+
+        let info = TxInfoV1::from_transaction(tx.as_conway().unwrap(), &[], &SlotConfig::default())
+            .unwrap()
+            .to_plutus_data();
+
+        let PlutusData::Constr(info) = info else {
+            panic!("a constructor")
+        };
+        let staking_hash = Data::constr(0, vec![Data::constr(1, vec![hash.to_plutus_data()])]);
+        assert_eq!(
+            info.fields[4],
+            Data::list(vec![Data::constr(0, vec![staking_hash])])
+        );
     }
 }
