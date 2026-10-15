@@ -1,0 +1,185 @@
+{
+  "base_revision": "4d4bb129957ac24e9388821c9cd01094673b204b",
+  "date": "2026-10-31",
+  "baseline": {
+    "command": "cargo test --offline -p pallas-validate --features phase2,unstable guard_reference",
+    "source": "published baseline with only final dijkstra_evaluation_tests.rs copied in",
+    "identical_test_file_sha256": "43e1f8d9ac2531cb615c388dc546eb70086e386eb213a9d79cacad6d0400fb9d",
+    "runtime_failures": 2,
+    "reason": "DijkstraUnsupported(Unsupported(\"native script guards\"))",
+    "separate_build_outputs": true
+  },
+  "fixed": {
+    "regressions_passed": 2,
+    "native_suite": {
+      "passed": 351,
+      "failed": 0,
+      "ignored": 3
+    },
+    "workspace_suite": {
+      "passed": 1511,
+      "failed": 0,
+      "ignored": 19
+    }
+  },
+  "gates": [
+    {
+      "name": "build",
+      "command": "cargo build --offline --workspace --all-targets",
+      "exit_code": 0
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --offline --workspace --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "name": "docs",
+      "command": "cargo doc --offline --workspace --no-deps",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo test --offline --workspace",
+      "exit_code": 0,
+      "scheduler": "paused after this command to relocate later builds to /tmp"
+    },
+    {
+      "name": "blueprint",
+      "command": "cargo +1.97.0 test --offline -p pallas-network -p pallas-network2 --features blueprint",
+      "exit_code": 0
+    },
+    {
+      "name": "unstable",
+      "command": "cargo +1.97.0 test --offline -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate --features unstable",
+      "exit_code": 0
+    },
+    {
+      "name": "unstable-blueprint",
+      "command": "cargo +1.97.0 test --offline -p pallas-primitives --features unstable,blueprint",
+      "exit_code": 0
+    },
+    {
+      "name": "phase2",
+      "command": "cargo +1.97.0 test --offline -p pallas-validate --features phase2",
+      "exit_code": 0
+    },
+    {
+      "name": "native",
+      "command": "cargo +1.97.0 test --offline -p pallas-validate --features phase2,unstable",
+      "exit_code": 0
+    },
+    {
+      "name": "no-default",
+      "command": "cargo +1.97.0 check --offline --workspace --all-targets --no-default-features",
+      "exit_code": 0
+    },
+    {
+      "name": "all-features",
+      "command": "cargo +1.97.0 check --offline --workspace --all-targets --all-features",
+      "exit_code": 0
+    },
+    {
+      "name": "isolated",
+      "command": "cargo +1.97.0 check --offline -p pallas-primitives --no-default-features",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo fmt --all --check",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo clippy --offline -p pallas-validate --features phase2,unstable --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo +1.97.0 check --offline --workspace --all-targets",
+      "exit_code": 0
+    }
+  ],
+  "toolchains": {
+    "initial_workspace_build_lint_docs_tests": "stable rustc 1.98.1",
+    "later_features_and_msrv": "1.97.0, CARGO_TARGET_DIR=/tmp/musashi-guard-msrv, debug=0, incremental=0; relocated to avoid workspace filesystem exhaustion",
+    "docs": "RUSTDOCFLAGS=-D warnings"
+  },
+  "dolos": {
+    "revision": "7bab64ec58cbdb469ec9ce3b793b6c9edfeb09b0",
+    "dependency": "isolated local path override; canonical pin unchanged",
+    "ttl_and_native_reference_callers_passed": 4,
+    "error_mapping_passed": 2,
+    "rpc_mapping_passed": 39,
+    "full_workspace_gates": "not rerun; canonical Dolos production and dependencies unchanged"
+  },
+  "known_failures": [],
+  "notices": [
+    "stable rustfmt wrap_comments setting ignored",
+    "Dolos proc-macro-error2 future incompatibility",
+    "Dolos git archive source has no Git build revision"
+  ],
+  "unavailable": [
+    "macOS and Windows CI platforms",
+    "deployed Musashi node identity and on-chain confirmation",
+    "CLI input carrier and field14 script-guard semantic replay; see provenance.json"
+  ],
+  "durable_logs": "/home/rodrigo/projects/musashi-readiness/local-dolos/guard-reference-20261031/",
+  "review_amendment": {
+    "date": "2026-11-02",
+    "unamended_revision": "38ee58dc93e61fcef3044278f571b068ee000191",
+    "scope": "Dijkstra context projection: constructed/mutated native reference scripts in Dijkstra and Conway carriers; existing native hash helper used unchanged",
+    "baseline": {
+      "command": "cargo +1.97.0 test --offline -p pallas-validate --features phase2,unstable reference_without_raw",
+      "runtime_failures": 2,
+      "reason": "prefix-only hash instead of encoded script hash; roundtrip controls pass",
+      "build_directory": "/tmp/musashi-guard-msrv"
+    },
+    "fixed": {
+      "command": "cargo +1.97.0 test --offline -p pallas-validate --features phase2,unstable",
+      "passed": 353,
+      "failed": 0,
+      "ignored": 3,
+      "build_directory": "/tmp/musashi-raw-fixed"
+    },
+    "checks": [
+      {
+        "command": "cargo +1.97.0 fmt --all --check",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 clippy --offline --workspace --all-targets --all-features -- -D warnings",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 build --offline --workspace --all-targets",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 doc --offline --workspace --no-deps",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 test --offline --workspace",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 test --offline -p pallas-validate --features phase2",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 check --offline --workspace --all-targets --no-default-features",
+        "exit_code": 0
+      },
+      {
+        "command": "cargo +1.97.0 check --offline -p pallas-primitives --no-default-features",
+        "exit_code": 0
+      }
+    ],
+    "workspace_tests": {
+      "passed": 1511,
+      "failed": 0,
+      "ignored": 19
+    },
+    "toolchain": "Rust 1.97.0; debug=0; incremental=0; docs with RUSTDOCFLAGS=-D warnings",
+    "dolos_callers": "Original increment evidence retained; not rerun for the in-memory boundary correction. Canonical pin/code unchanged.",
+    "network_evidence": "No new capture/submission; prior pinned ledger and CLI evidence unchanged.",
+    "durable_logs": "/home/rodrigo/projects/musashi-readiness/local-dolos/guard-raw-fallback-20261102/"
+  }
+}
