@@ -187,3 +187,52 @@ fn a_byron_era_input_allows_no_plutus_language() {
         vec![Language::PlutusV1, Language::PlutusV2, Language::PlutusV3]
     );
 }
+
+#[test]
+fn a_reference_script_on_a_spent_input_sets_the_language() {
+    let cbor = conway_tx_spending_input();
+    let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+    let tx = tx.as_conway().unwrap();
+
+    let with_script = output_with_reference_script();
+    let without_script = legacy_output(key_address());
+
+    assert_eq!(
+        tx_languages(tx, &utxos(Era::Conway, &with_script)),
+        vec![Language::PlutusV2]
+    );
+    assert_eq!(
+        tx_languages(tx, &utxos(Era::Conway, &without_script)),
+        vec![]
+    );
+}
+
+#[test]
+fn a_reference_script_on_a_spent_input_supplies_a_minting_policy() {
+    let policy = pallas_crypto::hash::Hasher::<224>::hash_tagged(&V2_SCRIPT, 2);
+    let mut cbor = vec![0x84, 0xa4, 0x00, 0x81]; // transaction, body, one input
+    cbor.extend(input_cbor());
+    cbor.extend([0x01, 0x80, 0x02, 0x00]); // no outputs, no fee
+    cbor.extend([0x09, 0xa1, 0x58, 0x1c]); // mint under one policy
+    cbor.extend(policy.as_ref());
+    cbor.extend([0xa1, 0x41, 0x01, 0x01]); // one unit of asset 01
+    cbor.extend([0xa0, 0xf5, 0xf6]); // no witnesses, valid, no auxiliary data
+    let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
+    let tx = tx.as_conway().unwrap();
+
+    let with_script = output_with_reference_script();
+    let without_script = legacy_output(key_address());
+
+    let supplied = check_minting(&tx.transaction_body, tx, &utxos(Era::Conway, &with_script));
+    let lacking = check_minting(
+        &tx.transaction_body,
+        tx,
+        &utxos(Era::Conway, &without_script),
+    );
+
+    assert!(supplied.is_ok(), "{supplied:?}");
+    assert!(
+        matches!(lacking, Err(PostAlonzo(MintingLacksPolicy(missing))) if missing == policy),
+        "{lacking:?}"
+    );
+}
