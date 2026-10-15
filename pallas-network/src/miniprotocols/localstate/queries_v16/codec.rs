@@ -860,6 +860,58 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
+impl<Ctx> minicbor::Encode<Ctx> for CostModels {
+    /// Writes every model that arrived, under the key it arrived under.
+    fn encode<__W777>(
+        &self,
+        e: &mut minicbor::Encoder<__W777>,
+        _ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<__W777::Error>>
+    where
+        __W777: minicbor::encode::Write,
+    {
+        let named = [
+            (0u64, self.plutus_v1.as_ref()),
+            (1, self.plutus_v2.as_ref()),
+            (2, self.plutus_v3.as_ref()),
+        ];
+
+        let present =
+            named.iter().filter(|(_, model)| model.is_some()).count() + self.unknown.len();
+        e.map(present as u64)?;
+
+        for (key, model) in named.iter() {
+            if let Some(model) = model {
+                e.u64(*key)?;
+                encode_cost_model(e, model)?;
+            }
+        }
+
+        for (key, model) in self.unknown.iter() {
+            e.u64(*key)?;
+            encode_cost_model(e, model)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Writes one cost model as the indefinite length array a node writes.
+fn encode_cost_model<W: minicbor::encode::Write>(
+    e: &mut minicbor::Encoder<W>,
+    model: &CostModel,
+) -> Result<(), minicbor::encode::Error<W::Error>> {
+    e.begin_array()?;
+
+    for cost in model {
+        e.i64(*cost)?;
+    }
+
+    e.end()?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 pub mod tests {
     use pallas_codec::minicbor;
@@ -917,6 +969,23 @@ pub mod tests {
                 _ => panic!("unexpected message type"),
             });
         }
+    }
+
+    #[test]
+    fn cost_models_beyond_the_named_languages_round_trip() {
+        use crate::miniprotocols::localstate::queries_v16::CostModels;
+
+        // a map of five, keys 0, 1, 2, 3 and 9, each model an indefinite array
+        let wire = hex::decode("a5009f0102ff019f03ff029f2004ff039f05ff099f0607ff").expect("hex");
+
+        let models: CostModels = minicbor::decode(&wire).expect("decode");
+        let carried: Vec<u64> = models.unknown.iter().map(|(key, _)| *key).collect();
+        assert_eq!(carried, vec![3, 9]);
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
     }
 
     /// Encode-then-decode roundtrip for the `BlockQuery` variants added for
