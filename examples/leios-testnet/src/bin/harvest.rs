@@ -298,8 +298,7 @@ async fn run_scan(args: &[String]) {
                 for tx in &txs {
                     certs.extend(cert_kinds(tx));
                 }
-                let tx_hashes: Vec<String> =
-                    txs.iter().map(|tx| tx.hash().to_string()).collect();
+                let tx_hashes: Vec<String> = txs.iter().map(|tx| tx.hash().to_string()).collect();
 
                 fs::write(
                     dir.join(format!("{slot}.block")),
@@ -548,7 +547,12 @@ async fn run_eb(args: &[String]) {
                 for (i, tx) in got.iter().enumerate() {
                     txs.insert(base + i, tx.raw_bytes().to_vec());
                 }
-                tracing::info!(window = next_window - 1, got = got.len(), have = txs.len(), "transactions fetched");
+                tracing::info!(
+                    window = next_window - 1,
+                    got = got.len(),
+                    have = txs.len(),
+                    "transactions fetched"
+                );
 
                 if txs.len() >= total {
                     break;
@@ -571,7 +575,11 @@ async fn run_eb(args: &[String]) {
     }
 
     let Some(body) = body else {
-        tracing::error!(slot, hash, "the peer served no body for this endorser block");
+        tracing::error!(
+            slot,
+            hash,
+            "the peer served no body for this endorser block"
+        );
         std::process::exit(3);
     };
 
@@ -585,7 +593,10 @@ async fn run_eb(args: &[String]) {
                 lines.push('\n');
             }
             None => {
-                tracing::error!(index = i, "a transaction of this endorser block never arrived");
+                tracing::error!(
+                    index = i,
+                    "a transaction of this endorser block never arrived"
+                );
                 std::process::exit(4);
             }
         }
@@ -692,7 +703,9 @@ fn run_pick(args: &[String]) {
             let computed = block.header().hash().to_string();
 
             if &computed != expected {
-                eprintln!("refused {name}: the header hashes to {computed}, the node reported {expected}");
+                eprintln!(
+                    "refused {name}: the header hashes to {computed}, the node reported {expected}"
+                );
                 std::process::exit(5);
             }
 
@@ -736,7 +749,9 @@ fn run_pick(args: &[String]) {
             let computed = Hasher::<256>::hash(&body).to_string();
 
             if &computed != expected {
-                eprintln!("refused {name}: the body hashes to {computed}, the block announced {expected}");
+                eprintln!(
+                    "refused {name}: the body hashes to {computed}, the block announced {expected}"
+                );
                 std::process::exit(5);
             }
 
@@ -745,7 +760,9 @@ fn run_pick(args: &[String]) {
             let count = txs_text.split_whitespace().count();
             let committed = eb_tx_count(&body);
             if count != committed {
-                eprintln!("refused {name}: {count} transactions on file, the body commits to {committed}");
+                eprintln!(
+                    "refused {name}: {count} transactions on file, the body commits to {committed}"
+                );
                 std::process::exit(6);
             }
 
