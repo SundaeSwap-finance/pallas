@@ -184,7 +184,11 @@ impl AddressPayload {
         let parts = (addrtype, spending_data, attributes);
         let buf = minicbor::to_vec(parts).unwrap();
 
-        pallas_crypto::hash::Hasher::<224>::hash(&sha3_256(&buf))
+        Self::hash_address_id_preimage(&buf)
+    }
+
+    pub fn hash_address_id_preimage(preimage: &[u8]) -> Hash<28> {
+        pallas_crypto::hash::Hasher::<224>::hash(&sha3_256(preimage))
     }
 
     pub fn new(addrtype: AddrType, spending_data: SpendingData, attributes: AddrAttrs) -> Self {
