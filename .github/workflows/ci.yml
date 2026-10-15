@@ -80,6 +80,8 @@ jobs:
         run: cargo test -p pallas-primitives --features unstable,blueprint
       - name: Test validation with phase two enabled
         run: cargo test -p pallas-validate --features phase2
+      - name: Test native Dijkstra validation with phase two enabled
+        run: cargo test -p pallas-validate --features phase2,unstable
 
   features:
     name: Features (${{ matrix.flags }})
