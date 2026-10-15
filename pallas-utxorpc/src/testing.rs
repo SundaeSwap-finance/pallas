@@ -208,6 +208,114 @@ pub fn conway_tx_with_certificate_redeemers() -> trv::MultiEraTx<'static> {
     trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
 }
 
+/// The ttl `conway_tx_with_optional_body_keys` writes at body key 3.
+pub const OPTIONAL_TTL: u64 = 900;
+
+/// The auxiliary data hash it writes at body key 7.
+pub const OPTIONAL_AUX_DATA_HASH: [u8; 32] = [0x21; 32];
+
+/// The validity start it writes at body key 8.
+pub const OPTIONAL_VALIDITY_START: u64 = 100;
+
+/// The script data hash it writes at body key 11.
+pub const OPTIONAL_SCRIPT_DATA_HASH: [u8; 32] = [0x22; 32];
+
+/// The network id it writes at body key 15.
+pub const OPTIONAL_NETWORK_ID: u8 = 0;
+
+/// The total collateral it writes at body key 17.
+pub const OPTIONAL_TOTAL_COLLATERAL: u64 = 5_000;
+
+/// The treasury value it writes at body key 21.
+pub const OPTIONAL_TREASURY_VALUE: u64 = 7_000;
+
+/// The treasury donation it writes at body key 22.
+pub const OPTIONAL_DONATION: u64 = 50;
+
+/// A Conway transaction whose body writes keys 3, 7, 8, 11, 13, 15, 17, 21
+/// and 22 and whose auxiliary data is an empty metadata map.
+pub fn conway_tx_with_optional_body_keys() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(12).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+    e.u8(3).unwrap();
+    e.u64(OPTIONAL_TTL).unwrap();
+    e.u8(7).unwrap();
+    e.bytes(&OPTIONAL_AUX_DATA_HASH).unwrap();
+    e.u8(8).unwrap();
+    e.u64(OPTIONAL_VALIDITY_START).unwrap();
+    e.u8(11).unwrap();
+    e.bytes(&OPTIONAL_SCRIPT_DATA_HASH).unwrap();
+    e.u8(13).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(15).unwrap();
+    e.u8(OPTIONAL_NETWORK_ID).unwrap();
+    e.u8(17).unwrap();
+    e.u64(OPTIONAL_TOTAL_COLLATERAL).unwrap();
+    e.u8(21).unwrap();
+    e.u64(OPTIONAL_TREASURY_VALUE).unwrap();
+    e.u8(22).unwrap();
+    e.u64(OPTIONAL_DONATION).unwrap();
+
+    e.map(0).unwrap();
+    e.bool(true).unwrap();
+    e.map(0).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
+}
+
+/// The first key hash of the required signers in `conway_tx_with_required_signers`.
+pub const FIRST_REQUIRED_SIGNER: [u8; 28] = [0x41; 28];
+
+/// The second key hash of the required signers in `conway_tx_with_required_signers`.
+pub const SECOND_REQUIRED_SIGNER: [u8; 28] = [0x42; 28];
+
+/// A Conway transaction whose body requires two signers.
+pub fn conway_tx_with_required_signers() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&FIRST_REQUIRED_SIGNER).unwrap();
+    e.bytes(&SECOND_REQUIRED_SIGNER).unwrap();
+
+    e.map(0).unwrap();
+    e.bool(true).unwrap();
+    e.null().unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Conway, cbor).unwrap()
+}
+
 /// The DRep key hash that casts the vote in `dijkstra_tx_with_one_vote`.
 #[cfg(feature = "unstable")]
 pub const VOTING_DREP_KEY_HASH: [u8; 28] = [0x77; 28];
@@ -421,6 +529,391 @@ pub fn dijkstra_tx_with_aux_plutus_scripts() -> trv::MultiEraTx<'static> {
 
     let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
     trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// A testnet key reward account whose 28 credential bytes are all the byte given.
+#[cfg(feature = "unstable")]
+const fn reward_account(fill: u8) -> [u8; 29] {
+    let mut account = [fill; 29];
+    account[0] = 0xe0;
+    account
+}
+
+/// The account `dijkstra_tx_with_account_fields` deposits into.
+#[cfg(feature = "unstable")]
+pub const DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x21);
+
+/// The coin deposited into that account.
+#[cfg(feature = "unstable")]
+pub const DEPOSIT_COIN: u64 = 4_000_000;
+
+/// The account whose interval has only a lower bound.
+#[cfg(feature = "unstable")]
+pub const LOWER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x22);
+
+/// The account whose interval has only an upper bound.
+#[cfg(feature = "unstable")]
+pub const UPPER_BOUND_ACCOUNT: [u8; 29] = reward_account(0x23);
+
+/// The account whose interval has both bounds.
+#[cfg(feature = "unstable")]
+pub const BOUNDED_ACCOUNT: [u8; 29] = reward_account(0x24);
+
+/// The account whose interval is a bare coin.
+#[cfg(feature = "unstable")]
+pub const COIN_ACCOUNT: [u8; 29] = reward_account(0x25);
+
+/// The account of the one starting interval, a lower bound.
+#[cfg(feature = "unstable")]
+pub const STARTING_ACCOUNT: [u8; 29] = reward_account(0x26);
+
+/// The account the sub transaction deposits into.
+#[cfg(feature = "unstable")]
+pub const SUB_DEPOSIT_ACCOUNT: [u8; 29] = reward_account(0x27);
+
+/// The account of the sub transaction's interval, an upper bound.
+#[cfg(feature = "unstable")]
+pub const SUB_INTERVAL_ACCOUNT: [u8; 29] = reward_account(0x28);
+
+/// Writes `[lower, upper]` with nil for a bound that is absent.
+#[cfg(feature = "unstable")]
+fn write_interval(e: &mut minicbor::Encoder<Vec<u8>>, lower: Option<u64>, upper: Option<u64>) {
+    e.array(2).unwrap();
+    for bound in [lower, upper] {
+        match bound {
+            Some(coin) => e.u64(coin).unwrap(),
+            None => e.null().unwrap(),
+        };
+    }
+}
+
+/// A Dijkstra transaction with a direct deposit, an account balance interval
+/// of each of the four shapes, a starting interval, and one sub transaction
+/// with a deposit and an interval of its own.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_account_fields() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(7).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x11; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    // sub_transaction = [body, witness set, auxiliary data or nil]
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(4).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x12; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&SUB_DEPOSIT_ACCOUNT).unwrap();
+    e.u64(12).unwrap();
+    e.u8(26).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&SUB_INTERVAL_ACCOUNT).unwrap();
+    write_interval(&mut e, None, Some(13));
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.u8(25).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&DEPOSIT_ACCOUNT).unwrap();
+    e.u64(DEPOSIT_COIN).unwrap();
+
+    e.u8(26).unwrap();
+    e.map(4).unwrap();
+    e.bytes(&LOWER_BOUND_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(5), None);
+    e.bytes(&UPPER_BOUND_ACCOUNT).unwrap();
+    write_interval(&mut e, None, Some(6));
+    e.bytes(&BOUNDED_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(7), Some(8));
+    e.bytes(&COIN_ACCOUNT).unwrap();
+    e.u64(9).unwrap();
+
+    e.u8(27).unwrap();
+    e.map(1).unwrap();
+    e.bytes(&STARTING_ACCOUNT).unwrap();
+    write_interval(&mut e, Some(10), None);
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// The key credential of the top body's guards.
+#[cfg(feature = "unstable")]
+pub const GUARD_KEY_HASH: [u8; 28] = [0x31; 28];
+
+/// The script credential of the top body's guards.
+#[cfg(feature = "unstable")]
+pub const GUARD_SCRIPT_HASH: [u8; 28] = [0x32; 28];
+
+/// The key hash of the sub body's guards.
+#[cfg(feature = "unstable")]
+pub const SUB_GUARD_KEY_HASH: [u8; 28] = [0x33; 28];
+
+/// A Dijkstra transaction whose guards are a key and a script credential, and
+/// whose one sub transaction's guards are a bare key hash.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_guards() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(5).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x13; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(2).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&GUARD_KEY_HASH).unwrap();
+    e.array(2).unwrap();
+    e.u8(1).unwrap();
+    e.bytes(&GUARD_SCRIPT_HASH).unwrap();
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(3).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x14; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(14).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.bytes(&SUB_GUARD_KEY_HASH).unwrap();
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// The key credential the top body requires of the top level guards, with a datum.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x34; 28];
+
+/// The integer datum the top body gives its key credential.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_DATUM: i64 = 7;
+
+/// The script credential the top body requires of the top level guards, with no datum.
+#[cfg(feature = "unstable")]
+pub const TOP_LEVEL_GUARD_SCRIPT_HASH: [u8; 28] = [0x35; 28];
+
+/// The key credential the sub body requires of the top level guards.
+#[cfg(feature = "unstable")]
+pub const SUB_TOP_LEVEL_GUARD_KEY_HASH: [u8; 28] = [0x36; 28];
+
+/// A Dijkstra transaction whose body requires a key credential with an integer
+/// datum and a script credential with none, and whose one sub body requires a
+/// key credential with a constructor datum.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_tx_with_required_top_level_guards() -> trv::MultiEraTx<'static> {
+    let mut e = minicbor::Encoder::new(Vec::new());
+    e.array(4).unwrap();
+
+    e.map(5).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x15; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(2).unwrap();
+    e.u32(1_000).unwrap();
+
+    e.u8(23).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(3).unwrap();
+    e.map(3).unwrap();
+    e.u8(0).unwrap();
+    e.tag(Tag::new(258)).unwrap();
+    e.array(1).unwrap();
+    e.array(2).unwrap();
+    e.bytes(&[0x16; 32]).unwrap();
+    e.u8(0).unwrap();
+    e.u8(1).unwrap();
+    e.array(0).unwrap();
+    e.u8(24).unwrap();
+    e.map(1).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&SUB_TOP_LEVEL_GUARD_KEY_HASH).unwrap();
+    e.tag(Tag::new(121)).unwrap();
+    e.array(0).unwrap();
+    e.map(0).unwrap();
+    e.null().unwrap();
+
+    e.u8(24).unwrap();
+    e.map(2).unwrap();
+    e.array(2).unwrap();
+    e.u8(0).unwrap();
+    e.bytes(&TOP_LEVEL_GUARD_KEY_HASH).unwrap();
+    e.i64(TOP_LEVEL_GUARD_DATUM).unwrap();
+    e.array(2).unwrap();
+    e.u8(1).unwrap();
+    e.bytes(&TOP_LEVEL_GUARD_SCRIPT_HASH).unwrap();
+    e.null().unwrap();
+
+    e.map(0).unwrap();
+    e.null().unwrap();
+    e.bool(true).unwrap();
+
+    let cbor: &'static [u8] = Box::leak(e.into_writer().into_boxed_slice());
+    trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, cbor).unwrap()
+}
+
+/// A Dijkstra update setting each key this era adds past 33 to a value no
+/// other key of the update takes, with key 38 set to a ratio.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_update_of_every_era_key() -> pallas_primitives::dijkstra::ProtocolParamUpdate {
+    use pallas_primitives::{ExUnits, Nullable};
+
+    let mut update = dijkstra_update_of_no_key();
+    update.max_ref_script_size_per_block = Some(34);
+    update.max_ref_script_size_per_tx = Some(35);
+    update.ref_script_cost_stride = Some(36);
+    update.ref_script_cost_multiplier = Some(ratio(37, 1));
+    update.max_pledge_leverage = Some(Nullable::Some(ratio(38, 1)));
+    update.min_pool_margin = Some(ratio(1, 39));
+    update.leios_announcement_period_length = Some(40);
+    update.leios_vote_period_length = Some(41);
+    update.leios_diffusion_period_length = Some(42);
+    update.leios_committee_size = Some(43);
+    update.leios_quorum_stake_threshold = Some(ratio(1, 44));
+    update.max_endorser_block_references_size = Some(45);
+    update.max_endorser_block_txs_size = Some(46);
+    update.max_endorser_block_execution_units = Some(ExUnits {
+        mem: 47,
+        steps: 470,
+    });
+    update.max_ref_script_size_per_endorser_block = Some(48);
+    update
+}
+
+/// Each key this era adds past 33, set alone in a Dijkstra update to the zero
+/// value of its own type, with key 38 set to nil.
+#[cfg(feature = "unstable")]
+pub fn dijkstra_updates_of_one_zero_era_key() -> Vec<(
+    &'static str,
+    pallas_primitives::dijkstra::ProtocolParamUpdate,
+)> {
+    use pallas_primitives::{ExUnits, Nullable};
+
+    let blank = dijkstra_update_of_no_key();
+    let one = |set: &dyn Fn(&mut pallas_primitives::dijkstra::ProtocolParamUpdate)| {
+        let mut update = blank.clone();
+        set(&mut update);
+        update
+    };
+
+    vec![
+        (
+            "max_ref_script_size_per_block",
+            one(&|x| x.max_ref_script_size_per_block = Some(0)),
+        ),
+        (
+            "max_ref_script_size_per_tx",
+            one(&|x| x.max_ref_script_size_per_tx = Some(0)),
+        ),
+        (
+            "ref_script_cost_stride",
+            one(&|x| x.ref_script_cost_stride = Some(0)),
+        ),
+        (
+            "ref_script_cost_multiplier",
+            one(&|x| x.ref_script_cost_multiplier = Some(ratio(0, 1))),
+        ),
+        (
+            "max_pledge_leverage",
+            one(&|x| x.max_pledge_leverage = Some(Nullable::Null)),
+        ),
+        (
+            "min_pool_margin",
+            one(&|x| x.min_pool_margin = Some(ratio(0, 1))),
+        ),
+        (
+            "leios_announcement_period_length",
+            one(&|x| x.leios_announcement_period_length = Some(0)),
+        ),
+        (
+            "leios_vote_period_length",
+            one(&|x| x.leios_vote_period_length = Some(0)),
+        ),
+        (
+            "leios_diffusion_period_length",
+            one(&|x| x.leios_diffusion_period_length = Some(0)),
+        ),
+        (
+            "leios_committee_size",
+            one(&|x| x.leios_committee_size = Some(0)),
+        ),
+        (
+            "leios_quorum_stake_threshold",
+            one(&|x| x.leios_quorum_stake_threshold = Some(ratio(0, 1))),
+        ),
+        (
+            "max_endorser_block_references_size",
+            one(&|x| x.max_endorser_block_references_size = Some(0)),
+        ),
+        (
+            "max_endorser_block_txs_size",
+            one(&|x| x.max_endorser_block_txs_size = Some(0)),
+        ),
+        (
+            "max_endorser_block_execution_units",
+            one(&|x| x.max_endorser_block_execution_units = Some(ExUnits { mem: 0, steps: 0 })),
+        ),
+        (
+            "max_ref_script_size_per_endorser_block",
+            one(&|x| x.max_ref_script_size_per_endorser_block = Some(0)),
+        ),
+    ]
 }
 
 /// A Dijkstra parameter set whose every cost model is present and whose
