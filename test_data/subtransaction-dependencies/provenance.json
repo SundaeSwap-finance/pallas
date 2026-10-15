@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "network": {
+    "name": "Musashi",
+    "magic": 164,
+    "era": "Dijkstra",
+    "node_release": "prototype-2026w36",
+    "ledger_revision": "1587f21a7d1306dc590c2749a5c66232ef66aad0"
+  },
+  "capture": {
+    "path": "../dijkstra-subtx.tx",
+    "kind": "captured native block transaction; unchanged",
+    "source": "relay immutable chain database https://leios1-rel-a-1.play.dev.cardano.org/leios.full.tar.zst",
+    "tool": "pallas-hardano chunk reader",
+    "tool_revision": "unknown",
+    "capture_time": "unknown",
+    "node_build_revision": "unknown",
+    "first_fixture_commit": "2bac01d98d0ca0fd5a1790d37ef3dcb3cbad42f5",
+    "documentation": "../dijkstra-fixtures.md",
+    "slot": 853600,
+    "block_hash": "0c88b1e221beb608ed37dcfabed93a4a4e8f1ea0ec96f2d93b84c04816d5ddb4",
+    "transaction_id": "74e2116ca6e0c809f156aa062a9d4ee8b156322618846f1bdea5d9ad7a206a12",
+    "bytes": 728,
+    "sha256_decoded": "f3b05fb3cf44d8f9087714fb1402b91eb9f0077a97a3f7a77b1b08fed27524af",
+    "historical_utxos": "unavailable",
+    "historical_parameters": "unknown; not needed for traversal",
+    "state": "not used for traversal; full validation context unavailable"
+  },
+  "expected": {
+    "parent_occurrences": 4,
+    "child_occurrences": 2,
+    "total_occurrences": 6,
+    "distinct_references": 4,
+    "duplicates_preserved": true,
+    "proof": "child dependency enumeration; unique lookup omission covered synthetically"
+  },
+  "synthetic_cases": {
+    "source": "../../pallas-traverse/tests/requires.rs",
+    "network_capture": false,
+    "scope": [
+      "two children with new dependencies",
+      "duplicate references within and across bodies",
+      "valid and invalid parents",
+      "standalone child",
+      "no children or optional inputs"
+    ]
+  },
+  "earlier_era_fixture": {
+    "path": "../duplicateinput.tx",
+    "sha256_decoded": "72f722b2f5d46738da0f35cfc4a7973782ef05bfdf35d27e8fb9f7f60fa1c9da",
+    "origin": "existing repository fixture; capture provenance unknown",
+    "expected": "duplicate spending occurrences preserved by requires"
+  },
+  "rule_source": {
+    "url": "https://raw.githubusercontent.com/IntersectMBO/cardano-ledger/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/SubUtxo.hs",
+    "retrieved": "2026-10-15",
+    "sha256": "90d827ca73da3d36415c1ca1b446614e88a9a51caf7ab23f1913ca2ca7eb1f58"
+  },
+  "limitations": [
+    "capture repeats child dependencies in parent references",
+    "no positive captured batch validation",
+    "no upstream node acceptance comparison",
+    "no full scripted/stateful Dijkstra batch support"
+  ]
+}

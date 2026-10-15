@@ -1,0 +1,32 @@
+{
+  "baseline_revision": "7860599574e6a58c633a7ebf56a9ffa6a3d53577",
+  "fixed_revision": "commit containing this report",
+  "test_source": "pallas-traverse/tests/requires.rs",
+  "test_sha256": "5ef6f8c357e8381a0dabc92aa34838897dd93e04bf53e1fbee656a53fe24c5fd",
+  "baseline_production": "unchanged git archive; copy only the test and resolved Cargo.lock",
+  "command": "cargo test --offline --locked -p pallas-traverse --features unstable --test requires",
+  "environment": {
+    "rustc": "1.98.1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "baseline": {
+    "passed": 3,
+    "failed": 2,
+    "exit_code": 101,
+    "log": "baseline.txt",
+    "sha256": "096be6e44ea1bd1d534efb4289de52a18c0272a8a83302e07189bced2ec9e86f",
+    "target": "target/subtransaction-baseline"
+  },
+  "fixed": {
+    "passed": 5,
+    "failed": 0,
+    "exit_code": 0,
+    "log": "fixed.txt",
+    "sha256": "d27f64be309e2ae3c103f87a3f80adbd395ebb806d9688b9a233db75218cd72b",
+    "target": "target"
+  },
+  "additional_verification": "Full gate logs/results retained locally in target/subtransaction-dependencies; final handoff in Dolos MUSASHI_FIX_PLAN.md. These focused results do not claim every repository gate passed.",
+  "node_acceptance": "not tested"
+}

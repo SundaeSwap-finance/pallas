@@ -1,0 +1,34 @@
+     Running tests/requires.rs (target/subtransaction-baseline/debug/deps/requires-50869082c236a6fa)
+
+running 5 tests
+test dijkstra::requires_all_children_and_preserves_duplicate_references ... FAILED
+test requires_preserves_earlier_era_duplicates ... ok
+test dijkstra::requires_without_children_keeps_parent_dependencies ... ok
+test dijkstra::requires_on_a_child_reads_only_its_own_body ... ok
+test dijkstra::requires_captured_parent_and_child_dependencies ... FAILED
+
+failures:
+
+---- dijkstra::requires_all_children_and_preserves_duplicate_references stdout ----
+
+thread 'dijkstra::requires_all_children_and_preserves_duplicate_references' (57) panicked at pallas-traverse/tests/requires.rs:86:13:
+assertion `left == right` failed
+  left: [1, 2, 3]
+ right: [1, 2, 3, 4, 5, 2, 5, 6, 5]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- dijkstra::requires_captured_parent_and_child_dependencies stdout ----
+
+thread 'dijkstra::requires_captured_parent_and_child_dependencies' (58) panicked at pallas-traverse/tests/requires.rs:66:9:
+assertion `left == right` failed
+  left: ["737549420add1f19d144809aa02e2ae68a89b1761368e3294fbb30ee1467e3e4#12", "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0", "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0", "7727ec1dfb0f84f2ffeb51935f35850cf84cfabfca1957e8c74cf8fde871dd34#12"]
+ right: ["737549420add1f19d144809aa02e2ae68a89b1761368e3294fbb30ee1467e3e4#12", "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0", "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0", "7727ec1dfb0f84f2ffeb51935f35850cf84cfabfca1957e8c74cf8fde871dd34#12", "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171#0", "c095234678d98a74cd1488bda1971fbd2e9c828acf57f7673c679ec601abf7a6#0"]
+
+
+failures:
+    dijkstra::requires_all_children_and_preserves_duplicate_references
+    dijkstra::requires_captured_parent_and_child_dependencies
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p pallas-traverse --test requires`

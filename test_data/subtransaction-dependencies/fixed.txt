@@ -1,0 +1,10 @@
+     Running tests/requires.rs (target/debug/deps/requires-50869082c236a6fa)
+
+running 5 tests
+test dijkstra::requires_on_a_child_reads_only_its_own_body ... ok
+test dijkstra::requires_all_children_and_preserves_duplicate_references ... ok
+test requires_preserves_earlier_era_duplicates ... ok
+test dijkstra::requires_without_children_keeps_parent_dependencies ... ok
+test dijkstra::requires_captured_parent_and_child_dependencies ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

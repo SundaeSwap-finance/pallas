@@ -662,13 +662,36 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    /// Returns the list of UTxO required by the Tx
+    /// Returns the UTxO references needed to validate the whole transaction.
     ///
-    /// Helper method to yield all of the UTxO that the Tx requires in order to
-    /// be fulfilled. This includes normal inputs, reference inputs and
-    /// collateral.
+    /// Includes this body's spending inputs, reference inputs and collateral,
+    /// followed by each Dijkstra subtransaction's spending and reference inputs
+    /// in body order. A subtransaction queried on its own returns only its own
+    /// dependencies; collateral belongs to the parent.
+    ///
+    /// Unlike `consumes`, this is independent of the transaction's validity flag.
+    /// Duplicates are preserved, including references shared by multiple bodies.
+    /// This only enumerates dependencies; it does not check their existence or
+    /// permit spending an output produced within the same batch.
     pub fn requires(&self) -> Vec<MultiEraInput<'_>> {
-        [self.inputs(), self.reference_inputs(), self.collateral()].concat()
+        let required = [self.inputs(), self.reference_inputs(), self.collateral()].concat();
+
+        #[cfg(feature = "unstable")]
+        if let Self::Dijkstra(tx) = self {
+            let mut required = required;
+            for sub in tx.transaction_body.sub_transactions.iter().flatten() {
+                let body = &sub.sub_transaction_body;
+                required.extend(
+                    body.inputs
+                        .iter()
+                        .chain(body.reference_inputs.iter().flatten())
+                        .map(MultiEraInput::from_alonzo_compatible),
+                );
+            }
+            return required;
+        }
+
+        required
     }
 
     pub fn withdrawals(&self) -> MultiEraWithdrawals<'_> {
