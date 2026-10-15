@@ -858,13 +858,11 @@ fn get_plutus_reference_script_hashes(
     utxos: &UTxOs,
 ) -> Result<Vec<PolicyId>, ValidationError> {
     let mut res: Vec<PolicyId> = Vec::new();
-    if let Some(reference_inputs) = &tx_body.reference_inputs {
-        for input in reference_inputs.iter() {
-            if let Some(ScriptKind::Plutus(script_hash)) =
-                get_script_kind_from_reference_input(input, utxos)?
-            {
-                res.push(script_hash)
-            }
+    for input in reference_script_inputs(tx_body) {
+        if let Some(ScriptKind::Plutus(script_hash)) =
+            get_script_kind_from_reference_input(input, utxos)?
+        {
+            res.push(script_hash)
         }
     }
     Ok(res)
