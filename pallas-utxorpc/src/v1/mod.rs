@@ -1309,4 +1309,98 @@ mod tests {
             "a set with no pledge leverage cap leaves the field absent"
         );
     }
+
+    /// The transactions of the captured leios-fetch `BlockTxs` message.
+    #[cfg(feature = "unstable")]
+    fn endorser_transactions() -> Vec<trv::MultiEraTx<'static>> {
+        use pallas_codec::minicbor;
+
+        let msg: &'static [u8] =
+            include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor");
+        let mut d = minicbor::Decoder::new(msg);
+        d.array().unwrap();
+        assert_eq!(d.u8().unwrap(), 4, "the message is BlockTxs");
+        let n = d.array().unwrap().unwrap();
+        (0..n)
+            .map(|_| {
+                assert_eq!(d.tag().unwrap(), minicbor::data::IanaTag::Cbor.tag());
+                trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, d.bytes().unwrap()).unwrap()
+            })
+            .collect()
+    }
+
+    /// Reads the hex of every PlutusV4 witness script a mapped transaction holds.
+    #[cfg(feature = "unstable")]
+    fn plutus_v4_witness_scripts(tx: &u5c::TxCommon) -> Vec<String> {
+        tx.witnesses
+            .iter()
+            .flat_map(|x| &x.script)
+            .filter_map(|x| match &x.script {
+                Some(u5c::script::Script::PlutusV4(bytes)) => Some(hex::encode(bytes)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_dijkstra_transaction_without_a_v4_witness_script_maps_none() {
+        let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx(include_str!(
+            "../../../test_data/dijkstra-subtx.tx"
+        )));
+
+        assert_eq!(
+            (
+                plutus_v4_witness_scripts(common(&mapped)),
+                mapped
+                    .sub_transactions
+                    .iter()
+                    .map(plutus_v4_witness_scripts)
+                    .collect::<Vec<_>>(),
+            ),
+            (vec![], vec![vec![]]),
+            "neither the transaction nor its sub transaction has witness key 8"
+        );
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn endorser_transactions_map_the_plutus_v4_witness_scripts_they_and_their_sub_transactions_hold()
+     {
+        let mapper = Mapper::new(NoLedger);
+        let mapped: Vec<u5c::Tx> = endorser_transactions()
+            .iter()
+            .map(|x| mapper.map_tx(x))
+            .collect();
+
+        let outer: Vec<Vec<String>> = mapped
+            .iter()
+            .map(|x| plutus_v4_witness_scripts(common(x)))
+            .collect();
+        let sub: Vec<Vec<String>> = mapped
+            .iter()
+            .flat_map(|x| &x.sub_transactions)
+            .map(plutus_v4_witness_scripts)
+            .collect();
+        let script = || vec!["450101002499".to_string()];
+
+        assert_eq!(
+            (mapped.len(), sub.len()),
+            (67, 59),
+            "the message holds 67 transactions and 59 sub transactions"
+        );
+        assert_eq!(
+            outer.iter().filter(|x| **x == script()).count(),
+            8,
+            "eight transactions hold the V4 script in their own witness set"
+        );
+        assert!(
+            outer.iter().all(|x| x.is_empty() || *x == script()),
+            "no transaction holds any other V4 witness script"
+        );
+        assert!(
+            sub.iter().all(|x| *x == script()),
+            "every sub transaction holds the V4 script in its own witness set"
+        );
+    }
 }

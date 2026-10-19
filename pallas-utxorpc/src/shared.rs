@@ -553,6 +553,10 @@ macro_rules! impl_cardano_mapper_shared {
                     tx.plutus_v3_scripts(),
                     u5c::script::Script::PlutusV3,
                 ))
+                .chain(plutus(
+                    tx.plutus_v4_scripts(),
+                    u5c::script::Script::PlutusV4,
+                ))
                 .collect()
             }
 

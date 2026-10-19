@@ -232,6 +232,84 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
     );
 }
 
+/// The `block_transaction` bytes of each transaction in a captured leios-fetch BlockTxs message.
+fn endorser_transactions() -> Vec<&'static [u8]> {
+    let wire: &'static [u8] =
+        include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor");
+    let mut d = minicbor::Decoder::new(wire);
+    d.array().unwrap();
+    assert_eq!(d.u16().unwrap(), 4);
+    let n = d.array().unwrap().unwrap();
+    (0..n)
+        .map(|_| {
+            assert_eq!(d.tag().unwrap(), minicbor::data::IanaTag::Cbor.tag());
+            d.bytes().unwrap()
+        })
+        .collect()
+}
+
+/// Every witness set of the captured endorser transactions, sub transactions
+/// included.
+fn endorser_witness_sets(f: impl Fn(usize, &KeepRaw<WitnessSet>)) -> usize {
+    let mut count = 0;
+    for (i, bytes) in endorser_transactions().into_iter().enumerate() {
+        let tx: BlockTransaction = minicbor::decode(bytes).unwrap();
+        assert!(tx.success, "transaction {i}");
+
+        let subs = tx
+            .transaction_body
+            .sub_transactions
+            .iter()
+            .flat_map(|subs| subs.iter())
+            .map(|sub| &sub.transaction_witness_set);
+        for wits in std::iter::once(&tx.transaction_witness_set).chain(subs) {
+            f(i, wits);
+            count += 1;
+        }
+    }
+    count
+}
+
+/// The keys of a CBOR map, in ascending order.
+fn map_keys(cbor: &[u8]) -> Vec<u64> {
+    let mut d = minicbor::Decoder::new(cbor);
+    let n = d.map().unwrap().unwrap();
+    let mut keys: Vec<u64> = (0..n)
+        .map(|_| {
+            let key = d.u64().unwrap();
+            d.skip().unwrap();
+            key
+        })
+        .collect();
+    keys.sort();
+    keys
+}
+
+#[test]
+fn endorser_transaction_witness_sets_keep_every_key_on_reencode() {
+    let count = endorser_witness_sets(|i, wits| {
+        assert_eq!(
+            map_keys(&minicbor::to_vec(wits.clone().unwrap()).unwrap()),
+            map_keys(wits.raw_cbor()),
+            "transaction {i}: a witness set re-encoded through its own type lost or gained a key"
+        );
+    });
+    assert_eq!(count, 126, "67 transactions and 59 sub transactions");
+}
+
+#[test]
+fn endorser_transaction_witness_sets_hold_their_plutus_v4_scripts() {
+    let with_v4 = std::cell::Cell::new(0usize);
+    endorser_witness_sets(|i, wits| {
+        if let Some(scripts) = &wits.plutus_v4_script {
+            let scripts: Vec<String> = scripts.iter().map(hex::encode).collect();
+            assert_eq!(scripts, ["450101002499"], "transaction {i}");
+            with_v4.set(with_v4.get() + 1);
+        }
+    });
+    assert_eq!(with_v4.get(), 67, "8 transactions and 59 sub transactions");
+}
+
 const INDEFINITE_BYTES_TXS: &[(&str, &str, &str, usize, &str, &str)] = &[
     (
         "dijkstra-indef-bytes1",
