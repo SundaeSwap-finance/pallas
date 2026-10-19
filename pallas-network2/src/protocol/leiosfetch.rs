@@ -10,8 +10,9 @@
 //! CIP-0164's network chapter stabilises.
 
 use std::collections::BTreeMap;
+use std::ops::Deref;
 
-use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
+use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, data::IanaTag, decode, encode};
 
 use super::{AnyCbor, EbId, Error};
 
@@ -21,8 +22,39 @@ pub const CHANNEL_ID: u16 = 19;
 /// Raw CBOR of an Endorser Block body (`{ hash32 => word32 }`).
 pub type EndorserBlockCbor = AnyCbor;
 
-/// Raw CBOR of a single transaction.
-pub type TxCbor = AnyCbor;
+/// The Dijkstra `block_transaction` bytes that a `leios_tx` wraps in tag 24.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TxCbor(pub Vec<u8>);
+
+impl Deref for TxCbor {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Encode<()> for TxCbor {
+    fn encode<W: encode::Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _ctx: &mut (),
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.tag(IanaTag::Cbor)?;
+        e.bytes(&self.0)?;
+
+        Ok(())
+    }
+}
+
+impl<'b> Decode<'b, ()> for TxCbor {
+    fn decode(d: &mut Decoder<'b>, _ctx: &mut ()) -> Result<Self, decode::Error> {
+        if d.tag()? != IanaTag::Cbor.tag() {
+            return Err(decode::Error::message("Expected encoded CBOR data item"));
+        }
+        Ok(TxCbor(d.bytes()?.to_vec()))
+    }
+}
 
 /// A transaction-subset selector for leios-fetch block-txs requests.
 ///
@@ -113,7 +145,7 @@ pub enum Message {
     BlockTxsRequest(EbId, Bitmaps),
     /// Server delivers the requested transactions of an EB: `[4, tx_list]`.
     BlockTxs {
-        /// The requested transactions, as raw CBOR.
+        /// The requested transactions.
         txs: Vec<TxCbor>,
     },
 }
@@ -289,7 +321,7 @@ mod tests {
         )));
         roundtrip_eq(&Message::BlockTxsRequest(point(), bitmaps()));
         roundtrip_eq(&Message::BlockTxs {
-            txs: vec![raw([8, 8, 8])],
+            txs: vec![TxCbor(minicbor::to_vec([8u8, 8, 8]).unwrap())],
         });
         roundtrip_eq(&Message::Done);
         assert_eq!(reencode(&Message::Done), [0x81, 0x00]);
@@ -343,9 +375,35 @@ mod tests {
     }
 
     #[test]
+    fn captured_block_txs_hold_block_transactions() {
+        let msg: Message = minicbor::decode(include_bytes!(
+            "../../../test_data/leios-rc-2026w42/fetch-block-txs.cbor"
+        ))
+        .unwrap();
+        let Message::BlockTxs { txs, .. } = msg else {
+            panic!("{msg:?}");
+        };
+        for tx in &txs {
+            let bytes: &[u8] = tx;
+            assert_eq!(bytes[0], 0x84, "a four element block transaction");
+            assert_eq!(bytes[bytes.len() - 1], 0xf5, "is_valid last");
+        }
+    }
+
+    #[test]
+    fn block_txs_items_other_than_tag_24_are_refused() {
+        // [4, [25(h'8100')]]
+        let other_tag = [0x82, 0x04, 0x81, 0xd8, 0x19, 0x42, 0x81, 0x00];
+        assert!(minicbor::decode::<Message>(&other_tag).is_err());
+        // [4, [h'8100']]
+        let untagged = [0x82, 0x04, 0x81, 0x42, 0x81, 0x00];
+        assert!(minicbor::decode::<Message>(&untagged).is_err());
+    }
+
+    #[test]
     fn block_txs_roundtrip() {
         let msg = Message::BlockTxs {
-            txs: vec![raw([8, 8, 8])],
+            txs: vec![TxCbor(minicbor::to_vec([8u8, 8, 8]).unwrap())],
         };
         let bytes = reencode(&msg);
         // envelope is a 2-element array: [tag=4, txs]
@@ -491,20 +549,8 @@ mod tests {
         self_contained,
         "msgLeiosBlockTxs",
         Message::BlockTxs {
-            txs: vec![leios_tx()],
+            txs: vec![TxCbor(minicbor::to_vec([1u8, 2, 3]).unwrap())],
         }
     );
     conforms!(done_conforms, self_contained, "msgDone", Message::Done);
-
-    /// A conformant `leios_tx = #6.24(bytes .cbor block_transaction)`.
-    #[cfg(feature = "blueprint")]
-    fn leios_tx() -> TxCbor {
-        let mut buf = Vec::new();
-        Encoder::new(&mut buf)
-            .tag(pallas_codec::minicbor::data::IanaTag::Cbor)
-            .unwrap()
-            .bytes(&minicbor::to_vec([1u8, 2, 3]).unwrap())
-            .unwrap();
-        AnyCbor::from_raw_bytes(buf)
-    }
 }

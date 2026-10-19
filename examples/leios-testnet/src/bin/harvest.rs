@@ -545,7 +545,7 @@ async fn run_eb(args: &[String]) {
             InitiatorEvent::EbFetched(pid, _, leiosfetch::Response::BlockTxs { txs: got }) => {
                 let base = (next_window - 1) * WINDOW;
                 for (i, tx) in got.iter().enumerate() {
-                    txs.insert(base + i, tx.raw_bytes().to_vec());
+                    txs.insert(base + i, tx.0.clone());
                 }
                 tracing::info!(
                     window = next_window - 1,
@@ -617,17 +617,9 @@ fn run_ebcheck(args: &[String]) {
         let text = fs::read_to_string(format!("{prefix}.ebtxs"))
             .expect("the harvested endorser transactions are readable");
 
-        // The wire carries each transaction inside a CBOR byte string, and the
-        // file keeps it that way, so the envelope comes off before a decode.
         let raw: Vec<Vec<u8>> = text
             .split_whitespace()
-            .map(|line| {
-                let wire = hex::decode(line).expect("an endorser transaction is hex");
-                Decoder::new(&wire)
-                    .bytes()
-                    .expect("an endorser transaction arrives in a byte string")
-                    .to_vec()
-            })
+            .map(|line| hex::decode(line).expect("an endorser transaction is hex"))
             .collect();
 
         let decoded: Vec<pallas_traverse::MultiEraTx> = raw
