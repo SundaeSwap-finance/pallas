@@ -63,9 +63,19 @@ pub struct Committee {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+#[serde(from = "crate::alonzo::Fraction")]
 pub struct Fraction {
     pub numerator: u64,
     pub denominator: u64,
+}
+
+impl From<crate::alonzo::Fraction> for Fraction {
+    fn from(value: crate::alonzo::Fraction) -> Self {
+        Self {
+            numerator: value.numerator,
+            denominator: value.denominator,
+        }
+    }
 }
 
 impl From<Fraction> for pallas_primitives::conway::RationalNumber {
@@ -106,5 +116,28 @@ mod tests {
     #[test]
     fn test_mainnet_json_loads() {
         load_test_data_config("mainnet");
+    }
+
+    #[test]
+    fn a_committee_threshold_object_keeps_its_terms() {
+        let threshold = load_test_data_config("mainnet").committee.threshold;
+
+        assert_eq!((threshold.numerator, threshold.denominator), (2, 3));
+    }
+
+    #[test]
+    fn a_committee_threshold_number_loads_as_a_fraction() {
+        let threshold = load_test_data_config("proto-devnet").committee.threshold;
+
+        assert_eq!((threshold.numerator, threshold.denominator), (0, 1));
+    }
+
+    #[test]
+    fn a_committee_threshold_decimal_loads_as_its_exact_fraction() {
+        let committee: Committee =
+            serde_json::from_str(r#"{ "members": {}, "threshold": 0.67 }"#).unwrap();
+
+        let threshold = committee.threshold;
+        assert_eq!((threshold.numerator, threshold.denominator), (67, 100));
     }
 }
