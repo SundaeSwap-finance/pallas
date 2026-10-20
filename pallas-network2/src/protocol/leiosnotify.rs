@@ -25,7 +25,7 @@ pub type VoteCbor = AnyCbor;
 pub enum Message {
     /// Server closes the protocol after the client quits.
     Done,
-    /// Client leaves without draining its outstanding requests.
+    /// Client ends the protocol and still collects the reply to each request it has outstanding.
     Quit,
     /// Server answers a request with no notification.
     Canceled,
