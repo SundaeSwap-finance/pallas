@@ -62,10 +62,27 @@ pub struct Committee {
     pub threshold: Fraction,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Fraction {
     pub numerator: u64,
     pub denominator: u64,
+}
+
+impl<'de> Deserialize<'de> for Fraction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let crate::alonzo::Fraction {
+            numerator,
+            denominator,
+        } = crate::alonzo::Fraction::deserialize(deserializer)?;
+
+        Ok(Fraction {
+            numerator,
+            denominator,
+        })
+    }
 }
 
 impl From<Fraction> for pallas_primitives::conway::RationalNumber {
@@ -106,5 +123,19 @@ mod tests {
     #[test]
     fn test_mainnet_json_loads() {
         load_test_data_config("mainnet");
+    }
+
+    #[test]
+    fn a_committee_threshold_object_keeps_its_terms() {
+        let threshold = load_test_data_config("mainnet").committee.threshold;
+
+        assert_eq!((threshold.numerator, threshold.denominator), (2, 3));
+    }
+
+    #[test]
+    fn a_committee_threshold_number_loads_as_a_fraction() {
+        let threshold = load_test_data_config("proto-devnet").committee.threshold;
+
+        assert_eq!((threshold.numerator, threshold.denominator), (0, 1));
     }
 }
