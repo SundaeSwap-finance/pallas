@@ -115,6 +115,14 @@ pub(super) fn params() -> DijkstraProtParams {
             steps: 100_000_000_000,
         },
         max_ref_script_size_per_endorser_block: 4_000_000,
+        peras_min_candidate_block_age: 0,
+        peras_healing_factor: ratio(1, 1),
+        peras_cert_boost: 0,
+        peras_target_committee_size: 0,
+        peras_bootstrap_round: None,
+        peras_quorum_threshold_safety_margin: ratio(0, 1),
+        ref_inputs_cost_per_multi_asset_policy: 0,
+        ref_inputs_cost_per_datum_byte: 0,
     }
 }
 pub(super) fn env() -> Environment {
