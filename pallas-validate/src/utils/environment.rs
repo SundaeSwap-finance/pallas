@@ -359,4 +359,13 @@ pub struct DijkstraProtParams {
     pub max_endorser_block_txs_size: u32,
     pub max_endorser_block_ex_units: ExUnits,
     pub max_ref_script_size_per_endorser_block: u32,
+    pub peras_min_candidate_block_age: u32,
+    pub peras_healing_factor: RationalNumber,
+    pub peras_cert_boost: u16,
+    pub peras_target_committee_size: u16,
+    /// The round voting is bootstrapped at, `None` when the ledger sets none.
+    pub peras_bootstrap_round: Option<u32>,
+    pub peras_quorum_threshold_safety_margin: UnitInterval,
+    pub ref_inputs_cost_per_multi_asset_policy: Coin,
+    pub ref_inputs_cost_per_datum_byte: Coin,
 }

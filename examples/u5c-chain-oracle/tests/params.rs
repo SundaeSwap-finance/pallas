@@ -4,12 +4,32 @@ use pallas_validate::utils::MultiEraProtocolParameters;
 use serde_json::{Value, json};
 use u5c_chain_oracle::{fields, mapper};
 
+/// The pinned parameter fixture, captured from a `prototype-2026w36` node,
+/// with the eight keys a `prototype-2026w42` node also writes, at the values
+/// the Musashi dijkstra genesis for the chain started 2026-10-18 gives them.
+/// None of the eight has a u5c field, so they reach only the Dijkstra
+/// parameter type and none of the comparisons.
 fn node() -> Value {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/fixtures/protocol-parameters.json"
     );
-    serde_json::from_slice(&std::fs::read(path).expect("the parameter fixture")).expect("json")
+    let mut pp: Value =
+        serde_json::from_slice(&std::fs::read(path).expect("the parameter fixture")).expect("json");
+    let w42 = json!({
+        "perasMinCandidateBlockAge": 0,
+        "perasHealingFactor": 1,
+        "perasCertBoost": 0,
+        "perasTargetCommitteeSize": 0,
+        "perasBootstrapRound": null,
+        "perasQuorumThresholdSafetyMargin": 0,
+        "refInputsCostPerMultiAssetPolicy": 0,
+        "refInputsCostPerDatumByte": 0,
+    });
+    for (key, value) in w42.as_object().expect("an object") {
+        pp[key] = value.clone();
+    }
+    pp
 }
 
 fn genesis() -> Value {
