@@ -969,6 +969,73 @@ fn a_proposal_keeps_the_dijkstra_parameter_keys() {
     }
 }
 
+/// Keys 49 to 56, each set to a value no other of them takes, land in the
+/// field each key means and go back out as the bytes that came in.
+#[test]
+fn an_update_keeps_the_peras_and_reference_input_keys() {
+    // {49: 30, 50: 3/2, 51: 15, 52: 600, 53: 65536, 54: 1/10, 55: 1000, 56: 44}
+    let bytes = hex::decode(concat!(
+        "a8",
+        "1831181e",
+        "1832d81e820302",
+        "18330f",
+        "1834190258",
+        "18351a00010000",
+        "1836d81e82010a",
+        "18371903e8",
+        "1838182c",
+    ))
+    .unwrap();
+
+    let update: super::ProtocolParamUpdate =
+        minicbor::decode(&bytes).expect("an update setting keys 49 to 56 must decode");
+
+    let ratio = |numerator, denominator| crate::RationalNumber {
+        numerator,
+        denominator,
+    };
+    assert_eq!(update.peras_min_candidate_block_age, Some(30));
+    assert_eq!(update.peras_healing_factor, Some(ratio(3, 2)));
+    assert_eq!(update.peras_cert_boost, Some(15));
+    assert_eq!(update.peras_target_committee_size, Some(600));
+    assert_eq!(update.peras_bootstrap_round, Some(Nullable::Some(65536)));
+    assert_eq!(
+        update.peras_quorum_threshold_safety_margin,
+        Some(ratio(1, 10))
+    );
+    assert_eq!(update.ref_inputs_cost_per_multi_asset_policy, Some(1000));
+    assert_eq!(update.ref_inputs_cost_per_datum_byte, Some(44));
+
+    assert_eq!(
+        hex::encode(minicbor::to_vec(&update).unwrap()),
+        hex::encode(&bytes)
+    );
+}
+
+/// MUST FIRE: a nil at key 38 proposes removing the pledge leverage cap and a
+/// nil at key 53 proposes unsetting the bootstrap round, so each is held apart
+/// from an update that leaves the key out and goes back out as a nil.
+#[test]
+fn a_nil_update_key_differs_from_an_absent_one() {
+    let nil_38 = hex::decode("a11826f6").unwrap();
+    let update: super::ProtocolParamUpdate =
+        minicbor::decode(&nil_38).expect("a nil key 38 must decode");
+    assert_eq!(update.max_pledge_leverage, Some(Nullable::Null));
+    assert_eq!(hex::encode(minicbor::to_vec(&update).unwrap()), "a11826f6");
+
+    let nil_53 = hex::decode("a11835f6").unwrap();
+    let update: super::ProtocolParamUpdate =
+        minicbor::decode(&nil_53).expect("a nil key 53 must decode");
+    assert_eq!(update.peras_bootstrap_round, Some(Nullable::Null));
+    assert_eq!(hex::encode(minicbor::to_vec(&update).unwrap()), "a11835f6");
+
+    let absent: super::ProtocolParamUpdate =
+        minicbor::decode(&[0xa0]).expect("the empty update must decode");
+    assert_eq!(absent.max_pledge_leverage, None);
+    assert_eq!(absent.peras_bootstrap_round, None);
+    assert_eq!(hex::encode(minicbor::to_vec(&absent).unwrap()), "a0");
+}
+
 /// `pool_params` carries `? bls_key : bls_key/ nil` (`defs.cddl`) between
 /// `vrf_keyhash` and `pledge`. Every fixture certificate reaches the wire
 /// inside a `KeepRaw` body, so without this the length choice runs nowhere.
