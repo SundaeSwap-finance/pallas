@@ -1554,5 +1554,13 @@ pub fn dijkstra_update_of_every_key() -> pallas_primitives::dijkstra::ProtocolPa
         max_endorser_block_txs_size,
         max_endorser_block_execution_units,
         max_ref_script_size_per_endorser_block,
+        peras_min_candidate_block_age,
+        peras_healing_factor,
+        peras_cert_boost,
+        peras_target_committee_size,
+        peras_bootstrap_round,
+        peras_quorum_threshold_safety_margin,
+        ref_inputs_cost_per_multi_asset_policy,
+        ref_inputs_cost_per_datum_byte,
     )
 }

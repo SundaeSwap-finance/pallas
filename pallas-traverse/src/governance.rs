@@ -294,7 +294,7 @@ impl MultiEraParamUpdate<'_> {
     shared_param!(minfee_refscript_cost_per_byte: RationalNumber);
 
     // -- NEW IN DIJKSTRA
-    // keys 34 to 48, except 38 below
+    // keys 34 to 56, except 38 and 53 below
 
     dijkstra_param!(max_ref_script_size_per_block: u64);
     dijkstra_param!(max_ref_script_size_per_tx: u64);
@@ -310,6 +310,13 @@ impl MultiEraParamUpdate<'_> {
     dijkstra_param!(max_endorser_block_txs_size: u64);
     dijkstra_param!(max_endorser_block_execution_units: ExUnits);
     dijkstra_param!(max_ref_script_size_per_endorser_block: u64);
+    dijkstra_param!(peras_min_candidate_block_age: u64);
+    dijkstra_param!(peras_healing_factor: RationalNumber);
+    dijkstra_param!(peras_cert_boost: u64);
+    dijkstra_param!(peras_target_committee_size: u64);
+    dijkstra_param!(peras_quorum_threshold_safety_margin: RationalNumber);
+    dijkstra_param!(ref_inputs_cost_per_multi_asset_policy: u64);
+    dijkstra_param!(ref_inputs_cost_per_datum_byte: u64);
 
     /// Returns key 38, where an explicit nil proposes removing the cap and
     /// differs from an absent key.
@@ -318,6 +325,19 @@ impl MultiEraParamUpdate<'_> {
         match self {
             MultiEraParamUpdate::Conway(_) => ParamRead::NoSuchParameter,
             MultiEraParamUpdate::Dijkstra(x) => match x.max_pledge_leverage.clone() {
+                Some(v) => ParamRead::Proposed(v),
+                None => ParamRead::Unchanged,
+            },
+        }
+    }
+
+    /// Returns key 53, where an explicit nil proposes unsetting the bootstrap
+    /// round and differs from an absent key.
+    #[cfg(feature = "unstable")]
+    pub fn peras_bootstrap_round(&self) -> ParamRead<Nullable<u64>> {
+        match self {
+            MultiEraParamUpdate::Conway(_) => ParamRead::NoSuchParameter,
+            MultiEraParamUpdate::Dijkstra(x) => match x.peras_bootstrap_round.clone() {
                 Some(v) => ParamRead::Proposed(v),
                 None => ParamRead::Unchanged,
             },
@@ -994,6 +1014,82 @@ mod dijkstra_tests {
             Some(20_000),
             "key 48 decoded into no field"
         );
+    }
+
+    /// Keys 49 to 56 read through the view as the values the update sets,
+    /// key 53 included in both its forms, and a Conway update has none of them.
+    #[test]
+    fn the_peras_and_reference_input_keys_read_through_the_view() {
+        use pallas_codec::utils::Nullable;
+
+        let mut update: dijkstra::ProtocolParamUpdate =
+            minicbor::decode(&[0xa0]).expect("the empty update must decode");
+        update.peras_min_candidate_block_age = Some(30);
+        update.peras_healing_factor = Some(RationalNumber {
+            numerator: 3,
+            denominator: 2,
+        });
+        update.peras_cert_boost = Some(15);
+        update.peras_target_committee_size = Some(600);
+        update.peras_bootstrap_round = Some(Nullable::Some(65536));
+        update.peras_quorum_threshold_safety_margin = Some(RationalNumber {
+            numerator: 1,
+            denominator: 10,
+        });
+        update.ref_inputs_cost_per_multi_asset_policy = Some(1000);
+        update.ref_inputs_cost_per_datum_byte = Some(44);
+
+        let view = MultiEraParamUpdate::Dijkstra(Box::new(Cow::Borrowed(&update)));
+        assert_eq!(
+            view.peras_min_candidate_block_age(),
+            ParamRead::Proposed(30)
+        );
+        assert_eq!(
+            view.peras_healing_factor(),
+            ParamRead::Proposed(RationalNumber {
+                numerator: 3,
+                denominator: 2,
+            })
+        );
+        assert_eq!(view.peras_cert_boost(), ParamRead::Proposed(15));
+        assert_eq!(view.peras_target_committee_size(), ParamRead::Proposed(600));
+        assert_eq!(
+            view.peras_bootstrap_round(),
+            ParamRead::Proposed(Nullable::Some(65536))
+        );
+        assert_eq!(
+            view.peras_quorum_threshold_safety_margin(),
+            ParamRead::Proposed(RationalNumber {
+                numerator: 1,
+                denominator: 10,
+            })
+        );
+        assert_eq!(
+            view.ref_inputs_cost_per_multi_asset_policy(),
+            ParamRead::Proposed(1000)
+        );
+        assert_eq!(
+            view.ref_inputs_cost_per_datum_byte(),
+            ParamRead::Proposed(44)
+        );
+
+        update.peras_bootstrap_round = Some(Nullable::Null);
+        let view = MultiEraParamUpdate::Dijkstra(Box::new(Cow::Borrowed(&update)));
+        assert_eq!(
+            view.peras_bootstrap_round(),
+            ParamRead::Proposed(Nullable::Null),
+            "a nil key 53 is a proposal to unset the round"
+        );
+
+        update.peras_bootstrap_round = None;
+        let view = MultiEraParamUpdate::Dijkstra(Box::new(Cow::Borrowed(&update)));
+        assert_eq!(view.peras_bootstrap_round(), ParamRead::Unchanged);
+
+        let conway: pallas_primitives::conway::ProtocolParamUpdate =
+            minicbor::decode(&[0xa0]).expect("the empty Conway update must decode");
+        let view = MultiEraParamUpdate::Conway(Box::new(Cow::Borrowed(&conway)));
+        assert_eq!(view.peras_cert_boost(), ParamRead::NoSuchParameter);
+        assert_eq!(view.peras_bootstrap_round(), ParamRead::NoSuchParameter);
     }
 
     #[test]

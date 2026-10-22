@@ -721,8 +721,10 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48. A derived
-/// map decoder drops a key it has no field for, so the tail is modelled.
+/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48, and keys 49
+/// through 56 of the same rule at [cardano-ledger `9df9f98c`](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/cddl/data/dijkstra.cddl#L685-L739),
+/// the ledger a `prototype-2026w42` node runs. A derived map decoder drops a
+/// key it has no field for, so the tail is modelled.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
@@ -801,6 +803,7 @@ pub struct ProtocolParamUpdate {
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
     #[n(38)]
+    #[cbor(decode_with = "decode_present_nullable", nil = "absent_key")]
     pub max_pledge_leverage: Option<Nullable<RationalNumber>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
@@ -822,6 +825,40 @@ pub struct ProtocolParamUpdate {
     pub max_endorser_block_execution_units: Option<ExUnits>,
     #[n(48)]
     pub max_ref_script_size_per_endorser_block: Option<u64>,
+    #[n(49)]
+    pub peras_min_candidate_block_age: Option<u64>,
+    #[n(50)]
+    pub peras_healing_factor: Option<PositiveInterval>,
+    #[n(51)]
+    pub peras_cert_boost: Option<u64>,
+    #[n(52)]
+    pub peras_target_committee_size: Option<u64>,
+    /// Key 53 is `nil / uint .size 4`, so an explicit nil, which proposes
+    /// unsetting the round, differs from an absent key.
+    #[n(53)]
+    #[cbor(decode_with = "decode_present_nullable", nil = "absent_key")]
+    pub peras_bootstrap_round: Option<Nullable<u64>>,
+    #[n(54)]
+    pub peras_quorum_threshold_safety_margin: Option<UnitInterval>,
+    #[n(55)]
+    pub ref_inputs_cost_per_multi_asset_policy: Option<Coin>,
+    #[n(56)]
+    pub ref_inputs_cost_per_datum_byte: Option<Coin>,
+}
+
+/// Decodes the value of a key that is present. The default decoder for
+/// [`Option`] reads a CBOR null as an absent key, which would erase a nil the
+/// rule gives a meaning of its own.
+fn decode_present_nullable<'b, Ctx, T: Decode<'b, Ctx> + Clone>(
+    d: &mut minicbor::Decoder<'b>,
+    ctx: &mut Ctx,
+) -> Result<Option<Nullable<T>>, minicbor::decode::Error> {
+    d.decode_with(ctx).map(Some)
+}
+
+/// The value of a key the map leaves out.
+fn absent_key<T>() -> Option<Option<T>> {
+    Some(None)
 }
 
 /// No CDDL rule answers to this type. It mirrors [`crate::conway::Update`] over this era's `protocol_param_update`.
