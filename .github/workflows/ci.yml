@@ -115,15 +115,17 @@ jobs:
       - run: cargo check -p pallas-primitives --no-default-features
 
   msrv:
-    name: MSRV (1.88)
+    name: MSRV (1.97)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
-      - uses: dtolnay/rust-toolchain@1.88
+      - uses: dtolnay/rust-toolchain@1.97.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace --all-targets
+      - name: Test validation at the minimum supported Rust version
+        run: cargo test -p pallas-validate --features phase2,unstable
 
   # main is the v1 lineage, where public API changes must be additive; see
   # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
