@@ -756,10 +756,9 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
             let native::TransactionOutput::PostAlonzo(ref mut out) = changed else {
                 unreachable!()
             };
-            let expected = match feature {
+            match feature {
                 0 => {
                     out.datum_option = Some(native::DatumOption::Hash([0; 32].into()).into());
-                    "output datum or reference script"
                 }
                 1 => {
                     out.value = conway::Value::Multiasset(
@@ -773,7 +772,6 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
                         .into_iter()
                         .collect(),
                     );
-                    "multiasset value"
                 }
                 2 => {
                     out.address = ShelleyAddress::new(
@@ -783,7 +781,6 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
                     )
                     .to_vec()
                     .into();
-                    "script payment credential"
                 }
                 _ => {
                     out.address = ShelleyAddress::new(
@@ -793,16 +790,16 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
                     )
                     .to_vec()
                     .into();
-                    "pointer address"
                 }
-            };
+            }
             let result = dispatch(&tx, &MultiEraOutput::from_dijkstra(&changed), &env());
             match feature {
                 0 => assert!(result.is_ok(), "a key input may carry a datum"),
                 1 => error(result, "PostAlonzo(PreservationOfValue)"),
                 // A missing script is detected before choosing its language parameters.
                 2 => error(result, "PostAlonzo(ScriptWitnessMissing)"),
-                _ => error(result, &format!("DijkstraUnsupported({expected:?})")),
+                // Pointer delegation plays no part in spending; only the payment key is missing.
+                _ => error(result, "PostAlonzo(VKWitnessMissing)"),
             }
         }
         let output = MultiEraOutput::from_dijkstra(&input);
