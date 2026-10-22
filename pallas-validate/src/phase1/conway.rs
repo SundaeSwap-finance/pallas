@@ -1552,7 +1552,7 @@ fn check_bootstrap_wit(
     Err(PostAlonzo(VKWitnessMissing))
 }
 
-fn bootstrap_wit_root(wit: &BootstrapWitness) -> Option<AddressId> {
+pub(crate) fn bootstrap_wit_root(wit: &BootstrapWitness) -> Option<AddressId> {
     let attributes: AddrAttrs = pallas_codec::minicbor::decode(&wit.attributes).ok()?;
     let xpub: Vec<u8> = [wit.public_key.as_slice(), wit.chain_code.as_slice()].concat();
     Some(AddressPayload::hash_address_id(

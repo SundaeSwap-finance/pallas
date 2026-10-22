@@ -45,6 +45,10 @@ Rules are pinned to cardano-ledger
 [`1587f21a7d1306dc590c2749a5c66232ef66aad0`](https://github.com/IntersectMBO/cardano-ledger/tree/1587f21a7d1306dc590c2749a5c66232ef66aad0):
 Dijkstra `Rules/{Utxow,Utxo,Entities}`, `UTxO`, `TxInfo`; Shelley UTXOW;
 Alonzo UTXOW/UTxO/TxWits; Babbage UTXOW; Mary Value and binary decoding.
+Phase one also holds at
+[`9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`](https://github.com/IntersectMBO/cardano-ledger/tree/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c),
+the ledger of Musashi's `11.1.0.164-prototype-2026w42` node; `TxInfo` and phase
+two are not yet checked against it.
 
 - Metadata hashes original auxiliary CBOR. Original body bytes remain signed.
   Asset conservation is per policy/name; protocol-12 map/quantity constraints apply.
@@ -72,10 +76,19 @@ independent CLI for all five purposes (`cli-comparison.json`).
 Guard-free native scripts are additionally supported; see
 [the native-script fixtures](../dijkstra-native-scripts/README.md).
 
-Explicit exclusions remain: other Plutus languages, script guards, governance,
-direct deposits/account intervals, non-Reg certificates, scripted/stateful
-subtransactions, bootstrap/pointer addresses, auxiliary scripts and Plutus upper
-validity bounds without forecast state. This is not full Dijkstra conformance.
+Subtransactions get the top level's phase-one rules: key, native-script and
+bootstrap inputs, datums and reference scripts on spent outputs, reference
+inputs and metadata. Missing and unneeded scripts are checked across the batch,
+as the ledger does. The reference-script size cap covers the whole batch; the
+fee counts top-level references only. The top level of a batch may mint and
+withdraw under native scripts.
+
+Explicit exclusions remain: other Plutus languages, Plutus anywhere in a batch,
+script guards, governance, direct deposits/account intervals, non-Reg
+certificates, certificates alongside subtransactions, mint/withdrawals/
+certificates inside subtransactions, bootstrap/pointer output addresses,
+auxiliary scripts and Plutus upper validity bounds without forecast state. This
+is not full Dijkstra conformance.
 
 ## Evidence reproduction
 
