@@ -56,13 +56,11 @@ fn update_scalar<T>(value: Option<T>) -> Option<T> {
 }
 
 /// The u5c purpose of a guarding redeemer.
-#[cfg(feature = "unstable")]
 fn guarding_purpose() -> u5c::RedeemerPurpose {
     u5c::RedeemerPurpose::Guarding
 }
 
 /// The u5c member of a guard clause.
-#[cfg(feature = "unstable")]
 fn native_script_guard(
     x: &pallas_primitives::StakeCredential,
 ) -> Option<u5c::native_script::NativeScript> {
@@ -72,7 +70,6 @@ fn native_script_guard(
 }
 
 /// Adds the pool BLS key to a pool registration certificate.
-#[cfg(feature = "unstable")]
 fn with_pool_bls_key(
     cert: Option<u5c::certificate::Certificate>,
     key: Option<&pallas_primitives::dijkstra::BlsKey>,
@@ -92,7 +89,6 @@ fn with_pool_bls_key(
 }
 
 /// The deposit of one coin into one reward account.
-#[cfg(feature = "unstable")]
 fn map_direct_deposit(
     (account, coin): (&pallas_primitives::RewardAccount, &pallas_primitives::Coin),
 ) -> u5c::DirectDeposit {
@@ -103,7 +99,6 @@ fn map_direct_deposit(
 }
 
 /// The interval one reward account balance must fall within.
-#[cfg(feature = "unstable")]
 fn map_account_balance_interval(
     (account, interval): (
         &pallas_primitives::RewardAccount,
@@ -142,7 +137,6 @@ fn map_signers(x: &trv::MultiEraSigners) -> Vec<u5c::StakeCredential> {
         return x.iter().map(map_key_hash).collect();
     }
 
-    #[cfg(feature = "unstable")]
     if let Some(x) = x.as_dijkstra() {
         return map_guards(x);
     }
@@ -151,7 +145,6 @@ fn map_signers(x: &trv::MultiEraSigners) -> Vec<u5c::StakeCredential> {
 }
 
 /// The credentials that guard a transaction, a bare key hash as a key credential.
-#[cfg(feature = "unstable")]
 fn map_guards(x: &pallas_primitives::dijkstra::Guards) -> Vec<u5c::StakeCredential> {
     use pallas_primitives::dijkstra::Guards;
 
@@ -168,20 +161,15 @@ fn with_leios_fields(mut mapped: u5c::Block, block: &trv::MultiEraBlock) -> u5c:
     if let Some(mapped) = mapped.header.as_mut() {
         mapped.body_contains_leios_certificate =
             header.block_body_contains_leios_cert().unwrap_or_default();
-
-        #[cfg(feature = "unstable")]
-        {
-            mapped.endorser_block_announcement =
-                header
-                    .eb_announcement()
-                    .map(|x| u5c::EndorserBlockAnnouncement {
-                        references_hash: x.eb_hash.to_vec().into(),
-                        references_size: x.eb_size,
-                    });
-        }
+        mapped.endorser_block_announcement =
+            header
+                .eb_announcement()
+                .map(|x| u5c::EndorserBlockAnnouncement {
+                    references_hash: x.eb_hash.to_vec().into(),
+                    references_size: x.eb_size,
+                });
     }
 
-    #[cfg(feature = "unstable")]
     if let Some(mapped) = mapped.body.as_mut() {
         mapped.leios_certificate = block.leios_certificate().map(|x| u5c::LeiosCertificate {
             signers: x.signers.to_vec().into(),
@@ -213,22 +201,6 @@ impl<C: LedgerContext> Mapper<C> {
             collateral: self.map_collateral(tx, &resolved),
             fee: tx.fee().and_then(u64_to_bigint),
             successful: tx.is_valid(),
-            ..self.map_dijkstra_tx_fields(tx)
-        }
-    }
-
-    /// Looks up the outputs a transaction's inputs, collateral and reference inputs name.
-    fn resolve(&self, tx: &trv::MultiEraTx) -> Option<crate::UtxoMap> {
-        self.ledger.as_ref().and_then(|ctx| {
-            let to_resolve = self.find_related_inputs(tx);
-            ctx.get_utxos(to_resolve.as_slice())
-        })
-    }
-
-    /// The fields of a transaction that only the Dijkstra era fills.
-    #[cfg(feature = "unstable")]
-    fn map_dijkstra_tx_fields(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
-        u5c::Tx {
             sub_transactions: tx
                 .sub_transactions()
                 .iter()
@@ -240,14 +212,15 @@ impl<C: LedgerContext> Mapper<C> {
                 .flatten()
                 .map(map_account_balance_interval)
                 .collect(),
-            ..Default::default()
         }
     }
 
-    /// The fields of a transaction that only the Dijkstra era fills, all empty when the Dijkstra accessors are not built.
-    #[cfg(not(feature = "unstable"))]
-    fn map_dijkstra_tx_fields(&self, _: &trv::MultiEraTx) -> u5c::Tx {
-        u5c::Tx::default()
+    /// Looks up the outputs a transaction's inputs, collateral and reference inputs name.
+    fn resolve(&self, tx: &trv::MultiEraTx) -> Option<crate::UtxoMap> {
+        self.ledger.as_ref().and_then(|ctx| {
+            let to_resolve = self.find_related_inputs(tx);
+            ctx.get_utxos(to_resolve.as_slice())
+        })
     }
 
     /// Maps the fields a transaction shares with a sub transaction.
@@ -346,14 +319,6 @@ impl<C: LedgerContext> Mapper<C> {
             treasury_value: tx.treasury_value().and_then(u64_to_bigint),
             treasury_donation: tx.donation().and_then(u64_to_bigint),
             guards: map_signers(&tx.required_signers()),
-            ..self.map_dijkstra_common_fields(tx)
-        }
-    }
-
-    /// The fields a transaction and a sub transaction share that only the Dijkstra era fills.
-    #[cfg(feature = "unstable")]
-    fn map_dijkstra_common_fields(&self, tx: &trv::MultiEraTx) -> u5c::TxCommon {
-        u5c::TxCommon {
             direct_deposits: tx
                 .direct_deposits()
                 .into_iter()
@@ -372,18 +337,10 @@ impl<C: LedgerContext> Mapper<C> {
                 .flatten()
                 .map(|x| self.map_required_top_level_guard(x))
                 .collect(),
-            ..Default::default()
         }
     }
 
-    /// The fields a transaction and a sub transaction share that only the Dijkstra era fills, all empty when the Dijkstra accessors are not built.
-    #[cfg(not(feature = "unstable"))]
-    fn map_dijkstra_common_fields(&self, _: &trv::MultiEraTx) -> u5c::TxCommon {
-        u5c::TxCommon::default()
-    }
-
     /// One credential required of the top level transaction, with no datum for a nil one.
-    #[cfg(feature = "unstable")]
     fn map_required_top_level_guard(
         &self,
         (credential, datum): (
@@ -438,19 +395,18 @@ mod tests {
 
     #[test]
     fn snapshot() {
-        #[allow(unused_mut)]
-        let mut cases = vec![(
-            include_str!("../../../test_data/u5c1.block"),
-            include_str!("../../../test_data/u5c_v1.json"),
-            "u5c_v1.json",
-        )];
-
-        #[cfg(feature = "unstable")]
-        cases.push((
-            include_str!("../../../test_data/dijkstra6.block"),
-            include_str!("../../../test_data/u5c_v1_dijkstra.json"),
-            "u5c_v1_dijkstra.json",
-        ));
+        let cases = [
+            (
+                include_str!("../../../test_data/u5c1.block"),
+                include_str!("../../../test_data/u5c_v1.json"),
+                "u5c_v1.json",
+            ),
+            (
+                include_str!("../../../test_data/dijkstra6.block"),
+                include_str!("../../../test_data/u5c_v1_dijkstra.json"),
+                "u5c_v1_dijkstra.json",
+            ),
+        ];
 
         let mapper = Mapper::new(NoLedger);
 
@@ -579,7 +535,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_block_without_certificates_maps_no_leios_or_peras_field() {
         let block = dijkstra_block(include_str!("../../../test_data/dijkstra11.block"));
@@ -598,7 +553,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_block_maps_its_leios_certificate_and_announcement() {
         let block = dijkstra_block(include_str!("../../../test_data/dijkstra8.block"));
@@ -627,7 +581,6 @@ mod tests {
         assert_eq!(body.peras_certificate.to_vec(), Vec::<u8>::new());
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_block_certifying_without_announcing_maps_no_announcement() {
         let block = dijkstra_block(include_str!("../../../test_data/dijkstra9.block"));
@@ -639,7 +592,6 @@ mod tests {
         assert!(mapped.body.unwrap().leios_certificate.is_some());
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_block_maps_its_peras_certificate_bytes() {
         use pallas_codec::minicbor;
@@ -661,7 +613,6 @@ mod tests {
     }
 
     /// Reads the transaction id and output index of each input given.
-    #[cfg(feature = "unstable")]
     fn input_refs(inputs: &[u5c::TxInput]) -> Vec<(String, u32)> {
         inputs
             .iter()
@@ -669,7 +620,6 @@ mod tests {
             .collect()
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_transaction_without_sub_transactions_maps_none() {
         let conway =
@@ -690,7 +640,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_transaction_maps_its_own_body_and_its_sub_transaction() {
         let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-subtx.tx"));
@@ -770,7 +719,6 @@ mod tests {
     }
 
     /// Reads the coin of the output each input given resolves to.
-    #[cfg(feature = "unstable")]
     fn resolved_coins(inputs: &[u5c::TxInput]) -> Vec<Option<u5c::BigInt>> {
         inputs
             .iter()
@@ -779,12 +727,10 @@ mod tests {
     }
 
     /// The output reference an input names.
-    #[cfg(feature = "unstable")]
     fn input_ref(x: &trv::MultiEraInput) -> crate::TxoRef {
         (*x.hash(), x.index() as u32)
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_sub_transaction_input_the_ledger_does_not_hold_maps_no_output() {
         let tx = dijkstra_tx_with_guards();
@@ -804,7 +750,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_sub_transaction_input_maps_the_output_the_ledger_resolves_for_it() {
         let tx = dijkstra_tx_with_guards();
@@ -830,7 +775,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_transaction_maps_its_collateral_input_and_fee() {
         let tx = dijkstra_tx(include_str!("../../../test_data/dijkstra-subtx.tx"));
@@ -852,7 +796,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn deposits_and_intervals_map_with_their_accounts() {
         use u5c::account_balance_interval::Interval;
@@ -919,7 +862,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_body_without_guards_maps_none() {
         let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_account_fields());
@@ -934,7 +876,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn guards_map_with_their_key_or_script_tag() {
         use u5c::stake_credential::StakeCredential;
@@ -990,7 +931,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_body_without_required_top_level_guards_maps_none() {
         let mapped = Mapper::new(NoLedger).map_tx(&dijkstra_tx_with_guards());
@@ -1005,7 +945,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn required_top_level_guards_map_with_their_credential_and_datum() {
         use u5c::stake_credential::StakeCredential;
@@ -1053,7 +992,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_guarding_redeemer_maps_to_the_guarding_purpose() {
         assert_eq!(
@@ -1063,7 +1001,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_guard_clause_maps_to_the_credential_it_names() {
         use pallas_primitives::{StakeCredential, dijkstra};
@@ -1098,7 +1035,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     #[test]
     fn a_dijkstra_pool_registration_maps_the_bls_key_it_fills() {
         let block = dijkstra_block(include_str!("../../../test_data/dijkstra6.block"));
