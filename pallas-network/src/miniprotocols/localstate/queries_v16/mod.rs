@@ -486,36 +486,26 @@ pub struct ProtocolParam {
 
 /// The number of entries in the Dijkstra protocol parameter array, which is
 /// `length (eraPParams @DijkstraEra)`.
-pub const DIJKSTRA_PROTOCOL_PARAM_FIELDS: u64 = 46;
+pub const DIJKSTRA_PROTOCOL_PARAM_FIELDS: u64 = 54;
 
-/// Dijkstra era protocol parameters, corresponding to [`DijkstraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L124-L235)
-/// in the Haskell sources, at cardano-ledger `1587f21a`, which is the commit the
-/// `prototype-2026w36` node release integrates.
+/// Dijkstra era protocol parameters, corresponding to [`DijkstraPParams`](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L161-L301)
+/// in the Haskell sources at cardano-ledger `9df9f98c`, the commit the
+/// `prototype-2026w42` node release integrates.
 ///
-/// The wire form is a positional array, not a map. [`EncCBOR (PParams era)`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L203-L208)
-/// writes `encodeListLen (length (eraPParams @era))` and then one entry per
-/// element of `eraPParams`, so the order of the fields below is the order of
-/// [`eraPParams` for Dijkstra](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L612-L659)
-/// and nothing else. The first 31 entries are the Conway ones in Conway order,
-/// carrying the same names they have in [`ProtocolParam`], entries 31 to 34 are
-/// the four reference script parameters Dijkstra appends, and entries 35 to 45
-/// are the pledge, pool margin and Leios parameters added between cardano-ledger
-/// `f3104f0` and `1587f21a`. The first 35 entries did not move across that
-/// range, so a value decoded by the earlier 35 entry form reads the same for
-/// every field it has.
-///
-/// The eleven appended entries are [`ppMaxPledgeLeverage`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L717-L869)
-/// through `ppMaxRefScriptSizePerEndorserBlock`, which carry update keys 38 to
-/// 48 of [`protocol_param_update`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/cddl/data/dijkstra.cddl#L681-L727)
-/// in the same order. Their ledger widths are `Word32` for the three period
-/// lengths and the four sizes and `Word16` for the committee size, and they are
-/// held here as [`u64`] to match the width every other integer field of this
-/// type already uses.
+/// The wire form is a positional array, not a map. [`EncCBOR (PParams era)`](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L204-L209)
+/// writes `encodeListLen (length (eraPParams @era))` and then each entry with
+/// its type's plain `encCBOR`, so the order of the fields below is the order of
+/// [`eraPParams` for Dijkstra](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/PParams.hs#L741-L796).
+/// The first 31 entries are the Conway ones in Conway order, carrying the same
+/// names they have in [`ProtocolParam`]. Entries 31 to 53 carry update keys 34
+/// to 56 of [`protocol_param_update`](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/cddl/data/dijkstra.cddl#L685-L739)
+/// in the same order. The ledger's integer widths are `Word32` and `Word16`,
+/// held here as [`u64`] like every other integer field of this type.
 ///
 /// Every entry is present in every value the node sends, because the encoder
-/// above writes one entry per parameter with no room for a gap. So these fields
-/// are not optional, unlike Conway's, and [`Decode`] refuses an array of any
-/// other length rather than filling the difference in with absence. The Haskell
+/// writes one entry per parameter with no room for a gap. So these fields are
+/// not optional, unlike Conway's, and [`Decode`] refuses an array of any other
+/// length rather than filling the difference in with absence. The Haskell
 /// decoder checks the same thing, with `decodeRecordNamed` over the same count.
 #[derive(Encode, Debug, PartialEq, Eq, Clone)]
 pub struct DijkstraProtocolParam {
@@ -589,13 +579,11 @@ pub struct DijkstraProtocolParam {
     pub ref_script_cost_stride: u64,
     #[n(34)]
     pub ref_script_cost_multiplier: PositiveInterval,
-    /// `MaxPledgeLeverage` is a `StrictMaybe NonNegativeInterval` written with
-    /// [`encodeNullStrictMaybe`](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L367-L377),
-    /// so the entry is either the interval or a CBOR null, which is what the
-    /// CDDL rule `max_pledge_leverage = nonnegative_interval / nil` says and
-    /// what the network's dijkstra genesis carries today. The null is a value
-    /// the node sends, not an entry it left out, so it is held as
-    /// [`Nullable::Null`] rather than as an absent field.
+    /// [`MaxPledgeLeverage`](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/libs/cardano-ledger-core/src/Cardano/Ledger/Core/PParams.hs#L369-L381)
+    /// wraps a `StrictMaybe NonNegativeInterval` in its own codec, which
+    /// writes an unset cap as a CBOR null, so the entry is either the interval
+    /// or a null. The null is a value the node sends, not an entry it left
+    /// out, so it is held as [`Nullable::Null`] rather than as an absent field.
     #[n(35)]
     pub max_pledge_leverage: Nullable<RationalNumber>,
     #[n(36)]
@@ -618,6 +606,26 @@ pub struct DijkstraProtocolParam {
     pub max_endorser_block_ex_units: ExUnits,
     #[n(45)]
     pub max_ref_script_size_per_endorser_block: u64,
+    #[n(46)]
+    pub peras_min_candidate_block_age: u64,
+    #[n(47)]
+    pub peras_healing_factor: PositiveInterval,
+    #[n(48)]
+    pub peras_cert_boost: u64,
+    #[n(49)]
+    pub peras_target_committee_size: u64,
+    /// `perasBootstrapRound` is a bare `StrictMaybe Word32`, so this array
+    /// carries it in the ledger's default [`StrictMaybe` form](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Encoding/Encoder.hs#L331-L334),
+    /// `[]` or `[round]`. Only a parameter update writes it as null or a bare
+    /// round, which is what CDDL key 53 describes.
+    #[n(50)]
+    pub peras_bootstrap_round: SMaybe<u64>,
+    #[n(51)]
+    pub peras_quorum_threshold_safety_margin: UnitInterval,
+    #[n(52)]
+    pub ref_inputs_cost_per_multi_asset_policy: Coin,
+    #[n(53)]
+    pub ref_inputs_cost_per_datum_byte: Coin,
 }
 
 pub type StakeDistribution = KeyValuePairs<Bytes, Pool>;
