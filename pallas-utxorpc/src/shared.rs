@@ -2190,6 +2190,7 @@ macro_rules! impl_cardano_mapper_shared {
                         max_block_header_size: params.max_header_size,
                         ..Default::default()
                     },
+                    #[allow(clippy::needless_update)]
                     MultiEraProtocolParameters::Conway(params) => u5c::PParams {
                         max_tx_size: params.max_transaction_size.into(),
                         max_block_body_size: params.max_block_body_size.into(),
@@ -2300,6 +2301,7 @@ macro_rules! impl_cardano_mapper_shared {
                             ..Default::default()
                         }
                         .into(),
+                        ..Default::default()
                     },
                     _ => unimplemented!(),
                 }
