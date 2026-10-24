@@ -123,6 +123,24 @@ transaction hash in the table, and `pallas-primitives` asserts that.
 | `dijkstra-indef-bytes1.tx` | `943a88c97f86522b2cda39d1d6bd076ea51a696e5ad41c41e4c6d38ce8f7dd50` | 751 | 11 | an input id, an output address, a guard key hash, a reference input id, two account keys, and in the sub transaction an input id, an output address, a guard key hash and two account keys | transaction index 137 of the ranking block at slot 3438997, `5b7dd1bd0349ff307d8fb13b826de4d8ab83ee7e41feb0d8d1c16cb0c208ee0f`, without its validity flag |
 | `dijkstra-indef-bytes2.tx` | `b026c42a9cf28aff7ce8624487f4d2b8f45df93454ac0ea2842408c1673cce5c` | 646 | 7 | an input id, two output addresses, a reference input id, and in the sub transaction an input id and two output addresses | transaction index 4825 of endorser block `4e4706aa2d7ad04581588af6efc4065f151bbe2e283f7b806c6661121b730dc4`, from the node's endorser block database |
 
+## Transactions with PlutusV4 witness scripts
+
+Two files are transactions cut from block 8 of a local network run from the
+`ghcr.io/input-output-hk/ouroboros-leios/cardano-node-testnet:rc-2026w42` image
+(cardano-node 11.2.0.164, network magic 164, every hard fork at epoch 0), at
+slot 353, header hash
+`f1524fe85164dbf31cc26f019a751e5598e439c1f67a35c59ca8e4f2f126767b`. Each is the
+transaction bytes exactly as the block holds them, in the four element `block_transaction`
+form, written as lowercase hex with no trailing newline.
+
+| file | index in block | transaction | bytes | witness keys | what it carries |
+| --- | --- | --- | --- | --- | --- |
+| `dijkstra-v4-witness.tx` | 0 | `931a78483ed17437655db1ad49b1920f4cef45b3c48c165acd42e6759933d358` | 380 | 0, 5, 8 | a spend from a PlutusV4 script, with the script at witness key 8 |
+| `dijkstra-v4-sub-witness.tx` | 1 | `a9e1e0c39a9d4536ad2cd75c6eac0aead02300adfb12e013147c21cdb8156ada` | 579 | 0 | two sub transactions, the first with witness key 0 and the second with keys 5 and 8, so the PlutusV4 script is only in a sub transaction |
+
+The script at key 8 is `450101002499` in both. The spans, witness keys and
+hashes were read with Python's `cbor2` and `hashlib` rather than with pallas.
+
 ## Fixtures built rather than cut
 
 Four files here are hand built CBOR, for shapes no block on this chain
