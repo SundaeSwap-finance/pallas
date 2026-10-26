@@ -221,6 +221,53 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
+    fn rationals_wider_than_32_bits_map_in_lowest_terms() {
+        let map = |numerator, denominator| {
+            let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
+                numerator,
+                denominator,
+            });
+            (x.numerator, x.denominator)
+        };
+        let wide = 0xffff_ffff_ffff_fc17;
+
+        assert_eq!(map(wide, wide), (1, 1));
+        assert_eq!(map(3 << 32, 4 << 32), (3, 4));
+        assert_eq!(map(2, 4), (2, 4));
+        assert_eq!(
+            map((1 << 63) + 1, 10_000_000_000_000_000_000),
+            (1, 2_313_682_944)
+        );
+
+        let margin = format!(
+            "8a03581c{}5820{}0000d81e821bfffffffffffffc171bfffffffffffffc17581de0{}8080f6",
+            "00".repeat(28),
+            "00".repeat(32),
+            "00".repeat(28)
+        );
+        let margin = hex::decode(margin).unwrap();
+        let block = hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap();
+        let block = pallas_traverse::MultiEraBlock::decode(&block).unwrap();
+        let tx = &block.txs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let alonzo = pallas_codec::minicbor::decode(&margin).unwrap();
+        let conway = pallas_codec::minicbor::decode(&margin).unwrap();
+
+        for cert in [
+            mapper.map_alonzo_compatible_cert(&alonzo, tx, 0),
+            mapper.map_conway_cert(&conway, tx, 0),
+        ] {
+            let Some(u5c::certificate::Certificate::PoolRegistration(pool)) = cert.certificate
+            else {
+                panic!("not a pool registration: {cert:?}");
+            };
+            let margin = pool.margin.unwrap();
+            assert_eq!((margin.numerator, margin.denominator), (1, 1));
+        }
+    }
+
+    #[test]
     fn negative_n_of_k_threshold_maps_to_zero() {
         let mapped = Mapper::<NoLedger>::map_native_script(
             &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
