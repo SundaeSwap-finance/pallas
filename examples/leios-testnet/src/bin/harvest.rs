@@ -204,7 +204,7 @@ async fn run_index(args: &[String]) {
                 .unwrap();
 
                 rows += 1;
-                if rows % 5000 == 0 {
+                if rows.is_multiple_of(5000) {
                     tracing::info!(rows, slot = header.slot(), "indexing");
                 }
 
@@ -328,7 +328,7 @@ async fn run_scan(args: &[String]) {
                 .unwrap();
 
                 blocks += 1;
-                if blocks % 200 == 0 {
+                if blocks.is_multiple_of(200) {
                     tracing::info!(blocks, slot, "scanning");
                 }
 
@@ -398,17 +398,17 @@ async fn run_dups(args: &[String]) {
 
                 for (i, tx) in txs.iter().enumerate() {
                     for input in tx.consumes() {
-                        if let Some(&at) = position.get(input.hash()) {
-                            if at > i {
-                                writeln!(
-                                    file,
-                                    "{slot}\tforward_ref\tspender {i} produced_by {at} ref {}#{}",
-                                    input.hash(),
-                                    input.index()
-                                )
-                                .unwrap();
-                                found.0 += 1;
-                            }
+                        if let Some(&at) = position.get(input.hash())
+                            && at > i
+                        {
+                            writeln!(
+                                file,
+                                "{slot}\tforward_ref\tspender {i} produced_by {at} ref {}#{}",
+                                input.hash(),
+                                input.index()
+                            )
+                            .unwrap();
+                            found.0 += 1;
                         }
                     }
                 }
@@ -450,7 +450,7 @@ async fn run_dups(args: &[String]) {
                 }
 
                 blocks += 1;
-                if blocks % 2000 == 0 {
+                if blocks.is_multiple_of(2000) {
                     tracing::info!(
                         blocks,
                         slot,
@@ -649,15 +649,15 @@ fn run_ebcheck(args: &[String]) {
         let mut forward = 0usize;
         for (i, tx) in decoded.iter().enumerate() {
             for input in tx.consumes() {
-                if let Some(&at) = position.get(input.hash()) {
-                    if at > i {
-                        println!(
-                            "{prefix}\tforward_ref\tspender {i} produced_by {at} ref {}#{}",
-                            input.hash(),
-                            input.index()
-                        );
-                        forward += 1;
-                    }
+                if let Some(&at) = position.get(input.hash())
+                    && at > i
+                {
+                    println!(
+                        "{prefix}\tforward_ref\tspender {i} produced_by {at} ref {}#{}",
+                        input.hash(),
+                        input.index()
+                    );
+                    forward += 1;
                 }
             }
         }
