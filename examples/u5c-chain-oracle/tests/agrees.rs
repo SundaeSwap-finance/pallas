@@ -98,17 +98,52 @@ fn with_pool(bls_key: Option<u5c::PoolBlsKey>) -> u5c::Tx {
 }
 
 #[test]
-fn a_pool_registration_with_a_bls_key_holds_the_bls_location() {
-    let key = u5c::PoolBlsKey {
-        bls_pubkey: vec![1; 96].into(),
-        bls_possession_proof: vec![2; 48].into(),
+fn a_pool_registration_holds_its_bls_key_bytes() {
+    let (pubkey, proof) = (vec![1; 96], vec![2; 48]);
+    let key = |pubkey: &[u8], proof: &[u8]| u5c::PoolBlsKey {
+        bls_pubkey: pubkey.to_vec().into(),
+        bls_possession_proof: proof.to_vec().into(),
     };
+    let held = coverage::pool_bls([Some((&pubkey[..], &proof[..]))]);
+    let none = coverage::pool_bls([None]);
     assert_eq!(
-        agrees(Location::PoolBls, Held::Count(1), &with_pool(Some(key))),
+        agrees(
+            Location::PoolBls,
+            held,
+            &with_pool(Some(key(&pubkey, &proof)))
+        ),
         Some(true)
     );
     assert_eq!(
-        agrees(Location::PoolBls, Held::Count(1), &with_pool(None)),
+        agrees(Location::PoolBls, none, &with_pool(None)),
+        Some(true)
+    );
+    assert_eq!(
+        agrees(
+            Location::PoolBls,
+            held,
+            &with_pool(Some(key(&[0; 96], &proof)))
+        ),
+        Some(false)
+    );
+    assert_eq!(
+        agrees(
+            Location::PoolBls,
+            held,
+            &with_pool(Some(key(&pubkey, &[0; 48])))
+        ),
+        Some(false)
+    );
+    assert_eq!(
+        agrees(Location::PoolBls, held, &with_pool(None)),
+        Some(false)
+    );
+    assert_eq!(
+        agrees(
+            Location::PoolBls,
+            none,
+            &with_pool(Some(key(&pubkey, &proof)))
+        ),
         Some(false)
     );
 }
