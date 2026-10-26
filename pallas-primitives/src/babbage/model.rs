@@ -52,6 +52,7 @@ pub struct HeaderBody {
     pub operational_cert: OperationalCert,
 
     #[n(9)]
+    #[cbor(decode_with = "crate::protocol_version::decode")]
     pub protocol_version: ProtocolVersion,
 }
 
@@ -160,6 +161,10 @@ pub struct ProtocolParamUpdate {
     pub treasury_growth_rate: Option<UnitInterval>,
 
     #[n(14)]
+    #[cbor(
+        decode_with = "crate::protocol_version::decode_option",
+        nil = "crate::protocol_version::none"
+    )]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
