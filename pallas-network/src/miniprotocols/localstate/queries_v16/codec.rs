@@ -511,6 +511,14 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for DijkstraProtocolParam {
             max_endorser_block_txs_size: d.decode_with(ctx)?,
             max_endorser_block_ex_units: d.decode_with(ctx)?,
             max_ref_script_size_per_endorser_block: d.decode_with(ctx)?,
+            peras_min_candidate_block_age: d.decode_with(ctx)?,
+            peras_healing_factor: d.decode_with(ctx)?,
+            peras_cert_boost: d.decode_with(ctx)?,
+            peras_target_committee_size: d.decode_with(ctx)?,
+            peras_bootstrap_round: d.decode_with(ctx)?,
+            peras_quorum_threshold_safety_margin: d.decode_with(ctx)?,
+            ref_inputs_cost_per_multi_asset_policy: d.decode_with(ctx)?,
+            ref_inputs_cost_per_datum_byte: d.decode_with(ctx)?,
         })
     }
 }
@@ -1092,11 +1100,13 @@ pub mod tests {
         assert_eq!(hex::encode(bytes), "821827d9010280");
     }
 
-    /// A Dijkstra protocol parameter value carrying, at the fifteen positions
-    /// Dijkstra appends, the values the network reports for them.
+    /// A Dijkstra protocol parameter value whose entries after the Conway ones
+    /// carry distinct values, so an entry read from a neighbour's position
+    /// shows up as a wrong value rather than as an equal zero.
     fn dijkstra_protocol_param_sample()
     -> crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam {
         use crate::miniprotocols::localstate::queries_v16::*;
+        use crate::miniprotocols::localtxsubmission::SMaybe;
         use pallas_codec::utils::{AnyUInt, Nullable};
 
         let ratio = |numerator, denominator| RationalNumber {
@@ -1185,38 +1195,38 @@ pub mod tests {
                 steps: 100000000000,
             },
             max_ref_script_size_per_endorser_block: 4000000,
+            peras_min_candidate_block_age: 30,
+            peras_healing_factor: ratio(3, 2),
+            peras_cert_boost: 15,
+            peras_target_committee_size: 600,
+            peras_bootstrap_round: SMaybe::None,
+            peras_quorum_threshold_safety_margin: ratio(1, 10),
+            ref_inputs_cost_per_multi_asset_policy: AnyUInt::U16(1000),
+            ref_inputs_cost_per_datum_byte: AnyUInt::U8(44),
         }
     }
 
-    /// The forty six entries go out as one definite array and come back
-    /// carrying the same values, including the four reference script appends,
-    /// which are named here by value so the test says what those positions
-    /// mean. The eleven entries after them are named the same way by
-    /// [`test_dijkstra_protocol_param_decodes_w36_reply`], against bytes this
-    /// crate did not write.
+    /// The fifty four entries go out as one definite array and come back
+    /// carrying the same values. [`test_dijkstra_protocol_param_decodes_the_cddl_fragments`]
+    /// puts the order to bytes this crate did not write.
     #[test]
     fn test_dijkstra_protocol_param_roundtrip() {
         let sample = dijkstra_protocol_param_sample();
         let bytes = minicbor::to_vec(&sample).expect("encode");
 
-        // 0x98 0x2e is array(46), the header the ledger's own encoder writes
+        // 0x98 0x36 is array(54), the header the ledger's own encoder writes
         // for `encodeListLen (length (eraPParams @DijkstraEra))`.
-        assert_eq!(&bytes[..2], &[0x98, 0x2e]);
+        assert_eq!(&bytes[..2], &[0x98, 0x36]);
 
         let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
             minicbor::decode(&bytes).expect("decode");
         assert_eq!(decoded, sample);
-        assert_eq!(decoded.max_ref_script_size_per_block, 1048576);
-        assert_eq!(decoded.max_ref_script_size_per_tx, 204800);
-        assert_eq!(decoded.ref_script_cost_stride, 25600);
-        assert_eq!(decoded.ref_script_cost_multiplier.numerator, 6);
-        assert_eq!(decoded.ref_script_cost_multiplier.denominator, 5);
     }
 
-    /// Any array that is not forty six entries long is refused, and the refusal
-    /// names the length that arrived. Conway's 31 and the earlier Dijkstra 35
-    /// are the two lengths that actually turn up in practice, from a decoder
-    /// pointed at the wrong era or at a node built on an earlier ledger.
+    /// Any array that is not fifty four entries long is refused, and the
+    /// refusal names the length that arrived. Conway's 31 and the 46 of a
+    /// `prototype-2026w36` node are the lengths a decoder pointed at the wrong
+    /// era or the wrong node release receives.
     #[test]
     fn test_dijkstra_protocol_param_refuses_other_lengths() {
         type Params = crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam;
@@ -1226,7 +1236,7 @@ pub mod tests {
 
         let refusal = |bytes: &[u8]| match minicbor::decode::<Params>(bytes) {
             Ok(value) => panic!(
-                "decoded {} bytes that are not 46 entries: {value:?}",
+                "decoded {} bytes that are not 54 entries: {value:?}",
                 bytes.len()
             ),
             Err(e) => e.to_string(),
@@ -1236,23 +1246,22 @@ pub mod tests {
         let mut conway = vec![0x98, 0x1f];
         conway.extend_from_slice(entries);
         let said = refusal(&conway);
-        assert!(said.contains("46"), "refusal does not name 46: {said}");
+        assert!(said.contains("54"), "refusal does not name 54: {said}");
         assert!(said.contains("31"), "refusal does not name 31: {said}");
 
-        // The Dijkstra length before the parameters below were added, which is
-        // what a node built on cardano-ledger f3104f0 answers with.
-        let mut earlier = vec![0x98, 0x23];
-        earlier.extend_from_slice(entries);
-        let said = refusal(&earlier);
+        // The length a node on cardano-ledger 1587f21a answers with.
+        let mut w36 = vec![0x98, 0x2e];
+        w36.extend_from_slice(entries);
+        let said = refusal(&w36);
+        assert!(said.contains("54"), "refusal does not name 54: {said}");
         assert!(said.contains("46"), "refusal does not name 46: {said}");
-        assert!(said.contains("35"), "refusal does not name 35: {said}");
 
         // One entry too many.
-        let mut long = vec![0x98, 0x2f];
+        let mut long = vec![0x98, 0x37];
         long.extend_from_slice(entries);
         long.push(0x00);
         let said = refusal(&long);
-        assert!(said.contains("47"), "refusal does not name 47: {said}");
+        assert!(said.contains("55"), "refusal does not name 55: {said}");
 
         // A short array, refused on the header before any entry is read.
         let said = refusal(&[0x82, 0x00, 0x00]);
@@ -1269,28 +1278,20 @@ pub mod tests {
         );
     }
 
-    /// One CBOR fragment per entry of a `prototype-2026w36` protocol parameter
+    /// One CBOR fragment per entry of a `prototype-2026w42` protocol parameter
     /// reply, in the order of `eraPParams` for Dijkstra, each named by the
-    /// field it belongs to.
+    /// field it belongs to and carrying the value
+    /// [`dijkstra_protocol_param_sample`] gives it.
     ///
-    /// These bytes are hand built and not captured from a node. They are
-    /// written from the CDDL rather than produced by this crate's own encoder,
-    /// which is the point of them: a round trip through [`Encode`] and
-    /// [`Decode`] agrees with itself whatever order the fields are in, and
-    /// cannot say whether the order is the ledger's. The values of the first
-    /// thirty five entries are the ones [`dijkstra_protocol_param_sample`]
-    /// carries. The values of the last eleven are the ones the network's
-    /// published dijkstra genesis gives those parameters, including a null
-    /// `maxPledgeLeverage`.
-    ///
-    /// The captured reply beside them in `test_data` ends with exactly the last
-    /// eleven of these fragments, which
-    /// [`test_dijkstra_protocol_param_decodes_a_captured_reply`] checks.
+    /// These bytes are written from the CDDL and the ledger's encoders rather
+    /// than produced by this crate's own encoder, which is the point of them: a
+    /// round trip through [`Encode`] and [`Decode`] agrees with itself whatever
+    /// order the fields are in, and cannot say whether the order is the
+    /// ledger's.
     ///
     /// The cost model entry writes each of its models as an indefinite length
-    /// array, which is the form all four models of the captured reply arrive
-    /// in, and not a form chosen to suit this crate's encoder.
-    const DIJKSTRA_W36_ENTRIES: [(&str, &str); 46] = [
+    /// array, the form a node sends them in.
+    const DIJKSTRA_ENTRIES: [(&str, &str); 54] = [
         ("minfee_a", "182c"),
         ("minfee_b", "1a00025ef5"),
         ("max_block_body_size", "1a00016000"),
@@ -1352,18 +1353,26 @@ pub mod tests {
             "821a127a39801b000000174876e800",
         ),
         ("max_ref_script_size_per_endorser_block", "1a003d0900"),
+        ("peras_min_candidate_block_age", "181e"),
+        ("peras_healing_factor", "d81e820302"),
+        ("peras_cert_boost", "0f"),
+        ("peras_target_committee_size", "190258"),
+        ("peras_bootstrap_round", "80"),
+        ("peras_quorum_threshold_safety_margin", "d81e82010a"),
+        ("ref_inputs_cost_per_multi_asset_policy", "1903e8"),
+        ("ref_inputs_cost_per_datum_byte", "182c"),
     ];
 
     /// The entries above behind the array header the ledger's encoder writes
-    /// for forty six parameters, which is `0x98 0x2e`, with one named entry's
+    /// for fifty four parameters, which is `0x98 0x36`, with one named entry's
     /// fragment replaced, so a case the live network does not currently produce
     /// can still be put to the decoder.
-    fn dijkstra_w36_reply_bytes(replace: (&str, &str)) -> Vec<u8> {
+    fn dijkstra_reply_bytes(replace: (&str, &str)) -> Vec<u8> {
         let (target, with) = replace;
         let mut replaced = false;
 
-        let mut bytes = vec![0x98, 0x2e];
-        for (name, fragment) in DIJKSTRA_W36_ENTRIES {
+        let mut bytes = vec![0x98, 0x36];
+        for (name, fragment) in DIJKSTRA_ENTRIES {
             let fragment = if name == target {
                 replaced = true;
                 with
@@ -1379,56 +1388,95 @@ pub mod tests {
         bytes
     }
 
-    /// The `GetCurrentPParams` reply captured from a node running
-    /// `prototype-2026w36`, as the node wrote it. Provenance is in the sibling
-    /// markdown note.
-    const DIJKSTRA_CAPTURED_REPLY: &str =
-        include_str!("../../../../../test_data/dijkstra-pparams-w36.hex");
-
-    /// A reply a node actually sent decodes, the eleven entries the w36 ledger
-    /// adds arrive under the names they have in the genesis that set them, and
-    /// those eleven entries go back out as the same bytes. A field read from
-    /// the wrong position would carry a neighbour's value here.
-    ///
-    /// The tail check is the order claim: both the captured reply and the value
-    /// encoded back out end with the last eleven fragments of
-    /// [`DIJKSTRA_W36_ENTRIES`], which were written from the CDDL, so the
-    /// eleven parameters are appended in that order with those encodings rather
-    /// than inserted somewhere earlier.
-    ///
-    /// The node writes four cost models, one of them at key 3 for Plutus v4,
-    /// each as an indefinite array, and all four arrive under a named field of
-    /// [`CostModels`] and go back out from one.
-    /// [`test_dijkstra_protocol_param_reencodes_a_captured_reply_byte_for_byte`]
-    /// is the whole reply put the same way in one comparison.
+    /// The hand built fragments decode to the sample, which ties each field to
+    /// the position the ledger writes it at, and go back out as the same bytes.
     #[test]
-    fn test_dijkstra_protocol_param_decodes_a_captured_reply() {
-        use pallas_codec::utils::Nullable;
-
-        let bytes = hex::decode(DIJKSTRA_CAPTURED_REPLY.trim()).expect("the captured reply is hex");
-        assert_eq!(bytes.len(), 3756);
-        assert_eq!(&bytes[..2], &[0x98, 0x2e]);
-
-        let mut tail = String::new();
-        for (_, fragment) in &DIJKSTRA_W36_ENTRIES[35..] {
-            tail.push_str(fragment);
-        }
-        let captured = hex::encode(&bytes);
-        assert!(
-            captured.ends_with(&tail),
-            "the captured reply does not end with the eleven appended entries: {tail}"
-        );
+    fn test_dijkstra_protocol_param_decodes_the_cddl_fragments() {
+        let bytes = dijkstra_reply_bytes(("peras_bootstrap_round", "80"));
 
         let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
-            minicbor::decode(&bytes).expect("decode the captured reply");
-
-        let reencoded = hex::encode(minicbor::to_vec(&decoded).expect("encode"));
-        assert!(
-            reencoded.ends_with(&tail),
-            "the eleven appended entries do not go back out as they came in: {reencoded}"
+            minicbor::decode(&bytes).expect("decode the fragments");
+        assert_eq!(decoded, dijkstra_protocol_param_sample());
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&decoded).expect("encode")),
+            hex::encode(&bytes)
         );
+    }
 
-        // The Plutus v4 cost model the node sent stays under key 3 in `unknown`.
+    /// The `GetCurrentPParams` reply captured from a node running
+    /// `prototype-2026w36` (cardano-ledger `1587f21a`) on the Musashi chain
+    /// that started 2026-09-07, as the node wrote it: a 46 entry array.
+    const DIJKSTRA_W36_CAPTURED_REPLY: &str =
+        include_str!("../../../../../test_data/dijkstra-pparams-w36.hex");
+
+    /// The eight entries a `prototype-2026w42` node writes after the 46 a
+    /// `prototype-2026w36` node writes, carrying the values the published
+    /// Musashi dijkstra genesis for the chain started 2026-10-18 gives them, as
+    /// the ledger's encoders write those values. `perasBootstrapRound` is unset
+    /// there, which this array writes as `[]`.
+    const DIJKSTRA_W42_TAIL_ENTRIES: [(&str, &str); 8] = [
+        ("peras_min_candidate_block_age", "00"),
+        ("peras_healing_factor", "d81e820101"),
+        ("peras_cert_boost", "00"),
+        ("peras_target_committee_size", "00"),
+        ("peras_bootstrap_round", "80"),
+        ("peras_quorum_threshold_safety_margin", "d81e820001"),
+        ("ref_inputs_cost_per_multi_asset_policy", "00"),
+        ("ref_inputs_cost_per_datum_byte", "00"),
+    ];
+
+    /// A `prototype-2026w42` reply: the captured w36 reply's 46 entries, which
+    /// the w42 ledger writes unchanged, under the 54 entry header and followed
+    /// by [`DIJKSTRA_W42_TAIL_ENTRIES`].
+    fn dijkstra_w42_reply() -> Vec<u8> {
+        let captured =
+            hex::decode(DIJKSTRA_W36_CAPTURED_REPLY.trim()).expect("the captured reply is hex");
+        assert_eq!(&captured[..2], &[0x98, 0x2e]);
+
+        let mut bytes = vec![0x98, 0x36];
+        bytes.extend_from_slice(&captured[2..]);
+        for (name, fragment) in DIJKSTRA_W42_TAIL_ENTRIES {
+            let raw =
+                hex::decode(fragment).unwrap_or_else(|e| panic!("bad fragment for {name}: {e:?}"));
+            bytes.extend_from_slice(&raw);
+        }
+        bytes
+    }
+
+    /// The reply a `prototype-2026w36` node sent is refused by length, rather
+    /// than read with its last eight fields taken from whatever follows it.
+    #[test]
+    fn test_dijkstra_protocol_param_refuses_a_captured_w36_reply() {
+        let bytes =
+            hex::decode(DIJKSTRA_W36_CAPTURED_REPLY.trim()).expect("the captured reply is hex");
+        assert_eq!(bytes.len(), 3756);
+
+        let said = match minicbor::decode::<
+            crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam,
+        >(&bytes)
+        {
+            Ok(value) => panic!("decoded a 46 entry reply: {value:?}"),
+            Err(e) => e.to_string(),
+        };
+        assert!(said.contains("46"), "refusal does not name 46: {said}");
+        assert!(said.contains("54"), "refusal does not name 54: {said}");
+    }
+
+    /// A w42 reply decodes, the eight entries after
+    /// `maxRefScriptSizePerEndorserBlock` arrive under the names the genesis
+    /// gives them, and the node's cost models, four of them, one at key 3 for
+    /// Plutus v4, each an indefinite array, arrive under named fields.
+    #[test]
+    fn test_dijkstra_protocol_param_decodes_a_w42_reply() {
+        use crate::miniprotocols::localtxsubmission::SMaybe;
+        use pallas_codec::utils::{AnyUInt, Nullable};
+
+        let bytes = dijkstra_w42_reply();
+        assert_eq!(bytes.len(), 3756 + 16);
+
+        let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
+            minicbor::decode(&bytes).expect("decode the w42 reply");
+
         let models = &decoded.cost_models_for_script_languages;
         let unknown: Vec<u64> = models.unknown.iter().map(|(k, _)| *k).collect();
         assert_eq!(unknown, vec![3]);
@@ -1437,35 +1485,28 @@ pub mod tests {
         assert_eq!(models.plutus_v2.as_ref().expect("plutus v2").len(), 332);
         assert_eq!(models.plutus_v3.as_ref().expect("plutus v3").len(), 350);
 
-        // maxPledgeLeverage is null in the published genesis, and null is a
-        // value the node sent rather than an entry it left out.
         assert_eq!(decoded.max_pledge_leverage, Nullable::Null);
-        assert_eq!(decoded.min_pool_margin.numerator, 3);
-        assert_eq!(decoded.min_pool_margin.denominator, 200);
-        assert_eq!(decoded.leios_announcement_period_length, 1000);
-        assert_eq!(decoded.leios_vote_period_length, 4000);
-        assert_eq!(decoded.leios_diffusion_period_length, 7000);
-        assert_eq!(decoded.leios_committee_size, 900);
-        assert_eq!(decoded.leios_quorum_stake_threshold.numerator, 3);
-        assert_eq!(decoded.leios_quorum_stake_threshold.denominator, 4);
-        assert_eq!(decoded.max_endorser_block_references_size, 100000);
-        assert_eq!(decoded.max_endorser_block_txs_size, 1000000);
-        assert_eq!(decoded.max_endorser_block_ex_units.mem, 310000000);
-        assert_eq!(decoded.max_endorser_block_ex_units.steps, 100000000000);
         assert_eq!(decoded.max_ref_script_size_per_endorser_block, 4000000);
 
-        // The four entries before them keep the values they had at the earlier
-        // ledger commit, which is what says the eleven were appended rather
-        // than inserted.
-        assert_eq!(decoded.max_ref_script_size_per_block, 1048576);
-        assert_eq!(decoded.max_ref_script_size_per_tx, 204800);
-        assert_eq!(decoded.ref_script_cost_stride, 25600);
-        assert_eq!(decoded.ref_script_cost_multiplier.numerator, 6);
-        assert_eq!(decoded.ref_script_cost_multiplier.denominator, 5);
+        assert_eq!(decoded.peras_min_candidate_block_age, 0);
+        assert_eq!(decoded.peras_healing_factor.numerator, 1);
+        assert_eq!(decoded.peras_healing_factor.denominator, 1);
+        assert_eq!(decoded.peras_cert_boost, 0);
+        assert_eq!(decoded.peras_target_committee_size, 0);
+        assert_eq!(decoded.peras_bootstrap_round, SMaybe::None);
+        assert_eq!(decoded.peras_quorum_threshold_safety_margin.numerator, 0);
+        assert_eq!(decoded.peras_quorum_threshold_safety_margin.denominator, 1);
+        assert_eq!(
+            decoded.ref_inputs_cost_per_multi_asset_policy,
+            AnyUInt::MajorByte(0)
+        );
+        assert_eq!(
+            decoded.ref_inputs_cost_per_datum_byte,
+            AnyUInt::MajorByte(0)
+        );
     }
 
-    /// MUST FIRE: the reply a node actually sent goes back out as the bytes
-    /// that came in, all three thousand seven hundred and fifty six of them.
+    /// MUST FIRE: a w42 reply goes back out as the bytes that came in.
     ///
     /// A decoder that drops a value it read says nothing about having dropped
     /// it, and the value is gone from every consumer downstream. Comparing the
@@ -1478,11 +1519,11 @@ pub mod tests {
     /// so a break here says which entry lost what rather than that something
     /// somewhere is not equal.
     #[test]
-    fn test_dijkstra_protocol_param_reencodes_a_captured_reply_byte_for_byte() {
-        let bytes = hex::decode(DIJKSTRA_CAPTURED_REPLY.trim()).expect("the captured reply is hex");
+    fn test_dijkstra_protocol_param_reencodes_a_w42_reply_byte_for_byte() {
+        let bytes = dijkstra_w42_reply();
 
         let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
-            minicbor::decode(&bytes).expect("decode the captured reply");
+            minicbor::decode(&bytes).expect("decode the w42 reply");
         let reencoded = minicbor::to_vec(&decoded).expect("encode");
 
         if reencoded != bytes {
@@ -1494,7 +1535,7 @@ pub mod tests {
             let window = |v: &[u8]| hex::encode(&v[at.min(v.len())..(at + 24).min(v.len())]);
 
             panic!(
-                "the captured reply does not go back out as it came in: {} bytes in, {} bytes out, first difference at byte {at}\n  wire {}\n  ours {}",
+                "the w42 reply does not go back out as it came in: {} bytes in, {} bytes out, first difference at byte {at}\n  wire {}\n  ours {}",
                 bytes.len(),
                 reencoded.len(),
                 window(&bytes),
@@ -1563,7 +1604,7 @@ pub mod tests {
         use pallas_codec::utils::Nullable;
 
         // d81e820902 is #6.30([9, 2]), a max pledge leverage of 4.5.
-        let bytes = dijkstra_w36_reply_bytes(("max_pledge_leverage", "d81e820902"));
+        let bytes = dijkstra_reply_bytes(("max_pledge_leverage", "d81e820902"));
 
         let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
             minicbor::decode(&bytes).expect("decode a reply with a set pledge leverage");
@@ -1584,6 +1625,61 @@ pub mod tests {
             hex::encode(minicbor::to_vec(&decoded).expect("encode")),
             hex::encode(&bytes)
         );
+    }
+
+    /// A set bootstrap round arrives as a one element array and is carried as
+    /// [`SMaybe::Some`], and the entry after it is unmoved.
+    #[test]
+    fn test_dijkstra_protocol_param_reads_a_set_peras_bootstrap_round() {
+        use crate::miniprotocols::localtxsubmission::SMaybe;
+
+        // 81 1a 00010000 is [65536].
+        let bytes = dijkstra_reply_bytes(("peras_bootstrap_round", "811a00010000"));
+
+        let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
+            minicbor::decode(&bytes).expect("decode a reply with a set bootstrap round");
+
+        assert_eq!(decoded.peras_bootstrap_round, SMaybe::Some(65536));
+        assert_eq!(decoded.peras_quorum_threshold_safety_margin.numerator, 1);
+        assert_eq!(decoded.peras_quorum_threshold_safety_margin.denominator, 10);
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&decoded).expect("encode")),
+            hex::encode(&bytes)
+        );
+    }
+
+    /// MUST FIRE: a null bootstrap round is refused. Null is how a parameter
+    /// update writes an unset round, not how this array does, so accepting it
+    /// would accept bytes the ledger's own decoder rejects.
+    #[test]
+    fn test_dijkstra_protocol_param_refuses_a_null_peras_bootstrap_round() {
+        let bytes = dijkstra_reply_bytes(("peras_bootstrap_round", "f6"));
+
+        let decoded = minicbor::decode::<
+            crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam,
+        >(&bytes);
+        assert!(
+            decoded.is_err(),
+            "decoded a null bootstrap round: {decoded:?}"
+        );
+    }
+
+    /// The healing factor of the ledger's golden `pparams.json`, 1/10^19, has
+    /// a denominator that needs all 64 bits, and arrives intact.
+    #[test]
+    fn test_dijkstra_protocol_param_reads_a_wide_peras_healing_factor() {
+        // #6.30([1, 10000000000000000000])
+        let bytes = dijkstra_reply_bytes(("peras_healing_factor", "d81e82011b8ac7230489e80000"));
+
+        let decoded: crate::miniprotocols::localstate::queries_v16::DijkstraProtocolParam =
+            minicbor::decode(&bytes).expect("decode a reply with a wide healing factor");
+
+        assert_eq!(decoded.peras_healing_factor.numerator, 1);
+        assert_eq!(
+            decoded.peras_healing_factor.denominator,
+            10_000_000_000_000_000_000
+        );
+        assert_eq!(decoded.peras_cert_boost, 15);
     }
 
     // TODO: DRY with other decode/encode roundtripss
