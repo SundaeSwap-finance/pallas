@@ -11,8 +11,8 @@ pub(crate) fn nearest_ratio(n: u64, d: u64, max_num: u32, max_den: u32) -> (u32,
     while a * d != n * b {
         let mut k = (n * b - a * d) / (c * d - n * e);
         k = k.min((max_num - a) / c);
-        if e != 0 {
-            k = k.min((max_den - b) / e);
+        if let Some(q) = (max_den - b).checked_div(e) {
+            k = k.min(q);
         }
         a += k * c;
         b += k * e;
@@ -20,8 +20,8 @@ pub(crate) fn nearest_ratio(n: u64, d: u64, max_num: u32, max_den: u32) -> (u32,
             break;
         }
         let mut j = (c * d - n * e - 1) / (n * b - a * d);
-        if a != 0 {
-            j = j.min((max_num - c) / a);
+        if let Some(q) = (max_num - c).checked_div(a) {
+            j = j.min(q);
         }
         j = j.min((max_den - e) / b);
         c += j * a;
