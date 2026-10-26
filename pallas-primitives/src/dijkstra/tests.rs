@@ -74,6 +74,14 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
     ),
+    (
+        "dijkstra-rc-2026w42-7",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-7.block"),
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-11.block"),
+    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -230,8 +238,8 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
 
     assert_eq!(
         (bodies, witness_sets, auxiliary_data),
-        (45, 45, 5),
-        "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
+        (46, 46, 5),
+        "the fixtures should carry forty six transactions, each with a body and a witness set, five of them with auxiliary data"
     );
 }
 
@@ -1252,6 +1260,14 @@ const HEADER_HASHES: &[(&str, &str)] = &[
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
     ),
+    (
+        "dijkstra-rc-2026w42-7",
+        "0d88c2182f7b6f1c2796677109d918c430538bf6b4df11c1ebf29a94243a3cd6",
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        "f2fccd6e970425d1403101bc6553a4fb6a548a27d465fd29ae4c2ab11992b204",
+    ),
 ];
 
 /// The hash is over the header CBOR span, so it also pins where the body begins.
@@ -1576,8 +1592,8 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
 
     assert_eq!(
         (tagged, bare),
-        (38, 7),
-        "the fixtures carry thirty eight tagged input sets and seven bare ones"
+        (39, 7),
+        "the fixtures carry thirty nine tagged input sets and seven bare ones"
     );
 
     // A type that normalised the arms would satisfy everything above and fail here.
@@ -2326,4 +2342,73 @@ fn generated_native_scripts_in_indefinite_arrays_decode() {
             )),
         ]
     );
+}
+
+/// The expected values are what the ledger read from each block, as `test_data/dijkstra-fixtures.md` records.
+#[test]
+fn the_rc_2026w42_blocks_read_what_the_ledger_read() {
+    for (name, block_number, slot, body_size, certified, transactions) in [
+        ("dijkstra-rc-2026w42-7", 7, 245, 4851, false, 1),
+        ("dijkstra-rc-2026w42-11", 11, 413, 56, true, 0),
+    ] {
+        let header = header_of(name).header_body;
+        assert_eq!(
+            (header.block_number, header.slot, header.block_body_size),
+            (block_number, slot, body_size),
+            "{name}: block number, slot and body size"
+        );
+        assert_eq!(
+            (
+                header.header_version_info.highest_supported_major_version,
+                header.header_version_info.self_reported_software_tag
+            ),
+            (12, 0),
+            "{name}: header version info"
+        );
+        assert_eq!(header.block_body_contains_leios_cert, certified, "{name}");
+        assert!(
+            matches!(header.eb_announcement, crate::Nullable::Null),
+            "{name}"
+        );
+
+        let block = block_of(name);
+        assert_eq!(block.block_body.transactions.len(), transactions, "{name}");
+        assert_eq!(
+            matches!(block.block_body.leios_certificate, crate::Nullable::Some(_)),
+            certified,
+            "{name}"
+        );
+        assert!(
+            matches!(block.block_body.peras_certificate, crate::Nullable::Null),
+            "{name}"
+        );
+    }
+
+    let certified = block_of("dijkstra-rc-2026w42-11");
+    let crate::Nullable::Some(certificate) = &certified.block_body.leios_certificate else {
+        panic!("dijkstra-rc-2026w42-11 must carry a leios certificate");
+    };
+    assert_eq!(hex::encode(certificate.signers.as_slice()), "e0");
+
+    let transfer = block_of("dijkstra-rc-2026w42-7");
+    let body = transfer.block_body.transactions[0]
+        .transaction_body
+        .clone()
+        .unwrap();
+    let input = body.inputs.iter().next().unwrap();
+    assert_eq!(
+        (hex::encode(input.transaction_id), input.index),
+        (
+            "9786e790d3cf276b0a4b070660c5588d132299095cc9f69c857e39a93cb8f24f".to_string(),
+            0
+        )
+    );
+    let TransactionOutput::Legacy(output) = body.outputs.first().unwrap() else {
+        panic!("the first output of dijkstra-rc-2026w42-7 is in the array form");
+    };
+    assert_eq!(
+        hex::encode(output.address.as_slice()),
+        "601597b348d779b3639848c23b94cd1a2eb8b277276af66c14450d85c5"
+    );
+    assert_eq!(output.amount, crate::alonzo::Value::Coin(100_000_000));
 }
