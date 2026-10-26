@@ -914,7 +914,7 @@ pub struct ProposalProcedure {
 }
 
 /// `gov_action` (`defs.cddl`). Its `parameter_change_action` arm reaches this era's `protocol_param_update`.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum GovAction {
     #[n(0)]
@@ -925,12 +925,7 @@ pub enum GovAction {
     ),
 
     #[n(1)]
-    HardForkInitiation(
-        #[n(0)] Option<GovActionId>,
-        #[n(1)]
-        #[cbor(decode_with = "crate::protocol_version::decode")]
-        ProtocolVersion,
-    ),
+    HardForkInitiation(#[n(0)] Option<GovActionId>, #[n(1)] ProtocolVersion),
 
     #[n(2)]
     TreasuryWithdrawals(
@@ -955,6 +950,16 @@ pub enum GovAction {
     #[n(6)]
     Information,
 }
+
+crate::flat_enum::decode_flat_enum!(GovAction,
+    0 => ParameterChange(previous, update, policy),
+    1 => HardForkInitiation(previous, version: crate::protocol_version::decode),
+    2 => TreasuryWithdrawals(withdrawals, policy),
+    3 => NoConfidence(previous),
+    4 => UpdateCommittee(previous, removed, added, threshold),
+    5 => NewConstitution(previous, constitution),
+    6 => Information,
+);
 
 /// `guards = nonempty_set<addr_keyhash>/ nonempty_oset<credential>`
 /// (`defs.cddl`), Conway's `required_signers` widened. The arms are told
@@ -1463,7 +1468,7 @@ codec_by_datatype! {
 
 /// `script` gains `// 4, plutus_v4_script` (`defs.cddl`), reached through
 /// `script_ref = #6.24(bytes .cbor script)`.
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum ScriptRef<'b> {
     #[n(0)]
@@ -1479,6 +1484,14 @@ pub enum ScriptRef<'b> {
     #[n(4)]
     PlutusV4Script(#[n(0)] PlutusScript<4>),
 }
+
+crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
+    0 => NativeScript(script),
+    1 => PlutusV1Script(script),
+    2 => PlutusV2Script(script),
+    3 => PlutusV3Script(script),
+    4 => PlutusV4Script(script),
+);
 
 /// `block_body` (`defs.cddl`). Dijkstra replaces Conway's segregated witness
 /// layout with complete inline transactions, and drops `invalid_transactions`
