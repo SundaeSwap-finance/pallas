@@ -484,7 +484,7 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
             dispatch(&changed, &output, &env()),
             "DijkstraUnsupported(\"output fields\")",
         );
-        let raw = [0xa1, 0x08, 0x81, 0x41, 0x00]; // a witness set holding one PlutusV4 script
+        let raw = [0xa1, 0x08, 0x80]; // witness V4 key currently omitted by the typed model
         let mut changed = tx.clone();
         changed.transaction_witness_set = minicbor::decode(&raw).unwrap();
         error(

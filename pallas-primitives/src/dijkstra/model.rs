@@ -312,9 +312,9 @@ pub struct EbAnnouncement {
     pub eb_size: u32,
 }
 
-/// `endorser_block = { + base.hash => base.word32 }`
-/// (leios-fetch `messages.cddl`), each key the blake2b-256 of a transaction's
-/// `block_transaction` encoding and each value the size of that encoding.
+/// `endorser_block = { * base.hash => base.word32 }`
+/// (leios-fetch `messages.cddl`), each key the blake2b-256 of a whole
+/// serialized transaction and each value its size in bytes.
 pub type EndorserBlock = KeyValuePairs<Hash<32>, u32>;
 
 /// `bls_key = [bls_pubkey : bytes .size 96, bls_possession_proof : bytes .size 48]` (`defs.cddl`).
@@ -1308,9 +1308,8 @@ impl std::ops::Deref for Redeemers {
     }
 }
 
-/// `transaction_witness_set` (`defs.cddl`) with the cardano-blueprint Dijkstra
-/// CDDL's `? 8 : nonempty_set<plutus_v4_script>`. Keys 0 to 7 are Conway's, but
-/// the `native_script` and `redeemers` they reach both changed.
+/// `transaction_witness_set` (`defs.cddl`). The rule text is Conway's, but the
+/// `native_script` and `redeemers` it reaches both changed.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet<'b> {
@@ -1337,9 +1336,6 @@ pub struct WitnessSet<'b> {
 
     #[n(7)]
     pub plutus_v3_script: Option<NonEmptySet<PlutusScript<3>>>,
-
-    #[n(8)]
-    pub plutus_v4_script: Option<NonEmptySet<PlutusScript<4>>>,
 }
 
 /// `auxiliary_data_map` gains `? 5 : [* plutus_v4_script]` (`defs.cddl`).

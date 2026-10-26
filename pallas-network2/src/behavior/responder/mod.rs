@@ -296,8 +296,14 @@ pub enum ResponderCommand {
     ProvideVotes(PeerId, Vec<proto::leiosnotify::VoteCbor>),
     /// Deliver an EB body to a peer via leios-fetch.
     ProvideEb(PeerId, proto::leiosfetch::EndorserBlockCbor),
-    /// Deliver EB transactions to a peer via leios-fetch.
-    ProvideEbTxs(PeerId, Vec<proto::leiosfetch::TxCbor>),
+    /// Deliver EB transactions to a peer via leios-fetch, echoing the request's
+    /// point and bitmaps.
+    ProvideEbTxs(
+        PeerId,
+        proto::EbId,
+        proto::leiosfetch::Bitmaps,
+        Vec<proto::leiosfetch::TxCbor>,
+    ),
     /// Ban a peer and disconnect them.
     BanPeer(PeerId),
     /// Disconnect a peer gracefully.
@@ -723,10 +729,14 @@ impl Behavior for ResponderBehavior {
                     AnyMessage::LeiosFetch(proto::leiosfetch::Message::Block(block)),
                 );
             }
-            ResponderCommand::ProvideEbTxs(pid, txs) => {
+            ResponderCommand::ProvideEbTxs(pid, point, bitmaps, txs) => {
                 self.send_msg(
                     &pid,
-                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs { txs }),
+                    AnyMessage::LeiosFetch(proto::leiosfetch::Message::BlockTxs {
+                        point,
+                        bitmaps,
+                        txs,
+                    }),
                 );
             }
             ResponderCommand::BanPeer(pid) => {

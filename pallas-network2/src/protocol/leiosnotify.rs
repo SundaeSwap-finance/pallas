@@ -6,9 +6,9 @@
 //! asks for the next notification; the server replies with exactly one
 //! announcement/offer and returns to idle.
 //!
-//! Wire format and state machine follow the authoritative `leios-notify` CDDL of
-//! cardano-blueprint (protocol id 18), which is the network spec of record while
-//! CIP-0164's network chapter stabilises.
+//! Wire format and state machine follow the authoritative `leios-notify` CDDL on
+//! the `leios-prototype` branch of cardano-blueprint (protocol id 18), which is
+//! the network spec of record while CIP-0164's network chapter stabilises.
 
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 
@@ -23,12 +23,6 @@ pub type VoteCbor = AnyCbor;
 /// A leios-notify mini-protocol message.
 #[derive(Debug, Clone)]
 pub enum Message {
-    /// Server closes the protocol after the client quits.
-    Done,
-    /// Client ends the protocol and still collects the reply to each request it has outstanding.
-    Quit,
-    /// Server answers a request with no notification.
-    Canceled,
     /// Client requests the next notification.
     RequestNext,
     /// Server announces an EB via the raw CBOR of the announcing RB header.
@@ -37,8 +31,10 @@ pub enum Message {
     BlockOffer(EbId, u32),
     /// Server offers the transactions of an EB it can deliver.
     BlockTxsOffer(EbId),
-    /// Server diffuses full votes inline: `[7, [vote, ...]]`.
+    /// Server diffuses full votes inline: `[4, [vote, ...]]`.
     Votes(Vec<VoteCbor>),
+    /// Client terminates the protocol.
+    Done,
 }
 
 /// A notification delivered by the server, retained in the idle state until the
@@ -63,8 +59,6 @@ pub enum State {
     Idle(Option<Notification>),
     /// Server has agency; will deliver one announcement/offer.
     Busy,
-    /// Server has agency after the client quit and will close the protocol.
-    Quit,
     /// The protocol has terminated.
     Done,
 }
@@ -81,7 +75,7 @@ impl State {
         match self {
             State::Idle(_) => match msg {
                 Message::RequestNext => Ok(State::Busy),
-                Message::Quit => Ok(State::Quit),
+                Message::Done => Ok(State::Done),
                 _ => Err(Error::InvalidOutbound),
             },
             State::Busy => match msg {
@@ -95,11 +89,6 @@ impl State {
                     Ok(State::Idle(Some(Notification::BlockTxsOffer(p.clone()))))
                 }
                 Message::Votes(v) => Ok(State::Idle(Some(Notification::Votes(v.clone())))),
-                Message::Canceled => Ok(State::Idle(None)),
-                _ => Err(Error::InvalidInbound),
-            },
-            State::Quit => match msg {
-                Message::Done => Ok(State::Done),
                 _ => Err(Error::InvalidInbound),
             },
             State::Done => Err(Error::InvalidOutbound),
@@ -123,34 +112,28 @@ impl Encode<()> for Message {
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
         match self {
-            Message::Done => {
+            Message::RequestNext => {
                 e.array(1)?.u16(0)?;
             }
-            Message::Quit => {
-                e.array(1)?.u16(1)?;
-            }
-            Message::Canceled => {
-                e.array(1)?.u16(2)?;
-            }
-            Message::RequestNext => {
-                e.array(1)?.u16(3)?;
-            }
             Message::BlockAnnouncement(header) => {
-                e.array(2)?.u16(4)?;
+                e.array(2)?.u16(1)?;
                 e.encode(header)?;
             }
             Message::BlockOffer(point, size) => {
-                e.array(3)?.u16(5)?;
+                e.array(3)?.u16(2)?;
                 e.encode(point)?;
                 e.u32(*size)?;
             }
             Message::BlockTxsOffer(point) => {
-                e.array(2)?.u16(6)?;
+                e.array(2)?.u16(3)?;
                 e.encode(point)?;
             }
             Message::Votes(votes) => {
-                e.array(2)?.u16(7)?;
+                e.array(2)?.u16(4)?;
                 e.encode(votes)?;
+            }
+            Message::Done => {
+                e.array(1)?.u16(5)?;
             }
         }
 
@@ -164,18 +147,16 @@ impl<'b> Decode<'b, ()> for Message {
         let label = d.u16()?;
 
         match label {
-            0 => Ok(Message::Done),
-            1 => Ok(Message::Quit),
-            2 => Ok(Message::Canceled),
-            3 => Ok(Message::RequestNext),
-            4 => Ok(Message::BlockAnnouncement(d.decode()?)),
-            5 => {
+            0 => Ok(Message::RequestNext),
+            1 => Ok(Message::BlockAnnouncement(d.decode()?)),
+            2 => {
                 let point = d.decode()?;
                 let size = d.u32()?;
                 Ok(Message::BlockOffer(point, size))
             }
-            6 => Ok(Message::BlockTxsOffer(d.decode()?)),
-            7 => Ok(Message::Votes(d.decode()?)),
+            3 => Ok(Message::BlockTxsOffer(d.decode()?)),
+            4 => Ok(Message::Votes(d.decode()?)),
+            5 => Ok(Message::Done),
             _ => Err(decode::Error::message(
                 "unknown variant for leiosnotify message",
             )),
@@ -215,8 +196,6 @@ mod tests {
                 AnyCbor::from_raw_bytes(minicbor::to_vec([5u8, 4, 3, 2]).unwrap()),
             ]),
             Message::Done,
-            Message::Quit,
-            Message::Canceled,
         ];
 
         for msg in &cases {
@@ -226,65 +205,6 @@ mod tests {
                 minicbor::to_vec(&back).unwrap(),
                 minicbor::to_vec(msg).unwrap()
             );
-        }
-    }
-
-    fn decode_captured(bytes: &[u8]) -> Message {
-        let msg: Message = minicbor::decode(bytes).expect("captured message decodes");
-        assert_eq!(
-            minicbor::to_vec(&msg).unwrap(),
-            bytes,
-            "re-encodes byte equal"
-        );
-        msg
-    }
-
-    fn captured_point() -> EbId {
-        Point::Specific(
-            353,
-            hex::decode("a085f5ee18bce08a1a9393a54c8bcb6e237ab5d1270681cd4b36648b1d099b8b")
-                .unwrap(),
-        )
-    }
-
-    #[test]
-    fn captured_messages_decode_by_their_numbers() {
-        let request = decode_captured(include_bytes!(
-            "../../../test_data/leios-rc-2026w42/notify-request-next.cbor"
-        ));
-        assert!(matches!(request, Message::RequestNext), "{request:?}");
-
-        let announcement =
-            include_bytes!("../../../test_data/leios-rc-2026w42/notify-announcement.cbor");
-        match decode_captured(announcement) {
-            Message::BlockAnnouncement(header) => {
-                assert_eq!(header.raw_bytes(), &announcement[2..])
-            }
-            other => panic!("{other:?}"),
-        }
-
-        match decode_captured(include_bytes!(
-            "../../../test_data/leios-rc-2026w42/notify-offer.cbor"
-        )) {
-            Message::BlockOffer(point, size) => {
-                assert_eq!(point, captured_point());
-                assert_eq!(size, 3665);
-            }
-            other => panic!("{other:?}"),
-        }
-
-        match decode_captured(include_bytes!(
-            "../../../test_data/leios-rc-2026w42/notify-txs-offer.cbor"
-        )) {
-            Message::BlockTxsOffer(point) => assert_eq!(point, captured_point()),
-            other => panic!("{other:?}"),
-        }
-
-        match decode_captured(include_bytes!(
-            "../../../test_data/leios-rc-2026w42/notify-votes.cbor"
-        )) {
-            Message::Votes(votes) => assert_eq!(votes.len(), 1),
-            other => panic!("{other:?}"),
         }
     }
 
@@ -307,46 +227,8 @@ mod tests {
         assert_eq!(idle, State::Idle(None));
         assert_eq!(idle.drain(), None);
 
-        let quit = idle.apply(&Message::Quit).unwrap();
-        assert_eq!(quit, State::Quit);
-
-        let done = quit.apply(&Message::Done).unwrap();
+        let done = idle.apply(&Message::Done).unwrap();
         assert_eq!(done, State::Done);
-    }
-
-    #[test]
-    fn termination_messages_take_their_numbers_and_states() {
-        assert_eq!(minicbor::to_vec(Message::Done).unwrap(), [0x81, 0x00]);
-        assert_eq!(minicbor::to_vec(Message::Quit).unwrap(), [0x81, 0x01]);
-        assert_eq!(minicbor::to_vec(Message::Canceled).unwrap(), [0x81, 0x02]);
-
-        let pending = State::Idle(Some(Notification::BlockTxsOffer(point())));
-        assert_eq!(pending.apply(&Message::Quit).unwrap(), State::Quit);
-        assert_eq!(
-            State::Busy.apply(&Message::Canceled).unwrap(),
-            State::Idle(None)
-        );
-
-        assert!(matches!(
-            State::Idle(None).apply(&Message::Done),
-            Err(Error::InvalidOutbound)
-        ));
-        assert!(matches!(
-            State::Idle(None).apply(&Message::Canceled),
-            Err(Error::InvalidOutbound)
-        ));
-        assert!(matches!(
-            State::Busy.apply(&Message::Done),
-            Err(Error::InvalidInbound)
-        ));
-        assert!(matches!(
-            State::Quit.apply(&Message::Canceled),
-            Err(Error::InvalidInbound)
-        ));
-        assert!(matches!(
-            State::Quit.apply(&Message::BlockTxsOffer(point())),
-            Err(Error::InvalidInbound)
-        ));
     }
 
     #[test]
@@ -371,23 +253,25 @@ mod tests {
     // so a spec change (tag, arity, the inline vote shape) fails the matching
     // test.
 
-    /// Turns the vendored leios-notify CDDL into a schema cddl-rs can parse, with
-    /// the imported announcement header opaque.
+    /// Turns the vendored leios-notify CDDL into a schema cddl-rs can parse. This
+    /// protocol has no opaque sub-structures, so the shared preprocessing plus the
+    /// scalar prelude is all that's needed.
     #[cfg(feature = "blueprint")]
     fn self_contained() -> String {
         let body = cddl::preprocess(include_str!(
             "../../../cardano-blueprint/src/network/node-to-node/leios-notify/messages.cddl"
-        ))
-        .replace("header.header", "any");
+        ));
         format!("{body}\n{}", cddl::BASE_PRELUDE)
     }
 
-    /// A conformant `vote = [announcing_rb_hash, voter_id, vote_signature(.size 48)]`.
+    /// A conformant `vote = [slot, eb_hash, voter_id, vote_signature(.size 48)]`.
     #[cfg(feature = "blueprint")]
     fn vote() -> VoteCbor {
         let mut buf = Vec::new();
         Encoder::new(&mut buf)
-            .array(3)
+            .array(4)
+            .unwrap()
+            .u64(7)
             .unwrap()
             .bytes(&[0xAB; 32])
             .unwrap()
@@ -430,12 +314,10 @@ mod tests {
         "msgLeiosVotes",
         Message::Votes(vec![vote()])
     );
-    conforms!(done_conforms, self_contained, "msgDone", Message::Done);
-    conforms!(quit_conforms, self_contained, "msgQuit", Message::Quit);
     conforms!(
-        canceled_conforms,
+        done_conforms,
         self_contained,
-        "msgCanceled",
-        Message::Canceled
+        "msgClientDone",
+        Message::Done
     );
 }

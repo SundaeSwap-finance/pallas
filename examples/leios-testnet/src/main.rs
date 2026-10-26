@@ -152,10 +152,10 @@ impl LeiosNode {
                     self.eb_tx_counts.insert(eb, n);
                 }
                 leiosfetch::Response::BlockTxs { txs } => {
-                    let total: usize = txs.iter().map(|tx| tx.len()).sum();
+                    let total: usize = txs.iter().map(|tx| tx.raw_bytes().len()).sum();
                     tracing::info!(%pid, eb = %fmt_eb(&eb), count = txs.len(), bytes = total, "EB transactions fetched");
                     for (i, tx) in txs.iter().enumerate() {
-                        tracing::debug!(%pid, index = i, bytes = tx.len(), "  tx");
+                        tracing::debug!(%pid, index = i, bytes = tx.raw_bytes().len(), "  tx");
                     }
                 }
             },

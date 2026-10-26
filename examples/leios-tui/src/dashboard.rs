@@ -293,7 +293,7 @@ impl Dashboard {
                     tracing::info!(eb = %fmt_eb(eb), bytes = body.raw_bytes().len(), txs = n, "eb body fetched");
                 }
                 leiosfetch::Response::BlockTxs { txs } => {
-                    let bytes: usize = txs.iter().map(|t| t.len()).sum();
+                    let bytes: usize = txs.iter().map(|t| t.raw_bytes().len()).sum();
                     self.overlay.txs_ebs += 1;
                     self.overlay.tx_count += txs.len() as u64;
                     self.overlay.bytes += bytes as u64;
@@ -666,7 +666,7 @@ mod tests {
         assert_eq!(d.ebs[&id].stage, EbStage::TxsOffered);
 
         // Txs fetched → counts recorded, stage TxsFetched.
-        let txs = vec![leiosfetch::TxCbor(vec![1]); 12];
+        let txs = vec![AnyCbor::from_raw_bytes(vec![1]); 12];
         let actions = d.apply_event(&InitiatorEvent::EbFetched(
             pid.clone(),
             id.clone(),
@@ -737,8 +737,8 @@ mod tests {
     }
 
     /// `n` dummy transactions.
-    fn txs(n: usize) -> Vec<leiosfetch::TxCbor> {
-        vec![leiosfetch::TxCbor(vec![1]); n]
+    fn txs(n: usize) -> Vec<AnyCbor> {
+        vec![AnyCbor::from_raw_bytes(vec![1]); n]
     }
 
     #[test]
