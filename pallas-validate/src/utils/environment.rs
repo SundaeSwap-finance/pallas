@@ -305,7 +305,6 @@ impl Environment {
     }
 }
 
-/// The protocol parameters of the Dijkstra era.
 #[cfg(feature = "unstable")]
 #[derive(Debug, Clone)]
 pub struct DijkstraProtParams {
@@ -347,7 +346,6 @@ pub struct DijkstraProtParams {
     pub max_ref_script_size_per_tx: u32,
     pub ref_script_cost_stride: u32,
     pub ref_script_cost_multiplier: RationalNumber,
-    /// The cap on pledge leverage, `None` when the ledger sets no cap.
     pub max_pledge_leverage: Option<RationalNumber>,
     pub min_pool_margin: UnitInterval,
     pub leios_announcement_period_length: u32,
@@ -359,4 +357,12 @@ pub struct DijkstraProtParams {
     pub max_endorser_block_txs_size: u32,
     pub max_endorser_block_ex_units: ExUnits,
     pub max_ref_script_size_per_endorser_block: u32,
+    pub peras_min_candidate_block_age: u32,
+    pub peras_healing_factor: RationalNumber,
+    pub peras_cert_boost: u16,
+    pub peras_target_committee_size: u16,
+    pub peras_bootstrap_round: Option<u32>,
+    pub peras_quorum_threshold_safety_margin: UnitInterval,
+    pub ref_inputs_cost_per_multi_asset_policy: Coin,
+    pub ref_inputs_cost_per_datum_byte: Coin,
 }
