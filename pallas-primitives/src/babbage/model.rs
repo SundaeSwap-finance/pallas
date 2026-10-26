@@ -379,7 +379,7 @@ pub struct PostAlonzoAuxiliaryData {
 }
 
 // datum_option = [ 0, $hash32 // 1, data ]
-#[derive(Encode, Decode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Encode, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum DatumOption<'b> {
     #[n(0)]
@@ -387,6 +387,11 @@ pub enum DatumOption<'b> {
     #[n(1)]
     Data(#[b(0)] CborWrap<KeepRaw<'b, PlutusData>>),
 }
+
+crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
+    0 => Hash(hash),
+    1 => Data(data),
+);
 
 #[deprecated(since = "1.0.0-alpha", note = "use `DatumOption` instead")]
 pub type MintedDatumOption<'b> = DatumOption<'b>;
@@ -398,7 +403,7 @@ pub type PlutusV1Script = PlutusScript<1>;
 pub type PlutusV2Script = PlutusScript<2>;
 
 // script = [ 0, native_script // 1, plutus_v1_script // 2, plutus_v2_script ]
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Encode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[cbor(flat)]
 pub enum ScriptRef<'b> {
     #[n(0)]
@@ -408,6 +413,12 @@ pub enum ScriptRef<'b> {
     #[n(2)]
     PlutusV2Script(#[n(0)] PlutusScript<2>),
 }
+
+crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
+    0 => NativeScript(script),
+    1 => PlutusV1Script(script),
+    2 => PlutusV2Script(script),
+);
 
 #[deprecated(since = "1.0.0-alpha", note = "use `ScriptRef` instead")]
 pub type MintedScriptRef<'b> = ScriptRef<'b>;
@@ -462,10 +473,31 @@ pub type MintedTx<'b> = Tx<'b>;
 mod tests {
     use pallas_codec::minicbor;
 
-    use super::{Block, TransactionOutput};
+    use super::{Block, DatumOption, ScriptRef, TransactionOutput};
     use crate::Fragment;
+    use crate::flat_enum::assert_reads_either_length_form;
 
     type BlockWrapper<'b> = (u16, Block<'b>);
+
+    const HASH: &str = "581c11111111111111111111111111111111111111111111111111111111";
+    const HASH32: &str = "58201111111111111111111111111111111111111111111111111111111111111111";
+
+    #[test]
+    fn a_datum_option_reads_either_length_form() {
+        assert_reads_either_length_form::<DatumOption>(&[
+            format!("8200{HASH32}"),
+            "8201d8184180".to_string(),
+        ]);
+    }
+
+    #[test]
+    fn a_script_reference_reads_either_length_form() {
+        assert_reads_either_length_form::<ScriptRef>(&[
+            format!("82008200{HASH}"),
+            "82014100".to_string(),
+            "82024100".to_string(),
+        ]);
+    }
 
     #[test]
     fn block_isomorphic_decoding_encoding() {
