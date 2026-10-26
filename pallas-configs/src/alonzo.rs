@@ -379,9 +379,27 @@ struct GenesisFileRaw {
     max_value_size: u32,
     collateral_percentage: u32,
     max_collateral_inputs: u32,
-    cost_models: CostModelPerLanguage,
+    cost_models: TopLevelCostModels,
     #[serde(default)]
     extra_config: Option<ExtraConfig>,
+}
+
+/// The top level `costModels`, read for PlutusV1 and PlutusV2 only.
+struct TopLevelCostModels(CostModelPerLanguage);
+
+impl<'de> Deserialize<'de> for TopLevelCostModels {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut value = serde_json::Value::deserialize(deserializer)?;
+        if let serde_json::Value::Object(map) = &mut value {
+            map.retain(|language, _| language == "PlutusV1" || language == "PlutusV2");
+        }
+        CostModelPerLanguage::deserialize(value)
+            .map(TopLevelCostModels)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 /// The `extraConfig` override block. The ledger refuses anything but PlutusV1
@@ -395,7 +413,7 @@ struct ExtraConfig {
 
 impl From<GenesisFileRaw> for GenesisFile {
     fn from(raw: GenesisFileRaw) -> Self {
-        let mut cost_models = raw.cost_models;
+        let mut cost_models = raw.cost_models.0;
 
         // The ledger's `overrideCostModels` merges the two per language. An
         // injected language replaces the top level one, and a language only
@@ -532,6 +550,30 @@ mod tests {
         assert_eq!(models.plutus_v1, Some(vec![9, 10]));
         assert_eq!(models.plutus_v2.map(|x| x.len()), Some(175));
         assert!(models.unknown.is_empty());
+    }
+
+    #[test]
+    fn the_top_level_ignores_a_later_or_unknown_language() {
+        let plain = conway_cost_models(load_test_data_config("devnet").cost_models);
+
+        for (key, model) in [
+            ("Unknown", serde_json::json!({ "PlutusV1": [1, 2] })),
+            ("Unknown", serde_json::json!({ "7": [7, 8] })),
+            ("PlutusV3", serde_json::json!([3, 4])),
+            ("PlutusV4", serde_json::json!([5, 6])),
+        ] {
+            let mut value = test_data_json("devnet");
+            value["costModels"][key] = model.clone();
+
+            let config: GenesisFile = serde_json::from_value(value)
+                .unwrap_or_else(|e| panic!("a top level {key} of {model} must parse: {e}"));
+
+            assert_eq!(
+                conway_cost_models(config.cost_models),
+                plain,
+                "a top level {key} of {model} must change nothing"
+            );
+        }
     }
 
     #[test]
