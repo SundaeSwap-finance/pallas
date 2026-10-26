@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     #[allow(deprecated)]
-    fn rationals_wider_than_32_bits_map_in_lowest_terms() {
+    fn rationals_wider_than_32_bits_map_to_the_nearest_value() {
         let map = |numerator, denominator| {
             let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
                 numerator,
@@ -237,8 +237,17 @@ mod tests {
         assert_eq!(map(2, 4), (2, 4));
         assert_eq!(
             map((1 << 63) + 1, 10_000_000_000_000_000_000),
-            (1, 2_313_682_944)
+            (823_865_382, 893_236_637)
         );
+        assert_eq!(map(5_000_000_000, 7), (2_142_857_143, 3));
+        assert_eq!(
+            map(1 << 40, 847_288_609_443),
+            (2_012_878_384, 1_551_133_143)
+        );
+        assert_eq!(map(u64::MAX, 1), (i32::MAX, 1));
+        assert_eq!(map(1, u64::MAX), (0, 1));
+        assert_eq!(map(1, 2 * u64::from(u32::MAX)), (0, 1));
+        assert_eq!(map(u64::MAX, 0), (1, 0));
 
         let margin = format!(
             "8a03581c{}5820{}0000d81e821bfffffffffffffc171bfffffffffffffc17581de0{}8080f6",
