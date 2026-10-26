@@ -115,12 +115,14 @@ fn peer_of(addr: &str) -> PeerId {
     addr.parse().expect("a peer is host:port")
 }
 
-/// The protocol version a header names, for the header shapes of Babbage and
-/// later. An earlier shape names it in a place this tool does not read, and
-/// answers `None` rather than a version it did not find.
-fn protocol_version(header: &MultiEraHeader) -> Option<(u64, u64)> {
+/// The version pair a Babbage or later header carries, which is the highest supported major version and the software tag for Dijkstra and the protocol version before it.
+fn version_pair(header: &MultiEraHeader) -> Option<(u64, u64)> {
     if let Some(h) = header.as_dijkstra() {
-        return Some(h.header_body.protocol_version);
+        let info = &h.header_body.header_version_info;
+        return Some((
+            info.highest_supported_major_version.into(),
+            info.self_reported_software_tag.into(),
+        ));
     }
     if let Some(h) = header.as_babbage() {
         return Some(h.header_body.protocol_version);
@@ -144,7 +146,7 @@ async fn run_index(args: &[String]) {
     let mut file = fs::File::create(&out).expect("the index file is writable");
     writeln!(
         file,
-        "block_no\tslot\thash\tvariant\tpv_major\tpv_minor\tann_hash\tann_size\tcert"
+        "block_no\tslot\thash\tvariant\tversion_major\tversion_minor_or_tag\tann_hash\tann_size\tcert"
     )
     .unwrap();
 
@@ -174,7 +176,7 @@ async fn run_index(args: &[String]) {
                 let header = MultiEraHeader::decode(content.variant, subtag, &content.cbor)
                     .expect("a served header decodes");
 
-                let (pv_major, pv_minor) = match protocol_version(&header) {
+                let (pv_major, pv_minor) = match version_pair(&header) {
                     Some((major, minor)) => (major.to_string(), minor.to_string()),
                     None => ("-".to_string(), "-".to_string()),
                 };
