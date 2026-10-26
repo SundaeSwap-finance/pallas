@@ -95,10 +95,28 @@ fn parameters_that_hold_every_node_value_agree_on_every_field() {
     );
 }
 
+/// Adds the Peras and reference input entries, which the fixture's ledger version does not have, at the values the network's Dijkstra genesis gives them.
+fn with_peras(pp: &Value) -> Value {
+    let mut pp = pp.clone();
+    for (key, value) in [
+        ("perasMinCandidateBlockAge", json!(0)),
+        ("perasHealingFactor", json!(1)),
+        ("perasCertBoost", json!(0)),
+        ("perasTargetCommitteeSize", json!(0)),
+        ("perasBootstrapRound", Value::Null),
+        ("perasQuorumThresholdSafetyMargin", json!(0)),
+        ("refInputsCostPerMultiAssetPolicy", json!(0)),
+        ("refInputsCostPerDatumByte", json!(0)),
+    ] {
+        pp[key] = value;
+    }
+    pp
+}
+
 fn dijkstra_mapped(pp: &Value) -> u5c::PParams {
     #[allow(deprecated)]
     mapper().map_pparams(MultiEraProtocolParameters::Dijkstra(
-        fields::dijkstra_params(pp, &genesis()),
+        fields::dijkstra_params(&with_peras(pp), &genesis()),
     ))
 }
 
