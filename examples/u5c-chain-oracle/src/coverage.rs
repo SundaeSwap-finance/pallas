@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use pallas_codec::minicbor::Decoder;
 use pallas_codec::minicbor::data::Type;
+use pallas_crypto::hash::Hasher;
 use pallas_utxorpc::v1::spec::cardano as u5c;
 
 use crate::effects::natural;
@@ -27,6 +28,7 @@ pub enum Held {
     Count(u64),
     Uint(u64),
     Bool(bool),
+    Digest([u8; 32]),
     Other,
 }
 
@@ -235,7 +237,41 @@ fn native_clauses(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>) {
     });
 }
 
-fn certificates(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>) {
+/// The digest of a transaction's pool registration BLS keys in order, each a public key and a possession proof or none.
+pub fn pool_bls<'a>(keys: impl IntoIterator<Item = Option<(&'a [u8], &'a [u8])>>) -> Held {
+    let mut out = vec![];
+    for key in keys {
+        match key {
+            None => out.push(0),
+            Some((pubkey, proof)) => {
+                out.push(1);
+                for b in [pubkey, proof] {
+                    out.extend((b.len() as u64).to_be_bytes());
+                    out.extend(b);
+                }
+            }
+        }
+    }
+    Held::Digest(*Hasher::<256>::hash(&out))
+}
+
+fn byte_string(d: &mut Decoder) -> Vec<u8> {
+    skip_tags(d);
+    let mut out = vec![];
+    for chunk in d.bytes_iter().expect("a byte string") {
+        out.extend(chunk.expect("a byte string chunk"));
+    }
+    out
+}
+
+/// The BLS public key and possession proof of one pool registration, or none.
+type PoolKey = Option<(Vec<u8>, Vec<u8>)>;
+
+fn certificates(
+    d: &mut Decoder,
+    counts: &mut BTreeMap<Location, u64>,
+    bls: &mut Option<Vec<PoolKey>>,
+) {
     each_item(d, |d, _| {
         let mut tag = None;
         each_item(d, |d, i| {
@@ -245,14 +281,21 @@ fn certificates(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>) {
                 tag = Some(t);
                 return;
             }
-            if tag == Some(3)
-                && i == 3
-                && matches!(
+            if tag == Some(3) && i == 3 {
+                let out = bls.get_or_insert_with(Vec::new);
+                if matches!(
                     d.datatype().expect("an item"),
                     Type::Array | Type::ArrayIndef
-                )
-            {
-                TxScan::bump(counts, Location::PoolBls);
+                ) {
+                    let mut parts = vec![];
+                    each_item(d, |d, _| parts.push(byte_string(d)));
+                    let [pubkey, proof]: [Vec<u8>; 2] = parts
+                        .try_into()
+                        .expect("a public key and a possession proof");
+                    out.push(Some((pubkey, proof)));
+                    return;
+                }
+                out.push(None);
             }
             d.skip().expect("a certificate field");
         });
@@ -320,6 +363,7 @@ fn proposals(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>) {
 fn scan_tx(d: &mut Decoder) -> TxScan {
     let mut scan = TxScan::default();
     let mut counts = BTreeMap::new();
+    let mut bls = None;
     each_item(d, |d, part| match part {
         0 => each_entry(d, |d, key| match key {
             Some(k) => {
@@ -330,7 +374,7 @@ fn scan_tx(d: &mut Decoder) -> TxScan {
                 if k == 4 || k == 20 || k == 23 {
                     d.set_position(start);
                     match k {
-                        4 => certificates(d, &mut counts),
+                        4 => certificates(d, &mut counts, &mut bls),
                         20 => proposals(d, &mut counts),
                         _ => each_item(d, |d, _| scan.subs.push(scan_tx(d))),
                     }
@@ -372,6 +416,12 @@ fn scan_tx(d: &mut Decoder) -> TxScan {
     });
     scan.held
         .extend(counts.into_iter().map(|(l, n)| (l, Held::Count(n))));
+    if let Some(keys) = bls {
+        let keys = keys
+            .iter()
+            .map(|k| k.as_ref().map(|(p, q)| (&p[..], &q[..])));
+        scan.held.push((Location::PoolBls, pool_bls(keys)));
+    }
     scan
 }
 
@@ -593,9 +643,7 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
         Location::Body(14) => count(tx.guards.len() as u64),
         Location::Body(15) => Some(tx.network_id.is_some_and(|v| held == Held::Uint(v.into()))),
         Location::Body(16) => top_only(&|_| Some(collateral.collateral_return.is_some())),
-        Location::Body(17) => {
-            top_only(&|_| uint(natural(collateral.total_collateral.as_ref())))
-        }
+        Location::Body(17) => top_only(&|_| uint(natural(collateral.total_collateral.as_ref()))),
         Location::Body(18) => count(tx.reference_inputs.len() as u64),
         Location::Body(19) => count(tx.votes.len() as u64),
         Location::Body(20) => count(tx.proposals.len() as u64),
@@ -646,17 +694,20 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
                 .filter(|c| cert_tag(c) == t)
                 .count() as u64,
         ),
-        Location::PoolBls => count(
-            tx.certificates
+        Location::PoolBls => {
+            let keys = tx
+                .certificates
                 .iter()
-                .filter(|c| {
-                    matches!(
-                        c.certificate.as_ref(),
-                        Some(u5c::certificate::Certificate::PoolRegistration(p)) if p.bls_key.is_some()
-                    )
-                })
-                .count() as u64,
-        ),
+                .filter_map(|c| match c.certificate.as_ref() {
+                    Some(u5c::certificate::Certificate::PoolRegistration(p)) => Some(
+                        p.bls_key
+                            .as_ref()
+                            .map(|k| (&k.bls_pubkey[..], &k.bls_possession_proof[..])),
+                    ),
+                    _ => None,
+                });
+            Some(held == pool_bls(keys))
+        }
         Location::ParamUpdate(k) => {
             let mut n = 0;
             for p in &tx.proposals {
