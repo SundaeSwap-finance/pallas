@@ -721,8 +721,44 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48. A derived
-/// map decoder drops a key it has no field for, so the tail is modelled.
+/// Codec for a map value written `x/ nil`, which reads a nil as `Some(Nullable::Null)` and an absent key as `None`.
+mod nullable_value {
+    use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder, encode::Write};
+    use pallas_codec::utils::Nullable;
+
+    pub fn decode<'b, Ctx, T>(
+        d: &mut Decoder<'b>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<Nullable<T>>, minicbor::decode::Error>
+    where
+        T: Decode<'b, Ctx> + Clone,
+    {
+        Nullable::decode(d, ctx).map(Some)
+    }
+
+    pub fn encode<Ctx, T, W: Write>(
+        v: &Option<Nullable<T>>,
+        e: &mut Encoder<W>,
+        ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<W::Error>>
+    where
+        T: Encode<Ctx> + Clone,
+    {
+        v.encode(e, ctx)
+    }
+
+    pub fn nil<T: Clone>() -> Option<Option<Nullable<T>>> {
+        Some(None)
+    }
+
+    pub fn is_nil<T: Clone>(v: &Option<Nullable<T>>) -> bool {
+        v.is_none()
+    }
+}
+
+/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48, and
+/// cardano-ledger `9df9f98c` adds keys 49 through 56. A derived map decoder
+/// drops a key it has no field for, so the tail is modelled.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
@@ -800,7 +836,7 @@ pub struct ProtocolParamUpdate {
     pub ref_script_cost_multiplier: Option<PositiveInterval>,
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
-    #[n(38)]
+    #[cbor(n(38), with = "nullable_value", has_nil)]
     pub max_pledge_leverage: Option<Nullable<RationalNumber>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
@@ -822,6 +858,24 @@ pub struct ProtocolParamUpdate {
     pub max_endorser_block_execution_units: Option<ExUnits>,
     #[n(48)]
     pub max_ref_script_size_per_endorser_block: Option<u64>,
+    #[n(49)]
+    pub peras_min_candidate_block_age: Option<u64>,
+    #[n(50)]
+    pub peras_healing_factor: Option<PositiveInterval>,
+    #[n(51)]
+    pub peras_cert_boost: Option<u64>,
+    #[n(52)]
+    pub peras_target_committee_size: Option<u64>,
+
+    /// `? 53 : nil/ uint .size 4` (cardano-ledger `9df9f98c`), so an explicit nil differs from an absent key.
+    #[cbor(n(53), with = "nullable_value", has_nil)]
+    pub peras_bootstrap_round: Option<Nullable<u64>>,
+    #[n(54)]
+    pub peras_quorum_threshold_safety_margin: Option<UnitInterval>,
+    #[n(55)]
+    pub ref_inputs_cost_per_multi_asset_policy: Option<Coin>,
+    #[n(56)]
+    pub ref_inputs_cost_per_datum_byte: Option<Coin>,
 }
 
 /// No CDDL rule answers to this type. It mirrors [`crate::conway::Update`] over this era's `protocol_param_update`.
