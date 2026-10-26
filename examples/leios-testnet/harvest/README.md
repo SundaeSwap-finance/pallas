@@ -14,7 +14,7 @@ directory at `/opt/build/harvest/target`, and outputs under
 2. Index every header, which is cheap and classifies most candidates.
    `./run.sh /target/release/harvest index 172.17.0.2:3001 164 <intersect slot> <intersect hash> /out/index.tsv`
    The index writes one row per header with slot, hash, block number, era
-   variant, protocol version, the leios certificate flag and the endorser
+   variant, version pair, the leios certificate flag and the endorser
    announcement hash and size. An absent version or flag is written as `-`,
    never as a value.
 3. Write the ranges to look at into `/out/ranges.txt`, one per line as
