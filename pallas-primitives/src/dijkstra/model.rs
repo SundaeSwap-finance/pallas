@@ -1,6 +1,6 @@
 //! Ledger primitives and cbor codec for the Dijkstra era
 //!
-//! Handcrafted, idiomatic rust artifacts based on the [Dijkstra CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/1587f21a7d1306dc590c2749a5c66232ef66aad0/eras/dijkstra/impl/cddl/data/dijkstra.cddl) file in the IntersectMBO repo, vendored beside this one as `defs.cddl`.
+//! Handcrafted, idiomatic rust artifacts based on the [Dijkstra CDDL](https://github.com/IntersectMBO/cardano-ledger/blob/9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c/eras/dijkstra/impl/cddl/data/dijkstra.cddl) file in the IntersectMBO repo, vendored beside this one as `defs.cddl`.
 
 use serde::{Deserialize, Serialize};
 
@@ -196,7 +196,17 @@ tag_preserving_set!(NonEmptySet, "a nonempty set", 1);
 
 pub use crate::babbage::OperationalCert;
 
-/// `header_body` (`defs.cddl`) appends `block_body_contains_leios_cert` and `eb_announcement` to Conway's ten fields.
+/// `header_version_info = [highest_supported_major_version : uint .size 4, self_reported_software_tag : uint .size 4]` (`defs.cddl`).
+#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+pub struct HeaderVersionInfo {
+    #[n(0)]
+    pub highest_supported_major_version: u32,
+
+    #[n(1)]
+    pub self_reported_software_tag: u32,
+}
+
+/// `header_body` (`defs.cddl`) has `header_version_info` where Conway's has `protocol_version`, and appends `block_body_contains_leios_cert` and `eb_references_announcement`.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
@@ -227,8 +237,7 @@ pub struct HeaderBody {
     pub operational_cert: OperationalCert,
 
     #[n(9)]
-    #[cbor(decode_with = "crate::protocol_version::decode")]
-    pub protocol_version: ProtocolVersion,
+    pub header_version_info: HeaderVersionInfo,
 
     // -- NEW IN DIJKSTRA
     #[n(10)]
@@ -304,7 +313,7 @@ pub use crate::conway::DatumOption;
 
 pub use crate::conway::LegacyTransactionOutput;
 
-/// `eb_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
+/// `eb_references_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct EbAnnouncement {
     #[n(0)]
@@ -1011,6 +1020,41 @@ impl<C> minicbor::Encode<C> for Guards {
     }
 }
 
+/// Decoders for a body's optional [`Guards`] field, where an empty set is no guards.
+pub(crate) mod guards_field {
+    use super::Guards;
+    use pallas_codec::minicbor::{self, data::Type, decode::Error};
+
+    /// Decodes a body's guards, reading null or an empty set as `None`.
+    pub fn decode_option<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<Guards>, Error> {
+        let mut probe = minicbor::Decoder::new(&d.input()[d.position()..]);
+        if probe.datatype()? == Type::Null {
+            d.skip()?;
+            return Ok(None);
+        }
+        if probe.datatype()? == Type::Tag {
+            probe.tag()?;
+        }
+        let empty = match probe.array()? {
+            Some(len) => len == 0,
+            None => probe.datatype()? == Type::Break,
+        };
+        if empty {
+            d.skip()?;
+            return Ok(None);
+        }
+        d.decode_with(ctx).map(Some)
+    }
+
+    /// The value of a body's guards field that is absent.
+    pub fn none() -> Option<Option<Guards>> {
+        Some(None)
+    }
+}
+
 pub type DirectDeposits = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredTopLevelGuards = BTreeMap<StakeCredential, Nullable<PlutusData>>;
@@ -1150,6 +1194,10 @@ pub struct SubTransactionBody<'a> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(14)]
+    #[cbor(
+        decode_with = "guards_field::decode_option",
+        nil = "guards_field::none"
+    )]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1234,6 +1282,10 @@ pub struct TransactionBody<'a> {
     pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
+    #[cbor(
+        decode_with = "guards_field::decode_option",
+        nil = "guards_field::none"
+    )]
     pub guards: Option<Guards>,
 
     #[n(15)]
