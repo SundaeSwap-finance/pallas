@@ -74,6 +74,14 @@ const TEST_BLOCKS: &[(&str, &str)] = &[
         "dijkstra15",
         include_str!("../../../test_data/dijkstra15.block"),
     ),
+    (
+        "dijkstra-rc-2026w42-7",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-7.block"),
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        include_str!("../../../test_data/dijkstra-rc-2026w42-11.block"),
+    ),
 ];
 
 /// Blocks from before the fork. Their bodies are the Conway five element
@@ -230,8 +238,8 @@ fn transaction_payloads_reencode_to_their_wire_bytes() {
 
     assert_eq!(
         (bodies, witness_sets, auxiliary_data),
-        (45, 45, 5),
-        "the fixtures should carry forty five transactions, each with a body and a witness set, five of them with auxiliary data"
+        (46, 46, 5),
+        "the fixtures should carry forty six transactions, each with a body and a witness set, five of them with auxiliary data"
     );
 }
 
@@ -1252,6 +1260,14 @@ const HEADER_HASHES: &[(&str, &str)] = &[
         "dijkstra15",
         "0db84efa0259153a240cecacd0f9e52f942d40f96b132ebd0d5b3526e19b3a7b",
     ),
+    (
+        "dijkstra-rc-2026w42-7",
+        "0d88c2182f7b6f1c2796677109d918c430538bf6b4df11c1ebf29a94243a3cd6",
+    ),
+    (
+        "dijkstra-rc-2026w42-11",
+        "f2fccd6e970425d1403101bc6553a4fb6a548a27d465fd29ae4c2ab11992b204",
+    ),
 ];
 
 /// The hash is over the header CBOR span, so it also pins where the body begins.
@@ -1576,8 +1592,8 @@ fn a_set_re_encodes_the_arm_it_was_read_from() {
 
     assert_eq!(
         (tagged, bare),
-        (38, 7),
-        "the fixtures carry thirty eight tagged input sets and seven bare ones"
+        (39, 7),
+        "the fixtures carry thirty nine tagged input sets and seven bare ones"
     );
 
     // A type that normalised the arms would satisfy everything above and fail here.
