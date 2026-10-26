@@ -201,6 +201,26 @@ mod tests {
     }
 
     #[test]
+    fn plutus_integers_beyond_i64_map_to_big_int_bytes() {
+        use pallas_primitives::alonzo::BigInt;
+        use u5c::big_int::BigInt::{BigNInt, BigUInt, Int};
+
+        let mapper = Mapper::new(NoLedger);
+        let map = |n: i128| {
+            let x = BigInt::Int(pallas_primitives::Int::try_from(n).unwrap());
+            mapper.map_plutus_bigint(&x).big_int.unwrap()
+        };
+        let top = [0x80, 0, 0, 0, 0, 0, 0, 0];
+
+        assert_eq!(map(i64::MAX.into()), Int(i64::MAX));
+        assert_eq!(map(i64::MIN.into()), Int(i64::MIN));
+        assert_eq!(map(1 << 63), BigUInt(top.to_vec().into()));
+        assert_eq!(map((1 << 64) - 1), BigUInt(vec![0xff; 8].into()));
+        assert_eq!(map(-(1 << 63) - 1), BigNInt(top.to_vec().into()));
+        assert_eq!(map(-(1 << 64)), BigNInt(vec![0xff; 8].into()));
+    }
+
+    #[test]
     fn negative_n_of_k_threshold_maps_to_zero() {
         let mapped = Mapper::<NoLedger>::map_native_script(
             &pallas_primitives::alonzo::NativeScript::ScriptNOfK(-1, vec![]),
