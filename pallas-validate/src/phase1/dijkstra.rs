@@ -17,7 +17,7 @@ use pallas_primitives::{conway::LanguageViews, dijkstra::*};
 use pallas_traverse::{
     ComputeHash, MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash,
 };
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 type Keys = HashSet<Hash<28>>;
 type Spent = HashSet<(Hash<32>, u64)>;
@@ -343,7 +343,7 @@ fn check_required_guards(
 /// witnesses that must authorize them. Key hashes go into the caller's set.
 struct Spending {
     coin: u64,
-    scripts: Vec<Hash<28>>,
+    scripts: BTreeSet<Hash<28>>,
     bootstrap: Vec<ByronAddress>,
 }
 fn check_inputs(
@@ -358,7 +358,7 @@ fn check_inputs(
     let mut local = Spent::new();
     let mut spending = Spending {
         coin: 0,
-        scripts: Vec::new(),
+        scripts: BTreeSet::new(),
         bootstrap: Vec::new(),
     };
     for input in inputs {
@@ -378,7 +378,9 @@ fn check_inputs(
             Spender::Key(key) => {
                 keys.insert(key);
             }
-            Spender::Script(hash) => spending.scripts.push(hash),
+            Spender::Script(hash) => {
+                spending.scripts.insert(hash);
+            }
             Spender::Bootstrap(address) => spending.bootstrap.push(address),
         }
     }
@@ -629,12 +631,10 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
 }
 /// Decoding into a BTreeMap would hide duplicate guards, which the ledger rejects.
 fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
-    let guards: pallas_codec::utils::KeyValuePairs<
-        pallas_codec::utils::AnyCbor,
-        pallas_codec::utils::AnyCbor,
-    > = minicbor::decode(raw).map_err(|_| DijkstraUnsupported("required top-level guards"))?;
-    let mut seen = HashSet::new();
-    if guards.iter().any(|(key, _)| !seen.insert(key.to_vec())) {
+    let guards: pallas_codec::utils::KeyValuePairs<StakeCredential, pallas_codec::utils::AnyCbor> =
+        minicbor::decode(raw).map_err(|_| DijkstraUnsupported("required top-level guards"))?;
+    let mut seen = BTreeSet::new();
+    if guards.iter().any(|(key, _)| !seen.insert(key)) {
         return Err(DijkstraUnsupported("duplicate required top-level guards"));
     }
     Ok(())

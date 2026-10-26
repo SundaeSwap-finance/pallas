@@ -864,19 +864,26 @@ fn dijkstra_batch_unused_guard_scripts_are_not_checked() {
 #[test]
 fn dijkstra_batch_rejects_duplicate_required_top_level_guards() {
     batch(|tx, input| {
-        // The sub's required top-level guards hold one key with no datum.
-        let mut entry = vec![0x82, 0x00, 0x58, 0x1c];
-        entry.extend(guard_key().as_ref());
-        entry.push(0xf6);
-        let single = [&[0x18, 0x18, 0xa1][..], &entry].concat();
-        let double = [&[0x18, 0x18, 0xa2][..], &entry, &entry].concat();
-        let mut raw = minicbor::to_vec(&tx).unwrap();
-        let at = raw.windows(single.len()).position(|w| w == single).unwrap();
-        raw.splice(at..at + single.len(), double);
-        let patched: n::BlockTransaction = minicbor::decode(&raw).unwrap();
-        error(
-            run(&patched, &input, &env()),
-            "DijkstraUnsupported(\"duplicate required top-level guards\")",
-        );
+        // The sub's required top-level guards hold one key with no datum. The
+        // duplicate is either the same bytes or the same credential with its
+        // constructor written as a two-byte integer.
+        let entry = |constructor: &[u8]| {
+            let mut entry = [&[0x82][..], constructor, &[0x58, 0x1c]].concat();
+            entry.extend(guard_key().as_ref());
+            entry.push(0xf6);
+            entry
+        };
+        let single = [&[0x18, 0x18, 0xa1][..], &entry(&[0x00])].concat();
+        for duplicate in [entry(&[0x00]), entry(&[0x18, 0x00])] {
+            let double = [&[0x18, 0x18, 0xa2][..], &entry(&[0x00]), &duplicate].concat();
+            let mut raw = minicbor::to_vec(&tx).unwrap();
+            let at = raw.windows(single.len()).position(|w| w == single).unwrap();
+            raw.splice(at..at + single.len(), double);
+            let patched: n::BlockTransaction = minicbor::decode(&raw).unwrap();
+            error(
+                run(&patched, &input, &env()),
+                "DijkstraUnsupported(\"duplicate required top-level guards\")",
+            );
+        }
     });
 }
