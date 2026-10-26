@@ -497,7 +497,19 @@ macro_rules! impl_cardano_mapper_shared {
             pub fn map_plutus_bigint(&self, x: &pallas_primitives::alonzo::BigInt) -> u5c::BigInt {
                 use pallas_primitives::babbage;
                 let inner = match x {
-                    babbage::BigInt::Int(x) => u5c::big_int::BigInt::Int(i128::from(x.0) as i64),
+                    babbage::BigInt::Int(x) => {
+                        let n = i128::from(x.0);
+                        // A CBOR integer outside i64 has a magnitude of exactly eight bytes.
+                        if let Ok(n) = i64::try_from(n) {
+                            u5c::big_int::BigInt::Int(n)
+                        } else if n > 0 {
+                            u5c::big_int::BigInt::BigUInt(n.to_be_bytes()[8..].to_vec().into())
+                        } else {
+                            u5c::big_int::BigInt::BigNInt(
+                                (-1 - n).to_be_bytes()[8..].to_vec().into(),
+                            )
+                        }
+                    }
                     babbage::BigInt::BigUInt(x) => {
                         u5c::big_int::BigInt::BigUInt(Vec::<u8>::from(x.clone()).into())
                     }
