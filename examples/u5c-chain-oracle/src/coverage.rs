@@ -237,18 +237,22 @@ fn native_clauses(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>) {
     });
 }
 
-/// Appends one pool registration's BLS key to a digest input, a zero byte for no key, else a one byte and both byte strings with their lengths.
-fn bls_entry(out: &mut Vec<u8>, key: Option<(&[u8], &[u8])>) {
-    match key {
-        None => out.push(0),
-        Some((pubkey, proof)) => {
-            out.push(1);
-            for b in [pubkey, proof] {
-                out.extend((b.len() as u64).to_be_bytes());
-                out.extend(b);
+/// The digest of a transaction's pool registration BLS keys in order, each a public key and a possession proof or none.
+pub fn pool_bls<'a>(keys: impl IntoIterator<Item = Option<(&'a [u8], &'a [u8])>>) -> Held {
+    let mut out = vec![];
+    for key in keys {
+        match key {
+            None => out.push(0),
+            Some((pubkey, proof)) => {
+                out.push(1);
+                for b in [pubkey, proof] {
+                    out.extend((b.len() as u64).to_be_bytes());
+                    out.extend(b);
+                }
             }
         }
     }
+    Held::Digest(*Hasher::<256>::hash(&out))
 }
 
 fn byte_string(d: &mut Decoder) -> Vec<u8> {
@@ -260,7 +264,14 @@ fn byte_string(d: &mut Decoder) -> Vec<u8> {
     out
 }
 
-fn certificates(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>, bls: &mut Option<Vec<u8>>) {
+/// The BLS public key and possession proof of one pool registration, or none.
+type PoolKey = Option<(Vec<u8>, Vec<u8>)>;
+
+fn certificates(
+    d: &mut Decoder,
+    counts: &mut BTreeMap<Location, u64>,
+    bls: &mut Option<Vec<PoolKey>>,
+) {
     each_item(d, |d, _| {
         let mut tag = None;
         each_item(d, |d, i| {
@@ -278,10 +289,13 @@ fn certificates(d: &mut Decoder, counts: &mut BTreeMap<Location, u64>, bls: &mut
                 ) {
                     let mut parts = vec![];
                     each_item(d, |d, _| parts.push(byte_string(d)));
-                    bls_entry(out, Some((&parts[0], &parts[1])));
+                    let [pubkey, proof]: [Vec<u8>; 2] = parts
+                        .try_into()
+                        .expect("a public key and a possession proof");
+                    out.push(Some((pubkey, proof)));
                     return;
                 }
-                bls_entry(out, None);
+                out.push(None);
             }
             d.skip().expect("a certificate field");
         });
@@ -402,9 +416,11 @@ fn scan_tx(d: &mut Decoder) -> TxScan {
     });
     scan.held
         .extend(counts.into_iter().map(|(l, n)| (l, Held::Count(n))));
-    if let Some(bls) = bls {
-        scan.held
-            .push((Location::PoolBls, Held::Digest(*Hasher::<256>::hash(&bls))));
+    if let Some(keys) = bls {
+        let keys = keys
+            .iter()
+            .map(|k| k.as_ref().map(|(p, q)| (&p[..], &q[..])));
+        scan.held.push((Location::PoolBls, pool_bls(keys)));
     }
     scan
 }
@@ -627,9 +643,7 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
         Location::Body(14) => count(tx.guards.len() as u64),
         Location::Body(15) => Some(tx.network_id.is_some_and(|v| held == Held::Uint(v.into()))),
         Location::Body(16) => top_only(&|_| Some(collateral.collateral_return.is_some())),
-        Location::Body(17) => {
-            top_only(&|_| uint(natural(collateral.total_collateral.as_ref())))
-        }
+        Location::Body(17) => top_only(&|_| uint(natural(collateral.total_collateral.as_ref()))),
         Location::Body(18) => count(tx.reference_inputs.len() as u64),
         Location::Body(19) => count(tx.votes.len() as u64),
         Location::Body(20) => count(tx.proposals.len() as u64),
@@ -681,19 +695,18 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
                 .count() as u64,
         ),
         Location::PoolBls => {
-            let mut bls = vec![];
-            for c in &tx.certificates {
-                if let Some(u5c::certificate::Certificate::PoolRegistration(p)) =
-                    c.certificate.as_ref()
-                {
-                    let key = p.bls_key.as_ref();
-                    bls_entry(
-                        &mut bls,
-                        key.map(|k| (&k.bls_pubkey[..], &k.bls_possession_proof[..])),
-                    );
-                }
-            }
-            Some(held == Held::Digest(*Hasher::<256>::hash(&bls)))
+            let keys = tx
+                .certificates
+                .iter()
+                .filter_map(|c| match c.certificate.as_ref() {
+                    Some(u5c::certificate::Certificate::PoolRegistration(p)) => Some(
+                        p.bls_key
+                            .as_ref()
+                            .map(|k| (&k.bls_pubkey[..], &k.bls_possession_proof[..])),
+                    ),
+                    _ => None,
+                });
+            Some(held == pool_bls(keys))
         }
         Location::ParamUpdate(k) => {
             let mut n = 0;
