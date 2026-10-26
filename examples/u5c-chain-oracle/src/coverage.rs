@@ -564,6 +564,14 @@ pub fn param_set(p: &u5c::PParamsUpdate, key: u64) -> Option<bool> {
         46 => p.max_endorser_block_txs_size.is_some(),
         47 => p.max_endorser_block_execution_units.is_some(),
         48 => p.max_ref_script_size_per_endorser_block.is_some(),
+        49 => p.peras_min_candidate_block_age.is_some(),
+        50 => p.peras_healing_factor.is_some(),
+        51 => p.peras_cert_boost.is_some(),
+        52 => p.peras_target_committee_size.is_some(),
+        53 => p.peras_bootstrap_round.is_some(),
+        54 => p.peras_quorum_threshold_safety_margin.is_some(),
+        55 => p.ref_inputs_cost_per_multi_asset_policy.is_some(),
+        56 => p.ref_inputs_cost_per_datum_byte.is_some(),
         _ => return None,
     })
 }
@@ -672,6 +680,7 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
         Location::Wits(5) => count(wits.redeemers.len() as u64),
         Location::Wits(6) => count(scripts(&|s| matches!(s, S::PlutusV2(_)))),
         Location::Wits(7) => count(scripts(&|s| matches!(s, S::PlutusV3(_)))),
+        Location::Wits(8) => count(scripts(&|s| matches!(s, S::PlutusV4(_)))),
         Location::RedeemerTag(t @ 0..=6) => count(
             wits.redeemers
                 .iter()
