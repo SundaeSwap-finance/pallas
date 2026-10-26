@@ -155,7 +155,7 @@ fn ratio(numerator: i32, denominator: u32) -> Option<u5c::RationalNumber> {
     })
 }
 
-/// A parameter update that sets every field of the keys 34 to 48.
+/// A parameter update that sets every field of the keys 34 to 56.
 fn every_dijkstra_key() -> u5c::PParamsUpdate {
     u5c::PParamsUpdate {
         max_ref_script_size_per_block: Some(34),
@@ -178,6 +178,16 @@ fn every_dijkstra_key() -> u5c::PParamsUpdate {
             steps: 470,
         }),
         max_ref_script_size_per_endorser_block: Some(48),
+        peras_min_candidate_block_age: Some(49),
+        peras_healing_factor: ratio(50, 1),
+        peras_cert_boost: Some(51),
+        peras_target_committee_size: Some(52),
+        peras_bootstrap_round: Some(u5c::PerasBootstrapRoundUpdate {
+            update: Some(u5c::peras_bootstrap_round_update::Update::Round(53)),
+        }),
+        peras_quorum_threshold_safety_margin: ratio(1, 54),
+        ref_inputs_cost_per_multi_asset_policy: coin(55),
+        ref_inputs_cost_per_datum_byte: coin(56),
         ..Default::default()
     }
 }
@@ -202,7 +212,7 @@ fn with_update(p: u5c::PParamsUpdate) -> u5c::Tx {
 fn an_update_holds_each_dijkstra_key_it_sets() {
     let set = with_update(every_dijkstra_key());
     let unset = with_update(u5c::PParamsUpdate::default());
-    for k in 34..=48 {
+    for k in 34..=56 {
         let at = Location::ParamUpdate(k);
         assert_eq!(agrees(at, Held::Count(1), &set), Some(true), "key {k}");
         assert_eq!(agrees(at, Held::Count(1), &unset), Some(false), "key {k}");
@@ -210,10 +220,10 @@ fn an_update_holds_each_dijkstra_key_it_sets() {
 }
 
 #[test]
-fn a_key_past_48_has_no_counterpart() {
+fn a_key_past_56_has_no_counterpart() {
     let set = with_update(every_dijkstra_key());
     assert_eq!(
-        agrees(Location::ParamUpdate(49), Held::Count(1), &set),
+        agrees(Location::ParamUpdate(57), Held::Count(1), &set),
         None
     );
 }
