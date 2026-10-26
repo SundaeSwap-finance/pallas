@@ -60,6 +60,7 @@
 //!
 //! [`pallas`]: https://crates.io/crates/pallas
 
+mod flat_enum;
 mod framework;
 mod metadatum;
 mod native_script;
@@ -431,9 +432,7 @@ pub type RewardAccount = Bytes;
 /// Hash of a script (Blake2b-224).
 pub type ScriptHash = Hash<28>;
 
-#[derive(
-    Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode, Decode,
-)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash, Encode)]
 // !! NOTE / IMPORTANT !!
 // It is tempting to swap the order of the two constructors so that AddrKeyHash
 // comes first. This indeed nicely maps the binary representation which
@@ -454,6 +453,11 @@ pub enum StakeCredential {
     #[n(0)]
     AddrKeyhash(#[n(0)] AddrKeyhash),
 }
+
+flat_enum::decode_flat_enum!(StakeCredential,
+    0 => AddrKeyhash(hash),
+    1 => ScriptHash(hash),
+);
 
 /// Index of a transaction within its containing block.
 pub type TransactionIndex = u32;
