@@ -1,9 +1,8 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
     Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, PlutusData, ProposalProcedure, ProtocolParamUpdate,
-    RationalNumber, Relay, Set, SetArm, StakeCredential, TransactionBody, TransactionOutput,
-    Value, WitnessSet,
+    NativeScript, NonEmptySet, PlutusData, ProposalProcedure, ProtocolParamUpdate, RationalNumber,
+    Relay, Set, SetArm, StakeCredential, TransactionBody, TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
 use pallas_codec::utils::{KeepRaw, Nullable};
@@ -626,8 +625,9 @@ const ABSENT_RULES: &[&str] = &[
     "transaction",
     // Renamed to `mempool_transaction`.
     "transaction_mempool",
-    // Renamed to `eb_announcement`.
+    // Renamed to `eb_announcement`, then to `eb_references_announcement`.
     "leios_announcement",
+    "eb_announcement",
     // Renamed to `bls_key`.
     "leios_key",
     // Deleted with `redeemers`' array arm.
@@ -661,8 +661,10 @@ const NOT_RULES: &[&str] = &[
     "deposit",
     "eb_hash",
     "eb_size",
+    "highest_supported_major_version",
     "is_valid",
     "pledge",
+    "self_reported_software_tag",
     "signers",
     "success",
     "ttl",
@@ -1380,7 +1382,7 @@ fn a_certificate_travels_without_an_announcement() {
     );
 }
 
-/// `eb_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
+/// `eb_references_announcement = [eb_hash : hash32, eb_size : uint .size 4]` (`defs.cddl`).
 /// dijkstra15 announces 71103 bytes, past what two bytes hold, so the size is
 /// written as a five byte uint where dijkstra8's 39495 is a three byte one.
 #[test]
@@ -1856,7 +1858,7 @@ fn decode_all<T: minicbor::Decode<'static, ()>>(name: &str, bytes: &'static [u8]
     value
 }
 
-/// Whether a rational number is the fraction of a numerator over a denominator.
+/// Whether a rational number equals `numerator / denominator` as a ratio.
 fn same_ratio(found: &RationalNumber, numerator: u64, denominator: u64) -> bool {
     found.numerator as u128 * denominator as u128 == found.denominator as u128 * numerator as u128
 }
@@ -2025,4 +2027,64 @@ fn a_generated_hard_fork_version_in_an_indefinite_array_decodes() {
         proposals[0].gov_action,
         GovAction::HardForkInitiation(None, (3, 2317795968))
     );
+}
+
+/// Provenance for this fixture is in `test_data/dijkstra-generated.md`.
+const VERSION_INFO_BLOCK: &str =
+    include_str!("../../../test_data/dijkstra-generated/block-header-version-info.hex");
+
+/// The version info of the generated block's header, as hex.
+const VERSION_INFO: &str = "821a3be658c11aeb03cba5";
+
+fn generated_header_hex() -> String {
+    let block = hex::decode(VERSION_INFO_BLOCK.trim()).unwrap();
+    let mut d = minicbor::Decoder::new(&block);
+    d.array().unwrap();
+    let start = d.position();
+    d.skip().unwrap();
+    hex::encode(&block[start..d.position()])
+}
+
+#[test]
+fn a_version_info_in_an_indefinite_array_reads_to_its_break() {
+    let header = generated_header_hex();
+    let bytes = hex::decode(header.replace(VERSION_INFO, "9f1a3be658c11aeb03cba5ff")).unwrap();
+    let mut d = minicbor::Decoder::new(&bytes);
+    let header: Header = d.decode().expect("an indefinite version info must decode");
+    assert_eq!(d.position(), bytes.len());
+    let info = &header.header_body.header_version_info;
+    assert_eq!(info.highest_supported_major_version, 1004951745);
+    assert_eq!(info.self_reported_software_tag, 3942894501);
+}
+
+#[test]
+fn a_version_info_field_past_four_bytes_is_refused() {
+    let header = generated_header_hex();
+    assert_eq!(header.matches(VERSION_INFO).count(), 1);
+    let at = header.find(VERSION_INFO).unwrap() / 2;
+
+    let widest = hex::decode(header.replace(VERSION_INFO, "821affffffff1affffffff")).unwrap();
+    minicbor::decode::<Header>(&widest).expect("both fields at u32::MAX must decode");
+
+    for (field, info, position) in [
+        (
+            "highest_supported_major_version",
+            "821b00000001000000001aeb03cba5",
+            at + 1,
+        ),
+        (
+            "self_reported_software_tag",
+            "821a3be658c11b0000000100000000",
+            at + 6,
+        ),
+    ] {
+        let mutated = hex::decode(header.replace(VERSION_INFO, info)).unwrap();
+        let err =
+            minicbor::decode::<Header>(&mutated).expect_err("a field of 2^32 must not decode");
+        assert_eq!(
+            err.position(),
+            Some(position),
+            "{field} was refused somewhere else: {err}"
+        );
+    }
 }
