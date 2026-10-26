@@ -4,9 +4,19 @@ macro_rules! impl_cardano_mapper_shared {
         use $u5c as u5c;
 
         fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
+            let (mut numerator, mut denominator) = (value.numerator, value.denominator);
+            // A ratio too wide for the 32 bit fields maps in lowest terms.
+            if i32::try_from(numerator).is_err() || u32::try_from(denominator).is_err() {
+                let (mut a, mut b) = (numerator, denominator);
+                while b != 0 {
+                    (a, b) = (b, a % b);
+                }
+                numerator /= a;
+                denominator /= a;
+            }
             u5c::RationalNumber {
-                numerator: value.numerator as i32,
-                denominator: value.denominator as u32,
+                numerator: numerator as i32,
+                denominator: denominator as u32,
             }
         }
 
