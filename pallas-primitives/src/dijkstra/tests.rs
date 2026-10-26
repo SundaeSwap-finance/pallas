@@ -1876,7 +1876,7 @@ fn decode_all<T: minicbor::Decode<'static, ()>>(name: &str, bytes: &'static [u8]
     value
 }
 
-/// Whether a rational number is the fraction of a numerator over a denominator.
+/// Whether a rational number equals `numerator / denominator` as a ratio.
 fn same_ratio(found: &RationalNumber, numerator: u64, denominator: u64) -> bool {
     found.numerator as u128 * denominator as u128 == found.denominator as u128 * numerator as u128
 }
