@@ -422,6 +422,7 @@ pub struct VotingProcedure {
     #[n(0)]
     pub vote: Vote,
     #[n(1)]
+    #[cbor(with = "pallas_codec::utils::or_nil", has_nil)]
     pub anchor: Option<Anchor>,
 }
 
@@ -478,6 +479,7 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
+    #[cbor(with = "pallas_codec::utils::or_nil", has_nil)]
     pub guardrail_script: Option<ScriptHash>,
 }
 
@@ -761,7 +763,10 @@ pub type MintedTx<'b> = Tx<'b>;
 
 #[cfg(test)]
 mod tests {
-    use super::{Anchor, Block, GovAction, RationalNumber, Relay};
+    use super::{
+        Anchor, Block, Certificate, Constitution, GovAction, RationalNumber, Relay,
+        TransactionBody, Vote,
+    };
     use pallas_codec::minicbor;
 
     type BlockWrapper<'b> = (u16, Block<'b>);
@@ -898,6 +903,87 @@ mod tests {
 
             assert!(bytes.eq(&bytes2), "re-encoded bytes didn't match original");
         }
+    }
+
+    #[test]
+    fn certificates_ending_in_an_absent_value_reencode_as_the_ledger_wrote_them() {
+        let bytes = hex::decode(include_str!(
+            "../../../test_data/dijkstra-generated/body-certificates-ending-in-null.hex"
+        ))
+        .unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+
+        let certificates = body.certificates.as_ref().unwrap();
+        assert!(matches!(
+            certificates[0],
+            Certificate::PoolRegistration {
+                pool_metadata: None,
+                ..
+            }
+        ));
+        assert!(matches!(
+            certificates[1],
+            Certificate::ResignCommitteeCold(_, None)
+        ));
+        assert!(matches!(
+            certificates[2],
+            Certificate::RegDRepCert(_, 12887877104563797838, None)
+        ));
+        assert!(matches!(
+            certificates[3],
+            Certificate::UpdateDRepCert(_, None)
+        ));
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&body).unwrap()),
+            hex::encode(&bytes)
+        );
+    }
+
+    #[test]
+    fn governance_ending_in_an_absent_value_reencodes_as_the_ledger_wrote_it() {
+        let bytes = hex::decode(include_str!(
+            "../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"
+        ))
+        .unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+
+        let votes = body.voting_procedures.as_ref().unwrap();
+        let (_, procedures) = votes.iter().next().unwrap();
+        let (id, procedure) = procedures.iter().next().unwrap();
+        assert_eq!(id.action_index, 41156);
+        assert_eq!(procedure.vote, Vote::Abstain);
+        assert_eq!(procedure.anchor, None);
+
+        let actions: Vec<_> = body
+            .proposal_procedures
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|proposal| &proposal.gov_action)
+            .collect();
+        assert!(matches!(
+            actions[0],
+            GovAction::NewConstitution(
+                Some(_),
+                Constitution {
+                    guardrail_script: None,
+                    ..
+                }
+            )
+        ));
+        assert!(matches!(
+            actions[1],
+            GovAction::ParameterChange(None, _, None)
+        ));
+        assert!(matches!(
+            actions[2],
+            GovAction::TreasuryWithdrawals(_, None)
+        ));
+        assert!(matches!(actions[3], GovAction::NoConfidence(None)));
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&body).unwrap()),
+            hex::encode(&bytes)
+        );
     }
 
     #[test]

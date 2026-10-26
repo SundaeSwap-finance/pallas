@@ -1805,6 +1805,20 @@ fn the_legal_account_balance_interval_forms_still_read() {
 }
 
 #[test]
+fn values_ending_in_an_absent_value_reencode_as_the_ledger_wrote_them() {
+    use super::TransactionBody;
+
+    for hex in [
+        include_str!("../../../test_data/dijkstra-generated/body-certificates-ending-in-null.hex"),
+        include_str!("../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"),
+    ] {
+        let bytes = hex::decode(hex).unwrap();
+        let body: TransactionBody = minicbor::decode(&bytes).unwrap();
+        assert_eq!(hex::encode(minicbor::to_vec(&body).unwrap()), hex);
+    }
+}
+
+#[test]
 fn an_account_balance_interval_is_two_elements_or_none() {
     let cases: &[(&str, &[u8])] = &[
         ("three element", &[0x83, 0x01, 0x02, 0x03]),

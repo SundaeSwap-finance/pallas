@@ -1447,6 +1447,38 @@ pub fn decode_text_def_or_indef<'b, C>(
     }
 }
 
+/// Codec for an `Option` array field that the CDDL types as `T / nil`, which writes `None` as a null in every position.
+pub mod or_nil {
+    use minicbor::{Decode, Decoder, Encode, Encoder};
+
+    /// Writes `Some(x)` as `x` and `None` as a null.
+    pub fn encode<C, W: minicbor::encode::Write, T: Encode<C>>(
+        value: &Option<T>,
+        e: &mut Encoder<W>,
+        ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        value.encode(e, ctx)
+    }
+
+    /// Reads a null as `None`.
+    pub fn decode<'b, C, T: Decode<'b, C>>(
+        d: &mut Decoder<'b>,
+        ctx: &mut C,
+    ) -> Result<Option<T>, minicbor::decode::Error> {
+        Option::<T>::decode(d, ctx)
+    }
+
+    /// Counts no value as nil, so the field is written even when it is last.
+    pub fn is_nil<T>(_: &Option<T>) -> bool {
+        false
+    }
+
+    /// The value of the field when the array ends before it.
+    pub fn nil<T>() -> Option<Option<T>> {
+        Some(None)
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cbor(transparent)]
 #[serde(into = "String")]
@@ -1690,6 +1722,32 @@ mod tests {
                 "the {name} array was refused for some other reason: {err}"
             );
         }
+    }
+
+    /// A required field followed by a `T / nil` field.
+    #[derive(Encode, Decode, Debug, PartialEq)]
+    struct Voted {
+        #[n(0)]
+        vote: u8,
+        #[n(1)]
+        #[cbor(with = "or_nil", has_nil)]
+        anchor: Option<u8>,
+    }
+
+    #[test]
+    fn an_or_nil_field_is_written_whether_or_not_it_holds_a_value() {
+        for (anchor, hex) in [(None, "8202f6"), (Some(7), "820207")] {
+            let value = Voted { vote: 2, anchor };
+            assert_eq!(hex::encode(minicbor::to_vec(&value).unwrap()), hex);
+            let bytes = hex::decode(hex).unwrap();
+            assert_eq!(minicbor::decode::<Voted>(&bytes).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn an_or_nil_field_reads_as_none_when_the_array_ends_before_it() {
+        let value: Voted = minicbor::decode(&[0x81, 0x02]).unwrap();
+        assert_eq!(value.anchor, None);
     }
 
     #[test]

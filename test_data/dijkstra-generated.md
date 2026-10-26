@@ -1,23 +1,26 @@
 # Dijkstra generated vectors
 
 Values generated from the Dijkstra ledger CDDL and decoded by the Haskell
-ledger, as lowercase hex, no trailing newline. Each one holds at least one
-array in its indefinite length form.
+ledger, as lowercase hex, no trailing newline.
 
 | | |
 | --- | --- |
 | ledger commit | `9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c` |
 | spec | `dijkstraCDDL`, the Huddle spec of `cardano-ledger-dijkstra` |
-| generator | cuddle over that spec, with its indefinite length encodings |
+| generator | cuddle over that spec, source `cddl` with its indefinite length encodings, source `cddl-plain` with definite lengths only |
 | seed and count | seed 1, 100 values per kind |
 
-A whole generated value names its kind, its source and its index. A cut value
-also names the item path inside that value, written as `[i]` for array element
-`i` and `{k}` for map key `k`. A framed value places the cut item inside the
-fixed CBOR shown, at `{}`, so that the ledger decodes it as a transaction body
-or witness set. Every file below is a value the ledger's decoder for its kind
-accepted. The expected values in `pallas-primitives/src/dijkstra/tests.rs`
-are what the ledger read from these bytes.
+## Indefinite length arrays
+
+Each value in this section holds at least one array in its indefinite length
+form. A whole generated value names its kind, its source and its index. A cut
+value also names the item path inside that value, written as `[i]` for array
+element `i` and `{k}` for map key `k`. A framed value places the cut item
+inside the fixed CBOR shown, at `{}`, so that the ledger decodes it as a
+transaction body or witness set. Every file below is a value the ledger's
+decoder for its kind accepted. The expected values in
+`pallas-primitives/src/dijkstra/tests.rs` are what the ledger read from these
+bytes.
 
 | file | from | item | frame | kind |
 | --- | --- | --- | --- | --- |
@@ -29,6 +32,26 @@ are what the ledger read from these bytes.
 | wits-constr-102-indefinite.hex | written by hand | none | `a10482d8669f1903e880ff01` | witness set |
 | proposal-hard-fork-indefinite-version.hex | block, cddl, 78 | `[1] [0] [0] [0] {20} [1]` | `a40080018002001481{}` | transaction body |
 
-The `cddl-plain` source is the same generator with definite lengths only. The
-witness set was written by hand. It holds one constructor 102 datum,
+The witness set was written by hand. It holds one constructor 102 datum,
 `d8669f1903e880ff`, whose index and fields are in an indefinite array.
+
+## Absent values written as null
+
+A cut value names its kind, its source, its index and the item path inside
+that value, written as `[i]` for array element `i`, `{k}` for map key `k` and
+`tag258` for the set tag. A framed value places the cut items inside the
+fixed CBOR shown, at each `{}` in order, so that the ledger decodes it as a
+transaction body. Every file below is a value the ledger's decoder for its
+kind accepted. The expected values in `pallas-primitives/src/conway/model.rs`
+are what the ledger read from these bytes.
+
+| file | from | items | frame | kind |
+| --- | --- | --- | --- | --- |
+| body-certificates-ending-in-null.hex | body, cddl-plain | 95 `{4} tag258 [0]`, 21 `{4} [2]`, 11 `{4} [1]`, 16 `{4} [1]` | `a400d90102800180020004d9010284{}{}{}{}` | transaction body |
+| body-governance-ending-in-null.hex | body, cddl-plain | 12 `{19}`, 71 `{20} tag258 [2]`, 22 `{20} tag258 [4]`, 22 `{20} tag258 [0]`, 25 `{20} tag258 [0]` | `a500d90102800180020013{}14d9010284{}{}{}{}` | transaction body |
+
+Each item ends in an absent value that the CDDL types as `T / nil`: a pool
+registration without metadata, a committee resignation, a DRep registration
+and a DRep update without an anchor, a vote without an anchor, a constitution
+without a guardrail script, and a parameter change, a treasury withdrawal and
+a no confidence action without a previous action or policy.

@@ -710,6 +710,7 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
+    #[cbor(with = "pallas_codec::utils::or_nil", has_nil)]
     pub script: Option<ScriptHash>,
 }
 
