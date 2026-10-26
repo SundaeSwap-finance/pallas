@@ -31,8 +31,10 @@ pub type TxCbor = AnyCbor;
 /// `64*n .. 64*n+63`); each set bit in the `u64` value selects a transaction
 /// within that window.
 ///
-/// It encodes as an indefinite length CBOR map, decodes from either length form,
-/// and keeps the last bitmap of a window that appears twice.
+/// **Wire note:** this *must* serialize as an indefinite-length CBOR map
+/// (`0xbf … 0xff`). The Leios prototype rejects a definite-length map and resets
+/// the connection. Decoding accepts either form (a [`BTreeMap`] keeps key order
+/// deterministic), and a window that appears twice keeps its last bitmap.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Bitmaps(pub BTreeMap<u16, u64>);
 
