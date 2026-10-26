@@ -89,7 +89,7 @@ pub use pallas_codec::utils::{
 pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::minicbor::{self, Decode, Encode, data::Tag};
-use pallas_codec::utils::decode_text_def_or_indef;
+use pallas_codec::utils::{decode_array, decode_text_def_or_indef, skip_array_rest};
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeMap;
@@ -280,6 +280,38 @@ pub type PositiveInterval = RationalNumber;
 /// Protocol version: `(major, minor)`.
 pub type ProtocolVersion = (u64, u64);
 
+/// Decoders for a [`ProtocolVersion`] field written as an array of either length form.
+pub(crate) mod protocol_version {
+    use super::ProtocolVersion;
+    use pallas_codec::minicbor::{self, data::Type, decode::Error};
+    use pallas_codec::utils::decode_array;
+
+    /// Decodes a [`ProtocolVersion`].
+    pub fn decode<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<ProtocolVersion, Error> {
+        decode_array(d, |a| Ok((a.decode_with(ctx)?, a.decode_with(ctx)?)))
+    }
+
+    /// Decodes an optional [`ProtocolVersion`], reading a null as `None`.
+    pub fn decode_option<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<ProtocolVersion>, Error> {
+        if d.datatype()? == Type::Null {
+            d.skip()?;
+            return Ok(None);
+        }
+        decode(d, ctx).map(Some)
+    }
+
+    /// The value of an optional [`ProtocolVersion`] field that is absent.
+    pub fn none() -> Option<Option<ProtocolVersion>> {
+        Some(None)
+    }
+}
+
 /// On-chain rational number, encoded as a CBOR tag-30 array of `[num, den]`.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct RationalNumber {
@@ -293,10 +325,11 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         // TODO: Enforce tag == 30 & array of size 2
         d.tag()?;
-        d.array()?;
-        Ok(RationalNumber {
-            numerator: d.decode_with(ctx)?,
-            denominator: d.decode_with(ctx)?,
+        decode_array(d, |a| {
+            Ok(RationalNumber {
+                numerator: a.decode_with(ctx)?,
+                denominator: a.decode_with(ctx)?,
+            })
         })
     }
 }
@@ -328,24 +361,32 @@ pub enum Relay {
 
 impl<'b, C> minicbor::decode::Decode<'b, C> for Relay {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        d.array()?;
-        let variant = d.u16()?;
+        let len = d.array()?;
+        let variant: u16 = d.decode_with(ctx)?;
 
-        match variant {
-            0 => Ok(Relay::SingleHostAddr(
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-                d.decode_with(ctx)?,
-            )),
-            1 => Ok(Relay::SingleHostName(
-                d.decode_with(ctx)?,
-                decode_text_def_or_indef(d, ctx)?,
-            )),
-            2 => Ok(Relay::MultiHostName(decode_text_def_or_indef(d, ctx)?)),
-            _ => Err(minicbor::decode::Error::message(
-                "invalid variant id for Relay",
-            )),
-        }
+        let (relay, read) = match variant {
+            0 => (
+                Relay::SingleHostAddr(
+                    d.decode_with(ctx)?,
+                    d.decode_with(ctx)?,
+                    d.decode_with(ctx)?,
+                ),
+                4,
+            ),
+            1 => (
+                Relay::SingleHostName(d.decode_with(ctx)?, decode_text_def_or_indef(d, ctx)?),
+                3,
+            ),
+            2 => (Relay::MultiHostName(decode_text_def_or_indef(d, ctx)?), 2),
+            _ => {
+                return Err(minicbor::decode::Error::message(
+                    "invalid variant id for Relay",
+                ));
+            }
+        };
+
+        skip_array_rest(d, len, read)?;
+        Ok(relay)
     }
 }
 

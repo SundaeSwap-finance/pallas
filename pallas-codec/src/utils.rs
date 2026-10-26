@@ -1564,9 +1564,133 @@ impl TryFrom<i128> for Int {
     }
 }
 
+/// The elements of one CBOR array of either length form, decoded in order as fields.
+pub struct ArrayFields<'a, 'b> {
+    d: &'a mut minicbor::Decoder<'b>,
+    len: Option<u64>,
+    read: u64,
+}
+
+impl<'b> ArrayFields<'_, 'b> {
+    /// Decodes the next element, or the absent value of `T` when the array has no element left.
+    pub fn decode_with<C, T: Decode<'b, C>>(&mut self, ctx: &mut C) -> Result<T, Error> {
+        if self.datatype()? == Type::Break {
+            return T::nil().ok_or_else(|| {
+                Error::message("array has no element left for a required field")
+                    .at(self.d.position())
+            });
+        }
+        self.read += 1;
+        self.d.decode_with(ctx)
+    }
+
+    /// The type of the next element, or `Type::Break` when the array has no element left.
+    pub fn datatype(&self) -> Result<Type, Error> {
+        match self.len {
+            Some(len) if self.read >= len => Ok(Type::Break),
+            _ => self.d.datatype(),
+        }
+    }
+}
+
+/// Decodes one CBOR array of either length form with `fields`, then skips the elements it left unread.
+pub fn decode_array<'b, T>(
+    d: &mut minicbor::Decoder<'b>,
+    fields: impl FnOnce(&mut ArrayFields<'_, 'b>) -> Result<T, Error>,
+) -> Result<T, Error> {
+    let len = d.array()?;
+    let mut array = ArrayFields { d, len, read: 0 };
+    let value = fields(&mut array)?;
+    let read = array.read;
+    skip_array_rest(d, len, read)?;
+    Ok(value)
+}
+
+/// Skips the elements of an array of length `len` after its first `read`, and the break of an indefinite one.
+pub fn skip_array_rest(
+    d: &mut minicbor::Decoder<'_>,
+    len: Option<u64>,
+    read: u64,
+) -> Result<(), Error> {
+    match len {
+        Some(len) => {
+            for _ in read..len {
+                d.skip()?;
+            }
+        }
+        None => {
+            while d.datatype()? != Type::Break {
+                d.skip()?;
+            }
+            d.skip()?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A required and an optional field.
+    type Pair = (u8, Option<u8>);
+
+    /// Decodes `bytes` as a `Pair` with `decode_array`, and the position it stopped at.
+    fn decode_pair(bytes: &[u8]) -> Result<(Pair, usize), Error> {
+        let mut d = minicbor::Decoder::new(bytes);
+        let pair = decode_array(&mut d, |a| {
+            Ok((a.decode_with(&mut ())?, a.decode_with(&mut ())?))
+        })?;
+        Ok((pair, d.position()))
+    }
+
+    #[test]
+    fn decode_array_reads_either_length_form_to_its_end() {
+        let cases: [(&str, &[u8], Pair); 6] = [
+            ("definite", &[0x82, 0x01, 0x02], (1, Some(2))),
+            ("indefinite", &[0x9f, 0x01, 0x02, 0xff], (1, Some(2))),
+            (
+                "definite with extras",
+                &[0x84, 0x01, 0x02, 0x81, 0x03, 0x04],
+                (1, Some(2)),
+            ),
+            (
+                "indefinite with extras",
+                &[0x9f, 0x01, 0x02, 0x9f, 0xff, 0x04, 0xff],
+                (1, Some(2)),
+            ),
+            ("definite without the optional", &[0x81, 0x01], (1, None)),
+            (
+                "indefinite without the optional",
+                &[0x9f, 0x01, 0xff],
+                (1, None),
+            ),
+        ];
+        for (name, bytes, expected) in cases {
+            let (pair, position) =
+                decode_pair(bytes).unwrap_or_else(|e| panic!("the {name} array: {e}"));
+            assert_eq!(pair, expected, "the {name} array");
+            assert_eq!(
+                position,
+                bytes.len(),
+                "the {name} array ends at its last byte"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_array_refuses_an_array_without_a_required_field() {
+        for (name, bytes) in [
+            ("definite", &[0x80, 0x01][..]),
+            ("indefinite", &[0x9f, 0xff][..]),
+        ] {
+            let err = decode_pair(bytes).expect_err("a missing required field must not decode");
+            assert!(
+                err.to_string().contains("required field"),
+                "the {name} array was refused for some other reason: {err}"
+            );
+        }
+    }
 
     #[test]
     fn keep_raw_retains_original() {
