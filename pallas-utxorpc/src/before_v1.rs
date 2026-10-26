@@ -25,6 +25,12 @@ macro_rules! impl_cardano_mapper_before_v1 {
             update
         }
 
+        /// An empty parameter set, as this schema has no field after the DRep inactivity period.
+        #[cfg(feature = "unstable")]
+        fn dijkstra_pparams(_: &pallas_validate::utils::DijkstraProtParams) -> u5c::PParams {
+            u5c::PParams::default()
+        }
+
         /// Returns the unspecified purpose for a guarding redeemer, for which this schema has no member.
         #[cfg(feature = "unstable")]
         fn guarding_purpose() -> u5c::RedeemerPurpose {
