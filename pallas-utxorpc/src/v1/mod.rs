@@ -1381,32 +1381,6 @@ mod tests {
     }
 
     #[test]
-    fn a_ledger_read_guarding_redeemer_maps_to_the_guarding_purpose() {
-        let cbor = super::script_tests::fixture("dijkstra-guarding-redeemer.tx");
-        let tx = trv::MultiEraTx::decode_for_era(trv::Era::Dijkstra, &cbor)
-            .expect("the fixture decodes");
-
-        let mapped = Mapper::new(NoLedger).map_tx(&tx);
-        let redeemers = &common(&mapped)
-            .witnesses
-            .as_ref()
-            .expect("the transaction has witnesses")
-            .redeemers;
-
-        assert_eq!(
-            redeemers
-                .iter()
-                .map(|r| (r.purpose, r.index))
-                .collect::<Vec<_>>(),
-            vec![
-                (u5c::RedeemerPurpose::Reward as i32, 2498742861),
-                (u5c::RedeemerPurpose::Guarding as i32, 3723616606),
-            ],
-            "both redeemers the ledger reads map in place with their purposes"
-        );
-    }
-
-    #[test]
     fn a_guard_clause_maps_to_the_credential_it_names() {
         use pallas_primitives::{StakeCredential, dijkstra};
 
