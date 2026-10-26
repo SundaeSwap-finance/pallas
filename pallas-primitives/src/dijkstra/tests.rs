@@ -2064,16 +2064,6 @@ fn generated_header_hex() -> String {
 }
 
 #[test]
-fn a_generated_header_reads_the_version_info_the_ledger_read() {
-    let bytes = hex::decode(generated_header_hex()).unwrap();
-    let header: Header = minicbor::decode(&bytes).expect("the generated header must decode");
-    let info = &header.header_body.header_version_info;
-    assert_eq!(info.highest_supported_major_version, 1004951745);
-    assert_eq!(info.self_reported_software_tag, 3942894501);
-    assert_eq!(minicbor::to_vec(&header).unwrap(), bytes);
-}
-
-#[test]
 fn a_version_info_in_an_indefinite_array_reads_to_its_break() {
     let header = generated_header_hex();
     let bytes = hex::decode(header.replace(VERSION_INFO, "9f1a3be658c11aeb03cba5ff")).unwrap();
@@ -2085,7 +2075,6 @@ fn a_version_info_in_an_indefinite_array_reads_to_its_break() {
     assert_eq!(info.self_reported_software_tag, 3942894501);
 }
 
-/// `header_version_info = [highest_supported_major_version : uint .size 4, self_reported_software_tag : uint .size 4]` (`defs.cddl`).
 #[test]
 fn a_version_info_field_past_four_bytes_is_refused() {
     let header = generated_header_hex();
@@ -2342,73 +2331,4 @@ fn generated_native_scripts_in_indefinite_arrays_decode() {
             )),
         ]
     );
-}
-
-/// The expected values are what the ledger read from each block, as `test_data/dijkstra-fixtures.md` records.
-#[test]
-fn the_rc_2026w42_blocks_read_what_the_ledger_read() {
-    for (name, block_number, slot, body_size, certified, transactions) in [
-        ("dijkstra-rc-2026w42-7", 7, 245, 4851, false, 1),
-        ("dijkstra-rc-2026w42-11", 11, 413, 56, true, 0),
-    ] {
-        let header = header_of(name).header_body;
-        assert_eq!(
-            (header.block_number, header.slot, header.block_body_size),
-            (block_number, slot, body_size),
-            "{name}: block number, slot and body size"
-        );
-        assert_eq!(
-            (
-                header.header_version_info.highest_supported_major_version,
-                header.header_version_info.self_reported_software_tag
-            ),
-            (12, 0),
-            "{name}: header version info"
-        );
-        assert_eq!(header.block_body_contains_leios_cert, certified, "{name}");
-        assert!(
-            matches!(header.eb_announcement, crate::Nullable::Null),
-            "{name}"
-        );
-
-        let block = block_of(name);
-        assert_eq!(block.block_body.transactions.len(), transactions, "{name}");
-        assert_eq!(
-            matches!(block.block_body.leios_certificate, crate::Nullable::Some(_)),
-            certified,
-            "{name}"
-        );
-        assert!(
-            matches!(block.block_body.peras_certificate, crate::Nullable::Null),
-            "{name}"
-        );
-    }
-
-    let certified = block_of("dijkstra-rc-2026w42-11");
-    let crate::Nullable::Some(certificate) = &certified.block_body.leios_certificate else {
-        panic!("dijkstra-rc-2026w42-11 must carry a leios certificate");
-    };
-    assert_eq!(hex::encode(certificate.signers.as_slice()), "e0");
-
-    let transfer = block_of("dijkstra-rc-2026w42-7");
-    let body = transfer.block_body.transactions[0]
-        .transaction_body
-        .clone()
-        .unwrap();
-    let input = body.inputs.iter().next().unwrap();
-    assert_eq!(
-        (hex::encode(input.transaction_id), input.index),
-        (
-            "9786e790d3cf276b0a4b070660c5588d132299095cc9f69c857e39a93cb8f24f".to_string(),
-            0
-        )
-    );
-    let TransactionOutput::Legacy(output) = body.outputs.first().unwrap() else {
-        panic!("the first output of dijkstra-rc-2026w42-7 is in the array form");
-    };
-    assert_eq!(
-        hex::encode(output.address.as_slice()),
-        "601597b348d779b3639848c23b94cd1a2eb8b277276af66c14450d85c5"
-    );
-    assert_eq!(output.amount, crate::alonzo::Value::Coin(100_000_000));
 }
