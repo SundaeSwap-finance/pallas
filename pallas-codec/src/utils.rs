@@ -1606,14 +1606,28 @@ pub struct ArrayFields<'a, 'b> {
 impl<'b> ArrayFields<'_, 'b> {
     /// Decodes the next element, or the absent value of `T` when the array has no element left.
     pub fn decode_with<C, T: Decode<'b, C>>(&mut self, ctx: &mut C) -> Result<T, Error> {
+        if self.datatype()? == Type::Break
+            && let Some(nil) = T::nil()
+        {
+            return Ok(nil);
+        }
+        self.decode_by(ctx, |d, ctx| d.decode_with(ctx))
+    }
+
+    /// Decodes the next element with `decode`, which the array must hold.
+    pub fn decode_by<C, T>(
+        &mut self,
+        ctx: &mut C,
+        decode: impl FnOnce(&mut minicbor::Decoder<'b>, &mut C) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         if self.datatype()? == Type::Break {
-            return T::nil().ok_or_else(|| {
+            return Err(
                 Error::message("array has no element left for a required field")
-                    .at(self.d.position())
-            });
+                    .at(self.d.position()),
+            );
         }
         self.read += 1;
-        self.d.decode_with(ctx)
+        decode(self.d, ctx)
     }
 
     /// The type of the next element, or `Type::Break` when the array has no element left.
@@ -1748,6 +1762,38 @@ mod tests {
     fn an_or_nil_field_reads_as_none_when_the_array_ends_before_it() {
         let value: Voted = minicbor::decode(&[0x81, 0x02]).unwrap();
         assert_eq!(value.anchor, None);
+    }
+
+    /// Decodes `bytes` as an array of one element read by a given decoder, here an optional `u8`.
+    fn decode_by_one(bytes: &[u8]) -> Result<Option<u8>, Error> {
+        let mut d = minicbor::Decoder::new(bytes);
+        decode_array(&mut d, |a| {
+            a.decode_by(&mut (), |d, ctx| d.decode_with::<_, Option<u8>>(ctx))
+        })
+    }
+
+    #[test]
+    fn decode_by_reads_the_next_element_with_the_given_decoder() {
+        for (name, bytes, expected) in [
+            ("definite", &[0x81, 0x07][..], Some(7)),
+            ("indefinite", &[0x9f, 0x07, 0xff][..], Some(7)),
+            ("definite null", &[0x81, 0xf6][..], None),
+            ("indefinite null", &[0x9f, 0xf6, 0xff][..], None),
+        ] {
+            let value = decode_by_one(bytes).unwrap_or_else(|e| panic!("the {name} array: {e}"));
+            assert_eq!(value, expected, "the {name} array");
+        }
+    }
+
+    #[test]
+    fn decode_by_refuses_an_array_without_its_element() {
+        for (name, bytes) in [("definite", &[0x80][..]), ("indefinite", &[0x9f, 0xff][..])] {
+            let err = decode_by_one(bytes).expect_err("a missing element must not decode");
+            assert!(
+                err.to_string().contains("required field"),
+                "the {name} array was refused for some other reason: {err}"
+            );
+        }
     }
 
     #[test]

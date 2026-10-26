@@ -31,9 +31,23 @@ bytes.
 | tx-indefinite.hex | tx, cddl-plain, 0 | whole, outer array made indefinite | none | transaction |
 | wits-constr-102-indefinite.hex | written by hand | none | `a10482d8669f1903e880ff01` | witness set |
 | proposal-hard-fork-indefinite-version.hex | block, cddl, 78 | `[1] [0] [0] [0] {20} [1]` | `a40080018002001481{}` | transaction body |
+| body-credential-indefinite.hex | body, cddl, 7 | `{4} [0]` | `a40080018002000481{}` | transaction body |
+| body-drep-indefinite.hex | body, cddl, 20 and 58 | `{4} [0]` of each | `a40080018002000482{}{}` | transaction body |
+| body-datum-option-indefinite.hex | body, cddl, 23 and 71 | `{1} [0] {0}`, `{1} [0] {2}`, `{1} [0] {0}`, `{1} [1] {2}`, the first three from 23 | `a300800182a300{}010002{}a300{}010002{}0200` | transaction body |
+| body-gov-action-indefinite.hex | tx, cddl, 22 | `[0] {20} [0] [0]`, `[0] {20} [0] [1]`, `[0] {20} [0] [2]` | `a4008001800200148184{}{}{}8260` and a zero anchor hash | transaction body |
+| body-voter-indefinite.hex | written by hand | none | whole file | transaction body |
+| body-guard-credential-indefinite.hex | tx, cddl, 7 | `[0] {14} [0]` | `a40080018002000e81{}` | transaction body |
+| body-script-ref-indefinite.hex | body, cddl, 23, and wits, cddl, 24 | `{1} [0] {0}` of the body, `{1} [0]` of the witness set | `a300800181a300{}010003d8184f9f00{}ff0200` | transaction body |
+| wits-native-scripts-indefinite.hex | wits, cddl, 24, 49 and 13 | `{1} [0]` of each | `a10183{}{}{}` | witness set |
 
 The witness set was written by hand. It holds one constructor 102 datum,
 `d8669f1903e880ff`, whose index and fields are in an indefinite array.
+
+The voter body was written by hand. Its voter key is the indefinite
+constitutional committee voter `9f00581c7ff2...76ff`, the first key under
+`[0] {19}` of tx, cddl, 74, and it votes no with no anchor on one fixed action
+id. The script reference body wraps a cut native script in an indefinite
+array with index 0.
 
 ## Absent values written as null
 
