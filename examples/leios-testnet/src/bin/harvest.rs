@@ -115,7 +115,7 @@ fn peer_of(addr: &str) -> PeerId {
     addr.parse().expect("a peer is host:port")
 }
 
-/// The version pair a Babbage or later header carries, which is the highest supported major version and the software tag for Dijkstra and the protocol version before it.
+/// The version pair in a Babbage or later header, which is the highest supported major version and the software tag for Dijkstra and the protocol version before it.
 fn version_pair(header: &MultiEraHeader) -> Option<(u64, u64)> {
     if let Some(h) = header.as_dijkstra() {
         let info = &h.header_body.header_version_info;
@@ -222,9 +222,9 @@ async fn run_index(args: &[String]) {
     tracing::info!(rows, "chain-sync went idle");
 }
 
-/// Names the certificate kinds in a transaction, separating a pool
-/// registration that carries a BLS key from one that does not, because the
-/// two are the same kind and only the key tells them apart.
+/// Names the certificate kinds in a transaction, and names a pool
+/// registration with a BLS key apart from one without, since both are one
+/// certificate kind.
 fn cert_kinds(tx: &pallas_traverse::MultiEraTx) -> Vec<String> {
     let mut out = Vec::new();
 
@@ -345,10 +345,10 @@ async fn run_scan(args: &[String]) {
 }
 
 /// Walks a range of blocks and writes a row for each of three things a block
-/// can carry that make the strict apply rule reject it, writing no blocks at
+/// can contain that make the strict apply rule reject it, writing no blocks at
 /// all, because a chain wide pass over the bodies does not fit on disk.
 ///
-/// A range that carried none of the three writes a header row and nothing
+/// A range that contained none of the three writes a header row and nothing
 /// else, and the closing counts say how many blocks and transactions the run
 /// read, so an empty answer states what it is an answer about.
 async fn run_dups(args: &[String]) {
@@ -619,8 +619,8 @@ fn run_ebcheck(args: &[String]) {
         let text = fs::read_to_string(format!("{prefix}.ebtxs"))
             .expect("the harvested endorser transactions are readable");
 
-        // The wire carries each transaction inside a CBOR byte string, and the
-        // file keeps it that way, so the envelope comes off before a decode.
+        // Each line is a transaction inside a CBOR byte string, as on the
+        // wire, so the byte string is read before the transaction decode.
         let raw: Vec<Vec<u8>> = text
             .split_whitespace()
             .map(|line| {
