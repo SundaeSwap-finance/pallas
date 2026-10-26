@@ -80,13 +80,18 @@ impl<C: LedgerContext> Mapper<C> {
                 payload: self.map_plutus_datum(&x.0).into(),
                 original_cbor: x.raw_cbor().to_vec().into(),
             },
-            babbage::DatumOption::Hash(x) => u5c::Datum {
-                hash: x.to_vec().into(),
-                payload: tx
-                    .and_then(|tx| tx.find_plutus_data(&x))
-                    .map(|d| self.map_plutus_datum(d)),
-                original_cbor: vec![].into(),
-            },
+            babbage::DatumOption::Hash(x) => {
+                let witnessed = tx.and_then(|tx| tx.find_plutus_data(&x));
+
+                u5c::Datum {
+                    hash: x.to_vec().into(),
+                    payload: witnessed.map(|d| self.map_plutus_datum(d)),
+                    original_cbor: witnessed
+                        .map(|d| d.raw_cbor().to_vec())
+                        .unwrap_or_default()
+                        .into(),
+                }
+            }
         })
     }
 
@@ -315,7 +320,7 @@ impl<C: LedgerContext> Mapper<C> {
                 total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
             }
             .into(),
-            fee: u64_to_bigint(tx.fee().unwrap_or_default()),
+            fee: tx.fee().and_then(u64_to_bigint),
             validity: u5c::TxValidity {
                 start: tx.validity_start().unwrap_or_default(),
                 ttl: tx.ttl().unwrap_or_default(),
@@ -520,7 +525,10 @@ mod tests {
             "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
         );
         assert!(resolved.payload.is_some());
-        assert_eq!(resolved.original_cbor, prost::bytes::Bytes::new());
+        assert_eq!(
+            pallas_crypto::hash::Hasher::<256>::hash(&resolved.original_cbor).to_vec(),
+            resolved.hash.to_vec()
+        );
 
         assert_eq!(unresolved.hash, resolved.hash);
         assert_eq!(unresolved.payload, None);

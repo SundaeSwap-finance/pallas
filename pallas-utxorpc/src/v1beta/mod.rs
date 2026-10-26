@@ -132,7 +132,7 @@ impl<C: LedgerContext> Mapper<C> {
                 total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
             }
             .into(),
-            fee: u64_to_bigint(tx.fee().unwrap_or_default()),
+            fee: tx.fee().and_then(u64_to_bigint),
             validity: u5c::TxValidity {
                 start: tx.validity_start().unwrap_or_default(),
                 ttl: tx.ttl().unwrap_or_default(),
@@ -337,7 +337,11 @@ mod tests {
             "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
         );
         assert!(resolved.payload.is_some());
-        assert_eq!(resolved.original_cbor, None);
+        let witnessed = resolved.original_cbor.as_deref().unwrap();
+        assert_eq!(
+            pallas_crypto::hash::Hasher::<256>::hash(witnessed).to_vec(),
+            resolved.hash.to_vec()
+        );
 
         assert_eq!(unresolved.hash, resolved.hash);
         assert_eq!(unresolved.payload, None);
@@ -362,6 +366,82 @@ mod tests {
                 .datum,
             expected
         );
+    }
+
+    #[test]
+    fn plutus_integers_beyond_i64_map_to_big_int_bytes() {
+        use pallas_primitives::alonzo::BigInt;
+        use u5c::big_int::BigInt::{BigNInt, BigUInt, Int};
+
+        let mapper = Mapper::new(NoLedger);
+        let map = |n: i128| {
+            let x = BigInt::Int(pallas_primitives::Int::try_from(n).unwrap());
+            mapper.map_plutus_bigint(&x).big_int.unwrap()
+        };
+        let top = [0x80, 0, 0, 0, 0, 0, 0, 0];
+
+        assert_eq!(map(i64::MAX.into()), Int(i64::MAX));
+        assert_eq!(map(i64::MIN.into()), Int(i64::MIN));
+        assert_eq!(map(1 << 63), BigUInt(top.to_vec().into()));
+        assert_eq!(map((1 << 64) - 1), BigUInt(vec![0xff; 8].into()));
+        assert_eq!(map(-(1 << 63) - 1), BigNInt(top.to_vec().into()));
+        assert_eq!(map(-(1 << 64)), BigNInt(vec![0xff; 8].into()));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn rationals_wider_than_32_bits_map_to_the_nearest_value() {
+        let map = |numerator, denominator| {
+            let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
+                numerator,
+                denominator,
+            });
+            (x.numerator, x.denominator)
+        };
+        let wide = 0xffff_ffff_ffff_fc17;
+
+        assert_eq!(map(wide, wide), (1, 1));
+        assert_eq!(map(3 << 32, 4 << 32), (3, 4));
+        assert_eq!(map(2, 4), (2, 4));
+        assert_eq!(
+            map((1 << 63) + 1, 10_000_000_000_000_000_000),
+            (823_865_382, 893_236_637)
+        );
+        assert_eq!(map(5_000_000_000, 7), (2_142_857_143, 3));
+        assert_eq!(
+            map(1 << 40, 847_288_609_443),
+            (2_012_878_384, 1_551_133_143)
+        );
+        assert_eq!(map(u64::MAX, 1), (i32::MAX, 1));
+        assert_eq!(map(1, u64::MAX), (0, 1));
+        assert_eq!(map(1, 2 * u64::from(u32::MAX)), (0, 1));
+        assert_eq!(map(u64::MAX, 0), (1, 0));
+
+        let margin = format!(
+            "8a03581c{}5820{}0000d81e821bfffffffffffffc171bfffffffffffffc17581de0{}8080f6",
+            "00".repeat(28),
+            "00".repeat(32),
+            "00".repeat(28)
+        );
+        let margin = hex::decode(margin).unwrap();
+        let block = hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap();
+        let block = pallas_traverse::MultiEraBlock::decode(&block).unwrap();
+        let tx = &block.txs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let alonzo = pallas_codec::minicbor::decode(&margin).unwrap();
+        let conway = pallas_codec::minicbor::decode(&margin).unwrap();
+
+        for cert in [
+            mapper.map_alonzo_compatible_cert(&alonzo, tx, 0),
+            mapper.map_conway_cert(&conway, tx, 0),
+        ] {
+            let Some(u5c::certificate::Certificate::PoolRegistration(pool)) = cert.certificate
+            else {
+                panic!("not a pool registration: {cert:?}");
+            };
+            let margin = pool.margin.unwrap();
+            assert_eq!((margin.numerator, margin.denominator), (1, 1));
+        }
     }
 
     #[test]
