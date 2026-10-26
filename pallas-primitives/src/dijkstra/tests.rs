@@ -1,8 +1,8 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
     Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, ProposalProcedure, Set, SetArm, StakeCredential, TransactionBody,
-    TransactionOutput, Value, WitnessSet,
+    NativeScript, NonEmptySet, ProposalProcedure, ProtocolParamUpdate, Set, SetArm,
+    StakeCredential, TransactionBody, TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
 use pallas_codec::utils::{KeepRaw, Nullable};
@@ -953,6 +953,34 @@ fn a_proposal_keeps_the_dijkstra_parameter_keys() {
         ),
         other => panic!("expected a parameter change action, found {other:?}"),
     }
+}
+
+#[test]
+fn a_parameter_update_re_encodes_every_key_and_each_nil() {
+    let cases = [
+        // Key 38 set to a value, the shape every earlier key has.
+        ("38 set", "a11826d81e820301"),
+        // Keys 49 to 56, with 50 and 54 as tag 30 rationals.
+        (
+            "49 to 56",
+            "a8183118711832d81e8207031833187218341873183518741836d81e8201091837187518381876",
+        ),
+        // Keys 38 and 53 set to nil, which the CDDL admits for those two keys alone.
+        ("38 and 53 nil", "a21826f61835f6"),
+    ];
+
+    let mut lost = Vec::new();
+    for (label, hex_str) in cases {
+        let bytes = hex::decode(hex_str).unwrap();
+        let update: ProtocolParamUpdate = minicbor::decode(&bytes)
+            .unwrap_or_else(|e| panic!("{label}: the update did not decode: {e:?}"));
+        let encoded = hex::encode(minicbor::to_vec(&update).unwrap());
+        if encoded != hex_str {
+            lost.push((label, encoded));
+        }
+    }
+
+    assert_eq!(lost, vec![], "these updates lost a key on re-encode");
 }
 
 /// `pool_params` carries `? bls_key : bls_key/ nil` (`defs.cddl`) between
