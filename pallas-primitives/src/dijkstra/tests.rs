@@ -1,9 +1,8 @@
 use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
     Certificate, CostModels, DRep, EndorserBlock, GovAction, Guards, Header, MempoolTransaction,
-    NativeScript, NonEmptySet, PlutusData, ProposalProcedure, ProtocolParamUpdate,
-    RationalNumber, Relay, Set, SetArm, StakeCredential, TransactionBody, TransactionOutput,
-    Value, WitnessSet,
+    NativeScript, NonEmptySet, PlutusData, ProposalProcedure, ProtocolParamUpdate, RationalNumber,
+    Relay, Set, SetArm, StakeCredential, TransactionBody, TransactionOutput, Value, WitnessSet,
 };
 use pallas_codec::minicbor;
 use pallas_codec::utils::{KeepRaw, Nullable};
