@@ -1,7 +1,9 @@
 use pallas_codec::tree::{
     Arity, IndexedNode, TreeDecode, Visit, cmp_tree, decode_tree, fold_tree, walk_tree,
 };
-use pallas_codec::utils::{Int, KeyValuePairs, decode_bytes_def_or_indef};
+use pallas_codec::utils::{
+    Int, KeyValuePairs, decode_array, decode_bytes_def_or_indef, skip_array_rest,
+};
 use pallas_codec::{
     minicbor::{
         self, Encode,
@@ -148,7 +150,8 @@ enum Partial {
     },
     Constr {
         tag: u64,
-        any_constructor: Option<u64>,
+        /// The index of a tag 102 constructor and the length of the array that holds it.
+        any_constructor: Option<(u64, Option<u64>)>,
         indefinite: bool,
         fields: Vec<PlutusData>,
     },
@@ -220,8 +223,13 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 let any_constructor = match tag {
                     121..=127 | 1280..=1400 => None,
                     102 => {
-                        d.array()?;
-                        Some(d.u64()?)
+                        let len = d.array()?;
+                        if len.is_some_and(|len| len < 2) {
+                            return Err(minicbor::decode::Error::message(
+                                "constructor 102 has no fields",
+                            ));
+                        }
+                        Some((d.u64()?, len))
                     }
                     _ => {
                         return Err(minicbor::decode::Error::message(
@@ -288,7 +296,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
 
     fn end(
         mut builder: Builder,
-        _: &mut minicbor::Decoder<'b>,
+        d: &mut minicbor::Decoder<'b>,
         _: &mut C,
     ) -> Result<Node, minicbor::decode::Error> {
         // Checked while the builder still owns the items, so a chain-deep
@@ -299,6 +307,13 @@ impl<'b, C> TreeDecode<'b, C> for Node {
             return Err(minicbor::decode::Error::message(
                 "plutus data map ended after a key",
             ));
+        }
+        if let Partial::Constr {
+            any_constructor: Some((_, len)),
+            ..
+        } = *builder.partial()
+        {
+            skip_array_rest(d, len, 2)?;
         }
 
         let partial = builder.0.take().expect("taken only when the node ends");
@@ -313,7 +328,7 @@ impl<'b, C> TreeDecode<'b, C> for Node {
                 fields,
             } => PlutusData::Constr(Constr {
                 tag,
-                any_constructor,
+                any_constructor: any_constructor.map(|(index, _)| index),
                 fields: array(indefinite, fields),
             }),
         };
@@ -584,15 +599,13 @@ where
                 fields: d.decode_with(ctx)?,
                 any_constructor: None,
             }),
-            102 => {
-                d.array()?;
-
+            102 => decode_array(d, |a| {
                 Ok(Constr {
                     tag: x,
-                    any_constructor: Some(d.decode_with(ctx)?),
-                    fields: d.decode_with(ctx)?,
+                    any_constructor: Some(a.decode_with(ctx)?),
+                    fields: a.decode_with(ctx)?,
                 })
-            }
+            }),
             _ => Err(minicbor::decode::Error::message(
                 "bad tag code for plutus data",
             )),
@@ -710,6 +723,59 @@ mod tests {
     use crate::{BigInt, BoundedBytes, Constr, KeyValuePairs, MaybeIndefArray};
     use proptest::{prelude::*, strategy::Just};
     use test_case::test_case;
+
+    #[test_case("d866821903e880" ; "definite")]
+    #[test_case("d8669f1903e880ff" ; "indefinite")]
+    #[test_case("d866831903e88000" ; "definite with an extra element")]
+    fn a_constructor_102_reads_its_array_to_the_end_as_plutus_data(hex: &str) {
+        let bytes = hex::decode(hex).unwrap();
+        let mut d = minicbor::Decoder::new(&bytes);
+        let data: PlutusData = d.decode().unwrap_or_else(|e| panic!("{hex}: {e}"));
+        assert_eq!(
+            d.position(),
+            bytes.len(),
+            "{hex} must be read to its last byte"
+        );
+        let PlutusData::Constr(constr) = data else {
+            panic!("{hex} is a constructor");
+        };
+        assert_eq!(constr.constr_index(), 1000);
+    }
+
+    #[test_case("d866821903e880" ; "definite")]
+    #[test_case("d8669f1903e880ff" ; "indefinite")]
+    #[test_case("d866831903e88000" ; "definite with an extra element")]
+    fn a_constructor_102_reads_its_array_to_the_end_as_a_constructor(hex: &str) {
+        let bytes = hex::decode(hex).unwrap();
+        let mut d = minicbor::Decoder::new(&bytes);
+        let constr: Constr<PlutusData> = d.decode().unwrap_or_else(|e| panic!("{hex}: {e}"));
+        assert_eq!(
+            d.position(),
+            bytes.len(),
+            "{hex} must be read to its last byte"
+        );
+        assert_eq!(constr.constr_index(), 1000);
+    }
+
+    #[test_case("d866811903e880" ; "definite, followed by an empty array")]
+    #[test_case("d8669f1903e8ff" ; "indefinite")]
+    fn a_constructor_102_without_fields_is_refused_as_plutus_data(hex: &str) {
+        let bytes = hex::decode(hex).unwrap();
+        assert!(
+            minicbor::decode::<PlutusData>(&bytes).is_err(),
+            "{hex} must not decode as plutus data"
+        );
+    }
+
+    #[test_case("d866811903e880" ; "definite, followed by an empty array")]
+    #[test_case("d8669f1903e8ff" ; "indefinite")]
+    fn a_constructor_102_without_fields_is_refused_as_a_constructor(hex: &str) {
+        let bytes = hex::decode(hex).unwrap();
+        assert!(
+            minicbor::decode::<Constr<PlutusData>>(&bytes).is_err(),
+            "{hex} must not decode as a constructor"
+        );
+    }
 
     prop_compose! {
         pub(crate) fn any_bounded_bytes()(
