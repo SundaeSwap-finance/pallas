@@ -1,34 +1,17 @@
-//! Guard-free native scripts in Dijkstra. These checks use slots, not Plutus time.
-use super::{ValidationError, ValidationResult};
+//! Native scripts in Dijkstra. These checks use slots, not Plutus time.
 use pallas_crypto::hash::Hash;
-use pallas_primitives::dijkstra::NativeScript;
-use std::collections::HashSet;
+use pallas_primitives::dijkstra::{NativeScript, StakeCredential};
+use std::collections::{BTreeSet, HashSet};
 
-/// Reject guards even in a branch that would not be evaluated. Guard authorization
-/// and scoped subtransaction evaluation are outside the supported subset.
-pub(crate) fn check_supported(script: &NativeScript) -> ValidationResult {
-    let mut pending = vec![script];
-    while let Some(script) = pending.pop() {
-        match script {
-            NativeScript::ScriptRequireGuard(_) => {
-                return Err(ValidationError::DijkstraUnsupported("native script guards"));
-            }
-            NativeScript::ScriptAll(xs)
-            | NativeScript::ScriptAny(xs)
-            | NativeScript::ScriptNOfK(_, xs) => pending.extend(xs),
-            _ => (),
-        }
-    }
-    Ok(())
-}
-
-/// The caller checks support before evaluation and must verify all vkey signatures
-/// against the original body before admission. Explicit frames avoid recursion.
+/// The caller passes the guards of the level that needs the script and must verify
+/// all vkey signatures against the original body before admission. Explicit frames
+/// avoid recursion.
 pub(crate) fn evaluate(
     script: &NativeScript,
     keys: &HashSet<Hash<28>>,
     lower: Option<u64>,
     upper: Option<u64>,
+    guards: &BTreeSet<StakeCredential>,
 ) -> bool {
     enum Frame<'a> {
         Visit(&'a NativeScript),
@@ -57,8 +40,8 @@ pub(crate) fn evaluate(
                         results.push(upper.is_some_and(|x| x <= *slot));
                         continue;
                     }
-                    NativeScript::ScriptRequireGuard(_) => {
-                        results.push(false);
+                    NativeScript::ScriptRequireGuard(credential) => {
+                        results.push(guards.contains(credential));
                         continue;
                     }
                     NativeScript::ScriptAll(xs) => (xs, xs.len()),
