@@ -845,6 +845,42 @@ fn dijkstra_batch_sub_reference_inputs_are_distinct_and_counted_once() {
 }
 
 #[test]
+fn dijkstra_batch_sub_guard_scripts_are_needed() {
+    token_order_batch(|tx, input, sub_input| {
+        let signed = native(n::NativeScript::ScriptPubkey(guard_key()));
+        let denied = native(n::NativeScript::ScriptPubkey([9; 28].into()));
+        let guarded = |script: Option<&KeepRaw<'static, n::NativeScript>>,
+                       witness: Option<&KeepRaw<'static, n::NativeScript>>| {
+            let mut changed = tx.clone();
+            resign(&mut changed, |sub| {
+                let mut guards = vec![n::StakeCredential::AddrKeyhash(guard_key())];
+                guards.extend(script.map(|x| n::StakeCredential::ScriptHash(x.original_hash())));
+                sub.sub_transaction_body.guards = Some(n::Guards::Credentials(
+                    n::NonEmptySet::from_vec(guards).unwrap(),
+                ));
+                sub.transaction_witness_set.native_script =
+                    witness.and_then(|x| n::NonEmptySet::from_vec(vec![x.clone()]));
+            });
+            changed
+        };
+        let result = run_sub(&guarded(Some(&signed), Some(&signed)), &input, &sub_input);
+        assert!(result.is_ok(), "{result:?}");
+        error(
+            run_sub(&guarded(None, Some(&signed)), &input, &sub_input),
+            "PostAlonzo(UnneededNativeScript)",
+        );
+        error(
+            run_sub(&guarded(Some(&signed), None), &input, &sub_input),
+            "PostAlonzo(ScriptWitnessMissing)",
+        );
+        error(
+            run_sub(&guarded(Some(&denied), Some(&denied)), &input, &sub_input),
+            "PostAlonzo(NativeScriptDenial)",
+        );
+    });
+}
+
+#[test]
 fn dijkstra_batch_unused_guard_scripts_are_not_checked() {
     token_order_batch(|tx, input, sub_input| {
         let guarded = native(n::NativeScript::ScriptRequireGuard(
