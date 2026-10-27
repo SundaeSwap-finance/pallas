@@ -555,7 +555,7 @@ fn dijkstra_typed_features_reject_explicitly() {
                         )])
                         .unwrap(),
                     ));
-                    "script guards"
+                    "guard script without a witness"
                 }
                 1 => {
                     changed.transaction_body.required_top_level_guards = Some(
@@ -566,7 +566,7 @@ fn dijkstra_typed_features_reject_explicitly() {
                         .into_iter()
                         .collect(),
                     );
-                    "script guards"
+                    "required guard outside the top guards"
                 }
                 2 => {
                     changed.transaction_body.direct_deposits = Some(Default::default());
@@ -604,6 +604,8 @@ fn dijkstra_typed_features_reject_explicitly() {
                 }
             };
             let expected = match field {
+                0 => "PostAlonzo(ScriptWitnessMissing)".to_owned(),
+                1 => "PostAlonzo(ReqSignerMissing)".to_owned(),
                 8 => "PostAlonzo(ScriptIntegrityHash)".to_owned(),
                 9 => "PostAlonzo(MetadataHash)".to_owned(),
                 _ => format!("DijkstraUnsupported({expected:?})"),

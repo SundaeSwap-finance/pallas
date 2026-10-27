@@ -41,10 +41,22 @@ pub fn validate_dijkstra_tx(
         check_sub_supported(sub)?;
     }
     let mut state = cert_state.dijkstra_registrations.clone();
-    let mut keys = guard_keys(b.guards.as_ref())?;
-    let top_guards = keys.clone();
+    let guards = guard_credentials(b.guards.as_ref());
+    let mut keys = guard_keys(&guards);
+    let top_guards: BTreeSet<_> = guards.iter().cloned().collect();
     check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
     let mut scripts = BTreeMap::new();
+    for (index, credential) in guards.iter().enumerate() {
+        if let StakeCredential::ScriptHash(hash) = credential {
+            scripts.insert(
+                RedeemersKey {
+                    tag: RedeemerTag::Guarding,
+                    index: index as u32,
+                },
+                *hash,
+            );
+        }
+    }
     let mut accounts = cert_state.dijkstra_account_balances.clone();
     let mut withdrawals = 0;
     let mut ordered_withdrawals: Vec<_> = b.withdrawals.iter().flat_map(|x| x.iter()).collect();
@@ -232,11 +244,12 @@ pub fn validate_dijkstra_tx(
             *block_slot,
             *network_id,
         )?;
-        let mut sub_keys = guard_keys(sb.guards.as_ref())?;
+        let guards = guard_credentials(sb.guards.as_ref());
+        let mut sub_keys = guard_keys(&guards);
         let spending = check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys)?;
         consumed = add(consumed, spending.coin)?;
         let witnesses = witness_keys(w);
-        for hash in &spending.scripts {
+        for hash in spending.scripts.iter().chain(guard_scripts(&guards)) {
             let script = natives.get(hash).ok_or(PostAlonzo(ScriptWitnessMissing))?;
             if !crate::utils::dijkstra_native::evaluate(
                 script,
@@ -306,34 +319,40 @@ fn check_interval(
     }
     Ok(())
 }
-fn guard_keys(guards: Option<&Guards>) -> Result<Keys, ValidationError> {
-    let mut keys = Keys::new();
+fn guard_credentials(guards: Option<&Guards>) -> Vec<StakeCredential> {
     match guards {
-        None => (),
-        Some(Guards::AddrKeyhashes(xs)) => keys.extend(xs.iter().copied()),
-        Some(Guards::Credentials(xs)) => {
-            for x in xs.iter() {
-                let StakeCredential::AddrKeyhash(key) = x else {
-                    return Err(DijkstraUnsupported("script guards"));
-                };
-                keys.insert(*key);
-            }
-        }
+        None => vec![],
+        Some(Guards::AddrKeyhashes(xs)) => xs
+            .iter()
+            .map(|x| StakeCredential::AddrKeyhash(*x))
+            .collect(),
+        Some(Guards::Credentials(xs)) => xs.to_vec(),
     }
-    Ok(keys)
+}
+fn guard_keys(guards: &[StakeCredential]) -> Keys {
+    guards
+        .iter()
+        .filter_map(|x| match x {
+            StakeCredential::AddrKeyhash(key) => Some(*key),
+            StakeCredential::ScriptHash(_) => None,
+        })
+        .collect()
+}
+fn guard_scripts(guards: &[StakeCredential]) -> impl Iterator<Item = &Hash<28>> {
+    guards.iter().filter_map(|x| match x {
+        StakeCredential::ScriptHash(hash) => Some(hash),
+        StakeCredential::AddrKeyhash(_) => None,
+    })
 }
 fn check_required_guards(
     required: Option<&RequiredTopLevelGuards>,
-    top: &Keys,
+    top: &BTreeSet<StakeCredential>,
 ) -> ValidationResult {
     for (credential, datum) in required.into_iter().flatten() {
-        let StakeCredential::AddrKeyhash(key) = credential else {
-            return Err(DijkstraUnsupported("script guards"));
-        };
         if !matches!(datum, Nullable::Null) {
             return Err(DijkstraUnsupported("guard datum"));
         }
-        if !top.contains(key) {
+        if !top.contains(credential) {
             return Err(PostAlonzo(ReqSignerMissing));
         }
     }
@@ -684,6 +703,8 @@ fn sub_scripts(b: &TransactionBody<'_>, utxos: &UTxOs<'_>) -> Result<SubScripts,
     let mut subs = SubScripts::default();
     for sub in b.sub_transactions.iter().flatten() {
         let sb = &sub.sub_transaction_body;
+        subs.needed
+            .extend(guard_scripts(&guard_credentials(sb.guards.as_ref())));
         let mut outputs = Vec::new();
         for input in sb.inputs.iter() {
             let output = utxos
