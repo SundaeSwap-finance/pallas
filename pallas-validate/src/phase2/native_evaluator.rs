@@ -19,7 +19,7 @@ use pallas_codec::minicbor;
 use pallas_primitives::conway::{ExUnits, PlutusData};
 
 /// Evaluate the documented protocol-12 Plutus V3 builtin subset.
-/// Pass all 350 coefficients unchanged to the pinned Amaru evaluator.
+/// Pass the coefficients unchanged to the pinned Amaru evaluator.
 /// Other builtins remain explicitly unsupported.
 pub(crate) fn eval_native_v3(
     script_bytes: &[u8],

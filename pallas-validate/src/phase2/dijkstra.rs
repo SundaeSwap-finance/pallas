@@ -412,9 +412,6 @@ fn eval_tx_with_mode(
         .plutus_v3
         .as_ref()
         .ok_or(Error::CostModelNotFound(c::Language::PlutusV3))?;
-    if cost_model_v3.len() != 350 {
-        return unsupported("protocol-12 V3 cost model requires 350 entries");
-    }
     if !estimate {
         let mut total_mem = 0u64;
         let mut total_steps = 0u64;
