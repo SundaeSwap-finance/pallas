@@ -193,7 +193,7 @@ fn native_registration_invalid_redeemer_and_budget() {
     });
 }
 #[test]
-fn native_registration_cost_model_is_applied_and_never_truncated() {
+fn native_registration_cost_model_is_applied_by_position() {
     fixture(|tx, u| {
         let original = run(&tx, &u).unwrap();
         let mut pp = params();
@@ -213,7 +213,7 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
             !changed[0].success,
             "higher historical cost exceeds unchanged declared budget"
         );
-        for len in [0, 251, 297, 349, 351] {
+        for len in [351, 369] {
             let mut pp = params();
             let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
                 unreachable!()
@@ -222,11 +222,23 @@ fn native_registration_cost_model_is_applied_and_never_truncated() {
                 .plutus_v3
                 .as_mut()
                 .unwrap()
-                .resize(len, 0);
-            error(
-                evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()),
-                "requires 350 entries",
-            );
+                .resize(len, 7);
+            let result = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()).unwrap();
+            assert_eq!(result[0].units, original[0].units, "{len}");
+            assert!(result[0].success, "{len}: {result:?}");
+        }
+        for len in [0, 29] {
+            let mut pp = params();
+            let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
+                unreachable!()
+            };
+            p.cost_models_for_script_languages
+                .plutus_v3
+                .as_mut()
+                .unwrap()
+                .truncate(len);
+            let result = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &pp, &u, &slots()).unwrap();
+            assert!(!result[0].success, "{len}: {result:?}");
         }
         let mut pp = params();
         let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {

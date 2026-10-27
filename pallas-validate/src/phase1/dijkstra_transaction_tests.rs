@@ -469,6 +469,30 @@ mod scripts {
     }
     const PASS: &str = "(program 1.1.0 (lam ctx (con unit ())))";
     #[test]
+    fn dijkstra_v3_cost_model_of_any_length() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            for len in [0, 297, 351, 369] {
+                let mut resized = environment();
+                let MultiEraProtocolParameters::Dijkstra(pp) = &mut resized.prot_params else {
+                    panic!()
+                };
+                pp.cost_models_for_script_languages
+                    .plutus_v3
+                    .as_mut()
+                    .unwrap()
+                    .resize(len, 7);
+                dijkstra_tests::error(
+                    run(&tx, &inputs, &resized, &state),
+                    "PostAlonzo(ScriptIntegrityHash)",
+                );
+                seal(&mut tx, &resized);
+                let result = run(&tx, &inputs, &resized, &state);
+                assert!(result.is_ok(), "{len}: {result:?}");
+                seal(&mut tx, &env);
+            }
+        });
+    }
+    #[test]
     fn estimation_tests_spend_mint_reward_reporting() {
         for reference in [false, true] {
             case(reference, PASS, |mut tx, inputs, env, state| {

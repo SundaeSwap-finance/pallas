@@ -878,11 +878,6 @@ fn check_scripts(
         .plutus_v3
         .as_ref()
         .ok_or(DijkstraMissingParameters("PlutusV3 cost model"))?;
-    if cost_model_v3.len() != 350 {
-        return Err(DijkstraMissingParameters(
-            "protocol-12 V3 cost model requires 350 entries",
-        ));
-    }
     let redeemers = w.redeemer.as_ref().ok_or(PostAlonzo(RedeemerMissing))?;
     // BTreeMap decoding could hide duplicate pointers. Inspect original map first.
     let raw = encode(redeemers)?;
