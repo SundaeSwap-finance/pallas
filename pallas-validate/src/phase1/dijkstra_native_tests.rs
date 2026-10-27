@@ -184,6 +184,41 @@ fn dijkstra_native_guards_reject_even_in_unused_branches() {
 }
 
 #[test]
+fn dijkstra_native_top_guard_scripts_are_needed() {
+    let spender = native(n::NativeScript::ScriptAll(vec![]));
+    let signed = native(n::NativeScript::ScriptPubkey(key_hash()));
+    let denied = native(n::NativeScript::ScriptPubkey([9; 28].into()));
+    spend(spender.clone(), |mut tx, inputs| {
+        let guard = |tx: &mut n::BlockTransaction<'_>, script: &KeepRaw<'_, n::NativeScript>| {
+            tx.transaction_body.guards = Some(n::Guards::Credentials(
+                n::NonEmptySet::from_vec(vec![n::StakeCredential::ScriptHash(
+                    script.original_hash(),
+                )])
+                .unwrap(),
+            ));
+            dijkstra_tests::sign(tx);
+        };
+        let witness = |tx: &mut n::BlockTransaction<'_>,
+                       script: &KeepRaw<'static, n::NativeScript>| {
+            tx.transaction_witness_set.native_script =
+                n::NonEmptySet::from_vec(vec![spender.clone(), script.clone()]);
+        };
+        let original = tx.clone();
+        witness(&mut tx, &signed);
+        rejects(&tx, &inputs, "PostAlonzo(UnneededNativeScript)");
+        guard(&mut tx, &signed);
+        accepts(&tx, &inputs);
+        tx = original.clone();
+        guard(&mut tx, &signed);
+        rejects(&tx, &inputs, "PostAlonzo(ScriptWitnessMissing)");
+        tx = original;
+        witness(&mut tx, &denied);
+        guard(&mut tx, &denied);
+        rejects(&tx, &inputs, "PostAlonzo(NativeScriptDenial)");
+    });
+}
+
+#[test]
 fn dijkstra_native_mint_registration_and_partial_withdrawal() {
     let script = native(n::NativeScript::ScriptPubkey(key_hash()));
     let hash = script.original_hash();
