@@ -38,3 +38,35 @@ fn dijkstra_native_reference_hash_survives_v3_projection() {
         expected
     );
 }
+
+#[test]
+fn dijkstra_native_reference_guard_has_no_v3_projection() {
+    let guard = n::NativeScript::ScriptAll(vec![n::NativeScript::ScriptRequireGuard(
+        n::StakeCredential::AddrKeyhash([2; 28].into()),
+    )]);
+    let raw = minicbor::to_vec(&guard).unwrap();
+    let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&raw).unwrap();
+    let address = pallas_addresses::ShelleyAddress::new(
+        pallas_addresses::Network::Testnet,
+        ShelleyPaymentPart::Key([1; 28].into()),
+        ShelleyDelegationPart::Null,
+    )
+    .to_vec();
+    let output = n::TransactionOutput::PostAlonzo(
+        n::PostAlonzoTransactionOutput {
+            address: address.into(),
+            value: c::Value::Coin(5_000_000),
+            datum_option: None,
+            script_ref: Some(CborWrap(n::ScriptRef::NativeScript(native))),
+        }
+        .into(),
+    );
+    let result = context_output(&MultiEraOutput::from_dijkstra(&output), true);
+    assert!(
+        matches!(
+            result,
+            Err(Error::DijkstraUnsupported("native script guards"))
+        ),
+        "{result:?}"
+    );
+}
