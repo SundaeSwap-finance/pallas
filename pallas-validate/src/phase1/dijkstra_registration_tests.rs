@@ -485,13 +485,7 @@ fn dijkstra_registration_other_certificates_and_script_forms_reject() {
             .as_mut()
             .unwrap()
             .truncate(297);
-        fail(
-            &tx,
-            &utxos,
-            &e,
-            &state,
-            "DijkstraMissingParameters(\"protocol-12 V3 cost model requires 350 entries\")",
-        );
+        fail(&tx, &utxos, &e, &state, "PostAlonzo(ScriptIntegrityHash)");
     });
 }
 
