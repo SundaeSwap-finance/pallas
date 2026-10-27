@@ -249,6 +249,7 @@ pub fn validate_dijkstra_tx(
         let spending = check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys)?;
         consumed = add(consumed, spending.coin)?;
         let witnesses = witness_keys(w);
+        let credentials: BTreeSet<_> = guards.iter().cloned().collect();
         for hash in spending.scripts.iter().chain(guard_scripts(&guards)) {
             let script = natives.get(hash).ok_or(PostAlonzo(ScriptWitnessMissing))?;
             if !crate::utils::dijkstra_native::evaluate(
@@ -256,6 +257,7 @@ pub fn validate_dijkstra_tx(
                 &witnesses,
                 sb.validity_interval_start,
                 sb.ttl,
+                &credentials,
             ) {
                 return Err(PostAlonzo(NativeScriptDenial));
             }
@@ -836,18 +838,15 @@ fn check_scripts(
         natives.entry(*hash).or_insert_with(|| script.clone());
     }
     let witness_keys = witness_keys(w);
-    // Only needed scripts run, so an unused guard script in a UTxO is harmless.
+    let guards: BTreeSet<_> = guard_credentials(b.guards.as_ref()).into_iter().collect();
     for (hash, script) in &natives {
-        let top = scripts.values().any(|x| x == hash);
-        if top || subs.needed.contains(hash) {
-            crate::utils::dijkstra_native::check_supported(script)?;
-        }
-        if top
+        if scripts.values().any(|x| x == hash)
             && !crate::utils::dijkstra_native::evaluate(
                 script,
                 &witness_keys,
                 b.validity_interval_start,
                 b.ttl,
+                &guards,
             )
         {
             return Err(PostAlonzo(NativeScriptDenial));
@@ -1286,7 +1285,7 @@ fn check_integrity(tx: &BlockTransaction<'_>, model: Option<&Vec<i64>>) -> Valid
 fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     match script {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
-            ScriptRef::NativeScript(s) => crate::utils::dijkstra_native::check_supported(s),
+            ScriptRef::NativeScript(_) => Ok(()),
             ScriptRef::PlutusV3Script(s) => well_formed_v3(s.as_ref()),
             _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
         },

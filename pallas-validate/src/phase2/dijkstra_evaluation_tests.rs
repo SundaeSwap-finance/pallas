@@ -99,6 +99,22 @@ fn error(result: Result<EvalReport, Error>, expected: &str) {
     );
 }
 #[test]
+fn native_registration_accepts_a_guard_native_witness() {
+    fixture(|mut tx, u| {
+        let guard =
+            n::NativeScript::ScriptRequireGuard(n::StakeCredential::AddrKeyhash([2; 28].into()));
+        let raw = minicbor::to_vec(&guard).unwrap();
+        let native = minicbor::decode::<pallas_codec::utils::KeepRaw<'_, n::NativeScript>>(&raw)
+            .unwrap()
+            .to_owned();
+        let mut w = (*tx.transaction_witness_set).clone();
+        w.native_script = n::NonEmptySet::from_vec(vec![native]);
+        tx.transaction_witness_set = w.into();
+        let r = run(&tx, &u).expect("a guard in a native witness must not stop evaluation");
+        assert!(r[0].success, "{r:?}");
+    });
+}
+#[test]
 fn native_registration_missing_inputs_and_unrelated_utxos() {
     fixture(|tx, u| {
         for input in [

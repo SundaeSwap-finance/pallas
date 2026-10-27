@@ -18,6 +18,21 @@ fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(feature))
 }
 
+/// Whether a native script holds a guard, which the Conway native script cannot encode.
+fn holds_guard(script: &n::NativeScript) -> bool {
+    let mut pending = vec![script];
+    while let Some(script) = pending.pop() {
+        match script {
+            n::NativeScript::ScriptRequireGuard(_) => return true,
+            n::NativeScript::ScriptAll(xs)
+            | n::NativeScript::ScriptAny(xs)
+            | n::NativeScript::ScriptNOfK(_, xs) => pending.extend(xs.iter()),
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Project checked ledger output fields into the shared V3 TxOut
 /// representation. Decode under the original era first; never decode native
 /// CBOR as Conway or change its era. V3 exposes the same
@@ -35,8 +50,9 @@ fn context_output(
         None => None,
         Some(MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
             n::ScriptRef::NativeScript(s) => {
-                crate::utils::dijkstra_native::check_supported(s)
-                    .map_err(|_| Error::DijkstraUnsupported("native script guards"))?;
+                if holds_guard(s) {
+                    return unsupported("native script guards");
+                }
                 // The guard-free variants share their encoding. Preserve original
                 // script bytes so the V3 TxOut exposes the correct reference hash.
                 let raw = pallas_codec::minicbor::to_vec(s)
@@ -202,8 +218,6 @@ fn eval_tx_with_mode(
     // script lookup.
     let mut natives = std::collections::BTreeSet::new();
     for script in w.native_script.iter().flat_map(|x| x.iter()) {
-        crate::utils::dijkstra_native::check_supported(script)
-            .map_err(|_| Error::DijkstraUnsupported("native script guards"))?;
         natives.insert(script.original_hash());
     }
     for input in inputs.iter().chain(&reference_inputs) {
