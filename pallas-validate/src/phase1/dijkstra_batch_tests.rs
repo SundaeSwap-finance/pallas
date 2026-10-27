@@ -881,6 +881,46 @@ fn dijkstra_batch_sub_guard_scripts_are_needed() {
 }
 
 #[test]
+fn dijkstra_batch_sub_native_guards_read_the_sub_guards() {
+    token_order_batch(|tx, input, sub_input| {
+        let key = n::StakeCredential::AddrKeyhash(guard_key());
+        let first = native(n::NativeScript::ScriptRequireGuard(key.clone()));
+        let named = n::StakeCredential::ScriptHash(first.original_hash());
+        let second = native(n::NativeScript::ScriptRequireGuard(named.clone()));
+        let mut spent = sub_input.clone();
+        post_alonzo(&mut spent).address = locked(second.original_hash());
+        let guarded = |guards: Vec<n::StakeCredential>,
+                       witnesses: Vec<KeepRaw<'static, n::NativeScript>>| {
+            let mut changed = tx.clone();
+            resign(&mut changed, |sub| {
+                sub.sub_transaction_body.guards = Some(n::Guards::Credentials(
+                    n::NonEmptySet::from_vec(guards).unwrap(),
+                ));
+                sub.transaction_witness_set.native_script = n::NonEmptySet::from_vec(witnesses);
+            });
+            changed
+        };
+        let result = run_sub(
+            &guarded(
+                vec![named.clone(), key.clone()],
+                vec![first.clone(), second.clone()],
+            ),
+            &input,
+            &spent,
+        );
+        assert!(result.is_ok(), "{result:?}");
+        error(
+            run_sub(
+                &guarded(vec![key.clone()], vec![second.clone()]),
+                &input,
+                &spent,
+            ),
+            "PostAlonzo(NativeScriptDenial)",
+        );
+    });
+}
+
+#[test]
 fn dijkstra_batch_unused_guard_scripts_are_not_checked() {
     token_order_batch(|tx, input, sub_input| {
         let guarded = native(n::NativeScript::ScriptRequireGuard(

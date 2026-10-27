@@ -167,19 +167,35 @@ fn dijkstra_native_combinators_and_slot_bounds() {
 }
 
 #[test]
-fn dijkstra_native_guards_reject_even_in_unused_branches() {
+fn dijkstra_native_guards_read_the_level_guards() {
+    let guard = n::StakeCredential::AddrKeyhash(key_hash());
+    spend(
+        native(n::NativeScript::ScriptRequireGuard(guard.clone())),
+        |mut tx, inputs| {
+            rejects(&tx, &inputs, "PostAlonzo(NativeScriptDenial)");
+            tx.transaction_body.guards = Some(n::Guards::Credentials(
+                n::NonEmptySet::from_vec(vec![guard.clone()]).unwrap(),
+            ));
+            dijkstra_tests::sign(&mut tx);
+            accepts(&tx, &inputs);
+            tx.transaction_body.guards = Some(n::Guards::AddrKeyhashes(
+                n::NonEmptySet::from_vec(vec![key_hash()]).unwrap(),
+            ));
+            dijkstra_tests::sign(&mut tx);
+            accepts(&tx, &inputs);
+            output(first_output(&mut tx)).script_ref = Some(CborWrap(n::ScriptRef::NativeScript(
+                native(n::NativeScript::ScriptRequireGuard(guard.clone())),
+            )));
+            dijkstra_tests::sign(&mut tx);
+            accepts(&tx, &inputs);
+        },
+    );
     spend(
         native(n::NativeScript::ScriptAny(vec![
             n::NativeScript::ScriptAll(vec![]),
-            n::NativeScript::ScriptRequireGuard(n::StakeCredential::AddrKeyhash(key_hash())),
+            n::NativeScript::ScriptRequireGuard(guard.clone()),
         ])),
-        |tx, inputs| {
-            rejects(
-                &tx,
-                &inputs,
-                "DijkstraUnsupported(\"native script guards\")",
-            );
-        },
+        |tx, inputs| accepts(&tx, &inputs),
     );
 }
 
