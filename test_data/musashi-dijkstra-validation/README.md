@@ -69,8 +69,9 @@ two are not yet checked against it.
 Use `unstable,phase2` for newly carried/published V3 script well-formedness checks.
 Without `phase2`, those new scripts reject explicitly. Phase-two evaluation alone
 is not admission validation. The audited protocol-12 backend adds
-`SubtractInteger`, `MultiplyInteger` and `LessThanByteString`; its other builtin
-and integer-operand restrictions remain. The retained transaction matches the
+`SubtractInteger`, `MultiplyInteger` and `LessThanByteString`. A script is refused
+only when it calls a builtin outside the audited set, and the integer-operand
+restriction remains. The retained transaction matches the
 independent CLI for all five purposes (`cli-comparison.json`).
 
 Guard-free native scripts are additionally supported; see
