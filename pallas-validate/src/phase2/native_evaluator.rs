@@ -85,7 +85,7 @@ pub(crate) fn eval_native_v3(
     })
 }
 
-/// Evaluate a program as `Program::eval` does, refusing a call to a builtin outside the audited set.
+/// Evaluate a program to its result and spent budget, refusing a call to a builtin outside the audited set.
 fn run<'a>(
     arena: &'a Arena,
     program: &'a Program<'a, DeBruijn>,
