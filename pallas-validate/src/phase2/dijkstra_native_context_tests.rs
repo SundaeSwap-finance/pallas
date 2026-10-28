@@ -65,7 +65,9 @@ fn dijkstra_native_reference_guard_has_no_v3_projection() {
     assert!(
         matches!(
             result,
-            Err(Error::DijkstraUnsupported("native script guards"))
+            Err(Error::DijkstraUnsupported(Unsupported(
+                "native script guards"
+            )))
         ),
         "{result:?}"
     );

@@ -1,6 +1,6 @@
 //! Native Dijkstra evaluation with the protocol-aware backend.
 use super::{
-    error::Error,
+    error::{Error, Unsupported},
     evaluator::{MachineFailure, ScriptEvalResult},
 };
 use amaru_kernel::{PlutusVersion, ProtocolVersion};
@@ -56,9 +56,9 @@ pub(crate) fn eval_native_v3(
             amaru_uplc_native::machine::RuntimeError::IntegerOperandOutOfBounds
         ))
     ) {
-        return Err(Error::DijkstraUnsupported(
+        return Err(Error::DijkstraUnsupported(Unsupported(
             "integer operand outside audited registration range",
-        ));
+        )));
     }
     let units = budget_to_ex_units(result.info.consumed_budget);
     let logs = result.info.logs;
@@ -121,9 +121,9 @@ fn steps<'a>(
             MachineState::Compute(context, env, term) => machine.compute(context, env, term),
             MachineState::Return(context, value) => {
                 if called(context, value).is_some_and(|fun| !audited(fun)) {
-                    return Err(Error::DijkstraUnsupported(
+                    return Err(Error::DijkstraUnsupported(Unsupported(
                         "V3 builtin outside audited protocol-12 subset",
-                    ));
+                    )));
                 }
                 machine.return_compute(context, value)
             }
