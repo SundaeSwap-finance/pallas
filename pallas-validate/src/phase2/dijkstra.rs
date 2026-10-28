@@ -1,7 +1,7 @@
 //! Native protocol-12 V3 spending, minting, withdrawals and registration evaluation.
 //! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
-    error::Error,
+    error::{Error, Unsupported},
     evaluator,
     script_context::{ScriptPurpose, SlotConfig, TimeRange, TxInInfo, TxInfo, TxInfoV3},
     to_plutus_data::MintValue,
@@ -15,7 +15,7 @@ use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx
 use std::collections::BTreeMap;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
-    Err(Error::DijkstraUnsupported(feature))
+    Err(Error::DijkstraUnsupported(Unsupported(feature)))
 }
 
 /// Whether a native script holds a guard, which the Conway native script cannot encode.

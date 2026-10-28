@@ -1,5 +1,8 @@
 //! Synthetic evaluator semantics, separate from the unchanged network capture.
-use super::{error::Error, evaluator::eval_native_v3};
+use super::{
+    error::{Error, Unsupported},
+    evaluator::eval_native_v3,
+};
 use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
 use pallas_codec::minicbor;
 use pallas_primitives::{PlutusData, conway::ExUnits};
@@ -177,9 +180,9 @@ fn registration_integer_bounds_are_explicit_subset_errors() {
         ));
         match evaluate(&body) {
             Ok(result) => assert!(supported && result.success, "unexpected acceptance"),
-            Err(Error::DijkstraUnsupported(
+            Err(Error::DijkstraUnsupported(Unsupported(
                 "integer operand outside audited registration range",
-            )) => assert!(!supported),
+            ))) => assert!(!supported),
             other => panic!("unexpected range result: {other:?}"),
         }
     }
@@ -225,7 +228,9 @@ fn unaudited_builtins_are_refused_only_when_called() {
         "[(force (builtin listToArray)) (con (list integer) [1])]",
     ] {
         match evaluate(&ignore(body)) {
-            Err(Error::DijkstraUnsupported("V3 builtin outside audited protocol-12 subset")) => {}
+            Err(Error::DijkstraUnsupported(Unsupported(
+                "V3 builtin outside audited protocol-12 subset",
+            ))) => {}
             other => panic!("{body}: {other:?}"),
         }
     }
