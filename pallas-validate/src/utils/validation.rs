@@ -29,6 +29,10 @@ pub enum ValidationError {
     DijkstraInputAlreadySpent,
 
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra collateral return pays to a pointer address")]
+    DijkstraPointerInCollateralReturn,
+
+    #[cfg(feature = "unstable")]
     #[error("Dijkstra withdrawal requires the original account balance for {0}")]
     DijkstraAccountStateUnavailable(String),
 
