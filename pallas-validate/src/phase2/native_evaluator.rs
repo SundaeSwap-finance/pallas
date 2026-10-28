@@ -7,27 +7,28 @@ use amaru_kernel::{PlutusVersion, ProtocolVersion};
 use amaru_uplc_native::{
     arena::Arena,
     binder::DeBruijn,
+    builtin::DefaultFunction,
     bumpalo::Bump,
     constant::Constant,
     data::PlutusData as PragmaPlutusData,
     flat,
-    machine::{CostModel, ExBudget},
+    machine::{
+        CostModel, EvalResult, ExBudget, Machine, MachineError, context::Context, env::Env,
+        state::MachineState, value::Value,
+    },
     program::Program,
     term::Term,
 };
 use pallas_codec::minicbor;
 use pallas_primitives::conway::{ExUnits, PlutusData};
 
-/// Evaluate the documented protocol-12 Plutus V3 builtin subset.
-/// Pass the coefficients unchanged to the pinned Amaru evaluator.
-/// Other builtins remain explicitly unsupported.
+/// Evaluate a protocol 12 Plutus V3 script, refusing a call to a builtin outside the audited set.
 pub(crate) fn eval_native_v3(
     script_bytes: &[u8],
     context: &PlutusData,
     costs: &[i64],
     budget: ExUnits,
 ) -> Result<ScriptEvalResult, Error> {
-    use amaru_uplc_native::builtin::DefaultFunction as F;
     let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
     let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
     let (program, remainder): (&Program<DeBruijn>, _) =
@@ -36,67 +37,6 @@ pub(crate) fn eval_native_v3(
     if remainder > 0 {
         return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
     }
-    let mut pending = vec![program.term];
-    while let Some(term) = pending.pop() {
-        match term {
-            Term::Builtin(f) => match f {
-                F::AddInteger
-                | F::SubtractInteger
-                | F::MultiplyInteger
-                | F::LessThanByteString
-                | F::AppendByteString
-                | F::BData
-                | F::Blake2b_224
-                | F::Blake2b_256
-                | F::ChooseData
-                | F::ChooseList
-                | F::ConsByteString
-                | F::ConstrData
-                | F::DivideInteger
-                | F::EqualsByteString
-                | F::EqualsData
-                | F::EqualsInteger
-                | F::FstPair
-                | F::HeadList
-                | F::IData
-                | F::IfThenElse
-                | F::LengthOfByteString
-                | F::LessThanEqualsByteString
-                | F::LessThanEqualsInteger
-                | F::LessThanInteger
-                | F::ListData
-                | F::MapData
-                | F::MkCons
-                | F::MkPairData
-                | F::ModInteger
-                | F::SerialiseData
-                | F::SndPair
-                | F::TailList
-                | F::UnBData
-                | F::UnConstrData
-                | F::UnIData
-                | F::UnListData
-                | F::UnMapData
-                | F::VerifyEd25519Signature => (),
-                _ => {
-                    return Err(Error::DijkstraUnsupported(
-                        "V3 builtin outside audited protocol-12 subset",
-                    ));
-                }
-            },
-            Term::Lambda { body, .. } | Term::Delay(body) | Term::Force(body) => pending.push(body),
-            Term::Apply { function, argument } => {
-                pending.push(function);
-                pending.push(argument);
-            }
-            Term::Constr { fields, .. } => pending.extend(*fields),
-            Term::Case { constr, branches } => {
-                pending.push(constr);
-                pending.extend(*branches);
-            }
-            Term::Var(_) | Term::Constant(_) | Term::Error => (),
-        }
-    }
     let initial = ExBudget {
         mem: i64::try_from(budget.mem)
             .map_err(|_| Error::DijkstraInvalid("memory budget overflow"))?,
@@ -104,11 +44,12 @@ pub(crate) fn eval_native_v3(
             .map_err(|_| Error::DijkstraInvalid("CPU budget overflow"))?,
     };
     let program = program.apply(&arena, plutus_data_to_term(&arena, context));
-    let result = program.eval(
+    let result = run(
         &arena,
+        program,
         CostModel::new(PlutusVersion::V3, ProtocolVersion::new(12, 0), costs),
         initial,
-    );
+    )?;
     if matches!(
         result.term,
         Err(amaru_uplc_native::machine::MachineError::Runtime(
@@ -142,6 +83,182 @@ pub(crate) fn eval_native_v3(
         logs,
         failure,
     })
+}
+
+/// Evaluate a program as `Program::eval` does, refusing a call to a builtin outside the audited set.
+fn run<'a>(
+    arena: &'a Arena,
+    program: &'a Program<'a, DeBruijn>,
+    costs: CostModel,
+    initial: ExBudget,
+) -> Result<EvalResult<'a, DeBruijn>, Error> {
+    let startup = costs.machine_costs.startup;
+    let started = ExBudget {
+        mem: initial.mem.saturating_sub(startup.mem),
+        cpu: initial.cpu.saturating_sub(startup.cpu),
+    };
+    let mut machine = Machine::new(arena, started, costs, program.version);
+    let term = if started.mem < 0 || started.cpu < 0 {
+        Err(MachineError::OutOfExError(started))
+    } else {
+        steps(arena, &mut machine, program.term)?
+    };
+    let mut info = machine.info();
+    info.consumed_budget = initial - info.remaining_budget;
+    Ok(EvalResult { term, info })
+}
+
+/// Step the machine from `term` to its result, refusing a call to a builtin outside the audited set.
+fn steps<'a>(
+    arena: &'a Arena,
+    machine: &mut Machine<'a>,
+    term: &'a Term<'a, DeBruijn>,
+) -> Result<Result<&'a Term<'a, DeBruijn>, MachineError<'a, DeBruijn>>, Error> {
+    let mut state =
+        MachineState::compute(arena, Context::no_frame(arena), Env::new_in(arena), term);
+    loop {
+        let next = match *state {
+            MachineState::Compute(context, env, term) => machine.compute(context, env, term),
+            MachineState::Return(context, value) => {
+                if called(context, value).is_some_and(|fun| !audited(fun)) {
+                    return Err(Error::DijkstraUnsupported(
+                        "V3 builtin outside audited protocol-12 subset",
+                    ));
+                }
+                machine.return_compute(context, value)
+            }
+            MachineState::Done(term) => return Ok(Ok(term)),
+        };
+        match next {
+            Ok(next) => state = next,
+            Err(error) => return Ok(Err(error)),
+        }
+    }
+}
+
+/// The builtin that returning `value` to `context` calls, if the step saturates one.
+fn called<'a>(
+    context: &Context<'a, DeBruijn>,
+    value: &Value<'a, DeBruijn>,
+) -> Option<DefaultFunction> {
+    match (context, value) {
+        (Context::FrameForce(_), Value::Builtin(runtime)) => {
+            (runtime.needs_force() && runtime.is_ready()).then_some(runtime.fun)
+        }
+        (Context::FrameAwaitArg(Value::Builtin(runtime), _), _)
+        | (Context::FrameAwaitFunValue(_, _), Value::Builtin(runtime)) => (!runtime.needs_force()
+            && runtime.args.len() + 1 == runtime.fun.arity())
+        .then_some(runtime.fun),
+        _ => None,
+    }
+}
+
+/// Whether a builtin's protocol 12 V3 semantics and cost entries agree with the ledger on judged records.
+fn audited(fun: DefaultFunction) -> bool {
+    use DefaultFunction as F;
+    match fun {
+        F::AddInteger
+        | F::SubtractInteger
+        | F::MultiplyInteger
+        | F::DivideInteger
+        | F::QuotientInteger
+        | F::ModInteger
+        | F::EqualsInteger
+        | F::LessThanInteger
+        | F::LessThanEqualsInteger
+        | F::AppendByteString
+        | F::ConsByteString
+        | F::SliceByteString
+        | F::LengthOfByteString
+        | F::IndexByteString
+        | F::EqualsByteString
+        | F::LessThanByteString
+        | F::LessThanEqualsByteString
+        | F::Blake2b_256
+        | F::Blake2b_224
+        | F::VerifyEd25519Signature
+        | F::IfThenElse
+        | F::ChooseUnit
+        | F::Trace
+        | F::FstPair
+        | F::SndPair
+        | F::ChooseList
+        | F::MkCons
+        | F::HeadList
+        | F::TailList
+        | F::NullList
+        | F::DropList
+        | F::ChooseData
+        | F::ConstrData
+        | F::MapData
+        | F::ListData
+        | F::IData
+        | F::BData
+        | F::UnConstrData
+        | F::UnMapData
+        | F::UnListData
+        | F::UnIData
+        | F::UnBData
+        | F::EqualsData
+        | F::SerialiseData
+        | F::MkPairData => true,
+        F::RemainderInteger
+        | F::Sha2_256
+        | F::Sha3_256
+        | F::Keccak_256
+        | F::VerifyEcdsaSecp256k1Signature
+        | F::VerifySchnorrSecp256k1Signature
+        | F::AppendString
+        | F::EqualsString
+        | F::EncodeUtf8
+        | F::DecodeUtf8
+        | F::MkNilData
+        | F::MkNilPairData
+        | F::Bls12_381_G1_Add
+        | F::Bls12_381_G1_Neg
+        | F::Bls12_381_G1_ScalarMul
+        | F::Bls12_381_G1_Equal
+        | F::Bls12_381_G1_Compress
+        | F::Bls12_381_G1_Uncompress
+        | F::Bls12_381_G1_HashToGroup
+        | F::Bls12_381_G2_Add
+        | F::Bls12_381_G2_Neg
+        | F::Bls12_381_G2_ScalarMul
+        | F::Bls12_381_G2_Equal
+        | F::Bls12_381_G2_Compress
+        | F::Bls12_381_G2_Uncompress
+        | F::Bls12_381_G2_HashToGroup
+        | F::Bls12_381_MillerLoop
+        | F::Bls12_381_MulMlResult
+        | F::Bls12_381_FinalVerify
+        | F::IntegerToByteString
+        | F::ByteStringToInteger
+        | F::AndByteString
+        | F::OrByteString
+        | F::XorByteString
+        | F::ComplementByteString
+        | F::ReadBit
+        | F::WriteBits
+        | F::ReplicateByte
+        | F::ShiftByteString
+        | F::RotateByteString
+        | F::CountSetBits
+        | F::FindFirstSetBit
+        | F::Ripemd_160
+        | F::ExpModInteger
+        | F::LengthOfArray
+        | F::ListToArray
+        | F::IndexArray
+        | F::Bls12_381_G1_MultiScalarMul
+        | F::Bls12_381_G2_MultiScalarMul
+        | F::InsertCoin
+        | F::LookupCoin
+        | F::UnionValue
+        | F::ValueContains
+        | F::ValueData
+        | F::UnValueData
+        | F::ScaleValue => false,
+    }
 }
 
 fn plutus_data_to_term<'a>(arena: &'a Arena, data: &PlutusData) -> &'a Term<'a, DeBruijn> {
