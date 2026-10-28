@@ -203,3 +203,52 @@ fn registration_builtin_case_matches_independent_cli_budget() {
         }
     );
 }
+
+#[test]
+fn unaudited_builtins_are_refused_only_when_called() {
+    for body in [
+        "(builtin complementByteString)",
+        "(lam bytes [(builtin complementByteString) bytes])",
+        "[(builtin appendString) (con string \"a\")]",
+        "(force (builtin listToArray))",
+        "(delay [(force (builtin listToArray)) (con (list integer) [1])])",
+    ] {
+        let result = evaluate(&ignore(body));
+        assert!(
+            result.as_ref().is_ok_and(|r| r.success),
+            "{body}: {result:?}"
+        );
+    }
+    for body in [
+        "[(builtin complementByteString) (con bytestring #00)]",
+        "[[(builtin appendString) (con string \"a\")] (con string \"b\")]",
+        "[(force (builtin listToArray)) (con (list integer) [1])]",
+    ] {
+        match evaluate(&ignore(body)) {
+            Err(Error::DijkstraUnsupported("V3 builtin outside audited protocol-12 subset")) => {}
+            other => panic!("{body}: {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn widened_builtins_return_their_ledger_results() {
+    for body in [
+        "[[(force (builtin chooseUnit)) (con unit ())] (con unit ())]",
+        "(case [(force (builtin nullList)) (con (list integer) [])] (error) (con unit ()))",
+        "(case [[(builtin equalsInteger) [[(builtin quotientInteger) (con integer -7)] (con integer 2)]] (con integer -3)] (error) (con unit ()))",
+        "(case [[(builtin equalsInteger) [[(builtin indexByteString) (con bytestring #0a0b)] (con integer 1)]] (con integer 11)] (error) (con unit ()))",
+        "(case [[(builtin equalsByteString) [[[(builtin sliceByteString) (con integer 1)] (con integer 2)] (con bytestring #0a0b0c0d)]] (con bytestring #0b0c)] (error) (con unit ()))",
+        "(case [[(builtin equalsInteger) [(force (builtin headList)) [[(force (builtin dropList)) (con integer 2)] (con (list integer) [1, 2, 3])]]] (con integer 3)] (error) (con unit ()))",
+    ] {
+        let result = evaluate(body);
+        assert!(
+            result.as_ref().is_ok_and(|r| r.success),
+            "{body}: {result:?}"
+        );
+    }
+    let result =
+        evaluate("[[(force (builtin trace)) (con string \"seen\")] (con unit ())]").unwrap();
+    assert!(result.success, "{result:?}");
+    assert_eq!(result.logs, vec!["seen".to_string()]);
+}
