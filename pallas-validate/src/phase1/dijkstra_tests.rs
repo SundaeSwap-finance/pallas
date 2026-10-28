@@ -645,6 +645,35 @@ fn dijkstra_typed_features_reject_explicitly() {
     });
 }
 
+#[test]
+fn dijkstra_outputs_may_pay_to_pointer_addresses() {
+    synthetic(|tx, input| {
+        let output = MultiEraOutput::from_dijkstra(&input);
+        assert!(dispatch(&tx, &output, &env()).is_ok());
+        let mut tx = tx.clone();
+        let mut outputs: Vec<_> = tx.transaction_body.outputs.iter().cloned().collect();
+        let native::TransactionOutput::PostAlonzo(ref mut out) = outputs[0] else {
+            unreachable!()
+        };
+        let Ok(pallas_addresses::Address::Shelley(address)) =
+            pallas_addresses::Address::from_bytes(&out.address)
+        else {
+            unreachable!()
+        };
+        out.address = ShelleyAddress::new(
+            Network::Testnet,
+            address.payment().clone(),
+            ShelleyDelegationPart::Pointer(pallas_addresses::Pointer::new(1, 2, 3)),
+        )
+        .to_vec()
+        .into();
+        tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+        sign(&mut tx);
+        let result = dispatch(&tx, &output, &env());
+        assert!(result.is_ok(), "{result:?}");
+    });
+}
+
 fn plutus_scripts_other_than_v3() -> [native::ScriptRef<'static>; 3] {
     [
         native::ScriptRef::PlutusV1Script(pallas_primitives::PlutusScript(vec![1].into())),
