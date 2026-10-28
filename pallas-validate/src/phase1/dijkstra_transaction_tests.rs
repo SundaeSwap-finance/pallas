@@ -869,6 +869,56 @@ mod scripts {
         });
     }
     #[test]
+    fn dijkstra_pointer_addresses_are_refused_only_in_collateral_returns() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let id = n::TransactionInput {
+                transaction_id: Hash::from([12; 32]),
+                index: 0,
+            };
+            let mut collateral = inputs[0].1.clone();
+            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            let pallas_addresses::Address::Shelley(plain) =
+                MultiEraOutput::from_dijkstra(&collateral)
+                    .address()
+                    .unwrap()
+            else {
+                panic!()
+            };
+            let pointer = pallas_addresses::ShelleyAddress::new(
+                plain.network(),
+                plain.payment().clone(),
+                pallas_addresses::ShelleyDelegationPart::Pointer(pallas_addresses::Pointer::new(
+                    1, 2, 3,
+                )),
+            )
+            .to_vec();
+            output_mut(&mut collateral).address = pointer.clone().into();
+            let returned = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: plain.to_vec().into(),
+                    value: c::Value::Coin(1_500_000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            );
+            inputs.push((id.clone(), collateral));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
+            tx.transaction_body.collateral_return = Some(returned);
+            tx.transaction_body.total_collateral = Some(1_500_000);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "pointer collateral input: {result:?}");
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).address =
+                pointer.into();
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "DijkstraPointerInCollateralReturn",
+            );
+        });
+    }
+    #[test]
     fn dijkstra_fee_budget_and_reference_boundaries() {
         case(false, PASS, |mut tx, inputs, env, state| {
             let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {

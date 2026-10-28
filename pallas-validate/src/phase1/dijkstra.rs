@@ -960,11 +960,13 @@ fn check_scripts(
         None => 0,
     };
     if let Some(output) = &b.collateral_return {
-        accumulate_assets(
-            &mut collateral_assets,
-            &MultiEraOutput::from_dijkstra(output),
-            -1,
-        )?;
+        let view = MultiEraOutput::from_dijkstra(output);
+        if let Ok(Address::Shelley(address)) = view.address()
+            && matches!(address.delegation(), ShelleyDelegationPart::Pointer(_))
+        {
+            return Err(DijkstraPointerInCollateralReturn);
+        }
+        accumulate_assets(&mut collateral_assets, &view, -1)?;
     }
     if collateral_assets.values().any(|x| *x != 0) {
         return Err(PostAlonzo(NonLovelaceCollateral));
@@ -1053,9 +1055,6 @@ fn payment(output: &MultiEraOutput<'_>) -> Result<ShelleyPaymentPart, Validation
     else {
         return Err(DijkstraUnsupported("bootstrap or reward address"));
     };
-    if matches!(address.delegation(), ShelleyDelegationPart::Pointer(_)) {
-        return Err(DijkstraUnsupported("pointer address"));
-    }
     Ok(address.payment().clone())
 }
 
