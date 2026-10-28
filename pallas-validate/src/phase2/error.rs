@@ -4,12 +4,18 @@ use pallas_primitives::{
     conway::{ExUnits, Language},
 };
 
+/// A construct the native Dijkstra evaluation does not implement, named by its label.
+#[cfg(feature = "unstable")]
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("unsupported native Dijkstra evaluation: {0}")]
+pub struct Unsupported(pub &'static str);
+
 #[derive(thiserror::Error, Debug)]
 #[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum Error {
     #[cfg(feature = "unstable")]
-    #[error("unsupported native Dijkstra evaluation: {0}")]
-    DijkstraUnsupported(&'static str),
+    #[error(transparent)]
+    DijkstraUnsupported(Unsupported),
     #[cfg(feature = "unstable")]
     #[error("invalid native Dijkstra evaluation: {0}")]
     DijkstraInvalid(&'static str),
