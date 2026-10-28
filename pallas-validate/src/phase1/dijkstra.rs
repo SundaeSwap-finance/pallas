@@ -800,16 +800,17 @@ fn check_scripts(
                 natives.insert(script.hash(), decoded);
                 continue;
             }
+            let unsupported = DijkstraUnsupported("reference script language (requires V3)");
             let raw = match &script {
                 MultiEraScriptRef::Dijkstra(x) => match x.as_ref() {
                     ScriptRef::PlutusV3Script(s) => s.as_ref(),
-                    _ => return Err(PostAlonzo(UnsupportedPlutusLanguage)),
+                    _ => return Err(unsupported),
                 },
                 MultiEraScriptRef::Conway(x) => match x.as_ref() {
                     pallas_primitives::conway::ScriptRef::PlutusV3Script(s) => s.as_ref(),
-                    _ => return Err(PostAlonzo(UnsupportedPlutusLanguage)),
+                    _ => return Err(unsupported),
                 },
-                _ => return Err(PostAlonzo(UnsupportedPlutusLanguage)),
+                _ => return Err(unsupported),
             };
             bytes = add(bytes, raw.len() as u64)?;
             let mut payload = vec![3];
@@ -1287,9 +1288,9 @@ fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
             ScriptRef::NativeScript(_) => Ok(()),
             ScriptRef::PlutusV3Script(s) => well_formed_v3(s.as_ref()),
-            _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
+            _ => Err(DijkstraUnsupported("new script language (requires V3)")),
         },
-        _ => Err(PostAlonzo(UnsupportedPlutusLanguage)),
+        _ => Err(DijkstraUnsupported("new script language (requires V3)")),
     }
 }
 fn well_formed_v3(script: &[u8]) -> ValidationResult {

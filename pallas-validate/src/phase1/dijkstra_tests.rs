@@ -640,8 +640,55 @@ fn dijkstra_typed_features_reject_explicitly() {
         ));
         error(
             dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
-            "PostAlonzo(UnsupportedPlutusLanguage)",
+            "DijkstraUnsupported(\"reference script language (requires V3)\")",
         );
+    });
+}
+
+fn plutus_scripts_other_than_v3() -> [native::ScriptRef<'static>; 3] {
+    [
+        native::ScriptRef::PlutusV1Script(pallas_primitives::PlutusScript(vec![1].into())),
+        native::ScriptRef::PlutusV2Script(pallas_primitives::PlutusScript(vec![1].into())),
+        native::ScriptRef::PlutusV4Script(pallas_primitives::PlutusScript(vec![1].into())),
+    ]
+}
+
+#[test]
+fn dijkstra_spent_plutus_scripts_other_than_v3_are_unsupported() {
+    synthetic(|tx, input| {
+        assert!(dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()).is_ok());
+        for script in plutus_scripts_other_than_v3() {
+            let mut input = input.clone();
+            let native::TransactionOutput::PostAlonzo(ref mut out) = input else {
+                unreachable!()
+            };
+            out.script_ref = Some(pallas_codec::utils::CborWrap(script));
+            error(
+                dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
+                "DijkstraUnsupported(\"reference script language (requires V3)\")",
+            );
+        }
+    });
+}
+
+#[test]
+fn dijkstra_new_plutus_scripts_other_than_v3_are_unsupported() {
+    synthetic(|tx, input| {
+        assert!(dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()).is_ok());
+        for script in plutus_scripts_other_than_v3() {
+            let mut tx = tx.clone();
+            let mut outputs: Vec<_> = tx.transaction_body.outputs.iter().cloned().collect();
+            let native::TransactionOutput::PostAlonzo(ref mut out) = outputs[0] else {
+                unreachable!()
+            };
+            out.script_ref = Some(pallas_codec::utils::CborWrap(script));
+            tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+            sign(&mut tx);
+            error(
+                dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
+                "DijkstraUnsupported(\"new script language (requires V3)\")",
+            );
+        }
     });
 }
 
