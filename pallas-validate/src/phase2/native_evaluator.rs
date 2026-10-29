@@ -22,13 +22,24 @@ use amaru_uplc_native::{
 use pallas_codec::minicbor;
 use pallas_primitives::conway::{ExUnits, PlutusData};
 
-/// Evaluate a protocol 12 Plutus V3 script, refusing a call to a builtin outside the audited set.
+/// A builtin function of the native evaluation.
+pub use amaru_uplc_native::builtin::DefaultFunction as Builtin;
+
+/// The builtins the native evaluation runs, in tag order.
+pub fn audited_builtins() -> Vec<Builtin> {
+    (0..=u8::MAX)
+        .filter_map(|tag| Builtin::try_from(tag).ok())
+        .filter(|fun| audited(*fun))
+        .collect()
+}
+
+/// Evaluate a protocol 12 Plutus V3 script, with the builtins it called in order of first call, refusing a call to a builtin outside the audited set.
 pub(crate) fn eval_native_v3(
     script_bytes: &[u8],
     context: &PlutusData,
     costs: &[i64],
     budget: ExUnits,
-) -> Result<ScriptEvalResult, Error> {
+) -> Result<(ScriptEvalResult, Vec<Builtin>), Error> {
     let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
     let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
     let (program, remainder): (&Program<DeBruijn>, _) =
@@ -44,11 +55,13 @@ pub(crate) fn eval_native_v3(
             .map_err(|_| Error::DijkstraInvalid("CPU budget overflow"))?,
     };
     let program = program.apply(&arena, plutus_data_to_term(&arena, context));
+    let mut calls = Vec::new();
     let result = run(
         &arena,
         program,
         CostModel::new(PlutusVersion::V3, ProtocolVersion::new(12, 0), costs),
         initial,
+        &mut calls,
     )?;
     if matches!(
         result.term,
@@ -77,20 +90,24 @@ pub(crate) fn eval_native_v3(
             logs: logs.clone(),
         });
     }
-    Ok(ScriptEvalResult {
-        success,
-        units,
-        logs,
-        failure,
-    })
+    Ok((
+        ScriptEvalResult {
+            success,
+            units,
+            logs,
+            failure,
+        },
+        calls,
+    ))
 }
 
-/// Evaluate a program to its result and spent budget, refusing a call to a builtin outside the audited set.
+/// Evaluate a program to its result and spent budget, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
 fn run<'a>(
     arena: &'a Arena,
     program: &'a Program<'a, DeBruijn>,
     costs: CostModel,
     initial: ExBudget,
+    calls: &mut Vec<Builtin>,
 ) -> Result<EvalResult<'a, DeBruijn>, Error> {
     let startup = costs.machine_costs.startup;
     let started = ExBudget {
@@ -101,18 +118,19 @@ fn run<'a>(
     let term = if started.mem < 0 || started.cpu < 0 {
         Err(MachineError::OutOfExError(started))
     } else {
-        steps(arena, &mut machine, program.term)?
+        steps(arena, &mut machine, program.term, calls)?
     };
     let mut info = machine.info();
     info.consumed_budget = initial - info.remaining_budget;
     Ok(EvalResult { term, info })
 }
 
-/// Step the machine from `term` to its result, refusing a call to a builtin outside the audited set.
+/// Step the machine from `term` to its result, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
 fn steps<'a>(
     arena: &'a Arena,
     machine: &mut Machine<'a>,
     term: &'a Term<'a, DeBruijn>,
+    calls: &mut Vec<Builtin>,
 ) -> Result<Result<&'a Term<'a, DeBruijn>, MachineError<'a, DeBruijn>>, Error> {
     let mut state =
         MachineState::compute(arena, Context::no_frame(arena), Env::new_in(arena), term);
@@ -120,10 +138,15 @@ fn steps<'a>(
         let next = match *state {
             MachineState::Compute(context, env, term) => machine.compute(context, env, term),
             MachineState::Return(context, value) => {
-                if called(context, value).is_some_and(|fun| !audited(fun)) {
-                    return Err(Error::DijkstraUnsupported(Unsupported(
-                        "V3 builtin outside audited protocol-12 subset",
-                    )));
+                if let Some(fun) = called(context, value) {
+                    if !audited(fun) {
+                        return Err(Error::DijkstraUnsupported(Unsupported(
+                            "V3 builtin outside audited protocol-12 subset",
+                        )));
+                    }
+                    if !calls.contains(&fun) {
+                        calls.push(fun);
+                    }
                 }
                 machine.return_compute(context, value)
             }
@@ -153,7 +176,7 @@ fn called<'a>(
     }
 }
 
-/// Whether a builtin's protocol 12 V3 semantics and cost entries agree with the ledger on judged records.
+/// Whether the native evaluation runs a builtin.
 fn audited(fun: DefaultFunction) -> bool {
     use DefaultFunction as F;
     match fun {
