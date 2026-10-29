@@ -289,7 +289,7 @@ pub fn validate_dijkstra_tx(
     Ok(())
 }
 
-/// The minimum fee the ledger charges a transaction whose inputs resolve in `utxos`.
+/// The minimum fee of a transaction whose inputs resolve in `utxos`, counting the redeemers of its top level witness set.
 pub fn dijkstra_min_fee(
     tx: &BlockTransaction<'_>,
     utxos: &UTxOs<'_>,
