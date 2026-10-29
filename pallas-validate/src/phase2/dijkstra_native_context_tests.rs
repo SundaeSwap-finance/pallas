@@ -72,3 +72,39 @@ fn dijkstra_native_reference_guard_has_no_v3_projection() {
         "{result:?}"
     );
 }
+
+#[test]
+fn dijkstra_pointer_output_is_labelled_as_a_v3_context_pointer() {
+    let output = |delegation| {
+        let address = pallas_addresses::ShelleyAddress::new(
+            pallas_addresses::Network::Testnet,
+            ShelleyPaymentPart::Key([1; 28].into()),
+            delegation,
+        )
+        .to_vec();
+        n::TransactionOutput::PostAlonzo(
+            n::PostAlonzoTransactionOutput {
+                address: address.into(),
+                value: c::Value::Coin(5_000_000),
+                datum_option: None,
+                script_ref: None,
+            }
+            .into(),
+        )
+    };
+    let base = output(ShelleyDelegationPart::Null);
+    assert!(context_output(&MultiEraOutput::from_dijkstra(&base), false).is_ok());
+    let pointer = output(ShelleyDelegationPart::Pointer(
+        pallas_addresses::Pointer::new(1, 2, 3),
+    ));
+    let result = context_output(&MultiEraOutput::from_dijkstra(&pointer), false);
+    assert!(
+        matches!(
+            result,
+            Err(Error::DijkstraUnsupported(Unsupported(
+                "pointer address in a V3 script context"
+            )))
+        ),
+        "{result:?}"
+    );
+}
