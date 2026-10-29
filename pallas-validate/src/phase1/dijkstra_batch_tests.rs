@@ -261,10 +261,20 @@ fn run_full(
     e: &Environment,
     state: &mut CertState,
 ) -> crate::utils::ValidationResult {
+    let utxos = utxo_set(tx, input, sub_input, extra);
+    validate_txs(&[MultiEraTx::from_dijkstra(tx)], e, &utxos, state)
+}
+/// The outputs `run_with` resolves the batch's inputs and the extra inputs to.
+fn utxo_set<'b>(
+    tx: &n::BlockTransaction<'_>,
+    input: &'b n::TransactionOutput<'_>,
+    sub_input: &'b n::TransactionOutput<'_>,
+    extra: &'b [(n::TransactionInput, n::TransactionOutput<'_>)],
+) -> crate::utils::UTxOs<'b> {
     let original = tx.transaction_body.inputs[0].clone();
     let mut second = original.clone();
     second.index = 99;
-    let utxos = [
+    [
         (owned(original), MultiEraOutput::from_dijkstra(input)),
         (owned(second), MultiEraOutput::from_dijkstra(sub_input)),
     ]
@@ -274,8 +284,7 @@ fn run_full(
             .iter()
             .map(|(i, o)| (owned(i.clone()), MultiEraOutput::from_dijkstra(o))),
     )
-    .collect();
-    validate_txs(&[MultiEraTx::from_dijkstra(tx)], e, &utxos, state)
+    .collect()
 }
 
 fn post_alonzo<'a, 'b>(
@@ -803,6 +812,54 @@ fn dijkstra_batch_sub_reference_scripts_leave_the_fee_unchanged() {
         top.transaction_body.reference_inputs = n::NonEmptySet::from_vec(vec![reference]);
         sign(&mut top);
         let e = exact(&top);
+        error(
+            run_with(&top, &input, &sub_input, &extra, &e),
+            "PostAlonzo(FeeBelowMin)",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_min_fee_is_the_fee_validation_refuses_one_below() {
+    token_order_batch(|tx, input, sub_input| {
+        let (reference, holder) =
+            reference_holder(&input, native(n::NativeScript::ScriptAll(vec![])));
+        let extra = [(reference.clone(), holder)];
+        let with_minfee_b = |b: u32| {
+            let mut e = env();
+            let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
+                unreachable!()
+            };
+            pp.minfee_a = 1;
+            pp.minfee_b = b;
+            e
+        };
+        let min_fee = |tx: &n::BlockTransaction<'_>, e: &Environment| {
+            let MultiEraProtocolParameters::Dijkstra(ref pp) = e.prot_params else {
+                unreachable!()
+            };
+            let utxos = utxo_set(tx, &input, &sub_input, &extra);
+            dijkstra::dijkstra_min_fee(tx, &utxos, pp).unwrap()
+        };
+        let size = |tx: &n::BlockTransaction<'_>| {
+            minicbor::to_vec(tx.to_mempool_transaction()).unwrap().len() as u64
+        };
+        let mut referenced = tx.clone();
+        resign(&mut referenced, |sub| {
+            sub.sub_transaction_body.reference_inputs =
+                n::NonEmptySet::from_vec(vec![reference.clone()]);
+        });
+        assert_eq!(min_fee(&referenced, &with_minfee_b(0)), size(&referenced));
+        let mut top = tx.clone();
+        top.transaction_body.reference_inputs = n::NonEmptySet::from_vec(vec![reference]);
+        sign(&mut top);
+        let unpaid = min_fee(&top, &with_minfee_b(0));
+        assert!(unpaid > size(&top), "{unpaid} {}", size(&top));
+        let e = with_minfee_b((top.transaction_body.fee - unpaid) as u32);
+        assert_eq!(min_fee(&top, &e), top.transaction_body.fee);
+        let result = run_with(&top, &input, &sub_input, &extra, &e);
+        assert!(result.is_ok(), "{result:?}");
+        let e = with_minfee_b((top.transaction_body.fee - unpaid + 1) as u32);
         error(
             run_with(&top, &input, &sub_input, &extra, &e),
             "PostAlonzo(FeeBelowMin)",
