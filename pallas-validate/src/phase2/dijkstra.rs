@@ -44,8 +44,11 @@ fn context_output(
 ) -> Result<c::TransactionOutput<'static>, Error> {
     let address = output.address()?;
     match &address {
-        Address::Shelley(a) if !matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {}
-        _ => return unsupported("output address (requires Shelley, no pointer)"),
+        Address::Shelley(a) if matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {
+            return unsupported("pointer address in a V3 script context");
+        }
+        Address::Shelley(_) => {}
+        _ => return unsupported("output address (requires Shelley)"),
     }
     let script = match output.multi_era_script_ref() {
         None => None,
