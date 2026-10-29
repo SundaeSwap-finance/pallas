@@ -185,13 +185,11 @@ pub fn validate_dijkstra_tx(
         *block_slot,
         *network_id,
     )?;
-    // Dijkstra Tx.hs counts [body, witnesses, auxiliary/null], excluding block success.
-    let size = encode(tx.to_mempool_transaction())?.len();
-    if size > pp.max_transaction_size as usize {
+    if tx_size(tx)? > u64::from(pp.max_transaction_size) {
         return Err(PostAlonzo(MaxTxSizeExceeded));
     }
     let subs = sub_scripts(b, utxos)?;
-    let (script_fee, has_plutus, natives) =
+    let (has_plutus, natives) =
         check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id)?;
     if has_plutus && b.sub_transactions.is_some() {
         return Err(DijkstraUnsupported("scripted or stateful batch"));
@@ -221,12 +219,7 @@ pub fn validate_dijkstra_tx(
             }
         }
     }
-    let mut minimum_fee = u64::from(pp.minfee_a)
-        .checked_mul(size as u64)
-        .and_then(|x| x.checked_add(u64::from(pp.minfee_b)))
-        .ok_or(PostAlonzo(NegativeValue))?;
-    minimum_fee = add(minimum_fee, script_fee)?;
-    if b.fee < minimum_fee {
+    if b.fee < dijkstra_min_fee(tx, utxos, pp)? {
         return Err(PostAlonzo(FeeBelowMin));
     }
     let mut spent = Spent::new();
@@ -294,6 +287,69 @@ pub fn validate_dijkstra_tx(
     cert_state.dijkstra_registrations = state;
     cert_state.dijkstra_account_balances = accounts;
     Ok(())
+}
+
+/// The minimum fee the ledger charges a transaction whose inputs resolve in `utxos`.
+pub fn dijkstra_min_fee(
+    tx: &BlockTransaction<'_>,
+    utxos: &UTxOs<'_>,
+    pp: &DijkstraProtParams,
+) -> Result<u64, ValidationError> {
+    let size_fee = u64::from(pp.minfee_a)
+        .checked_mul(tx_size(tx)?)
+        .and_then(|x| x.checked_add(u64::from(pp.minfee_b)))
+        .ok_or(PostAlonzo(NegativeValue))?;
+    let (mem, steps) = declared_units(&tx.transaction_witness_set)?;
+    let fee = add(size_fee, execution_fee(mem, steps, pp)?)?;
+    add(
+        fee,
+        reference_fee(reference_script_size(&tx.transaction_body, utxos)?, pp)?,
+    )
+}
+
+/// The size the ledger counts for a transaction, its body, witnesses and auxiliary data without the block validity flag.
+fn tx_size(tx: &BlockTransaction<'_>) -> Result<u64, ValidationError> {
+    Ok(encode(tx.to_mempool_transaction())?.len() as u64)
+}
+
+/// The memory and steps the transaction's redeemers declare, summed.
+fn declared_units(w: &WitnessSet<'_>) -> Result<(u64, u64), ValidationError> {
+    let mut units = (0, 0);
+    for (_, value) in w.redeemer.iter().flat_map(|x| x.iter()) {
+        units = (
+            add(units.0, value.ex_units.mem)?,
+            add(units.1, value.ex_units.steps)?,
+        );
+    }
+    Ok(units)
+}
+
+/// The bytes of the reference scripts held by the outputs the transaction's inputs and reference inputs resolve to, each input once.
+fn reference_script_size(
+    b: &TransactionBody<'_>,
+    utxos: &UTxOs<'_>,
+) -> Result<u64, ValidationError> {
+    let inputs: BTreeSet<_> = b
+        .reference_inputs
+        .iter()
+        .flat_map(|x| x.iter())
+        .chain(b.inputs.iter())
+        .collect();
+    let mut bytes = 0;
+    for input in inputs {
+        let script = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .and_then(|output| output.multi_era_script_ref());
+        let size = match &script {
+            None => 0,
+            Some(script) => match script.native_script() {
+                Some(native) => native.encode().len(),
+                None => script.plutus_bytes().map_or(0, <[u8]>::len),
+            },
+        };
+        bytes = add(bytes, size as u64)?;
+    }
+    Ok(bytes)
 }
 
 fn encode<T: minicbor::Encode<()>>(value: T) -> Result<Vec<u8>, ValidationError> {
@@ -761,14 +817,13 @@ fn check_scripts(
     subs: &SubScripts,
     keys: &mut Keys,
     network: u8,
-) -> Result<(u64, bool, Natives), ValidationError> {
+) -> Result<(bool, Natives), ValidationError> {
     let b = &tx.transaction_body;
     let w = &tx.transaction_witness_set;
     let mut natives = BTreeMap::new();
     let mut available = HashSet::new();
     let mut reference_scripts = HashSet::new();
     let mut refs = Spent::new();
-    let mut bytes = 0;
     for input in b.reference_inputs.iter().flat_map(|x| x.iter()) {
         if !refs.insert((input.transaction_id, input.index)) {
             return Err(DijkstraUnsupported("duplicate reference inputs"));
@@ -795,7 +850,6 @@ fn check_scripts(
                 let raw = native.encode();
                 let decoded: NativeScript =
                     minicbor::decode(&raw).map_err(|_| PostAlonzo(UnsupportedNativeScript))?;
-                bytes = add(bytes, raw.len() as u64)?;
                 reference_scripts.insert(script.hash());
                 natives.insert(script.hash(), decoded);
                 continue;
@@ -812,7 +866,6 @@ fn check_scripts(
                 },
                 _ => return Err(unsupported),
             };
-            bytes = add(bytes, raw.len() as u64)?;
             let mut payload = vec![3];
             payload.extend_from_slice(raw);
             let hash = Hasher::<224>::hash(&payload);
@@ -877,6 +930,7 @@ fn check_scripts(
     }
     check_datums(tx, utxos, &scripts)?;
     // The size cap covers the whole batch; the fee counts top-level references only.
+    let bytes = reference_script_size(b, utxos)?;
     if add(bytes, subs.reference_bytes)? > u64::from(pp.max_ref_script_size_per_tx) {
         return Err(DijkstraReferenceScriptsTooLarge);
     }
@@ -889,10 +943,7 @@ fn check_scripts(
         }
         // An empty redeemer map and language view still participate when datums exist.
         check_integrity(tx, None)?;
-        if bytes == 0 {
-            return Ok((0, false, natives));
-        }
-        return Ok((reference_fee(bytes, pp)?, false, natives));
+        return Ok((false, natives));
     }
     let cost_model_v3 = pp
         .cost_models_for_script_languages
@@ -918,15 +969,10 @@ fn check_scripts(
             return Err(PostAlonzo(RedeemerMissing));
         }
     }
-    let mut mem = 0;
-    let mut steps = 0;
-    for (key, value) in redeemers.iter() {
-        if !scripts.contains_key(key) {
-            return Err(PostAlonzo(UnneededRedeemer));
-        }
-        mem = add(mem, value.ex_units.mem)?;
-        steps = add(steps, value.ex_units.steps)?;
+    if redeemers.iter().any(|(key, _)| !scripts.contains_key(key)) {
+        return Err(PostAlonzo(UnneededRedeemer));
     }
+    let (mem, steps) = declared_units(w)?;
     if mem > pp.max_tx_ex_units.mem || steps > pp.max_tx_ex_units.steps {
         return Err(PostAlonzo(TxExUnitsExceeded));
     }
@@ -980,16 +1026,19 @@ fn check_scripts(
     if u128::from(paid) * 100 < u128::from(b.fee) * u128::from(pp.collateral_percentage) {
         return Err(PostAlonzo(CollateralMinLovelace));
     }
-    let execution = fraction_add(
+    Ok((true, natives))
+}
+
+/// The fee for the declared execution units, rounded up once.
+fn execution_fee(mem: u64, steps: u64, pp: &DijkstraProtParams) -> Result<u64, ValidationError> {
+    if mem == 0 && steps == 0 {
+        return Ok(0);
+    }
+    let (n, d) = fraction_add(
         fraction_scale(price(&pp.execution_costs.mem_price)?, mem)?,
         fraction_scale(price(&pp.execution_costs.step_price)?, steps)?,
     )?;
-    let execution_fee = execution.0 / execution.1 + u128::from(execution.0 % execution.1 != 0);
-    add(
-        u64::try_from(execution_fee).map_err(|_| PostAlonzo(NegativeValue))?,
-        reference_fee(bytes, pp)?,
-    )
-    .map(|fee| (fee, true, natives))
+    u64::try_from(n / d + u128::from(n % d != 0)).map_err(|_| PostAlonzo(NegativeValue))
 }
 
 // Exact nonnegative arithmetic: execution fees round up once; the total tiered
@@ -1026,6 +1075,9 @@ fn fraction_add((a, b): Fraction, (c, d): Fraction) -> Result<Fraction, Validati
     )))
 }
 fn reference_fee(mut bytes: u64, p: &DijkstraProtParams) -> Result<u64, ValidationError> {
+    if bytes == 0 {
+        return Ok(0);
+    }
     if p.ref_script_cost_stride == 0 {
         return Err(DijkstraMissingParameters("reference fee stride"));
     }
