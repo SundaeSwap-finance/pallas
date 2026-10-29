@@ -8,6 +8,11 @@ use pallas_codec::minicbor;
 use pallas_primitives::{PlutusData, conway::ExUnits};
 
 fn evaluate(body: &str) -> Result<super::evaluator::ScriptEvalResult, Error> {
+    evaluate_calls(body).map(|(result, _)| result)
+}
+fn evaluate_calls(
+    body: &str,
+) -> Result<(super::evaluator::ScriptEvalResult, Vec<super::Builtin>), Error> {
     let arena = Arena::new();
     let source = format!("(program 1.1.0 (lam ctx {body}))");
     let program = parse_program(&arena, &source, amaru_kernel::ProtocolVersion::new(12, 0))
@@ -234,6 +239,20 @@ fn unaudited_builtins_are_refused_only_when_called() {
             other => panic!("{body}: {other:?}"),
         }
     }
+}
+
+#[test]
+fn evaluation_reports_the_builtins_called_on_the_taken_branch() {
+    use super::Builtin as B;
+    let body = "(force [[[(force (builtin ifThenElse)) (con bool True)] \
+        (delay [[(force (builtin chooseUnit)) (con unit ())] (con unit ())])] \
+        (delay [[(force (builtin trace)) (con string \"untaken\")] (con unit ())])])";
+    let (result, calls) = evaluate_calls(body).unwrap();
+    assert!(result.success, "{result:?}");
+    assert_eq!(calls, vec![B::IfThenElse, B::ChooseUnit]);
+    let audited = super::audited_builtins();
+    assert!(audited.contains(&B::ChooseUnit) && audited.contains(&B::Trace));
+    assert!(!audited.contains(&B::Sha2_256));
 }
 
 #[test]

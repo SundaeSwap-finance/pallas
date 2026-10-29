@@ -47,8 +47,23 @@ pub fn estimate_tx(
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<EvalReport, Error> {
+    let estimates = estimate_tx_calls(tx, pparams, utxos, slot_config)?;
+    Ok(estimates.into_iter().map(|(result, _)| result).collect())
+}
+
+/// [`estimate_tx`], with the builtins each redeemer's evaluation called in order of first call.
+#[cfg(feature = "unstable")]
+pub fn estimate_tx_calls(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    slot_config: &SlotConfig,
+) -> Result<Vec<(tx::TxEvalResult, Vec<Builtin>)>, Error> {
     dijkstra::estimate_tx(tx, pparams, utxos, slot_config)
 }
+
+#[cfg(feature = "unstable")]
+pub use native_evaluator::{Builtin, audited_builtins};
 
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_evaluation_tests;

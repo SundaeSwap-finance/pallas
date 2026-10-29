@@ -3,6 +3,7 @@
 use super::{
     error::{Error, Unsupported},
     evaluator,
+    native_evaluator::Builtin,
     script_context::{ScriptPurpose, SlotConfig, TimeRange, TxInInfo, TxInfo, TxInfoV3},
     to_plutus_data::MintValue,
     tx::TxEvalResult,
@@ -123,7 +124,8 @@ pub(super) fn eval_tx(
     utxos: &UtxoMap,
     slots: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
-    eval_tx_with_mode(tx, pparams, utxos, slots, false)
+    let results = eval_tx_with_mode(tx, pparams, utxos, slots, false)?;
+    Ok(results.into_iter().map(|(result, _)| result).collect())
 }
 
 pub(super) fn estimate_tx(
@@ -131,7 +133,7 @@ pub(super) fn estimate_tx(
     pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
     slots: &SlotConfig,
-) -> Result<Vec<TxEvalResult>, Error> {
+) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
     eval_tx_with_mode(tx, pparams, utxos, slots, true)
 }
 
@@ -141,7 +143,7 @@ fn eval_tx_with_mode(
     utxos: &UtxoMap,
     slots: &SlotConfig,
     estimate: bool,
-) -> Result<Vec<TxEvalResult>, Error> {
+) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
     let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
     let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
         return unsupported("protocol parameters require Dijkstra");
@@ -470,7 +472,7 @@ fn eval_tx_with_mode(
                 .into_script_context(r, spending_datums.get(&key))
                 .ok_or(Error::ScriptContextBuildError)?;
             let data = context.to_plutus_data_with_protocol(12);
-            let result = evaluator::eval_native_v3(
+            let (result, calls) = evaluator::eval_native_v3(
                 scripts[&expected[&key]].as_ref(),
                 &data,
                 cost_model_v3,
@@ -480,14 +482,15 @@ fn eval_tx_with_mode(
                     r.ex_units
                 },
             )?;
-            Ok(TxEvalResult {
+            let result = TxEvalResult {
                 tag: r.tag,
                 index: r.index,
                 units: result.units,
                 success: result.success,
                 logs: result.logs,
                 failure_message: result.failure.map(|f| f.message),
-            })
+            };
+            Ok((result, calls))
         })
         .collect()
 }
