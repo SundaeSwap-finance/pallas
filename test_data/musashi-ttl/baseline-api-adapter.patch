@@ -1,0 +1,283 @@
+--- /dev/null
++++ b/pallas-validate/src/utils/dijkstra_time.rs
+@@ -0,0 +1,229 @@
++//! Historical slot/time translation for native Dijkstra validation.
++
++/// The start and slot duration of one known era. Times are POSIX milliseconds.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct EraTime {
++    pub start_slot: u64,
++    pub start_time_ms: u64,
++    pub slot_length_ms: u64,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
++pub enum DijkstraTimeError {
++    #[error("invalid era time history: {0}")]
++    InvalidHistory(&'static str),
++    #[error("slot {slot} precedes available time history starting at {first_slot}")]
++    BeforeHistory { slot: u64, first_slot: u64 },
++    #[error("POSIX millisecond conversion overflows at slot {0}")]
++    Overflow(u64),
++    #[error("time context basis {basis} differs from validation slot {slot}")]
++    WrongValidationSlot { basis: u64, slot: u64 },
++}
++
++impl EraTime {
++    fn translate(&self, slot: u64) -> Result<u64, DijkstraTimeError> {
++        let elapsed =
++            slot.checked_sub(self.start_slot)
++                .ok_or(DijkstraTimeError::BeforeHistory {
++                    slot,
++                    first_slot: self.start_slot,
++                })?;
++        elapsed
++            .checked_mul(self.slot_length_ms)
++            .and_then(|x| self.start_time_ms.checked_add(x))
++            .ok_or(DijkstraTimeError::Overflow(slot))
++    }
++}
++
++/// Slot/time mappings at a particular historical validation slot.
++///
++/// Each known era uses the same affine conversion as `SlotConfig`. Slots beyond
++/// the last known era start continue with that era's slot length. Known era
++/// transitions remain effective even beyond the validation slot. Arithmetic is
++/// checked; consensus forecast enforcement is a separate caller concern.
++#[derive(Debug, Clone)]
++pub struct DijkstraTimeContext {
++    eras: Vec<EraTime>,
++    validation_slot: u64,
++}
++
++impl DijkstraTimeContext {
++    pub fn new(eras: Vec<EraTime>, validation_slot: u64) -> Result<Self, DijkstraTimeError> {
++        let Some(first) = eras.first() else {
++            return Err(DijkstraTimeError::InvalidHistory("empty history"));
++        };
++        if validation_slot < first.start_slot {
++            return Err(DijkstraTimeError::BeforeHistory {
++                slot: validation_slot,
++                first_slot: first.start_slot,
++            });
++        }
++        if eras.iter().any(|e| e.slot_length_ms == 0) {
++            return Err(DijkstraTimeError::InvalidHistory("zero slot length"));
++        }
++        for pair in eras.windows(2) {
++            if pair[0].start_slot >= pair[1].start_slot {
++                return Err(DijkstraTimeError::InvalidHistory(
++                    "era starts must increase",
++                ));
++            }
++            if pair[0].translate(pair[1].start_slot)? != pair[1].start_time_ms {
++                return Err(DijkstraTimeError::InvalidHistory("discontinuous era times"));
++            }
++        }
++        let edge = eras
++            .iter()
++            .rev()
++            .find(|e| e.start_slot <= validation_slot)
++            .unwrap();
++        edge.translate(validation_slot)?;
++        Ok(Self {
++            eras,
++            validation_slot,
++        })
++    }
++
++    pub fn validation_slot(&self) -> u64 {
++        self.validation_slot
++    }
++
++    pub fn slot_to_posix_ms(&self, slot: u64) -> Result<u64, DijkstraTimeError> {
++        let era = self
++            .eras
++            .iter()
++            .rev()
++            .find(|e| e.start_slot <= slot)
++            .ok_or(DijkstraTimeError::BeforeHistory {
++                slot,
++                first_slot: self.eras[0].start_slot,
++            })?;
++        era.translate(slot)
++    }
++
++    pub fn validity_bounds(
++        &self,
++        lower: Option<u64>,
++        upper: Option<u64>,
++    ) -> Result<(Option<u64>, Option<u64>), DijkstraTimeError> {
++        Ok((
++            lower.map(|s| self.slot_to_posix_ms(s)).transpose()?,
++            upper.map(|s| self.slot_to_posix_ms(s)).transpose()?,
++        ))
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn history() -> Vec<EraTime> {
++        vec![
++            EraTime {
++                start_slot: 0,
++                start_time_ms: 1_000_000,
++                slot_length_ms: 20_000,
++            },
++            EraTime {
++                start_slot: 10,
++                start_time_ms: 1_200_000,
++                slot_length_ms: 1000,
++            },
++        ]
++    }
++
++    #[test]
++    fn historical_and_future_bounds_use_their_correct_slot_lengths() {
++        let time = DijkstraTimeContext::new(history(), 20).unwrap();
++        assert_eq!(
++            time.validity_bounds(Some(5), Some(100)).unwrap(),
++            (Some(1_100_000), Some(1_290_000))
++        );
++        assert_eq!(time.slot_to_posix_ms(9).unwrap(), 1_180_000);
++        assert_eq!(time.slot_to_posix_ms(10).unwrap(), 1_200_000);
++        assert_eq!(time.slot_to_posix_ms(20).unwrap(), 1_210_000);
++        assert_eq!(time.slot_to_posix_ms(21).unwrap(), 1_211_000);
++        // Forward extension has no arbitrary fixed TTL distance.
++        assert_eq!(time.slot_to_posix_ms(1_000_000).unwrap(), 1_001_190_000);
++    }
++
++    #[test]
++    fn absent_bounds_remain_absent() {
++        let time = DijkstraTimeContext::new(history(), 20).unwrap();
++        assert_eq!(time.validity_bounds(None, None).unwrap(), (None, None));
++        assert_eq!(
++            time.validity_bounds(None, Some(10)).unwrap(),
++            (None, Some(1_200_000))
++        );
++        assert_eq!(
++            time.validity_bounds(Some(10), None).unwrap(),
++            (Some(1_200_000), None)
++        );
++    }
++
++    #[test]
++    fn unavailable_history_and_invalid_basis_are_explicit_errors() {
++        assert!(matches!(
++            DijkstraTimeContext::new(vec![], 0),
++            Err(DijkstraTimeError::InvalidHistory(_))
++        ));
++        let era = EraTime {
++            start_slot: 10,
++            start_time_ms: 1000,
++            slot_length_ms: 1000,
++        };
++        assert!(matches!(
++            DijkstraTimeContext::new(vec![era.clone()], 9),
++            Err(DijkstraTimeError::BeforeHistory { .. })
++        ));
++        let time = DijkstraTimeContext::new(vec![era], 11).unwrap();
++        assert!(matches!(
++            time.validity_bounds(Some(9), Some(20)),
++            Err(DijkstraTimeError::BeforeHistory { .. })
++        ));
++        let mut gap = history();
++        gap[1].start_time_ms += 1;
++        assert!(matches!(
++            DijkstraTimeContext::new(gap, 20),
++            Err(DijkstraTimeError::InvalidHistory(_))
++        ));
++        let mut zero = history();
++        zero[0].slot_length_ms = 0;
++        assert!(matches!(
++            DijkstraTimeContext::new(zero, 20),
++            Err(DijkstraTimeError::InvalidHistory(_))
++        ));
++    }
++
++    #[test]
++    fn conversion_overflow_never_wraps_or_drops_a_bound() {
++        let time = DijkstraTimeContext::new(history(), 20).unwrap();
++        assert_eq!(
++            time.validity_bounds(None, Some(u64::MAX)),
++            Err(DijkstraTimeError::Overflow(u64::MAX))
++        );
++        let near_max = EraTime {
++            start_slot: 0,
++            start_time_ms: u64::MAX - 1000,
++            slot_length_ms: 1000,
++        };
++        let time = DijkstraTimeContext::new(vec![near_max.clone()], 0).unwrap();
++        assert_eq!(time.slot_to_posix_ms(1).unwrap(), u64::MAX);
++        assert_eq!(
++            time.slot_to_posix_ms(2),
++            Err(DijkstraTimeError::Overflow(2))
++        );
++        assert!(matches!(
++            DijkstraTimeContext::new(vec![near_max], 2),
++            Err(DijkstraTimeError::Overflow(2))
++        ));
++    }
++
++    #[test]
++    fn known_era_transitions_apply_beyond_the_validation_slot() {
++        let time = DijkstraTimeContext::new(history(), 5).unwrap();
++        assert_eq!(time.slot_to_posix_ms(9).unwrap(), 1_180_000);
++        assert_eq!(time.slot_to_posix_ms(10).unwrap(), 1_200_000);
++        assert_eq!(time.slot_to_posix_ms(15).unwrap(), 1_205_000);
++        assert_eq!(time.slot_to_posix_ms(1_000_000).unwrap(), 1_001_190_000);
++    }
++}
+--- a/pallas-validate/src/utils.rs
++++ b/pallas-validate/src/utils.rs
+@@ -906,0 +907,6 @@
++
++// Baseline API adapter only; native validation rules are unchanged.
++#[cfg(feature = "unstable")]
++pub mod dijkstra_time;
++#[cfg(feature = "unstable")]
++pub use dijkstra_time::{DijkstraTimeContext, DijkstraTimeError, EraTime};
+--- a/pallas-validate/src/phase1/mod.rs
++++ b/pallas-validate/src/phase1/mod.rs
+@@ -124,0 +125,6 @@
++
++// Baseline API adapter: the old validator has no time-context argument.
++#[cfg(feature = "unstable")]
++pub fn validate_tx_with_time(tx: &MultiEraTx, ix: TransactionIndex, env: &Environment, utxos: &UTxOs, state: &mut CertState, _time: &crate::utils::DijkstraTimeContext) -> ValidationResult {
++    validate_tx(tx, ix, env, utxos, state)
++}
+--- a/pallas-validate/src/phase2/mod.rs
++++ b/pallas-validate/src/phase2/mod.rs
+@@ -63,0 +64,17 @@
++
++// Baseline API adapters: only adapt the supplied linear capture time mapping.
++// The unchanged native evaluator still rejects the finite upper bound.
++#[cfg(feature = "unstable")]
++fn baseline_slots(time: &crate::utils::DijkstraTimeContext) -> SlotConfig {
++    let slot = time.validation_slot();
++    let now = time.slot_to_posix_ms(slot).unwrap();
++    SlotConfig { zero_slot: slot, zero_time: now, slot_length: time.slot_to_posix_ms(slot + 1).unwrap() - now }
++}
++#[cfg(feature = "unstable")]
++pub fn evaluate_tx_with_time(tx: &MultiEraTx, pp: &MultiEraProtocolParameters, utxos: &UtxoMap, time: &crate::utils::DijkstraTimeContext) -> Result<EvalReport, Error> {
++    evaluate_tx(tx, pp, utxos, &baseline_slots(time))
++}
++#[cfg(feature = "unstable")]
++pub fn estimate_tx_with_time(tx: &MultiEraTx, pp: &MultiEraProtocolParameters, utxos: &UtxoMap, time: &crate::utils::DijkstraTimeContext) -> Result<EvalReport, Error> {
++    estimate_tx(tx, pp, utxos, &baseline_slots(time))
++}
+--- a/pallas-validate/src/utils/environment.rs
++++ b/pallas-validate/src/utils/environment.rs
+@@ -362 +362,9 @@
+-}
++    pub peras_min_candidate_block_age: u32,
++    pub peras_healing_factor: RationalNumber,
++    pub peras_cert_boost: u16,
++    pub peras_target_committee_size: u16,
++    pub peras_bootstrap_round: Option<u32>,
++    pub peras_quorum_threshold_safety_margin: UnitInterval,
++    pub ref_inputs_cost_per_multi_asset_policy: Coin,
++    pub ref_inputs_cost_per_datum_byte: Coin,
++}

@@ -5,6 +5,9 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum ValidationError {
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra time translation: {0}")]
+    DijkstraTime(#[from] super::DijkstraTimeError),
+    #[cfg(feature = "unstable")]
     #[error("unsupported Dijkstra phase-one feature: {0}")]
     DijkstraUnsupported(&'static str),
 

@@ -8,7 +8,7 @@ use super::{
     to_plutus_data::MintValue,
     tx::TxEvalResult,
 };
-use crate::utils::{MultiEraProtocolParameters, TxoRef, UtxoMap};
+use crate::utils::{DijkstraTimeContext, EraTime, MultiEraProtocolParameters, TxoRef, UtxoMap};
 use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
 use pallas_codec::utils::CborWrap;
 use pallas_primitives::{conway as c, dijkstra as n};
@@ -127,7 +127,7 @@ pub(super) fn eval_tx(
     utxos: &UtxoMap,
     slots: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
-    let results = eval_tx_with_mode(tx, pparams, utxos, slots, false)?;
+    let results = eval_tx_with_mode(tx, pparams, utxos, &linear_time(slots)?, false)?;
     Ok(results.into_iter().map(|(result, _)| result).collect())
 }
 
@@ -137,14 +137,26 @@ pub(super) fn estimate_tx(
     utxos: &UtxoMap,
     slots: &SlotConfig,
 ) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
-    eval_tx_with_mode(tx, pparams, utxos, slots, true)
+    eval_tx_with_mode(tx, pparams, utxos, &linear_time(slots)?, true)
 }
 
-fn eval_tx_with_mode(
+fn linear_time(slots: &SlotConfig) -> Result<DijkstraTimeContext, Error> {
+    DijkstraTimeContext::new(
+        vec![EraTime {
+            start_slot: slots.zero_slot,
+            start_time_ms: slots.zero_time,
+            slot_length_ms: slots.slot_length,
+        }],
+        slots.zero_slot,
+    )
+    .map_err(Error::from)
+}
+
+pub(super) fn eval_tx_with_mode(
     tx: &MultiEraTx,
     pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
-    slots: &SlotConfig,
+    time: &DijkstraTimeContext,
     estimate: bool,
 ) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
     let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
@@ -382,23 +394,7 @@ fn eval_tx_with_mode(
     if purposes.is_empty() {
         return Ok(vec![]);
     }
-    if b.ttl.is_some() {
-        return unsupported("upper validity bound requires forecast state");
-    }
-    let lower_bound = b
-        .validity_interval_start
-        .map(|s| {
-            let elapsed = s
-                .checked_sub(slots.zero_slot)
-                .ok_or(Error::SlotTooFarInThePast {
-                    oldest_allowed: slots.zero_slot,
-                })?;
-            elapsed
-                .checked_mul(slots.slot_length)
-                .and_then(|x| slots.zero_time.checked_add(x))
-                .ok_or(Error::DijkstraInvalid("slot time overflow"))
-        })
-        .transpose()?;
+    let (lower_bound, upper_bound) = time.validity_bounds(b.validity_interval_start, b.ttl)?;
     let info = TxInfo::V3(TxInfoV3 {
         inputs,
         reference_inputs,
@@ -415,7 +411,7 @@ fn eval_tx_with_mode(
             .into(),
         valid_range: TimeRange {
             lower_bound,
-            upper_bound: None,
+            upper_bound,
         },
         signatories,
         redeemers: purposes.clone().into(),

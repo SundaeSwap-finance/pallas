@@ -2,6 +2,10 @@
 
 #[cfg(feature = "unstable")]
 pub(crate) mod dijkstra_native;
+#[cfg(feature = "unstable")]
+pub mod dijkstra_time;
+#[cfg(feature = "unstable")]
+pub use dijkstra_time::{DijkstraTimeContext, DijkstraTimeError, EraTime};
 pub mod environment;
 pub mod validation;
 

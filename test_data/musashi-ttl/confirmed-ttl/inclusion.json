@@ -1,0 +1,20 @@
+{
+  "confirmations_after_inclusion": 32,
+  "collateral_bytes_unchanged": true,
+  "transaction": "9b354b0f9b042c677ffdb15665a914499d2bdcef093cd834d5ce0538b212f56f",
+  "block": "5db7f685a86823f403496907ffa503265b49aa7db392bd2b4cbd3bbf8f5afd79",
+  "height": 49245,
+  "slot": 1109288,
+  "timestamp": 1793390888000,
+  "success": true,
+  "body_and_witness_bytes_preserved": true,
+  "normal_outputs_present": 1,
+  "collateral_outputs_present": 1,
+  "observed_tip": {
+    "slot": "1109836",
+    "hash": "/DlTqlr64J1fFv9NmJ1sF2+3gbQgYsGqTs0hL8lk0dE=",
+    "timestamp": "1793391436000"
+  },
+  "rollback_observed": false,
+  "node_build": null
+}

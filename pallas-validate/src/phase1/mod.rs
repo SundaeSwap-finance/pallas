@@ -120,5 +120,33 @@ pub fn validate_tx(
     }
 }
 
+/// Validate with explicit historical time information for Dijkstra Plutus.
+/// Earlier eras retain their existing validation entry point. The time basis
+/// must equal `env.block_slot`; supply the same context to native phase two.
+#[cfg(feature = "unstable")]
+pub fn validate_tx_with_time(
+    metx: &MultiEraTx,
+    txix: TransactionIndex,
+    env: &Environment,
+    utxos: &UTxOs,
+    cert_state: &mut CertState,
+    time: &crate::utils::DijkstraTimeContext,
+) -> ValidationResult {
+    if let (MultiEraProtocolParameters::Dijkstra(pp), MultiEraTx::Dijkstra(tx)) =
+        (env.prot_params(), metx)
+    {
+        return dijkstra::validate_dijkstra_tx_with_time(
+            tx,
+            utxos,
+            pp,
+            env.block_slot(),
+            env.network_id(),
+            cert_state,
+            time,
+        );
+    }
+    validate_tx(metx, txix, env, utxos, cert_state)
+}
+
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_transaction_tests;

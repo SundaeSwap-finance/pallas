@@ -287,15 +287,7 @@ fn dijkstra_registration_scripts_redeemers_integrity_and_signatures() {
             &state,
             "PostAlonzo(VKWitnessMissing)",
         );
-        changed = tx.clone();
-        changed.transaction_body.ttl = Some(1402000);
-        fail(
-            &changed,
-            &utxos,
-            &params(),
-            &state,
-            "DijkstraUnsupported(\"Plutus validity upper bound requires forecast state\")",
-        );
+        // Signed finite-TTL acceptance is covered by tests/dijkstra_ttl.rs.
     });
 }
 #[test]
