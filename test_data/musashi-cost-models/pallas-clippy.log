@@ -1,0 +1,19 @@
+    Checking serde_core v1.0.229
+    Checking zerocopy v0.8.59
+    Checking serde v1.0.229
+    Checking thiserror v2.0.21
+    Checking num-traits v0.2.19
+    Checking num-integer v0.1.47
+    Checking memchr v2.8.3
+    Checking serde_json v1.0.151
+    Checking half v2.7.1
+    Checking minicbor v0.26.5
+    Checking num-bigint v0.4.8
+    Checking pallas-codec v1.4.0 (/home/rodrigo/projects/pallas/pallas-codec)
+    Checking serde_with v3.23.0
+    Checking pallas-crypto v1.4.0 (/home/rodrigo/projects/pallas/pallas-crypto)
+    Checking pallas-addresses v1.4.0 (/home/rodrigo/projects/pallas/pallas-addresses)
+    Checking pallas-primitives v1.4.0 (/home/rodrigo/projects/pallas/pallas-primitives)
+    Checking num-rational v0.4.2
+    Checking pallas-configs v1.4.0 (/home/rodrigo/projects/pallas/pallas-configs)
+    Finished `dev` profile [unoptimized] target(s) in 17.10s
