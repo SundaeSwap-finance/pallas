@@ -21,6 +21,26 @@ and routes to the matching era-specific validator (`validate_byron_tx`,
 
 ## Overview
 
+With `unstable,phase2`, native Dijkstra uses the earlier-era slot-to-POSIX-time
+conversion semantics, with checked arithmetic. Construct `utils::DijkstraTimeContext`
+from known `EraTime` segments and the validation slot, then pass it to
+`phase2::evaluate_tx_with_time` or `estimate_tx_with_time`.
+`estimate_tx_calls_with_time` additionally preserves builtin-call reports. Historical and known
+future era mappings are preserved; later slots extend the final known mapping.
+Finite lower bounds are inclusive and upper bounds exclusive, in milliseconds.
+
+Phase one checks the validity slots without requiring consensus forecast state.
+`phase1::validate_tx_with_time` additionally checks that both endpoints can be
+converted using a context based at the validation slot. Dolos passes the same
+context to phase one and phase two. The `SlotConfig` API remains available for
+a single affine mapping. Neither API imposes a current-epoch cutoff; full
+consensus forecast enforcement is a separate concern.
+
+The focused capture and its current proof limitations are documented in
+[`test_data/musashi-ttl`](../test_data/musashi-ttl/README.md). The V3 evaluator
+retains upstream support for cost models of any length, including the captured
+251- and 350-entry models, without padding or changing the script-integrity commitment.
+
 - `phase1` — phase-1 (structural / rule-based) validation, with one module
   per era: `byron`, `shelley_ma`, `alonzo`, `babbage`, `conway`. Top-level
   entry points are `validate_tx` (single tx) and `validate_txs`

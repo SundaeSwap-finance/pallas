@@ -443,14 +443,10 @@ fn native_registration_rejects_unsupported_features_and_protocols() {
                 "protocol version (requires 12.0)",
             );
         }
-        for feature in 0..15 {
+        for feature in 1..15 {
             let mut changed = tx.clone();
             let mut b = (*changed.transaction_body).clone();
             let expected = match feature {
-                0 => {
-                    b.ttl = Some(1402000);
-                    "upper validity bound"
-                }
                 1 => {
                     b.direct_deposits = Some(Default::default());
                     "account features"
@@ -512,7 +508,7 @@ fn native_registration_rejects_unsupported_features_and_protocols() {
                 }
                 13 => {
                     b.validity_interval_start = Some(u64::MAX);
-                    "slot time overflow"
+                    "Overflow"
                 }
                 _ => {
                     b.inputs = vec![b.inputs[0].clone(), b.inputs[0].clone()].into();
@@ -785,3 +781,30 @@ fn export_registration_cli_comparison() {
 
 #[path = "dijkstra_estimation_tests.rs"]
 mod estimation_tests;
+
+#[test]
+fn native_builtin_reports_preserve_historical_time() {
+    fixture(|tx, utxos| {
+        let tx = MultiEraTx::from_dijkstra(&tx);
+        let slots = slots();
+        let time = crate::utils::DijkstraTimeContext::new(
+            vec![crate::utils::EraTime {
+                start_slot: slots.zero_slot,
+                start_time_ms: slots.zero_time,
+                slot_length_ms: slots.slot_length,
+            }],
+            1_401_365,
+        )
+        .unwrap();
+        let ordinary = estimate_tx_calls(&tx, &params(), &utxos, &slots).unwrap();
+        let historical = estimate_tx_calls_with_time(&tx, &params(), &utxos, &time).unwrap();
+        assert!(!ordinary.is_empty());
+        assert_eq!(ordinary.len(), historical.len());
+        for ((expected, calls), (actual, historical_calls)) in ordinary.iter().zip(&historical) {
+            assert!(expected.success && actual.success);
+            assert_eq!(expected.units, actual.units);
+            assert!(!calls.is_empty());
+            assert_eq!(calls, historical_calls);
+        }
+    });
+}
