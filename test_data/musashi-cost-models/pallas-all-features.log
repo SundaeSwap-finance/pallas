@@ -1,0 +1,8 @@
+    Checking pallas-configs v1.4.0 (/home/rodrigo/projects/pallas/pallas-configs)
+    Checking pallas v1.4.0 (/home/rodrigo/projects/pallas/pallas)
+    Checking block-download v0.1.0 (/home/rodrigo/projects/pallas/examples/block-download)
+    Checking crawler v0.1.0 (/home/rodrigo/projects/pallas/examples/crawler)
+    Checking n2n-miniprotocols v0.1.0 (/home/rodrigo/projects/pallas/examples/n2n-miniprotocols)
+    Checking byron-decoder v0.1.0 (/home/rodrigo/projects/pallas/examples/block-decode)
+    Checking n2c-miniprotocols v0.1.0 (/home/rodrigo/projects/pallas/examples/n2c-miniprotocols)
+    Finished `dev` profile [unoptimized] target(s) in 14.11s
