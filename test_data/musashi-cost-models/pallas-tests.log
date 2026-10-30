@@ -1,0 +1,104 @@
+   Compiling serde_core v1.0.229
+   Compiling darling_core v0.24.1
+   Compiling serde v1.0.229
+   Compiling pallas-codec v1.4.0 (/home/rodrigo/projects/pallas/pallas-codec)
+   Compiling darling_macro v0.24.1
+   Compiling pallas-crypto v1.4.0 (/home/rodrigo/projects/pallas/pallas-crypto)
+   Compiling num-integer v0.1.47
+   Compiling darling v0.24.1
+   Compiling serde_json v1.0.151
+   Compiling serde_with_macros v3.23.0
+   Compiling num-bigint v0.4.8
+   Compiling pallas-addresses v1.4.0 (/home/rodrigo/projects/pallas/pallas-addresses)
+   Compiling pallas-primitives v1.4.0 (/home/rodrigo/projects/pallas/pallas-primitives)
+   Compiling num-rational v0.4.2
+   Compiling serde_with v3.23.0
+   Compiling pallas-configs v1.4.0 (/home/rodrigo/projects/pallas/pallas-configs)
+    Finished `test` profile [unoptimized] target(s) in 17.92s
+     Running unittests src/lib.rs (target/dijkstra-ttl-fixed-build/debug/deps/pallas_configs-4fd386d51262a00b)
+
+running 73 tests
+test alonzo::tests::a_field_spelled_both_ways_prefers_the_current_name ... ok
+test alonzo::tests::a_field_spelled_neither_way_is_refused ... ok
+test alonzo::tests::execution_prices_parse_under_the_current_names ... ok
+test alonzo::tests::execution_units_parse_under_the_current_names ... ok
+test alonzo::tests::the_older_names_still_parse ... ok
+test alonzo::tests::musashi_overrides_preserve_every_published_coefficient ... ok
+test alonzo::tests::injected_arrays_reject_non_integer_coefficients ... ok
+test byron::tests::test_preview_json_loads ... ok
+test alonzo::tests::a_language_only_at_the_top_level_survives ... ok
+test alonzo::tests::an_injected_model_overrides_the_top_level ... ok
+test alonzo::tests::test_mainnet_json_loads ... ok
+test alonzo::tests::a_published_genesis_is_unaffected ... ok
+test alonzo::tests::a_genesis_mixing_the_spellings_parses ... ok
+test conway::tests::a_committee_threshold_number_loads_as_a_fraction ... ok
+test alonzo::tests::a_genesis_without_extra_config_is_untouched ... ok
+test byron::tests::test_preview_non_avvm_utxos ... ok
+test alonzo::tests::a_genesis_spelling_the_new_names_parses ... ok
+test conway::tests::a_committee_threshold_object_keeps_its_terms ... ok
+test conway::tests::test_mainnet_json_loads ... ok
+test alonzo::tests::test_preview_json_loads ... ok
+test injection::tests::a_current_directory_segment_is_refused ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused ... ok
+test injection::tests::a_file_arm_against_a_populated_top_level_is_refused_before_the_read ... ok
+test injection::tests::a_file_arm_keeps_path_and_hash ... ok
+test injection::tests::a_file_arm_needs_its_hash ... ok
+test injection::tests::a_hash_that_is_not_a_hash_is_refused ... ok
+test injection::tests::a_malformed_payload_is_refused ... ok
+test injection::tests::a_parent_segment_is_refused ... ok
+test injection::tests::a_missing_file_is_refused ... ok
+test injection::tests::a_segment_holding_a_separator_is_refused ... ok
+test injection::tests::an_absolute_segment_is_refused ... ok
+test injection::tests::an_embedded_payload_is_read ... ok
+test injection::tests::an_empty_object_names_no_injection ... ok
+test injection::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test injection::tests::an_empty_segment_is_refused ... ok
+test injection::tests::an_injection_beats_an_empty_top_level ... ok
+test injection::tests::both_sources_populated_is_refused ... ok
+test injection::tests::both_arms_at_once_is_refused ... ok
+test injection::tests::no_injection_reads_the_top_level ... ok
+test injection::tests::two_empty_sources_stay_empty ... ok
+test injection::tests::the_text_only_path_refuses_a_file_arm ... ok
+test shelley::tests::a_field_named_neither_way_is_refused ... ok
+test alonzo::tests::injected_cost_models_reach_the_cost_model_set ... ok
+test injection::tests::an_unknown_key_is_refused ... ok
+test shelley::tests::a_pool_parses_under_the_current_names ... ok
+test shelley::tests::a_pool_parses_under_the_older_names ... ok
+test shelley::tests::both_spellings_prefer_the_current_name ... ok
+test injection::tests::a_wrong_hash_is_refused ... ok
+test shelley::tests::a_file_arm_stops_the_whole_genesis ... ok
+test shelley::tests::an_empty_payload_against_a_populated_top_level_is_refused ... ok
+test conway::tests::test_preview_json_loads ... ok
+test shelley::tests::an_unmodelled_extra_config_key_is_refused ... ok
+test shelley::tests::an_empty_staking_section_survives ... ok
+test shelley::tests::calc_address_txid ... ok
+test shelley::tests::an_absent_injection_leaves_the_top_level ... ok
+test injection::tests::an_injection_file_is_read ... ok
+test shelley::tests::funds_in_both_places_are_refused ... ok
+test injection::tests::a_file_holding_something_else_is_refused ... ok
+test shelley::tests::credentials_in_both_places_are_refused ... ok
+test shelley::tests::an_injection_file_reaches_the_utxo_set ... ok
+test shelley::tests::injected_staking_needs_no_staking_section ... ok
+test shelley::tests::injected_staking_reaches_the_accessor ... ok
+test shelley::tests::no_staking_anywhere_means_none ... ok
+test shelley::tests::pools_in_both_places_are_refused ... ok
+test shelley::tests::injected_funds_reach_the_utxo_set ... ok
+test shelley::tests::the_parse_path_still_refuses_an_injection_file ... ok
+test shelley::tests::test_partner_staking_parses ... ok
+test shelley::tests::a_genesis_without_extra_config_is_untouched ... ok
+test shelley::tests::test_preview_json_loads ... ok
+test shelley::tests::test_mainnet_json_loads ... ok
+test shelley::tests::test_musashi_json_loads ... ok
+test byron::tests::test_mainnet_json_loads ... ok
+test byron::tests::test_mainnet_avvm_utxos ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.63s
+
+   Doc-tests pallas_configs
+
+running 1 test
+test pallas-configs/src/lib.rs - (line 9) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.59s; merged doctests compilation took 0.57s
