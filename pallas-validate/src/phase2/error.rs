@@ -14,6 +14,9 @@ pub struct Unsupported(pub &'static str);
 #[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum Error {
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra time translation: {0}")]
+    DijkstraTime(#[from] crate::utils::DijkstraTimeError),
+    #[cfg(feature = "unstable")]
     #[error(transparent)]
     DijkstraUnsupported(Unsupported),
     #[cfg(feature = "unstable")]

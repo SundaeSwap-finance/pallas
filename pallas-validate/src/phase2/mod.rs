@@ -24,6 +24,43 @@ pub fn evaluate_tx(
     tx::eval_tx(tx, pparams, utxos, slot_config)
 }
 
+/// Evaluate native Dijkstra using the supplied historical slot/time mappings.
+/// Consensus forecast enforcement is separate from this conversion.
+#[cfg(feature = "unstable")]
+pub fn evaluate_tx_with_time(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &crate::utils::DijkstraTimeContext,
+) -> Result<EvalReport, Error> {
+    let results = dijkstra::eval_tx_with_mode(tx, pparams, utxos, time, false)?;
+    Ok(results.into_iter().map(|(result, _)| result).collect())
+}
+
+/// Estimate native Dijkstra with explicit historical time information. The
+/// budget and admission distinctions documented on [`estimate_tx`] still apply.
+#[cfg(feature = "unstable")]
+pub fn estimate_tx_with_time(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &crate::utils::DijkstraTimeContext,
+) -> Result<EvalReport, Error> {
+    let results = estimate_tx_calls_with_time(tx, pparams, utxos, time)?;
+    Ok(results.into_iter().map(|(result, _)| result).collect())
+}
+
+/// [`estimate_tx_calls`] using explicit historical slot/time mappings.
+#[cfg(feature = "unstable")]
+pub fn estimate_tx_calls_with_time(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &crate::utils::DijkstraTimeContext,
+) -> Result<Vec<(tx::TxEvalResult, Vec<Builtin>)>, Error> {
+    dijkstra::eval_tx_with_mode(tx, pparams, utxos, time, true)
+}
+
 /// Estimate native Dijkstra execution units without checking key witnesses or
 /// enforcing declared redeemer budgets. Earlier eras return [`Error::WrongEra`].
 ///
