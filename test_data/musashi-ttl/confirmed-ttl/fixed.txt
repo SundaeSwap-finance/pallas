@@ -1,0 +1,7 @@
+running 4 tests
+test captured_ttl_signatures_are_valid ... ok
+test captured_ttl_phase_one_succeeds ... ok
+test captured_ttl_phase_two_succeeds ... ok
+test captured_ttl_estimation_succeeds ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s

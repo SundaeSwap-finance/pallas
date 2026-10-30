@@ -28,4 +28,4 @@ checkpoints; they are retained rather than rewritten as current results.
 This fixture establishes published initial parameters, not an independent query
 of every active parameter. The user subsequently replayed the corrected node
 state and TTL attempt 005 executed successfully; its native evidence is retained
-separately under ../musashi-ttl/attempts/005. No keys or private journals are included.
+separately under ../musashi-ttl/confirmed-ttl. No keys or private journals are included.

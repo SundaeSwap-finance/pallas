@@ -32,6 +32,46 @@ pub fn validate_dijkstra_tx(
     network_id: &u8,
     cert_state: &mut CertState,
 ) -> ValidationResult {
+    validate_dijkstra_tx_inner(tx, utxos, pp, block_slot, network_id, cert_state, None)
+}
+
+/// Native phase one with the historical time context required by bounded Plutus.
+pub fn validate_dijkstra_tx_with_time(
+    tx: &BlockTransaction<'_>,
+    utxos: &UTxOs<'_>,
+    pp: &DijkstraProtParams,
+    block_slot: &u64,
+    network_id: &u8,
+    cert_state: &mut CertState,
+    time: &crate::utils::DijkstraTimeContext,
+) -> ValidationResult {
+    if time.validation_slot() != *block_slot {
+        return Err(crate::utils::DijkstraTimeError::WrongValidationSlot {
+            basis: time.validation_slot(),
+            slot: *block_slot,
+        }
+        .into());
+    }
+    validate_dijkstra_tx_inner(
+        tx,
+        utxos,
+        pp,
+        block_slot,
+        network_id,
+        cert_state,
+        Some(time),
+    )
+}
+
+fn validate_dijkstra_tx_inner(
+    tx: &BlockTransaction<'_>,
+    utxos: &UTxOs<'_>,
+    pp: &DijkstraProtParams,
+    block_slot: &u64,
+    network_id: &u8,
+    cert_state: &mut CertState,
+    time: Option<&crate::utils::DijkstraTimeContext>,
+) -> ValidationResult {
     if pp.protocol_version != (12, 0) {
         return Err(DijkstraUnsupported("protocol version (requires 12.0)"));
     }
@@ -190,7 +230,7 @@ pub fn validate_dijkstra_tx(
     }
     let subs = sub_scripts(b, utxos)?;
     let (has_plutus, natives) =
-        check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id)?;
+        check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id, time)?;
     if has_plutus && b.sub_transactions.is_some() {
         return Err(DijkstraUnsupported("scripted or stateful batch"));
     }
@@ -809,6 +849,7 @@ fn sub_scripts(b: &TransactionBody<'_>, utxos: &UTxOs<'_>) -> Result<SubScripts,
     Ok(subs)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn check_scripts(
     tx: &BlockTransaction<'_>,
     utxos: &UTxOs<'_>,
@@ -817,6 +858,7 @@ fn check_scripts(
     subs: &SubScripts,
     keys: &mut Keys,
     network: u8,
+    time: Option<&crate::utils::DijkstraTimeContext>,
 ) -> Result<(bool, Natives), ValidationError> {
     let b = &tx.transaction_body;
     let w = &tx.transaction_witness_set;
@@ -912,10 +954,10 @@ fn check_scripts(
         .filter(|(_, hash)| !natives.contains_key(hash))
         .map(|(key, hash)| (key.clone(), *hash))
         .collect();
-    if !scripts.is_empty() && b.ttl.is_some() {
-        return Err(DijkstraUnsupported(
-            "Plutus validity upper bound requires forecast state",
-        ));
+    if !scripts.is_empty()
+        && let Some(time) = time
+    {
+        time.validity_bounds(b.validity_interval_start, b.ttl)?;
     }
     for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
         let hash = script.compute_hash();
