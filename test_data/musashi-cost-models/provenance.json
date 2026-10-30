@@ -1,0 +1,37 @@
+{
+  "network": "Musashi",
+  "magic": 164,
+  "public_source": "public-source.json",
+  "source_sha256": "c045349dbe8bc1798717f4a23a62c92e5318768bcb4e3a3755fdbc3d52d0f767",
+  "base": "f3419a3a1e3e7c33d0b9027343089b5030ec8ef3",
+  "active_reference_parameters_queried": false,
+  "tests": {
+    "passed": 74,
+    "clippy": "passed with warnings denied",
+    "all_features_compile": "passed"
+  },
+  "file_sha256": {
+    "pallas-all-features.log": "49931a428849b61f0467e1871360447179e17bd97dcd0509ab5daa2855e9e56c",
+    "README.md": "8c436931f1108093bdc33d0723a51c37d6598d4bbf2e64f45aed124e699f49be",
+    "public-source.json": "1f4ecf3239b0a7d5e51089f72e257191a70f220c106bc9f98703511652e8dc4b",
+    "pallas-tests.log": "6234bdf2977c93112a3ad4aadf398e165792570489111d8224c1a262ba57e8f6",
+    "alonzo-genesis.json": "5e5b1f0776c6d84bcd15bc7df4f9368884b7c433296657e54722175ce71f1318",
+    "pallas-clippy.log": "d95e45d9de56cbb997879347ce6d91a6ac8261240b2b4513485a73e68e1be5b9"
+  },
+  "rebase": {
+    "onto": "de8177de91f353fac09e1f288da9ddad06c04861",
+    "resolution": "reuse upstream parser; retain explicit override view and strict array validation; preserve numbered Unknown precedence",
+    "tests": "80 unit tests and 1 doc test pass",
+    "logs": "target/musashi-rebase-20261030"
+  },
+  "cleanup": {
+    "production_parser_matches_upstream": "de8177de91f353fac09e1f288da9ddad06c04861",
+    "extra_cost_models_and_wrapper_removed": true,
+    "current_test_uses": "existing merged conway::CostModels conversion",
+    "old_source_hash_and_test_logs_are_historical": true,
+    "isolated_candidate_tests": {
+      "unit_passed": 78,
+      "doc_passed": 1
+    }
+  }
+}
