@@ -577,6 +577,25 @@ mod tests {
     }
 
     #[test]
+    fn musashi_overrides_preserve_every_published_coefficient() {
+        let raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../test_data/musashi-cost-models/alonzo-genesis.json"
+        ))
+        .unwrap();
+        let parsed: GenesisFile = serde_json::from_value(raw.clone()).unwrap();
+        let models = conway_cost_models(parsed.cost_models);
+        for (language, actual) in [
+            ("PlutusV1", models.plutus_v1),
+            ("PlutusV2", models.plutus_v2),
+            ("PlutusV3", models.plutus_v3),
+        ] {
+            let expected: Vec<i64> =
+                serde_json::from_value(raw["extraConfig"]["costModels"][language].clone()).unwrap();
+            assert_eq!(actual, Some(expected), "{language}");
+        }
+    }
+
+    #[test]
     fn test_preview_json_loads() {
         load_test_data_config("preview");
     }
