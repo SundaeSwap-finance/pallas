@@ -268,10 +268,10 @@ impl TxInfoV2<'_> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV3<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub reference_inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V3TxInfo<I, O> {
+    pub inputs: Vec<I>,
+    pub reference_inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Coin,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -286,6 +286,11 @@ pub struct TxInfoV3<'a> {
     pub current_treasury_amount: Option<Coin>,
     pub treasury_donation: Option<PositiveCoin>,
 }
+
+/// The Conway-backed V3 context used by the existing evaluation APIs.
+/// Native eras can provide their own input and output projections without
+/// translating reference script constructors into Conway.
+pub type TxInfoV3<'a> = V3TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV3<'_> {
     pub fn from_transaction<'a>(
