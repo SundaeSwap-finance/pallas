@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, ops::Deref};
 
 use super::data::Data;
 use super::script_context::{
-    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, from_alonzo_output,
+    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, V3TxInfo,
+    from_alonzo_output,
 };
 use pallas_addresses::{
     Address, ShelleyDelegationPart, ShelleyPaymentPart, StakeAddress, StakePayload,
@@ -43,7 +44,7 @@ pub fn convert_constr_to_tag(constr: u64) -> Option<u64> {
 
 pub static ANY_TAG: u64 = 102;
 
-fn wrap_multiple_with_constr(index: u64, data: Vec<PlutusData>) -> PlutusData {
+pub(super) fn wrap_multiple_with_constr(index: u64, data: Vec<PlutusData>) -> PlutusData {
     let converted = convert_constr_to_tag(index);
     PlutusData::Constr(Constr {
         tag: converted.unwrap_or(ANY_TAG),
@@ -1484,31 +1485,52 @@ impl TxInfo<'_> {
                     wrap_with_constr(0, tx_info.id.to_plutus_data()),
                 ],
             ),
-            TxInfo::V3(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.inputs.to_plutus_data(),
-                    tx_info.reference_inputs.to_plutus_data(),
-                    tx_info.outputs.to_plutus_data(),
-                    tx_info.fee.to_plutus_data(),
-                    tx_info.mint.to_plutus_data(),
-                    WithRegistrationDeposit(&tx_info.certificates, protocol_major > 9)
-                        .to_plutus_data(),
-                    tx_info.withdrawals.to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    WithRegistrationDeposit(&tx_info.redeemers, protocol_major > 9)
-                        .to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    tx_info.id.to_plutus_data(),
-                    tx_info.votes.to_plutus_data(),
-                    tx_info.proposal_procedures.to_plutus_data(),
-                    tx_info.current_treasury_amount.to_plutus_data(),
-                    tx_info.treasury_donation.to_plutus_data(),
-                ],
-            ),
+            TxInfo::V3(tx_info) => tx_info.to_plutus_data_with_protocol(protocol_major),
         }
     }
+}
+
+impl<I: ToPlutusData, O: ToPlutusData> V3TxInfo<I, O> {
+    pub(super) fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.inputs.to_plutus_data(),
+                self.reference_inputs.to_plutus_data(),
+                self.outputs.to_plutus_data(),
+                self.fee.to_plutus_data(),
+                self.mint.to_plutus_data(),
+                WithRegistrationDeposit(&self.certificates, protocol_major > 9).to_plutus_data(),
+                self.withdrawals.to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                WithRegistrationDeposit(&self.redeemers, protocol_major > 9).to_plutus_data(),
+                self.data.to_plutus_data(),
+                self.id.to_plutus_data(),
+                self.votes.to_plutus_data(),
+                self.proposal_procedures.to_plutus_data(),
+                self.current_treasury_amount.to_plutus_data(),
+                self.treasury_donation.to_plutus_data(),
+            ],
+        )
+    }
+}
+
+/// Encode the V3 context envelope independently of the ledger era of its outputs.
+pub(super) fn v3_script_context_data(
+    tx_info: PlutusData,
+    redeemer: &PlutusData,
+    purpose: &ScriptInfo<Option<PlutusData>>,
+    protocol_major: u32,
+) -> PlutusData {
+    wrap_multiple_with_constr(
+        0,
+        vec![
+            tx_info,
+            redeemer.to_plutus_data(),
+            WithRegistrationDeposit(purpose, protocol_major > 9).to_plutus_data(),
+        ],
+    )
 }
 
 impl ToPlutusData for ScriptContext<'_> {
@@ -1532,13 +1554,11 @@ impl ScriptContext<'_> {
                 tx_info,
                 redeemer,
                 purpose,
-            } => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.to_plutus_data_with_protocol(protocol_major),
-                    redeemer.to_plutus_data(),
-                    WithRegistrationDeposit(purpose.as_ref(), protocol_major > 9).to_plutus_data(),
-                ],
+            } => v3_script_context_data(
+                tx_info.to_plutus_data_with_protocol(protocol_major),
+                redeemer,
+                purpose,
+                protocol_major,
             ),
         }
     }
