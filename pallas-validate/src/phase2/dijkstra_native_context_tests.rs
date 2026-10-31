@@ -4,73 +4,64 @@ use pallas_traverse::OriginalHash;
 
 #[test]
 fn dijkstra_native_reference_hash_survives_v3_projection() {
-    // Non-minimal array length and tag: semantic re-encoding changes its hash.
+    // Deliberately nonminimal CBOR: hashing a semantic re-encoding is wrong.
+    // Include direct and all three recursive constructors, with both credentials.
+    let raw_scripts = [
+        "9802180180".to_owned(),
+        format!("980218068200581c{}", "02".repeat(28)),
+        format!("8201818202818303018182068201581c{}", "03".repeat(28)),
+    ];
+    for hex in raw_scripts {
+        let raw = hex::decode(hex).unwrap();
+        let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&raw).unwrap();
+        let expected = native.original_hash();
+        let output = n::TransactionOutput::PostAlonzo(
+            n::PostAlonzoTransactionOutput {
+                address: pallas_addresses::ShelleyAddress::new(
+                    pallas_addresses::Network::Testnet,
+                    ShelleyPaymentPart::Key([1; 28].into()),
+                    ShelleyDelegationPart::Null,
+                )
+                .to_vec()
+                .into(),
+                value: c::Value::Coin(5_000_000),
+                datum_option: None,
+                script_ref: Some(CborWrap(n::ScriptRef::NativeScript(native.clone()))),
+            }
+            .into(),
+        );
+        let original = minicbor::to_vec(&output).unwrap();
+        for reference in [false, true] {
+            let projected =
+                context_output(&MultiEraOutput::from_dijkstra(&output), reference).unwrap();
+            assert_eq!(projected.script.as_ref().unwrap().hash(), expected);
+            let c::PlutusData::Constr(data) = projected.to_plutus_data() else {
+                panic!()
+            };
+            assert_eq!(data.fields[3], Some(expected).to_plutus_data());
+            assert_ne!(
+                data.fields[3],
+                Some(n::ScriptHash::from([0; 28])).to_plutus_data()
+            );
+        }
+        assert_eq!(minicbor::to_vec(&output).unwrap(), original);
+        assert_eq!(minicbor::to_vec(&native).unwrap(), raw);
+    }
+    // The compatible Conway carrier still exposes exactly the same original hash.
     let raw = [0x98, 0x02, 0x18, 0x01, 0x80];
-    let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&raw).unwrap();
+    let native: KeepRaw<'_, c::NativeScript> = minicbor::decode(&raw).unwrap();
     let expected = native.original_hash();
-    let address = pallas_addresses::ShelleyAddress::new(
-        pallas_addresses::Network::Testnet,
-        ShelleyPaymentPart::Key([1; 28].into()),
-        ShelleyDelegationPart::Null,
-    )
-    .to_vec();
-    let output = n::TransactionOutput::PostAlonzo(
-        n::PostAlonzoTransactionOutput {
-            address: address.into(),
-            value: c::Value::Coin(5_000_000),
+    let output = c::TransactionOutput::PostAlonzo(
+        c::PostAlonzoTransactionOutput {
+            address: [vec![0x60], vec![1; 28]].concat().into(),
+            value: c::Value::Coin(1),
             datum_option: None,
-            script_ref: Some(CborWrap(n::ScriptRef::NativeScript(native))),
+            script_ref: Some(CborWrap(c::ScriptRef::NativeScript(native))),
         }
         .into(),
     );
-    let projected = context_output(&MultiEraOutput::from_dijkstra(&output), true).unwrap();
-    let view = MultiEraOutput::from_conway(&projected);
-    let reference = view.multi_era_script_ref().unwrap();
-    assert_eq!(reference.hash(), expected);
-    assert_eq!(reference.native_script().unwrap().encode(), raw);
-    // Earlier-era reference scripts retain those same original bytes too.
-    let second = context_output(&view, true).unwrap();
-    assert_eq!(
-        MultiEraOutput::from_conway(&second)
-            .multi_era_script_ref()
-            .unwrap()
-            .hash(),
-        expected
-    );
-}
-
-#[test]
-fn dijkstra_native_reference_guard_has_no_v3_projection() {
-    let guard = n::NativeScript::ScriptAll(vec![n::NativeScript::ScriptRequireGuard(
-        n::StakeCredential::AddrKeyhash([2; 28].into()),
-    )]);
-    let raw = minicbor::to_vec(&guard).unwrap();
-    let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&raw).unwrap();
-    let address = pallas_addresses::ShelleyAddress::new(
-        pallas_addresses::Network::Testnet,
-        ShelleyPaymentPart::Key([1; 28].into()),
-        ShelleyDelegationPart::Null,
-    )
-    .to_vec();
-    let output = n::TransactionOutput::PostAlonzo(
-        n::PostAlonzoTransactionOutput {
-            address: address.into(),
-            value: c::Value::Coin(5_000_000),
-            datum_option: None,
-            script_ref: Some(CborWrap(n::ScriptRef::NativeScript(native))),
-        }
-        .into(),
-    );
-    let result = context_output(&MultiEraOutput::from_dijkstra(&output), true);
-    assert!(
-        matches!(
-            result,
-            Err(Error::DijkstraUnsupported(Unsupported(
-                "native script guards"
-            )))
-        ),
-        "{result:?}"
-    );
+    let projected = context_output(&MultiEraOutput::from_conway(&output), true).unwrap();
+    assert_eq!(projected.script.unwrap().hash(), expected);
 }
 
 #[test]
@@ -199,3 +190,39 @@ fn ttl_validator_detects_an_inclusive_upper_bound() {
         assert_eq!(result.success, !inclusive, "upper closure was not checked");
     }
 }
+
+// Constructed scripts have no raw bytes; mutating a decoded script clears them.
+// Both must expose the same hash before and after serialization.
+macro_rules! reference_without_raw {
+    ($test:ident, $era:ident, $view:ident) => {
+        #[test]
+        fn $test() {
+            let raw = [0x98, 0x02, 0x18, 0x01, 0x80];
+            let mut mutated: KeepRaw<'_, $era::NativeScript> = minicbor::decode(&raw).unwrap();
+            *mutated = $era::NativeScript::ScriptAny(vec![]);
+            for native in [$era::NativeScript::ScriptAll(vec![]).into(), mutated] {
+                assert!(native.raw_cbor().is_empty());
+                let expected = native.compute_hash();
+                let output = $era::TransactionOutput::PostAlonzo(
+                    $era::PostAlonzoTransactionOutput {
+                        address: [vec![0x60], vec![1; 28]].concat().into(),
+                        value: c::Value::Coin(1),
+                        datum_option: None,
+                        script_ref: Some(CborWrap($era::ScriptRef::NativeScript(native))),
+                    }
+                    .into(),
+                );
+                let encoded = minicbor::to_vec(&output).unwrap();
+                let decoded: $era::TransactionOutput<'_> = minicbor::decode(&encoded).unwrap();
+                let roundtrip = context_output(&MultiEraOutput::$view(&decoded), false).unwrap();
+                assert_eq!(roundtrip.script.as_ref().unwrap().hash(), expected);
+                let direct = context_output(&MultiEraOutput::$view(&output), false).unwrap();
+                assert_eq!(direct.script.as_ref().unwrap().hash(), expected);
+                assert_eq!(direct.to_plutus_data(), roundtrip.to_plutus_data());
+            }
+        }
+    };
+}
+
+reference_without_raw!(dijkstra_reference_without_raw, n, from_dijkstra);
+reference_without_raw!(conway_reference_without_raw, c, from_conway);
