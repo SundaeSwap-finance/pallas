@@ -114,6 +114,96 @@ fn native_registration_accepts_a_guard_native_witness() {
         assert!(r[0].success, "{r:?}");
     });
 }
+// Synthetic carrier mutations of the unchanged registration capture. Merely
+// carrying a native guard script does not execute it or require a guard witness.
+#[test]
+fn native_registration_guard_reference_context() {
+    use pallas_codec::utils::{CborWrap, KeepRaw};
+    for nested in [false, true] {
+        for carrier in ["spending", "reference", "output"] {
+            fixture(|mut tx, mut u| {
+                let guard = n::NativeScript::ScriptRequireGuard(n::StakeCredential::AddrKeyhash(
+                    [2; 28].into(),
+                ));
+                let script = if nested {
+                    n::NativeScript::ScriptAll(vec![guard])
+                } else {
+                    guard
+                };
+                let bytes = minicbor::to_vec(script).unwrap();
+                let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&bytes).unwrap();
+                let input = &tx.transaction_body.inputs[0];
+                let key = TxoRef(input.transaction_id, input.index as u32);
+                let output: n::TransactionOutput<'_> = minicbor::decode(&u[&key].1).unwrap();
+                let with_reference = |output: &n::TransactionOutput<'_>| {
+                    let view = pallas_traverse::MultiEraOutput::from_dijkstra(output);
+                    n::TransactionOutput::PostAlonzo(
+                        n::PostAlonzoTransactionOutput {
+                            address: view.address().unwrap().to_vec().into(),
+                            value: view.value().into_conway(),
+                            datum_option: view.datum().map(|d| {
+                                match d {
+                                    c::DatumOption::Hash(h) => c::DatumOption::Hash(h),
+                                    c::DatumOption::Data(d) => {
+                                        c::DatumOption::Data(CborWrap(d.0.unwrap().into()))
+                                    }
+                                }
+                                .into()
+                            }),
+                            script_ref: Some(CborWrap(n::ScriptRef::NativeScript(
+                                native.clone().to_owned(),
+                            ))),
+                        }
+                        .into(),
+                    )
+                };
+                let encoded = minicbor::to_vec(with_reference(&output)).unwrap();
+                match carrier {
+                    "spending" => {
+                        u.insert(key, EraCbor(Era::Dijkstra, encoded));
+                    }
+                    "reference" => {
+                        let extra = n::TransactionInput {
+                            transaction_id: [7; 32].into(),
+                            index: 0,
+                        };
+                        let mut body = (*tx.transaction_body).clone();
+                        let mut refs = body.reference_inputs.as_ref().unwrap().to_vec();
+                        refs.push(extra.clone());
+                        body.reference_inputs = n::NonEmptySet::from_vec(refs);
+                        tx.transaction_body = body.into();
+                        u.insert(
+                            TxoRef(extra.transaction_id, 0),
+                            EraCbor(Era::Dijkstra, encoded),
+                        );
+                    }
+                    _ => {
+                        let mut body = (*tx.transaction_body).clone();
+                        let mut outputs = body.outputs.to_vec();
+                        outputs[0] = with_reference(&outputs[0]);
+                        body.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
+                        tx.transaction_body = body.into();
+                    }
+                }
+                let report = run(&tx, &u)
+                    .expect("ledger permits guard-bearing native reference hashes in V3");
+                assert_eq!(report.len(), 1);
+                assert!(report[0].success, "{carrier} nested={nested}: {report:?}");
+                assert_eq!(
+                    report[0].units,
+                    n::ExUnits {
+                        mem: 18485,
+                        steps: 4805428
+                    }
+                );
+                let estimate =
+                    estimate_tx(&MultiEraTx::from_dijkstra(&tx), &params(), &u, &slots()).unwrap();
+                assert_eq!(estimate[0].units, report[0].units);
+            });
+        }
+    }
+}
+
 #[test]
 fn native_registration_missing_inputs_and_unrelated_utxos() {
     fixture(|tx, u| {
@@ -547,6 +637,59 @@ fn integer_validator(data: &str, expected: u64) -> n::PlutusScript<3> {
         "(program 1.1.0 (lam ctx (force [[[(force (builtin ifThenElse)) {condition}] (delay (con unit ()))] (delay (error))])))"
     ))
 }
+#[test]
+fn native_guard_reference_hash_reaches_v3_script() {
+    use pallas_codec::utils::{CborWrap, KeepRaw};
+    use pallas_traverse::OriginalHash;
+    // Nonminimal native CBOR, intentionally distinct from semantic re-encoding.
+    let bytes = hex::decode(format!("980218068200581c{}", "02".repeat(28))).unwrap();
+    let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&bytes).unwrap();
+    let original_hash = native.original_hash();
+    let canonical = minicbor::to_vec(&*native).unwrap();
+    let canonical_hash = minicbor::decode::<KeepRaw<'_, n::NativeScript>>(&canonical)
+        .unwrap()
+        .original_hash();
+    assert_ne!(original_hash, canonical_hash);
+    for (expected, accepts) in [(original_hash, true), (canonical_hash, false)] {
+        fixture(|mut tx, mut u| {
+            let mut body = (*tx.transaction_body).clone();
+            let view = pallas_traverse::MultiEraOutput::from_dijkstra(&body.outputs[0]);
+            let carried = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: view.address().unwrap().to_vec().into(),
+                    value: view.value().into_conway(),
+                    datum_option: None,
+                    script_ref: Some(CborWrap(n::ScriptRef::NativeScript(
+                        native.clone().to_owned(),
+                    ))),
+                }
+                .into(),
+            );
+            assert!(view.datum().is_none());
+            let mut outputs = body.outputs.to_vec();
+            outputs[0] = carried;
+            body.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
+            tx.transaction_body = body.into();
+            let outputs = field(&field("ctx", 0), 2);
+            let first = format!("[(force (builtin headList)) [(builtin unListData) {outputs}]]");
+            let hash = field(&field(&first, 3), 0);
+            let condition = format!(
+                "[[(builtin equalsByteString) [(builtin unBData) {hash}]] (con bytestring #{expected})]"
+            );
+            let validator = script(&format!(
+                "(program 1.1.0 (lam ctx (force [[[(force (builtin ifThenElse)) {condition}] (delay (con unit ()))] (delay (error))])))"
+            ));
+            replace_script(
+                &mut tx,
+                &mut u,
+                Some(n::ScriptRef::PlutusV3Script(validator)),
+                true,
+            );
+            assert_eq!(run(&tx, &u).unwrap()[0].success, accepts);
+        });
+    }
+}
+
 #[test]
 fn native_post_bootstrap_context_reaches_script() {
     fixture(|mut tx, mut u| {

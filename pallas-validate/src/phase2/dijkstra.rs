@@ -4,8 +4,8 @@ use super::{
     error::{Error, Unsupported},
     evaluator,
     native_evaluator::Builtin,
-    script_context::{ScriptPurpose, SlotConfig, TimeRange, TxInInfo, TxInfo, TxInfoV3},
-    to_plutus_data::MintValue,
+    script_context::{ScriptPurpose, SlotConfig, TimeRange, V3TxInfo},
+    to_plutus_data::{MintValue, ToPlutusData, v3_script_context_data, wrap_multiple_with_constr},
     tx::TxEvalResult,
 };
 use crate::utils::{DijkstraTimeContext, EraTime, MultiEraProtocolParameters, TxoRef, UtxoMap};
@@ -19,29 +19,73 @@ fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
 }
 
-/// Whether a native script holds a guard, which the Conway native script cannot encode.
-fn holds_guard(script: &n::NativeScript) -> bool {
-    let mut pending = vec![script];
-    while let Some(script) = pending.pop() {
-        match script {
-            n::NativeScript::ScriptRequireGuard(_) => return true,
-            n::NativeScript::ScriptAll(xs)
-            | n::NativeScript::ScriptAny(xs)
-            | n::NativeScript::ScriptNOfK(_, xs) => pending.extend(xs.iter()),
-            _ => {}
-        }
-    }
-    false
+/// A V3 context exposes only the original reference-script hash. Keep script
+/// discovery separate from that projection: Dijkstra native constructors must
+/// never be decoded as Conway just to obtain a V3 output representation.
+#[derive(Debug, Clone)]
+enum ContextReferenceScript {
+    Native(n::ScriptHash),
+    PlutusV3(n::PlutusScript<3>),
 }
 
-/// Project checked ledger output fields into the shared V3 TxOut
-/// representation. Decode under the original era first; never decode native
-/// CBOR as Conway or change its era. V3 exposes the same
-/// address/value/datum/script-hash fields.
-fn context_output(
-    output: &MultiEraOutput<'_>,
-    _reference: bool,
-) -> Result<c::TransactionOutput<'static>, Error> {
+impl ContextReferenceScript {
+    fn hash(&self) -> n::ScriptHash {
+        match self {
+            Self::Native(hash) => *hash,
+            Self::PlutusV3(script) => script.compute_hash(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ContextOutput {
+    address: Address,
+    value: c::Value,
+    datum: Option<c::DatumOption<'static>>,
+    script: Option<ContextReferenceScript>,
+}
+
+impl ToPlutusData for ContextOutput {
+    fn to_plutus_data(&self) -> c::PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.address.to_plutus_data(),
+                self.value.to_plutus_data(),
+                self.datum.to_plutus_data(),
+                self.script
+                    .as_ref()
+                    .map(ContextReferenceScript::hash)
+                    .to_plutus_data(),
+            ],
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ContextInput {
+    out_ref: n::TransactionInput,
+    resolved: ContextOutput,
+}
+
+impl ToPlutusData for ContextInput {
+    fn to_plutus_data(&self) -> c::PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.out_ref.to_plutus_data(),
+                self.resolved.to_plutus_data(),
+            ],
+        )
+    }
+}
+
+/// Ledger Babbage.transTxOutV2 (also used by Dijkstra V3) hashes native
+/// reference scripts without inspecting constructors, including RequireGuard.
+/// Retained CBOR is authoritative; constructed or mutated scripts fall back to
+/// encoding their current value.
+/// See test_data/musashi-guard-reference/README.md for pinned reference evidence.
+fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<ContextOutput, Error> {
     let address = output.address()?;
     match &address {
         Address::Shelley(a) if matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {
@@ -53,51 +97,37 @@ fn context_output(
     let script = match output.multi_era_script_ref() {
         None => None,
         Some(MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
-            n::ScriptRef::NativeScript(s) => {
-                if holds_guard(s) {
-                    return unsupported("native script guards");
-                }
-                // The guard-free variants share their encoding. Preserve original
-                // script bytes so the V3 TxOut exposes the correct reference hash.
-                let raw = pallas_codec::minicbor::to_vec(s)
-                    .map_err(|_| Error::DijkstraInvalid("native script encoding"))?;
-                let compatible: pallas_codec::utils::KeepRaw<'_, c::NativeScript> =
-                    pallas_codec::minicbor::decode(&raw)
-                        .map_err(|_| Error::DijkstraInvalid("native script encoding"))?;
-                Some(c::ScriptRef::NativeScript(compatible.to_owned()))
-            }
-            n::ScriptRef::PlutusV3Script(s) => Some(c::ScriptRef::PlutusV3Script(s.clone())),
+            n::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
+                pallas_traverse::MultiEraNativeScript::from_dijkstra(s).hash(),
+            )),
+            n::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
             _ => return unsupported("reference script language (requires V3)"),
         },
         Some(MultiEraScriptRef::Conway(s)) => match s.as_ref() {
-            c::ScriptRef::NativeScript(s) => Some(c::ScriptRef::NativeScript(s.clone().to_owned())),
-            c::ScriptRef::PlutusV3Script(s) => Some(c::ScriptRef::PlutusV3Script(s.clone())),
+            c::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
+                pallas_traverse::MultiEraNativeScript::from_alonzo_compatible(s).hash(),
+            )),
+            c::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
             _ => return unsupported("reference script language (requires V3)"),
         },
         _ => return unsupported("reference script language (requires V3)"),
     };
-    Ok(c::TransactionOutput::PostAlonzo(
-        c::PostAlonzoTransactionOutput {
-            address: address.to_vec().into(),
-            value: output.value().into_conway(),
-            datum_option: output
-                .datum()
-                .map(|d| match d {
-                    c::DatumOption::Hash(h) => c::DatumOption::Hash(h),
-                    c::DatumOption::Data(d) => c::DatumOption::Data(CborWrap(d.0.unwrap().into())),
-                })
-                .map(Into::into),
-            script_ref: script.map(CborWrap),
-        }
-        .into(),
-    ))
+    Ok(ContextOutput {
+        address,
+        value: output.value().into_conway(),
+        datum: output.datum().map(|d| match d {
+            c::DatumOption::Hash(h) => c::DatumOption::Hash(h),
+            c::DatumOption::Data(d) => c::DatumOption::Data(CborWrap(d.0.unwrap().into())),
+        }),
+        script,
+    })
 }
 
 fn resolve(
     inputs: &[n::TransactionInput],
     utxos: &UtxoMap,
     reference: bool,
-) -> Result<Vec<TxInInfo<'static>>, Error> {
+) -> Result<Vec<ContextInput>, Error> {
     let mut ordered: Vec<_> = inputs.iter().collect();
     ordered.sort();
     if ordered.windows(2).any(|x| x[0] == x[1]) {
@@ -113,7 +143,7 @@ fn resolve(
                 .ok_or_else(|| Error::ResolvedInputNotFound(i.clone()))?;
             let output = MultiEraOutput::decode(raw.0, &raw.1)
                 .map_err(|_| Error::DijkstraInvalid("input decoding for original era"))?;
-            Ok(TxInInfo {
+            Ok(ContextInput {
                 out_ref: i.clone(),
                 resolved: context_output(&output, reference)?,
             })
@@ -238,10 +268,8 @@ pub(super) fn eval_tx_with_mode(
         natives.insert(script.original_hash());
     }
     for input in inputs.iter().chain(&reference_inputs) {
-        if let c::TransactionOutput::PostAlonzo(o) = &input.resolved
-            && let Some(CborWrap(c::ScriptRef::NativeScript(s))) = &o.script_ref
-        {
-            natives.insert(s.original_hash());
+        if let Some(ContextReferenceScript::Native(hash)) = &input.resolved.script {
+            natives.insert(*hash);
         }
     }
     let mut scripts = BTreeMap::new();
@@ -250,9 +278,7 @@ pub(super) fn eval_tx_with_mode(
         scripts.insert(script.compute_hash(), script.clone());
     }
     for i in inputs.iter().chain(&reference_inputs) {
-        if let c::TransactionOutput::PostAlonzo(o) = &i.resolved
-            && let Some(CborWrap(c::ScriptRef::PlutusV3Script(s))) = &o.script_ref
-        {
+        if let Some(ContextReferenceScript::PlutusV3(s)) = &i.resolved.script {
             scripts.insert(s.compute_hash(), s.clone());
         }
     }
@@ -271,8 +297,7 @@ pub(super) fn eval_tx_with_mode(
         })
         .collect();
     for (index, input) in inputs.iter().enumerate() {
-        let view = MultiEraOutput::from_conway(&input.resolved);
-        if let Address::Shelley(address) = view.address()?
+        if let Address::Shelley(address) = &input.resolved.address
             && let ShelleyPaymentPart::Script(hash) = address.payment()
         {
             if natives.contains(hash) {
@@ -282,7 +307,7 @@ pub(super) fn eval_tx_with_mode(
                 tag: n::RedeemerTag::Spend,
                 index: index as u32,
             };
-            let datum = match view.datum() {
+            let datum = match input.resolved.datum.clone() {
                 Some(c::DatumOption::Data(d)) => Some(d.0.unwrap()),
                 Some(c::DatumOption::Hash(hash)) => Some(datums.get(&hash).cloned().ok_or_else(
                     || Error::MissingRequiredDatum {
@@ -395,7 +420,7 @@ pub(super) fn eval_tx_with_mode(
         return Ok(vec![]);
     }
     let (lower_bound, upper_bound) = time.validity_bounds(b.validity_interval_start, b.ttl)?;
-    let info = TxInfo::V3(TxInfoV3 {
+    let info = V3TxInfo {
         inputs,
         reference_inputs,
         outputs,
@@ -421,7 +446,7 @@ pub(super) fn eval_tx_with_mode(
         proposal_procedures: vec![],
         current_treasury_amount: None,
         treasury_donation: None,
-    });
+    };
     let cost_model_v3 = pp
         .cost_models_for_script_languages
         .plutus_v3
@@ -454,7 +479,7 @@ pub(super) fn eval_tx_with_mode(
     }
     purposes
         .iter()
-        .map(|(_, r)| {
+        .map(|(purpose, r)| {
             let tag = match r.tag {
                 c::RedeemerTag::Spend => n::RedeemerTag::Spend,
                 c::RedeemerTag::Mint => n::RedeemerTag::Mint,
@@ -466,11 +491,14 @@ pub(super) fn eval_tx_with_mode(
                 tag,
                 index: r.index,
             };
-            let context = info
-                .clone()
-                .into_script_context(r, spending_datums.get(&key))
-                .ok_or(Error::ScriptContextBuildError)?;
-            let data = context.to_plutus_data_with_protocol(12);
+            let data = v3_script_context_data(
+                info.to_plutus_data_with_protocol(12),
+                &r.data,
+                &purpose
+                    .clone()
+                    .into_script_info(spending_datums.get(&key).cloned()),
+                12,
+            );
             let (result, calls) = evaluator::eval_native_v3(
                 scripts[&expected[&key]].as_ref(),
                 &data,
