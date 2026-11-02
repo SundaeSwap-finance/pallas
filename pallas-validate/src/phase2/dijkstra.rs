@@ -25,13 +25,15 @@ fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
 #[derive(Debug, Clone)]
 enum ContextReferenceScript {
     Native(n::ScriptHash),
+    PlutusV1(n::ScriptHash),
+    PlutusV2(n::ScriptHash),
     PlutusV3(n::PlutusScript<3>),
 }
 
 impl ContextReferenceScript {
     fn hash(&self) -> n::ScriptHash {
         match self {
-            Self::Native(hash) => *hash,
+            Self::Native(hash) | Self::PlutusV1(hash) | Self::PlutusV2(hash) => *hash,
             Self::PlutusV3(script) => script.compute_hash(),
         }
     }
@@ -100,15 +102,28 @@ fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<Conte
             n::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
                 pallas_traverse::MultiEraNativeScript::from_dijkstra(s).hash(),
             )),
+            n::ScriptRef::PlutusV1Script(s) => {
+                Some(ContextReferenceScript::PlutusV1(s.compute_hash()))
+            }
+            n::ScriptRef::PlutusV2Script(s) => {
+                Some(ContextReferenceScript::PlutusV2(s.compute_hash()))
+            }
             n::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
-            _ => return unsupported("reference script language (requires V3)"),
+            n::ScriptRef::PlutusV4Script(_) => {
+                return unsupported("reference script language (requires V3)");
+            }
         },
         Some(MultiEraScriptRef::Conway(s)) => match s.as_ref() {
             c::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
                 pallas_traverse::MultiEraNativeScript::from_alonzo_compatible(s).hash(),
             )),
+            c::ScriptRef::PlutusV1Script(s) => {
+                Some(ContextReferenceScript::PlutusV1(s.compute_hash()))
+            }
+            c::ScriptRef::PlutusV2Script(s) => {
+                Some(ContextReferenceScript::PlutusV2(s.compute_hash()))
+            }
             c::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
-            _ => return unsupported("reference script language (requires V3)"),
         },
         _ => return unsupported("reference script language (requires V3)"),
     };
@@ -274,12 +289,21 @@ pub(super) fn eval_tx_with_mode(
     }
     let mut scripts = BTreeMap::new();
     for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
-        super::native_evaluator::check_v3_script(script.as_ref())?;
+        super::native_evaluator::check_plutus_script(script.as_ref())?;
         scripts.insert(script.compute_hash(), script.clone());
     }
+    let mut unevaluable = std::collections::BTreeSet::new();
     for i in inputs.iter().chain(&reference_inputs) {
-        if let Some(ContextReferenceScript::PlutusV3(s)) = &i.resolved.script {
-            scripts.insert(s.compute_hash(), s.clone());
+        match &i.resolved.script {
+            Some(ContextReferenceScript::PlutusV3(s)) => {
+                scripts.insert(s.compute_hash(), s.clone());
+            }
+            Some(
+                ContextReferenceScript::PlutusV1(hash) | ContextReferenceScript::PlutusV2(hash),
+            ) => {
+                unevaluable.insert(*hash);
+            }
+            Some(ContextReferenceScript::Native(_)) | None => {}
         }
     }
     let mut expected = BTreeMap::new();
@@ -372,6 +396,9 @@ pub(super) fn eval_tx_with_mode(
     expected.retain(|_, hash| !natives.contains(hash));
     purposes_by_pointer.retain(|key, _| expected.contains_key(key));
     for hash in expected.values() {
+        if unevaluable.contains(hash) && !scripts.contains_key(hash) {
+            return unsupported("reference script language (requires V3)");
+        }
         if !scripts.contains_key(hash) {
             return Err(Error::MissingRequiredScript {
                 hash: hash.to_string(),

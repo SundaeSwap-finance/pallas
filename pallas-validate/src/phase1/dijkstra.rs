@@ -6,20 +6,22 @@ use crate::utils::{
     verify_signature,
 };
 use pallas_addresses::{
-    Address, ByronAddress, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload,
+    Address, Network, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload, byron::ByronAddress,
 };
 use pallas_codec::{
     minicbor,
-    utils::{KeepRaw, Nullable},
+    utils::{KeepRaw, Nullable, decode_bytes_def_or_indef},
 };
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway::LanguageViews, dijkstra::*};
 use pallas_traverse::{
-    ComputeHash, MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash,
+    ComputeHash, MultiEraInput, MultiEraNativeScript, MultiEraOutput, MultiEraScriptRef,
+    MultiEraTx, OriginalHash,
 };
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 type Keys = HashSet<Hash<28>>;
+const MALFORMED_VALUE: ValidationError = DijkstraMalformed("multi-asset value");
 type Spent = HashSet<(Hash<32>, u64)>;
 
 /// Validate native phase one. Registration updates are provisional until phase two
@@ -169,10 +171,7 @@ fn validate_dijkstra_tx_inner(
             );
         }
     }
-    for (index, (hash, assets)) in b.mint.iter().flat_map(|x| x.iter()).enumerate() {
-        if assets.is_empty() || assets.keys().any(|x| x.len() > 32) {
-            return Err(PostAlonzo(NegativeValue));
-        }
+    for (index, hash) in b.mint.iter().flat_map(|x| x.keys()).enumerate() {
         scripts.insert(
             RedeemersKey {
                 tag: RedeemerTag::Mint,
@@ -296,12 +295,7 @@ fn validate_dijkstra_tx_inner(
             }
         }
         output_coin = add(output_coin, check_outputs(&sb.outputs, pp, network_id)?)?;
-        check_signatures(
-            w,
-            &encode(&sub.sub_transaction_body)?,
-            sub_keys,
-            &spending.bootstrap,
-        )?;
+        check_signatures(w, &encode(&sub.sub_transaction_body)?, sub_keys)?;
     }
     let spending = check_inputs(&b.inputs, utxos, &mut spent, &mut keys)?;
     consumed = add(consumed, spending.coin)?;
@@ -318,18 +312,13 @@ fn validate_dijkstra_tx_inner(
         return Err(PostAlonzo(PreservationOfValue));
     }
     check_assets(tx, utxos)?;
-    check_signatures(
-        &tx.transaction_witness_set,
-        &encode(b)?,
-        keys,
-        &spending.bootstrap,
-    )?;
+    check_signatures(&tx.transaction_witness_set, &encode(b)?, keys)?;
     cert_state.dijkstra_registrations = state;
     cert_state.dijkstra_account_balances = accounts;
     Ok(())
 }
 
-/// The minimum fee of a transaction whose inputs resolve in `utxos`, counting the redeemers of its top level witness set.
+/// The minimum fee of a transaction whose inputs resolve in `utxos`, pricing the redeemers of its top level and sub transactions together.
 pub fn dijkstra_min_fee(
     tx: &BlockTransaction<'_>,
     utxos: &UTxOs<'_>,
@@ -339,7 +328,7 @@ pub fn dijkstra_min_fee(
         .checked_mul(tx_size(tx)?)
         .and_then(|x| x.checked_add(u64::from(pp.minfee_b)))
         .ok_or(PostAlonzo(NegativeValue))?;
-    let (mem, steps) = declared_units(&tx.transaction_witness_set)?;
+    let (mem, steps) = declared_units(tx)?;
     let fee = add(size_fee, execution_fee(mem, steps, pp)?)?;
     add(
         fee,
@@ -352,10 +341,20 @@ fn tx_size(tx: &BlockTransaction<'_>) -> Result<u64, ValidationError> {
     Ok(encode(tx.to_mempool_transaction())?.len() as u64)
 }
 
-/// The memory and steps the transaction's redeemers declare, summed.
-fn declared_units(w: &WitnessSet<'_>) -> Result<(u64, u64), ValidationError> {
+/// The memory and steps the redeemers of the transaction and its sub transactions declare, summed.
+fn declared_units(tx: &BlockTransaction<'_>) -> Result<(u64, u64), ValidationError> {
+    let subs = tx
+        .transaction_body
+        .sub_transactions
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|sub| &sub.transaction_witness_set);
     let mut units = (0, 0);
-    for (_, value) in w.redeemer.iter().flat_map(|x| x.iter()) {
+    for (_, value) in std::iter::once(&tx.transaction_witness_set)
+        .chain(subs)
+        .flat_map(|w| w.redeemer.iter())
+        .flat_map(|x| x.iter())
+    {
         units = (
             add(units.0, value.ex_units.mem)?,
             add(units.1, value.ex_units.steps)?,
@@ -456,12 +455,10 @@ fn check_required_guards(
     }
     Ok(())
 }
-/// One level's spending inputs: their coin and the scripts and bootstrap
-/// witnesses that must authorize them. Key hashes go into the caller's set.
+/// One level's spending inputs: their coin and the scripts that must authorize them.
 struct Spending {
     coin: u64,
     scripts: BTreeSet<Hash<28>>,
-    bootstrap: Vec<ByronAddress>,
 }
 fn check_inputs(
     inputs: &[TransactionInput],
@@ -476,7 +473,6 @@ fn check_inputs(
     let mut spending = Spending {
         coin: 0,
         scripts: BTreeSet::new(),
-        bootstrap: Vec::new(),
     };
     for input in inputs {
         let id = (input.transaction_id, input.index);
@@ -498,7 +494,6 @@ fn check_inputs(
             Spender::Script(hash) => {
                 spending.scripts.insert(hash);
             }
-            Spender::Bootstrap(address) => spending.bootstrap.push(address),
         }
     }
     Ok(spending)
@@ -506,7 +501,6 @@ fn check_inputs(
 enum Spender {
     Key(Hash<28>),
     Script(Hash<28>),
-    Bootstrap(ByronAddress),
 }
 /// Pointer delegation plays no part in spending, so pointer addresses pass.
 fn spender(output: &MultiEraOutput<'_>) -> Result<Spender, ValidationError> {
@@ -515,16 +509,49 @@ fn spender(output: &MultiEraOutput<'_>) -> Result<Spender, ValidationError> {
             ShelleyPaymentPart::Key(key) => Spender::Key(*key),
             ShelleyPaymentPart::Script(hash) => Spender::Script(*hash),
         }),
-        Address::Byron(address) => Ok(Spender::Bootstrap(address)),
+        Address::Byron(address) => Ok(Spender::Key(
+            byron_payload(&address)
+                .map_err(|_| PostAlonzo(InputDecoding))?
+                .root,
+        )),
         Address::Stake(_) => Err(PostAlonzo(InputDecoding)),
     }
 }
-fn check_signatures(
-    w: &WitnessSet<'_>,
-    body: &[u8],
-    mut required: Keys,
-    bootstrap: &[ByronAddress],
-) -> ValidationResult {
+/// What the ledger reads from a Byron address payload.
+struct ByronPayload {
+    root: Hash<28>,
+    network: u8,
+    attributes_size: usize,
+}
+/// Reads the root, the network and the attribute size of a Byron address, keeping attributes of any key.
+fn byron_payload(address: &ByronAddress) -> Result<ByronPayload, minicbor::decode::Error> {
+    let mut d = minicbor::Decoder::new(&address.payload.0);
+    d.array()?;
+    let root = d.decode()?;
+    let mut network = Network::Mainnet.value();
+    let mut attributes_size = 0;
+    let entries = d.map()?;
+    let mut read = 0;
+    while entries.map_or(d.datatype()? != minicbor::data::Type::Break, |n| read < n) {
+        let key = d.u8()?;
+        let value = decode_bytes_def_or_indef(&mut d, &mut ())?;
+        match key {
+            1 => {
+                let path = decode_bytes_def_or_indef(&mut minicbor::Decoder::new(&value), &mut ())?;
+                attributes_size += path.len();
+            }
+            2 => network = Network::Testnet.value(),
+            _ => attributes_size += value.len(),
+        }
+        read += 1;
+    }
+    Ok(ByronPayload {
+        root,
+        network,
+        attributes_size,
+    })
+}
+fn check_signatures(w: &WitnessSet<'_>, body: &[u8], mut required: Keys) -> ValidationResult {
     let hash = Hasher::<256>::hash(body);
     for witness in w.vkeywitness.iter().flat_map(|x| x.iter()) {
         if witness.vkey.len() != 32
@@ -535,11 +562,7 @@ fn check_signatures(
         }
         required.remove(&Hasher::<224>::hash(&witness.vkey));
     }
-    if !required.is_empty() {
-        return Err(PostAlonzo(VKWitnessMissing));
-    }
-    let witnesses: Vec<_> = w.bootstrap_witness.iter().flat_map(|x| x.iter()).collect();
-    for witness in &witnesses {
+    for witness in w.bootstrap_witness.iter().flat_map(|x| x.iter()) {
         let signed = VKeyWitness {
             vkey: witness.public_key.clone(),
             signature: witness.signature.clone(),
@@ -550,18 +573,10 @@ fn check_signatures(
         {
             return Err(PostAlonzo(VKWrongSignature));
         }
+        required.remove(&super::conway::bootstrap_wit_root(witness));
     }
-    for address in bootstrap {
-        let root = address
-            .decode()
-            .map_err(|_| PostAlonzo(InputDecoding))?
-            .root;
-        if !witnesses
-            .iter()
-            .any(|x| super::conway::bootstrap_wit_root(x) == Some(root))
-        {
-            return Err(PostAlonzo(VKWitnessMissing));
-        }
+    if !required.is_empty() {
+        return Err(PostAlonzo(VKWitnessMissing));
     }
     Ok(())
 }
@@ -581,15 +596,21 @@ fn check_outputs(
     for output in outputs {
         let view = MultiEraOutput::from_dijkstra(output);
         let coin = view.value().coin();
-        payment(&view)?;
         if let Some(script) = view.multi_era_script_ref() {
             check_new_script(&script)?;
         }
-        let Address::Shelley(address) = view.address().map_err(|_| PostAlonzo(AddressDecoding))?
-        else {
-            return Err(DijkstraUnsupported("output address"));
+        let network = match view.address().map_err(|_| PostAlonzo(AddressDecoding))? {
+            Address::Shelley(address) => address.network().value(),
+            Address::Byron(address) => {
+                let payload = byron_payload(&address).map_err(|_| PostAlonzo(AddressDecoding))?;
+                if payload.attributes_size > 64 {
+                    return Err(DijkstraBootstrapAttributesTooLarge);
+                }
+                payload.network
+            }
+            Address::Stake(_) => return Err(PostAlonzo(AddressDecoding)),
         };
-        if address.network().value() != *network_id {
+        if network != *network_id {
             return Err(PostAlonzo(OutputWrongNetworkID));
         }
         // Sized TxOut counts the original serialization, not just the value.
@@ -649,6 +670,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     if b.sub_transactions.is_some() && b.script_data_hash.is_some() {
         return Err(DijkstraUnsupported("scripted or stateful batch"));
     }
+    let raw = encode(b)?;
     let mut allowed = vec![0, 1, 2, 3, 8, 15];
     for (key, present) in [
         (4, b.certificates.is_some()),
@@ -657,7 +679,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
         (9, b.mint.is_some()),
         (11, b.script_data_hash.is_some()),
         (13, b.collateral.is_some()),
-        (14, b.guards.is_some()),
+        (14, holds_value(&raw, 14)),
         (16, b.collateral_return.is_some()),
         (17, b.total_collateral.is_some()),
         (18, b.reference_inputs.is_some()),
@@ -668,7 +690,6 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
             allowed.push(key);
         }
     }
-    let raw = encode(b)?;
     check_map_keys(&raw, &allowed, "body fields")?;
     let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
         minicbor::decode(&raw).map_err(|_| DijkstraUnsupported("body fields"))?;
@@ -682,13 +703,24 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
         if *key == 5 {
             let withdrawals: pallas_codec::utils::KeyValuePairs<Bytes, u64> =
                 minicbor::decode(value).map_err(|_| DijkstraInvalidWithdrawal("encoding"))?;
+            if withdrawals.is_empty() {
+                return Err(DijkstraMalformed("empty withdrawals"));
+            }
             let mut seen = HashSet::new();
             if withdrawals.iter().any(|(a, _)| !seen.insert(a.to_vec())) {
                 return Err(DijkstraInvalidWithdrawal("duplicate account"));
             }
         }
     }
+    check_guards(b.guards.as_ref())?;
     check_witness_fields(&tx.transaction_witness_set, true)
+}
+fn check_guards(guards: Option<&Guards>) -> ValidationResult {
+    let guards = guard_credentials(guards);
+    match guards.iter().collect::<BTreeSet<_>>().len() == guards.len() {
+        true => Ok(()),
+        false => Err(DijkstraMalformed("duplicate guards")),
+    }
 }
 fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> ValidationResult {
     if w.plutus_v1_script.is_some()
@@ -697,6 +729,44 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, redeemers: bool) -> Val
             && (w.redeemer.is_some() || w.plutus_v3_script.is_some() || w.plutus_data.is_some()))
     {
         return Err(DijkstraUnsupported("Plutus witnesses"));
+    }
+    let mut keys = HashSet::new();
+    for x in w.vkeywitness.iter().flat_map(|x| x.iter()) {
+        if x.vkey.len() != 32 || x.signature.len() != 64 {
+            return Err(DijkstraMalformed("key witness"));
+        }
+        if !keys.insert((x.vkey.to_vec(), x.signature.to_vec())) {
+            return Err(DijkstraMalformed("duplicate key witnesses"));
+        }
+    }
+    let mut roots = HashSet::new();
+    for x in w.bootstrap_witness.iter().flat_map(|x| x.iter()) {
+        if x.public_key.len() != 32 || x.signature.len() != 64 || x.chain_code.len() != 32 {
+            return Err(DijkstraMalformed("bootstrap witness"));
+        }
+        if !roots.insert(super::conway::bootstrap_wit_root(x)) {
+            return Err(DijkstraMalformed("duplicate bootstrap witnesses"));
+        }
+    }
+    let mut datums = HashSet::new();
+    if w.plutus_data
+        .iter()
+        .flat_map(|x| x.iter())
+        .any(|x| !datums.insert(x.raw_cbor()))
+    {
+        return Err(DijkstraMalformed("duplicate datums"));
+    }
+    if let Some(redeemers) = &w.redeemer {
+        if redeemers.is_empty() {
+            return Err(DijkstraMalformed("empty redeemers"));
+        }
+        let limit = i64::MAX as u64;
+        if redeemers
+            .iter()
+            .any(|(_, x)| x.ex_units.mem > limit || x.ex_units.steps > limit)
+        {
+            return Err(DijkstraMalformed("execution units"));
+        }
     }
     let allowed = if redeemers {
         &[0, 1, 2, 4, 5, 7][..]
@@ -720,10 +790,11 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     {
         return Err(DijkstraUnsupported("stateful or scripted subtransaction"));
     }
+    let raw = encode(b)?;
     let mut allowed = vec![0, 1, 3, 8, 15];
     for (key, present) in [
         (7, b.auxiliary_data_hash.is_some()),
-        (14, b.guards.is_some()),
+        (14, holds_value(&raw, 14)),
         (18, b.reference_inputs.is_some()),
         (24, b.required_top_level_guards.is_some()),
     ] {
@@ -731,7 +802,6 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
             allowed.push(key);
         }
     }
-    let raw = encode(b)?;
     check_map_keys(&raw, &allowed, "subtransaction body fields")?;
     let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
         minicbor::decode(&raw).map_err(|_| DijkstraUnsupported("subtransaction body fields"))?;
@@ -744,17 +814,30 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
             return Err(DijkstraUnsupported("duplicate reference inputs"));
         }
     }
+    check_guards(b.guards.as_ref())?;
     check_witness_fields(&tx.transaction_witness_set, false)
 }
 /// Decoding into a BTreeMap would hide duplicate guards, which the ledger rejects.
 fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
     let guards: pallas_codec::utils::KeyValuePairs<StakeCredential, pallas_codec::utils::AnyCbor> =
         minicbor::decode(raw).map_err(|_| DijkstraUnsupported("required top-level guards"))?;
+    if guards.is_empty() {
+        return Err(DijkstraMalformed("empty required top-level guards"));
+    }
     let mut seen = BTreeSet::new();
     if guards.iter().any(|(key, _)| !seen.insert(key)) {
-        return Err(DijkstraUnsupported("duplicate required top-level guards"));
+        return Err(DijkstraMalformed("duplicate required top-level guards"));
     }
     Ok(())
+}
+/// Whether a CBOR map holds the key with a value other than null.
+fn holds_value(raw: &[u8], key: u64) -> bool {
+    minicbor::decode::<pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor>>(raw)
+        .is_ok_and(|fields| {
+            fields
+                .iter()
+                .any(|(k, value)| *k == key && value.raw_bytes() != [0xf6])
+        })
 }
 fn check_map_keys(raw: &[u8], allowed: &[u64], feature: &'static str) -> ValidationResult {
     let mut d = minicbor::Decoder::new(raw);
@@ -865,6 +948,7 @@ fn check_scripts(
     let mut natives = BTreeMap::new();
     let mut available = HashSet::new();
     let mut reference_scripts = HashSet::new();
+    let mut unevaluable = HashSet::new();
     let mut refs = Spent::new();
     for input in b.reference_inputs.iter().flat_map(|x| x.iter()) {
         if !refs.insert((input.transaction_id, input.index)) {
@@ -888,31 +972,26 @@ fn check_scripts(
         if let Some(script) = output.multi_era_script_ref() {
             // Reference UTxOs are already-admitted ledger outputs. No new script
             // bytes enter the ledger in this subset, and phase two is separate.
-            if let Some(native) = script.native_script() {
-                let raw = native.encode();
-                let decoded: NativeScript =
-                    minicbor::decode(&raw).map_err(|_| PostAlonzo(UnsupportedNativeScript))?;
-                reference_scripts.insert(script.hash());
-                natives.insert(script.hash(), decoded);
-                continue;
+            match reference(&script)? {
+                Reference::Native(native) => {
+                    let raw = native.encode();
+                    let decoded: NativeScript =
+                        minicbor::decode(&raw).map_err(|_| PostAlonzo(UnsupportedNativeScript))?;
+                    reference_scripts.insert(script.hash());
+                    natives.insert(script.hash(), decoded);
+                }
+                Reference::Unevaluable => {
+                    reference_scripts.insert(script.hash());
+                    unevaluable.insert(script.hash());
+                }
+                Reference::PlutusV3(raw) => {
+                    let mut payload = vec![3];
+                    payload.extend_from_slice(raw);
+                    let hash = Hasher::<224>::hash(&payload);
+                    available.insert(hash);
+                    reference_scripts.insert(hash);
+                }
             }
-            let unsupported = DijkstraUnsupported("reference script language (requires V3)");
-            let raw = match &script {
-                MultiEraScriptRef::Dijkstra(x) => match x.as_ref() {
-                    ScriptRef::PlutusV3Script(s) => s.as_ref(),
-                    _ => return Err(unsupported),
-                },
-                MultiEraScriptRef::Conway(x) => match x.as_ref() {
-                    pallas_primitives::conway::ScriptRef::PlutusV3Script(s) => s.as_ref(),
-                    _ => return Err(unsupported),
-                },
-                _ => return Err(unsupported),
-            };
-            let mut payload = vec![3];
-            payload.extend_from_slice(raw);
-            let hash = Hasher::<224>::hash(&payload);
-            available.insert(hash);
-            reference_scripts.insert(hash);
         }
     }
     let unneeded = |hash: &Hash<28>| {
@@ -954,6 +1033,11 @@ fn check_scripts(
         .filter(|(_, hash)| !natives.contains_key(hash))
         .map(|(key, hash)| (key.clone(), *hash))
         .collect();
+    if scripts.values().any(|x| unevaluable.contains(x)) {
+        return Err(DijkstraUnsupported(
+            "reference script language (requires V3)",
+        ));
+    }
     if !scripts.is_empty()
         && let Some(time) = time
     {
@@ -964,7 +1048,7 @@ fn check_scripts(
         if !scripts.values().any(|x| *x == hash) || reference_scripts.contains(&hash) {
             return Err(PostAlonzo(UnneededPlutusV3Script));
         }
-        well_formed_v3(script.as_ref())?;
+        well_formed_plutus(script.as_ref())?;
         available.insert(hash);
     }
     if scripts.values().any(|x| !available.contains(x)) {
@@ -1014,7 +1098,7 @@ fn check_scripts(
     if redeemers.iter().any(|(key, _)| !scripts.contains_key(key)) {
         return Err(PostAlonzo(UnneededRedeemer));
     }
-    let (mem, steps) = declared_units(w)?;
+    let (mem, steps) = declared_units(tx)?;
     if mem > pp.max_tx_ex_units.mem || steps > pp.max_tx_ex_units.steps {
         return Err(PostAlonzo(TxExUnitsExceeded));
     }
@@ -1036,7 +1120,7 @@ fn check_scripts(
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(CollateralNotInUTxO))?;
-        let ShelleyPaymentPart::Key(key) = payment(output)? else {
+        let Spender::Key(key) = spender(output)? else {
             return Err(PostAlonzo(CollateralNotVKeyLocked));
         };
         keys.insert(key);
@@ -1142,14 +1226,6 @@ fn reference_fee(mut bytes: u64, p: &DijkstraProtParams) -> Result<u64, Validati
         }
     }
     u64::try_from(total.0 / total.1).map_err(|_| PostAlonzo(NegativeValue))
-}
-
-fn payment(output: &MultiEraOutput<'_>) -> Result<ShelleyPaymentPart, ValidationError> {
-    let Address::Shelley(address) = output.address().map_err(|_| PostAlonzo(AddressDecoding))?
-    else {
-        return Err(DijkstraUnsupported("bootstrap or reward address"));
-    };
-    Ok(address.payment().clone())
 }
 
 fn check_auxiliary(
@@ -1376,20 +1452,59 @@ fn check_integrity(tx: &BlockTransaction<'_>, model: Option<&Vec<i64>>) -> Valid
     Ok(())
 }
 
+/// A reference script and whether a redeemer may run it.
+enum Reference<'a> {
+    Native(MultiEraNativeScript<'a>),
+    /// A PlutusV1 or V2 script, available as a reference but refused when a redeemer needs it.
+    Unevaluable,
+    PlutusV3(&'a [u8]),
+}
+
+fn reference<'a>(script: &'a MultiEraScriptRef<'_>) -> Result<Reference<'a>, ValidationError> {
+    let unsupported = DijkstraUnsupported("reference script language (requires V3)");
+    match script {
+        MultiEraScriptRef::Dijkstra(x) => match x.as_ref() {
+            ScriptRef::NativeScript(s) => {
+                Ok(Reference::Native(MultiEraNativeScript::from_dijkstra(s)))
+            }
+            ScriptRef::PlutusV1Script(_) | ScriptRef::PlutusV2Script(_) => {
+                Ok(Reference::Unevaluable)
+            }
+            ScriptRef::PlutusV3Script(s) => Ok(Reference::PlutusV3(s.as_ref())),
+            ScriptRef::PlutusV4Script(_) => Err(unsupported),
+        },
+        MultiEraScriptRef::Conway(x) => match x.as_ref() {
+            pallas_primitives::conway::ScriptRef::NativeScript(s) => Ok(Reference::Native(
+                MultiEraNativeScript::from_alonzo_compatible(s),
+            )),
+            pallas_primitives::conway::ScriptRef::PlutusV1Script(_)
+            | pallas_primitives::conway::ScriptRef::PlutusV2Script(_) => Ok(Reference::Unevaluable),
+            pallas_primitives::conway::ScriptRef::PlutusV3Script(s) => {
+                Ok(Reference::PlutusV3(s.as_ref()))
+            }
+        },
+        _ => Err(unsupported),
+    }
+}
+
 fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     match script {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
             ScriptRef::NativeScript(_) => Ok(()),
-            ScriptRef::PlutusV3Script(s) => well_formed_v3(s.as_ref()),
-            _ => Err(DijkstraUnsupported("new script language (requires V3)")),
+            ScriptRef::PlutusV1Script(s) => well_formed_plutus(s.as_ref()),
+            ScriptRef::PlutusV2Script(s) => well_formed_plutus(s.as_ref()),
+            ScriptRef::PlutusV3Script(s) => well_formed_plutus(s.as_ref()),
+            ScriptRef::PlutusV4Script(_) => {
+                Err(DijkstraUnsupported("new script language (requires V3)"))
+            }
         },
         _ => Err(DijkstraUnsupported("new script language (requires V3)")),
     }
 }
-fn well_formed_v3(script: &[u8]) -> ValidationResult {
+fn well_formed_plutus(script: &[u8]) -> ValidationResult {
     #[cfg(feature = "phase2")]
     {
-        crate::phase2::native_evaluator::check_v3_script(script)
+        crate::phase2::native_evaluator::check_plutus_script(script)
             .map_err(|_| DijkstraMalformedScript)
     }
     #[cfg(not(feature = "phase2"))]
@@ -1406,14 +1521,14 @@ fn well_formed_v3(script: &[u8]) -> ValidationResult {
 fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
     use pallas_codec::utils::KeyValuePairs;
     let assets: KeyValuePairs<Hash<28>, KeyValuePairs<Bytes, minicbor::data::Int>> =
-        minicbor::decode(raw).map_err(|_| PostAlonzo(NegativeValue))?;
+        minicbor::decode(raw).map_err(|_| MALFORMED_VALUE)?;
     let mut policies = HashSet::new();
     if assets.is_empty() {
-        return Err(PostAlonzo(NegativeValue));
+        return Err(MALFORMED_VALUE);
     }
     for (policy, names) in assets.iter() {
         if !policies.insert(*policy) || names.is_empty() {
-            return Err(PostAlonzo(NegativeValue));
+            return Err(MALFORMED_VALUE);
         }
         let mut seen = HashSet::new();
         for (name, quantity) in names.iter() {
@@ -1424,7 +1539,7 @@ fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
                 || (mint && i64::try_from(quantity).is_err())
                 || (!mint && u64::try_from(quantity).is_err())
             {
-                return Err(PostAlonzo(NegativeValue));
+                return Err(MALFORMED_VALUE);
             }
         }
     }
@@ -1433,22 +1548,20 @@ fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
 fn check_output_value_encoding(raw: &[u8]) -> ValidationResult {
     use pallas_codec::utils::{AnyCbor, KeyValuePairs};
     let mut decoder = minicbor::Decoder::new(raw);
-    let value = match decoder.datatype().map_err(|_| PostAlonzo(NegativeValue))? {
+    let value = match decoder.datatype().map_err(|_| MALFORMED_VALUE)? {
         minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
             let fields: KeyValuePairs<u64, AnyCbor> =
-                decoder.decode().map_err(|_| PostAlonzo(NegativeValue))?;
+                decoder.decode().map_err(|_| MALFORMED_VALUE)?;
             fields
                 .iter()
                 .find(|(k, _)| *k == 1)
                 .map(|(_, v)| v.clone())
-                .ok_or(PostAlonzo(NegativeValue))?
+                .ok_or(MALFORMED_VALUE)?
         }
         _ => {
-            decoder.array().map_err(|_| PostAlonzo(NegativeValue))?;
-            decoder.skip().map_err(|_| PostAlonzo(NegativeValue))?;
-            decoder
-                .decode::<AnyCbor>()
-                .map_err(|_| PostAlonzo(NegativeValue))?
+            decoder.array().map_err(|_| MALFORMED_VALUE)?;
+            decoder.skip().map_err(|_| MALFORMED_VALUE)?;
+            decoder.decode::<AnyCbor>().map_err(|_| MALFORMED_VALUE)?
         }
     };
     let mut d = minicbor::Decoder::new(&value);
@@ -1456,9 +1569,9 @@ fn check_output_value_encoding(raw: &[u8]) -> ValidationResult {
         d.datatype(),
         Ok(minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef)
     ) {
-        let values: Vec<AnyCbor> = d.decode().map_err(|_| PostAlonzo(NegativeValue))?;
+        let values: Vec<AnyCbor> = d.decode().map_err(|_| MALFORMED_VALUE)?;
         if values.len() != 2 {
-            return Err(PostAlonzo(NegativeValue));
+            return Err(MALFORMED_VALUE);
         }
         check_asset_encoding(&values[1], false)?;
     }

@@ -430,13 +430,16 @@ fn replace_script(
         .unwrap();
     let mut o: n::TransactionOutput = minicbor::decode(&entry.1).unwrap();
     if update_author {
-        let Some(n::ScriptRef::PlutusV3Script(s)) = &script else {
-            panic!()
+        let hash = match &script {
+            Some(n::ScriptRef::PlutusV1Script(s)) => s.compute_hash(),
+            Some(n::ScriptRef::PlutusV2Script(s)) => s.compute_hash(),
+            Some(n::ScriptRef::PlutusV3Script(s)) => s.compute_hash(),
+            _ => panic!(),
         };
         let mut b = (*tx.transaction_body).clone();
         b.certificates = Some(
             vec![n::Certificate::Reg(
-                n::StakeCredential::ScriptHash(s.compute_hash()),
+                n::StakeCredential::ScriptHash(hash),
                 2000000,
             )]
             .try_into()
@@ -467,13 +470,28 @@ fn native_registration_script_presence_language_and_machine_failures() {
         for s in [
             n::ScriptRef::PlutusV1Script(n::PlutusScript(vec![0].into())),
             n::ScriptRef::PlutusV2Script(n::PlutusScript(vec![0].into())),
-            n::ScriptRef::PlutusV4Script(n::PlutusScript(vec![0].into())),
         ] {
             let mut tx = tx.clone();
             let mut u = u.clone();
-            replace_script(&mut tx, &mut u, Some(s), false);
+            replace_script(&mut tx, &mut u, Some(s.clone()), false);
+            error(run(&tx, &u), "MissingRequiredScript");
+            replace_script(&mut tx, &mut u, Some(s), true);
             error(run(&tx, &u), "reference script language (requires V3)");
         }
+        let mut v4 = tx.clone();
+        let mut v4_utxos = u.clone();
+        replace_script(
+            &mut v4,
+            &mut v4_utxos,
+            Some(n::ScriptRef::PlutusV4Script(n::PlutusScript(
+                vec![0].into(),
+            ))),
+            false,
+        );
+        error(
+            run(&v4, &v4_utxos),
+            "reference script language (requires V3)",
+        );
         for source in [
             "(program 1.1.0 (lam ctx (error)))",
             "(program 1.1.0 (lam ctx (con integer 1)))",
@@ -502,6 +520,40 @@ fn native_registration_script_presence_language_and_machine_failures() {
             run(&tx, &u),
             "V3 builtin outside audited protocol-12 subset",
         );
+    });
+}
+#[test]
+fn native_registration_runs_beside_a_v1_or_v2_script_it_does_not_need() {
+    fixture(|tx, u| {
+        for s in [
+            n::ScriptRef::PlutusV1Script(n::PlutusScript(vec![0].into())),
+            n::ScriptRef::PlutusV2Script(n::PlutusScript(vec![0].into())),
+        ] {
+            let mut u = u.clone();
+            let i = tx.transaction_body.inputs.iter().next().unwrap();
+            let entry = u
+                .get_mut(&TxoRef(i.transaction_id, i.index as u32))
+                .unwrap();
+            let o: n::TransactionOutput = minicbor::decode(&entry.1).unwrap();
+            let n::TransactionOutput::Legacy(legacy) = o else {
+                panic!()
+            };
+            let pallas_primitives::alonzo::Value::Coin(coin) = legacy.amount else {
+                panic!()
+            };
+            let o = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: legacy.address.clone(),
+                    value: c::Value::Coin(coin),
+                    datum_option: None,
+                    script_ref: Some(pallas_codec::utils::CborWrap(s)),
+                }
+                .into(),
+            );
+            entry.1 = minicbor::to_vec(o).unwrap();
+            let r = run(&tx, &u).unwrap();
+            assert!(r[0].success, "{r:?}");
+        }
     });
 }
 #[test]
