@@ -919,6 +919,48 @@ mod scripts {
         });
     }
     #[test]
+    fn dijkstra_byron_collateral_needs_its_bootstrap_witness() {
+        use crate::phase1::dijkstra_batch_tests as byron;
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let id = n::TransactionInput {
+                transaction_id: Hash::from([12; 32]),
+                index: 0,
+            };
+            let mut collateral = inputs[0].1.clone();
+            let returned = n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: MultiEraOutput::from_dijkstra(&collateral)
+                        .address()
+                        .unwrap()
+                        .to_vec()
+                        .into(),
+                    value: c::Value::Coin(1_500_000),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            );
+            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            output_mut(&mut collateral).address = byron::byron_address();
+            inputs.push((id.clone(), collateral));
+            tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
+            tx.transaction_body.collateral_return = Some(returned);
+            tx.transaction_body.total_collateral = Some(1_500_000);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(VKWitnessMissing)",
+            );
+            let body = byron::body_hash(&tx.transaction_body);
+            byron::add_bootstrap(
+                &mut tx.transaction_witness_set,
+                byron::bootstrap(body.as_ref()),
+            );
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+        });
+    }
+    #[test]
     fn dijkstra_fee_budget_and_reference_boundaries() {
         case(false, PASS, |mut tx, inputs, env, state| {
             let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {
@@ -1329,7 +1371,7 @@ fn dijkstra_invalid_multiasset_encodings() {
             let inputs = vec![(tx.transaction_body.inputs[0].clone(), input.clone())];
             dijkstra_tests::error(
                 run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()),
-                "PostAlonzo(NegativeValue)",
+                "DijkstraMalformed(\"multi-asset value\")",
             );
         }
     });

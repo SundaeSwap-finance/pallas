@@ -15,7 +15,7 @@ use crate::utils::{
 use pallas_addresses::{
     Address, ByronAddress, Network, ScriptHash, ShelleyAddress, ShelleyPaymentPart, StakeAddress,
     StakePayload,
-    byron::{AddrAttrs, AddrType, AddressId, AddressPayload, SpendingData},
+    byron::{AddressId, AddressPayload},
 };
 use pallas_codec::utils::{Bytes, KeepRaw, NonEmptySet};
 use pallas_primitives::{
@@ -31,6 +31,8 @@ use pallas_traverse::{MultiEraInput, MultiEraOutput, MultiEraScriptRef, MultiEra
 use std::cmp::Ordering;
 use std::ops::Deref;
 
+#[cfg(test)]
+mod bootstrap_witnesses;
 #[cfg(test)]
 mod certificate_witnesses;
 #[cfg(test)]
@@ -710,7 +712,17 @@ fn check_witness_set(mtx: &Tx, utxos: &UTxOs) -> ValidationResult {
         utxos,
     )?;
     check_certificate_native_scripts(mtx, utxos)?;
-    check_required_signers(&tx_body.required_signers, vkey_wits, tx_hash)?;
+    let bootstrap_wits: Vec<BootstrapWitness> = tx_wits
+        .bootstrap_witness
+        .clone()
+        .map(|wits| wits.to_vec())
+        .unwrap_or_default();
+    check_required_signers(
+        &tx_body.required_signers,
+        vkey_wits.as_deref().unwrap_or_default(),
+        &bootstrap_wits,
+        tx_hash,
+    )?;
     check_vkey_input_wits(
         mtx,
         &Some(
@@ -1416,18 +1428,12 @@ fn redeemer_key_coincide(
 // in the transaction witness set.
 fn check_required_signers(
     required_signers: &Option<RequiredSigners>,
-    vkey_wits: &Option<Vec<VKeyWitness>>,
+    vkey_wits: &[VKeyWitness],
+    bootstrap_wits: &[BootstrapWitness],
     data_to_verify: &[u8],
 ) -> ValidationResult {
-    if let Some(req_signers) = &required_signers {
-        match &vkey_wits {
-            Some(vkey_wits) => {
-                for req_signer in req_signers {
-                    find_and_check_req_signer(req_signer, vkey_wits, data_to_verify)?
-                }
-            }
-            None => return Err(PostAlonzo(ReqSignerMissing)),
-        }
+    for req_signer in required_signers.iter().flat_map(|x| x.iter()) {
+        find_and_check_req_signer(req_signer, vkey_wits, bootstrap_wits, data_to_verify)?
     }
     Ok(())
 }
@@ -1436,18 +1442,21 @@ fn check_required_signers(
 fn find_and_check_req_signer(
     vkey_hash: &AddrKeyhash,
     vkey_wits: &[VKeyWitness],
+    bootstrap_wits: &[BootstrapWitness],
     data_to_verify: &[u8],
 ) -> ValidationResult {
-    for vkey_wit in vkey_wits {
-        if pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey.clone()) == *vkey_hash {
-            if !verify_signature(vkey_wit, data_to_verify) {
-                return Err(PostAlonzo(ReqSignerWrongSig));
-            } else {
-                return Ok(());
-            }
+    let signer = vkey_wits
+        .iter()
+        .find(|vkey_wit| pallas_crypto::hash::Hasher::<224>::hash(&vkey_wit.vkey) == *vkey_hash)
+        .cloned()
+        .or_else(|| bootstrap_signer(vkey_hash, bootstrap_wits));
+    match signer {
+        Some(vkey_wit) if !verify_signature(&vkey_wit, data_to_verify) => {
+            Err(PostAlonzo(ReqSignerWrongSig))
         }
+        Some(_) => Ok(()),
+        None => Err(PostAlonzo(ReqSignerMissing)),
     }
-    Err(PostAlonzo(ReqSignerMissing))
 }
 
 fn check_vkey_input_wits(
@@ -1537,29 +1546,39 @@ fn check_bootstrap_wit(
         .decode()
         .map_err(|_| PostAlonzo(InputDecoding))?
         .root;
-    for wit in wits {
-        if bootstrap_wit_root(wit) == Some(root) {
-            let vkey_wit = VKeyWitness {
-                vkey: wit.public_key.clone(),
-                signature: wit.signature.clone(),
-            };
-            if !verify_signature(&vkey_wit, data_to_verify) {
-                return Err(PostAlonzo(VKWrongSignature));
-            }
-            return Ok(());
+    match bootstrap_signer(&root, wits) {
+        Some(vkey_wit) if !verify_signature(&vkey_wit, data_to_verify) => {
+            Err(PostAlonzo(VKWrongSignature))
         }
+        Some(_) => Ok(()),
+        None => Err(PostAlonzo(VKWitnessMissing)),
     }
-    Err(PostAlonzo(VKWitnessMissing))
 }
 
-pub(crate) fn bootstrap_wit_root(wit: &BootstrapWitness) -> Option<AddressId> {
-    let attributes: AddrAttrs = pallas_codec::minicbor::decode(&wit.attributes).ok()?;
-    let xpub: Vec<u8> = [wit.public_key.as_slice(), wit.chain_code.as_slice()].concat();
-    Some(AddressPayload::hash_address_id(
-        &AddrType::PubKey,
-        &SpendingData::PubKey(xpub.into()),
-        &attributes,
-    ))
+/// The key and signature of the bootstrap witness whose key hash is `hash`.
+fn bootstrap_signer(hash: &AddrKeyhash, wits: &[BootstrapWitness]) -> Option<VKeyWitness> {
+    wits.iter()
+        .find(|wit| bootstrap_wit_root(wit) == *hash)
+        .map(|wit| VKeyWitness {
+            vkey: wit.public_key.clone(),
+            signature: wit.signature.clone(),
+        })
+}
+
+/// The encoded address type and key spending data header that precedes a bootstrap key and chain code in an address root preimage.
+pub(crate) const BOOTSTRAP_ROOT_HEADER: [u8; 6] = [0x83, 0x00, 0x82, 0x00, 0x58, 0x40];
+
+/// The key hash a bootstrap witness provides, over its key, chain code and attribute bytes as sent.
+pub(crate) fn bootstrap_wit_root(wit: &BootstrapWitness) -> AddressId {
+    AddressPayload::hash_address_id_preimage(
+        &[
+            &BOOTSTRAP_ROOT_HEADER[..],
+            wit.public_key.as_slice(),
+            wit.chain_code.as_slice(),
+            wit.attributes.as_slice(),
+        ]
+        .concat(),
+    )
 }
 
 fn check_remaining_vk_wits(
