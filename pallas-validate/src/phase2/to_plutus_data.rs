@@ -2,8 +2,8 @@ use std::{collections::BTreeMap, ops::Deref};
 
 use super::data::Data;
 use super::script_context::{
-    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, V3TxInfo,
-    from_alonzo_output,
+    ScriptContext, ScriptInfo, ScriptPurpose, TimeRange, TxInInfo, TxInfo, V1TxInfo, V2TxInfo,
+    V3TxInfo, from_alonzo_output,
 };
 use pallas_addresses::{
     Address, ShelleyDelegationPart, ShelleyPaymentPart, StakeAddress, StakePayload,
@@ -14,11 +14,11 @@ use pallas_codec::utils::{
 use pallas_crypto::hash::Hash;
 use pallas_primitives::NonZeroInt;
 use pallas_primitives::conway::{
-    AssetName, BigInt, Certificate, Coin, Constitution, Constr, DRep, DRepVotingThresholds,
-    DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint, PlutusData, PolicyId,
-    PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate, RationalNumber, Redeemer,
-    ScriptRef, StakeCredential, TransactionInput, TransactionOutput, Value, Vote, Voter,
-    VotingProcedure,
+    AssetName, BigInt, Certificate, Coin, Constitution, Constr, CostModels, DRep,
+    DRepVotingThresholds, DatumOption, ExUnitPrices, ExUnits, GovAction, GovActionId, Mint,
+    PlutusData, PolicyId, PoolVotingThresholds, ProposalProcedure, ProtocolParamUpdate,
+    RationalNumber, Redeemer, ScriptRef, StakeCredential, TransactionInput, TransactionOutput,
+    Value, Vote, Voter, VotingProcedure,
 };
 use pallas_traverse::ComputeHash;
 
@@ -61,11 +61,11 @@ fn empty_constr(index: u64) -> PlutusData {
     wrap_multiple_with_constr(index, vec![])
 }
 
-struct WithWrappedTransactionId<'a, T>(&'a T);
+pub(super) struct WithWrappedTransactionId<'a, T>(pub(super) &'a T);
 
 struct WithWrappedStakeCredential<'a, T>(&'a T);
 
-struct WithZeroAdaAsset<'a, T>(&'a T);
+pub(super) struct WithZeroAdaAsset<'a, T>(pub(super) &'a T);
 
 struct WithOptionDatum<'a, T>(&'a T);
 
@@ -525,29 +525,6 @@ impl ToPlutusData for ScriptRef<'_> {
     }
 }
 
-impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, Vec<TransactionOutput<'_>>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .0
-                .iter()
-                .map(|p| WithOptionDatum(&WithZeroAdaAsset(p)).to_plutus_data())
-                .collect(),
-        ))
-    }
-}
-
-impl ToPlutusData for WithZeroAdaAsset<'_, Vec<TransactionOutput<'_>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .iter()
-                .map(|p| WithZeroAdaAsset(p).to_plutus_data())
-                .collect(),
-        ))
-    }
-}
-
 impl<'a> ToPlutusData for WithOptionDatum<'a, WithZeroAdaAsset<'a, TransactionOutput<'_>>> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0.0 {
@@ -653,26 +630,24 @@ impl ToPlutusData for WithPartialCertificates<'_, Vec<Certificate>> {
 impl ToPlutusData for WithPartialCertificates<'_, Certificate> {
     fn to_plutus_data(&self) -> PlutusData {
         match self.0 {
-            Certificate::StakeRegistration(stake_credential) => {
-                wrap_with_constr(0, stake_credential.to_plutus_data())
-            }
-
-            // Conway translates explicit registration to DCertDelegRegKey,
-            // whose credential is wrapped in the V1/V2 StakingHash constructor.
-            Certificate::Reg(stake_credential, _) => wrap_with_constr(
+            // The V1/V2 certificate credential is wrapped in the StakingHash constructor.
+            Certificate::StakeRegistration(stake_credential)
+            | Certificate::Reg(stake_credential, _) => wrap_with_constr(
                 0,
                 WithWrappedStakeCredential(stake_credential).to_plutus_data(),
             ),
 
-            Certificate::StakeDeregistration(stake_credential) => {
-                wrap_with_constr(1, stake_credential.to_plutus_data())
-            }
+            Certificate::StakeDeregistration(stake_credential)
+            | Certificate::UnReg(stake_credential, _) => wrap_with_constr(
+                1,
+                WithWrappedStakeCredential(stake_credential).to_plutus_data(),
+            ),
 
             Certificate::StakeDelegation(stake_credential, pool_keyhash) => {
                 wrap_multiple_with_constr(
                     2,
                     vec![
-                        stake_credential.to_plutus_data(),
+                        WithWrappedStakeCredential(stake_credential).to_plutus_data(),
                         pool_keyhash.to_plutus_data(),
                     ],
                 )
@@ -918,36 +893,36 @@ impl ToPlutusData for TimeRange {
     }
 }
 
-impl<'a> ToPlutusData
-    for WithOptionDatum<'a, WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>>>
-{
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
-            self.0
-                .0
-                .0
-                .iter()
-                .map(|p| {
-                    WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(p)))
-                        .to_plutus_data()
-                })
-                .collect(),
-        ))
+/// A context input or output in the forms the V1 and V2 script contexts encode.
+pub(super) trait LegacyContextData {
+    fn to_plutus_data_v1(&self) -> PlutusData;
+    fn to_plutus_data_v2(&self) -> PlutusData;
+}
+
+impl LegacyContextData for TransactionOutput<'_> {
+    fn to_plutus_data_v1(&self) -> PlutusData {
+        WithOptionDatum(&WithZeroAdaAsset(self)).to_plutus_data()
+    }
+
+    fn to_plutus_data_v2(&self) -> PlutusData {
+        WithZeroAdaAsset(self).to_plutus_data()
     }
 }
 
-impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, Vec<TxInInfo<'_>>>> {
-    fn to_plutus_data(&self) -> PlutusData {
-        PlutusData::Array({
-            pallas_codec::utils::MaybeIndefArray::Def(
-                self.0
-                    .0
-                    .iter()
-                    .map(|p| WithZeroAdaAsset(&WithWrappedTransactionId(p)).to_plutus_data())
-                    .collect(),
-            )
-        })
+impl LegacyContextData for TxInInfo<'_> {
+    fn to_plutus_data_v1(&self) -> PlutusData {
+        WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(self))).to_plutus_data()
     }
+
+    fn to_plutus_data_v2(&self) -> PlutusData {
+        WithZeroAdaAsset(&WithWrappedTransactionId(self)).to_plutus_data()
+    }
+}
+
+fn legacy_array<A>(items: &[A], encode: impl Fn(&A) -> PlutusData) -> PlutusData {
+    PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(
+        items.iter().map(encode).collect(),
+    ))
 }
 
 impl<'a> ToPlutusData for WithZeroAdaAsset<'a, WithWrappedTransactionId<'a, TxInInfo<'_>>> {
@@ -1077,6 +1052,22 @@ impl ToPlutusData for GovActionId {
     }
 }
 
+impl ToPlutusData for CostModels {
+    fn to_plutus_data(&self) -> PlutusData {
+        let mut models = self.unknown.clone();
+        for (key, model) in [
+            (0, &self.plutus_v1),
+            (1, &self.plutus_v2),
+            (2, &self.plutus_v3),
+        ] {
+            if let Some(model) = model {
+                models.insert(key, model.clone());
+            }
+        }
+        models.to_plutus_data()
+    }
+}
+
 impl ToPlutusData for ProtocolParamUpdate {
     fn to_plutus_data(&self) -> PlutusData {
         let mut pparams = Vec::with_capacity(30);
@@ -1141,9 +1132,8 @@ impl ToPlutusData for ProtocolParamUpdate {
             push(17, p.to_plutus_data());
         }
 
-        #[allow(clippy::redundant_pattern_matching)]
-        if let Some(_) = self.cost_models_for_script_languages {
-            unimplemented!("TODO: ToPlutusData for cost models.");
+        if let Some(ref p) = self.cost_models_for_script_languages {
+            push(18, p.to_plutus_data());
         }
 
         if let Some(ref p) = self.execution_costs {
@@ -1449,44 +1439,60 @@ impl TxInfo<'_> {
     /// V3 Conway bootstrap encoding is retained only through protocol 9.
     pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
         match self {
-            TxInfo::V1(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    WithOptionDatum(&WithZeroAdaAsset(&WithWrappedTransactionId(
-                        &tx_info.inputs,
-                    )))
-                    .to_plutus_data(),
-                    WithOptionDatum(&WithZeroAdaAsset(&tx_info.outputs)).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.fee).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.mint).to_plutus_data(),
-                    WithPartialCertificates(&tx_info.certificates).to_plutus_data(),
-                    WithWrappedStakeCredential(&tx_info.withdrawals).to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    wrap_with_constr(0, tx_info.id.to_plutus_data()),
-                ],
-            ),
-            TxInfo::V2(tx_info) => wrap_multiple_with_constr(
-                0,
-                vec![
-                    WithZeroAdaAsset(&WithWrappedTransactionId(&tx_info.inputs)).to_plutus_data(),
-                    WithZeroAdaAsset(&WithWrappedTransactionId(&tx_info.reference_inputs))
-                        .to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.outputs).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.fee).to_plutus_data(),
-                    WithZeroAdaAsset(&tx_info.mint).to_plutus_data(),
-                    WithPartialCertificates(&tx_info.certificates).to_plutus_data(),
-                    WithWrappedStakeCredential(&tx_info.withdrawals).to_plutus_data(),
-                    tx_info.valid_range.to_plutus_data(),
-                    tx_info.signatories.to_plutus_data(),
-                    WithWrappedTransactionId(&tx_info.redeemers).to_plutus_data(),
-                    tx_info.data.to_plutus_data(),
-                    wrap_with_constr(0, tx_info.id.to_plutus_data()),
-                ],
-            ),
+            TxInfo::V1(tx_info) => tx_info.to_plutus_data(),
+            TxInfo::V2(tx_info) => tx_info.to_plutus_data(),
             TxInfo::V3(tx_info) => tx_info.to_plutus_data_with_protocol(protocol_major),
         }
+    }
+}
+
+impl<I, O> V1TxInfo<I, O> {
+    pub(super) fn to_plutus_data(&self) -> PlutusData
+    where
+        I: LegacyContextData,
+        O: LegacyContextData,
+    {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                legacy_array(&self.inputs, I::to_plutus_data_v1),
+                legacy_array(&self.outputs, O::to_plutus_data_v1),
+                WithZeroAdaAsset(&self.fee).to_plutus_data(),
+                WithZeroAdaAsset(&self.mint).to_plutus_data(),
+                WithPartialCertificates(&self.certificates).to_plutus_data(),
+                WithWrappedStakeCredential(&self.withdrawals).to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                self.data.to_plutus_data(),
+                wrap_with_constr(0, self.id.to_plutus_data()),
+            ],
+        )
+    }
+}
+
+impl<I, O> V2TxInfo<I, O> {
+    pub(super) fn to_plutus_data(&self) -> PlutusData
+    where
+        I: LegacyContextData,
+        O: LegacyContextData,
+    {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                legacy_array(&self.inputs, I::to_plutus_data_v2),
+                legacy_array(&self.reference_inputs, I::to_plutus_data_v2),
+                legacy_array(&self.outputs, O::to_plutus_data_v2),
+                WithZeroAdaAsset(&self.fee).to_plutus_data(),
+                WithZeroAdaAsset(&self.mint).to_plutus_data(),
+                WithPartialCertificates(&self.certificates).to_plutus_data(),
+                WithWrappedStakeCredential(&self.withdrawals).to_plutus_data(),
+                self.valid_range.to_plutus_data(),
+                self.signatories.to_plutus_data(),
+                WithWrappedTransactionId(&self.redeemers).to_plutus_data(),
+                self.data.to_plutus_data(),
+                wrap_with_constr(0, self.id.to_plutus_data()),
+            ],
+        )
     }
 }
 
@@ -1533,6 +1539,14 @@ pub(super) fn v3_script_context_data(
     )
 }
 
+/// Encode the V1 and V2 context envelope independently of the ledger era of its outputs.
+pub(super) fn v1v2_script_context_data(tx_info: PlutusData, purpose: &ScriptPurpose) -> PlutusData {
+    wrap_multiple_with_constr(
+        0,
+        vec![tx_info, WithWrappedTransactionId(purpose).to_plutus_data()],
+    )
+}
+
 impl ToPlutusData for ScriptContext<'_> {
     fn to_plutus_data(&self) -> PlutusData {
         self.to_plutus_data_with_protocol(9)
@@ -1543,12 +1557,9 @@ impl ScriptContext<'_> {
     /// Encode all V3 certificate occurrences with the same protocol rule.
     pub fn to_plutus_data_with_protocol(&self, protocol_major: u32) -> PlutusData {
         match self {
-            ScriptContext::V1V2 { tx_info, purpose } => wrap_multiple_with_constr(
-                0,
-                vec![
-                    tx_info.to_plutus_data_with_protocol(protocol_major),
-                    WithWrappedTransactionId(purpose.as_ref()).to_plutus_data(),
-                ],
+            ScriptContext::V1V2 { tx_info, purpose } => v1v2_script_context_data(
+                tx_info.to_plutus_data_with_protocol(protocol_major),
+                purpose,
             ),
             ScriptContext::V3 {
                 tx_info,

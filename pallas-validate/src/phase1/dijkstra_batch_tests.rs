@@ -3,6 +3,7 @@ use super::{
     dijkstra_tests::{env, error, sign, synthetic},
     *,
 };
+use crate::utils::dijkstra_state::DijkstraAccount;
 use pallas_addresses::{Network, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor,
@@ -184,7 +185,7 @@ fn dijkstra_batch_original_inputs_and_no_double_spending() {
     });
 }
 #[test]
-fn dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch() {
+fn dijkstra_batch_validity_boundaries_and_real_scripted_batch_inputs() {
     batch(|tx, input| {
         for slot in [1400000, 1400009] {
             let mut e = env();
@@ -199,11 +200,9 @@ fn dijkstra_batch_validity_boundaries_and_unsupported_real_scripted_batch() {
     });
     let raw = hex::decode(include_str!("../../../test_data/dijkstra-subtx.tx").trim()).unwrap();
     let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
-    // This original capture also has top-level references/collateral for its
-    // scripted sub. It is not evidence for positive key-only batch acceptance.
     error(
         validate_txs(&[tx], &env(), &UTxOs::new(), &mut CertState::default()),
-        "DijkstraUnsupported(\"stateful or scripted subtransaction\")",
+        "PostAlonzo(InputNotInUTxO)",
     );
 }
 
@@ -1117,6 +1116,59 @@ fn dijkstra_batch_top_level_mints_under_a_native_policy() {
 }
 
 #[test]
+fn dijkstra_batch_sub_mints_under_a_native_policy() {
+    batch(|tx, input| {
+        let minting =
+            |policy: &KeepRaw<'static, n::NativeScript>, quantity: i64, witnessed: bool| {
+                let hash = policy.original_hash();
+                let assets = |quantity: i64| -> n::Multiasset<n::NonZeroInt> {
+                    [(
+                        hash,
+                        [(b"token".to_vec().into(), quantity.try_into().unwrap())]
+                            .into_iter()
+                            .collect(),
+                    )]
+                    .into_iter()
+                    .collect()
+                };
+                let mut changed = tx.clone();
+                let mut outputs = changed.transaction_body.outputs.clone().to_vec();
+                let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
+                post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
+                    coin,
+                    [(
+                        hash,
+                        [(b"token".to_vec().into(), 5.try_into().unwrap())]
+                            .into_iter()
+                            .collect(),
+                    )]
+                    .into_iter()
+                    .collect(),
+                );
+                changed.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+                resign(&mut changed, |sub| {
+                    sub.sub_transaction_body.mint = Some(assets(quantity));
+                    if witnessed {
+                        sub.transaction_witness_set.native_script =
+                            n::NonEmptySet::from_vec(vec![policy.clone()]);
+                    }
+                });
+                run(&changed, &input, &env())
+            };
+        let policy = native(n::NativeScript::ScriptPubkey(guard_key()));
+        let result = minting(&policy, 5, true);
+        assert!(result.is_ok(), "{result:?}");
+        error(
+            minting(&policy, 5, false),
+            "PostAlonzo(ScriptWitnessMissing)",
+        );
+        error(minting(&policy, 6, true), "PostAlonzo(PreservationOfValue)");
+        let other = native(n::NativeScript::ScriptPubkey([9; 28].into()));
+        error(minting(&other, 5, true), "PostAlonzo(NativeScriptDenial)");
+    });
+}
+
+#[test]
 fn dijkstra_batch_sub_tokens_balance_across_the_batch() {
     token_order_batch(|tx, input, sub_input| {
         // The sub spends 8 tokens but the batch pays out only 7.
@@ -1238,15 +1290,17 @@ fn dijkstra_batch_top_level_withdraws_under_a_native_script() {
             (2_000_000, None),
             (
                 500_000,
-                Some(
-                    "DijkstraInvalidWithdrawal(\"amount does not match available account balance\")",
-                ),
+                Some("DijkstraInvalidWithdrawal(\"amount exceeds the original balance\")"),
             ),
         ] {
             let mut state = CertState::default();
-            state
-                .dijkstra_account_balances
-                .insert(n::StakeCredential::ScriptHash(hash), Some(balance));
+            state.dijkstra.accounts.insert(
+                n::StakeCredential::ScriptHash(hash),
+                Some(DijkstraAccount {
+                    balance,
+                    deposit: 2_000_000,
+                }),
+            );
             let result = run_full(&tx, &input, &input, &[], &env(), &mut state);
             match expected {
                 None => assert!(result.is_ok(), "{result:?}"),

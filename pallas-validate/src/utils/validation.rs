@@ -12,12 +12,24 @@ pub enum ValidationError {
     DijkstraUnsupported(&'static str),
 
     #[cfg(feature = "unstable")]
-    #[error("Dijkstra certificate validation requires historical certificate state")]
-    DijkstraCertificateStateUnavailable,
+    #[error("Dijkstra validation requires ledger state: {0}")]
+    DijkstraLedgerStateUnavailable(String),
 
     #[cfg(feature = "unstable")]
-    #[error("invalid Dijkstra registration: {0}")]
+    #[error("invalid Dijkstra certificate: {0}")]
     DijkstraInvalidCertificate(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra account balance use: {0}")]
+    DijkstraInvalidAccount(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("invalid Dijkstra governance: {0}")]
+    DijkstraInvalidGovernance(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra treasury value does not equal the ledger treasury")]
+    DijkstraTreasuryValueMismatch,
 
     #[cfg(feature = "unstable")]
     #[error("missing or invalid Dijkstra protocol parameter: {0}")]
@@ -32,16 +44,16 @@ pub enum ValidationError {
     DijkstraInputAlreadySpent,
 
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra input locked by a Plutus V1 or V2 script has no datum")]
+    DijkstraInputWithoutDatum,
+
+    #[cfg(feature = "unstable")]
     #[error("Dijkstra collateral return pays to a pointer address")]
     DijkstraPointerInCollateralReturn,
 
     #[cfg(feature = "unstable")]
     #[error("Dijkstra output Byron address attributes exceed 64 bytes")]
     DijkstraBootstrapAttributesTooLarge,
-
-    #[cfg(feature = "unstable")]
-    #[error("Dijkstra withdrawal requires the original account balance for {0}")]
-    DijkstraAccountStateUnavailable(String),
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra withdrawal: {0}")]
@@ -52,12 +64,16 @@ pub enum ValidationError {
     DijkstraInvalidMetadata,
 
     #[cfg(feature = "unstable")]
-    #[error("malformed Dijkstra Plutus V3 script")]
+    #[error("malformed Dijkstra Plutus script")]
     DijkstraMalformedScript,
 
     #[cfg(feature = "unstable")]
     #[error("malformed Dijkstra transaction field: {0}")]
     DijkstraMalformed(&'static str),
+
+    #[cfg(feature = "unstable")]
+    #[error("Dijkstra script context cannot be built: {0}")]
+    DijkstraScriptContext(&'static str),
 
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,

@@ -195,6 +195,12 @@ mod scripts {
     use crate::utils::{EraCbor, TxoRef, UtxoMap};
     use pallas_addresses::Address;
     use pallas_traverse::ComputeHash;
+    fn holding(balance: u64) -> crate::utils::dijkstra_state::DijkstraAccount {
+        crate::utils::dijkstra_state::DijkstraAccount {
+            balance,
+            deposit: 2_000_000,
+        }
+    }
     fn script(source: &str) -> n::PlutusScript<3> {
         use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
         let arena = Arena::new();
@@ -374,8 +380,9 @@ mod scripts {
             );
             let mut state = CertState::default();
             state
-                .dijkstra_account_balances
-                .insert(n::StakeCredential::ScriptHash(hash), Some(0));
+                .dijkstra
+                .accounts
+                .insert(n::StakeCredential::ScriptHash(hash), Some(holding(0)));
             seal(&mut tx, &env);
             test(tx, inputs, env, state);
         });
@@ -592,7 +599,7 @@ mod scripts {
         case(false, PASS, |tx, inputs, env, state| {
             assert!(
                 format!("{:?}", run(&tx, &inputs, &env, &CertState::default()))
-                    .contains("DijkstraAccountStateUnavailable")
+                    .contains("DijkstraLedgerStateUnavailable")
             );
             let mut changed = tx.clone();
             changed.transaction_witness_set.plutus_v3_script = None;
@@ -770,8 +777,9 @@ mod scripts {
                 .unwrap()
                 .insert(account.into(), 0);
             state
-                .dijkstra_account_balances
-                .insert(n::StakeCredential::AddrKeyhash(*hash), Some(0));
+                .dijkstra
+                .accounts
+                .insert(n::StakeCredential::AddrKeyhash(*hash), Some(holding(0)));
             seal(&mut tx, &env);
             assert!(run(&tx, &inputs, &env, &state).is_ok());
             assert!(
@@ -804,8 +812,8 @@ mod scripts {
             assert!(evaluate(&tx, &inputs, &env).is_err());
         });
         case(false, PASS, |tx, inputs, env, mut state| {
-            for balance in [None, Some(1)] {
-                *state.dijkstra_account_balances.values_mut().next().unwrap() = balance;
+            for balance in [None, Some(holding(1))] {
+                *state.dijkstra.accounts.values_mut().next().unwrap() = balance;
                 assert!(
                     format!("{:?}", run(&tx, &inputs, &env, &state))
                         .contains("DijkstraInvalidWithdrawal")
@@ -1089,9 +1097,9 @@ mod scripts {
             .unwrap();
             for (hash, account) in prestate["accounts"].as_object().unwrap() {
                 assert_eq!(account["registered"], true);
-                state.dijkstra_account_balances.insert(
+                state.dijkstra.accounts.insert(
                     n::StakeCredential::ScriptHash(hash.parse().unwrap()),
-                    Some(account["balance"].as_u64().unwrap()),
+                    Some(holding(account["balance"].as_u64().unwrap())),
                 );
             }
         }
