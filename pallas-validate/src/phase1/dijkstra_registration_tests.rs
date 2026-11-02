@@ -3,7 +3,6 @@ use super::{
     dijkstra_tests::{env, error, sign, synthetic},
     *,
 };
-use crate::utils::DijkstraRegistrationState;
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_primitives::dijkstra as n;
 use pallas_traverse::{MultiEraBlock, MultiEraInput, MultiEraOutput};
@@ -116,9 +115,7 @@ fn fixture(test: impl FnOnce(n::BlockTransaction<'_>, UTxOs<'_>, CertState)) {
     let credential =
         n::StakeCredential::ScriptHash(record["credential"].as_str().unwrap().parse().unwrap());
     let mut state = CertState::default();
-    state
-        .dijkstra_registrations
-        .insert(credential, DijkstraRegistrationState::Unregistered);
+    state.dijkstra.accounts.insert(credential, None);
     test(tx.clone(), utxos, state);
 }
 fn run(
@@ -139,7 +136,7 @@ fn fail(
     let mut after = state.clone();
     error(run(tx, utxos, e, &mut after), expected);
     assert_eq!(
-        after.dijkstra_registrations, state.dijkstra_registrations,
+        after.dijkstra, state.dijkstra,
         "failed phase one must not register"
     );
 }
@@ -153,12 +150,7 @@ fn dijkstra_registration_captured_native_dispatch() {
         let original = minicbor::to_vec(&tx).unwrap();
         let result = run(&tx, &utxos, &params(), &mut state);
         assert!(result.is_ok(), "{result:?}");
-        assert!(
-            state
-                .dijkstra_registrations
-                .values()
-                .all(|x| *x == DijkstraRegistrationState::Registered)
-        );
+        assert!(state.dijkstra.accounts.values().all(|x| x.is_some()));
         assert_eq!(minicbor::to_vec(&tx).unwrap(), original);
         fail(
             &tx,
@@ -177,7 +169,7 @@ fn dijkstra_registration_state_deposit_and_parameters() {
             &utxos,
             &params(),
             &CertState::default(),
-            "DijkstraCertificateStateUnavailable",
+            "DijkstraLedgerStateUnavailable(\"ScriptHash(Hash<28>(\\\"9eb9018892f84064087cfb1559cab8956d6300c47b6f325a7262c3db\\\"))\")",
         );
         let mut e = params();
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
@@ -201,7 +193,7 @@ fn dijkstra_registration_state_deposit_and_parameters() {
             &utxos,
             &e,
             &state,
-            "DijkstraMissingParameters(\"PlutusV3 cost model\")",
+            "DijkstraScriptContext(\"cost model\")",
         );
     });
 }
@@ -364,9 +356,7 @@ fn dijkstra_registration_key_author_and_deposit_balance() {
         .into_iter()
         .collect();
         let mut state = CertState::default();
-        state
-            .dijkstra_registrations
-            .insert(credential, DijkstraRegistrationState::Unregistered);
+        state.dijkstra.accounts.insert(credential, None);
         let result = run(&tx, &utxos, &params(), &mut state);
         assert!(result.is_ok(), "{result:?}");
     });
@@ -447,7 +437,7 @@ fn dijkstra_registration_other_certificates_and_script_forms_reject() {
             &utxos,
             &params(),
             &state,
-            "DijkstraUnsupported(\"certificate kind\")",
+            "DijkstraInvalidAccount(\"stake credential not registered\")",
         );
         changed = tx.clone();
         changed.transaction_witness_set.plutus_v3_script =
@@ -509,9 +499,7 @@ fn dijkstra_registration_requires_distinct_certificate_author() {
         .into_iter()
         .collect();
         let mut state = CertState::default();
-        state
-            .dijkstra_registrations
-            .insert(credential, DijkstraRegistrationState::Unregistered);
+        state.dijkstra.accounts.insert(credential, None);
         fail(
             &tx,
             &utxos,

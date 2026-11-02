@@ -167,3 +167,96 @@ fn v3_deposit_context_protocol_reaches_script_execution() {
         }
     }
 }
+#[test]
+fn v1_certificate_context_wraps_every_staking_credential() {
+    let credential = StakeCredential::ScriptHash([7; 28].into());
+    let pool: pallas_crypto::hash::Hash<28> = [9; 28].into();
+    let staking = Data::constr(0, vec![credential.to_plutus_data()]);
+    for (cert, expected) in [
+        (
+            Certificate::Reg(credential.clone(), 2000000),
+            Data::constr(0, vec![staking.clone()]),
+        ),
+        (
+            Certificate::PoolRetirement(pool, 3),
+            Data::constr(4, vec![pool.to_plutus_data(), 3u64.to_plutus_data()]),
+        ),
+        (
+            Certificate::StakeRegistration(credential.clone()),
+            Data::constr(0, vec![staking.clone()]),
+        ),
+        (
+            Certificate::StakeDeregistration(credential.clone()),
+            Data::constr(1, vec![staking.clone()]),
+        ),
+        (
+            Certificate::UnReg(credential.clone(), 2000000),
+            Data::constr(1, vec![staking.clone()]),
+        ),
+        (
+            Certificate::StakeDelegation(credential.clone(), pool),
+            Data::constr(2, vec![staking.clone(), pool.to_plutus_data()]),
+        ),
+    ] {
+        let r = Redeemer {
+            tag: RedeemerTag::Cert,
+            index: 0,
+            data: Data::list(vec![]),
+            ex_units: ExUnits { mem: 1, steps: 1 },
+        };
+        let encoded = TxInfo::V1(TxInfoV1 {
+            inputs: vec![],
+            outputs: vec![],
+            fee: pallas_primitives::conway::Value::Coin(0),
+            mint: MintValue {
+                mint_value: Default::default(),
+            },
+            certificates: vec![cert.clone()],
+            withdrawals: vec![],
+            valid_range: TimeRange {
+                lower_bound: None,
+                upper_bound: None,
+            },
+            signatories: vec![],
+            data: vec![],
+            redeemers: vec![(ScriptPurpose::Certifying(0, cert.clone()), r.clone())].into(),
+            id: [0; 32].into(),
+        })
+        .into_script_context(&r, None)
+        .unwrap()
+        .to_plutus_data_with_protocol(12);
+        assert_eq!(
+            fields(&fields(&encoded)[0])[4],
+            Data::list(vec![expected.clone()]),
+            "certificate list {cert:?}"
+        );
+        assert_eq!(
+            fields(&fields(&encoded)[1])[0],
+            expected,
+            "purpose {cert:?}"
+        );
+    }
+}
+
+#[test]
+fn parameter_update_cost_models_are_a_map_from_language_to_values() {
+    let int = |x: i64| x.to_plutus_data();
+    let update = |cbor: &str| {
+        let bytes = hex::decode(cbor).unwrap();
+        pallas_codec::minicbor::decode::<pallas_primitives::conway::ProtocolParamUpdate>(&bytes)
+            .unwrap()
+            .to_plutus_data()
+    };
+
+    assert_eq!(update("a10001"), Data::map(vec![(int(0), int(1))]));
+
+    let models = Data::map(vec![
+        (int(0), Data::list(vec![int(1), int(-2)])),
+        (int(2), Data::list(vec![int(3)])),
+        (int(5), Data::list(vec![int(7)])),
+    ]);
+    assert_eq!(
+        update("a2000112a300820121028103058107"),
+        Data::map(vec![(int(0), int(1)), (int(18), models)])
+    );
+}

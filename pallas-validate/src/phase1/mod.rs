@@ -8,6 +8,8 @@ pub mod conway;
 pub mod dijkstra;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_batch_tests;
+#[cfg(feature = "unstable")]
+pub(crate) mod dijkstra_ledger;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_native_tests;
 #[cfg(all(test, feature = "unstable"))]
@@ -103,14 +105,18 @@ pub fn validate_tx(
         },
         #[cfg(feature = "unstable")]
         (MultiEraProtocolParameters::Dijkstra(pp), _) => match metx {
-            MultiEraTx::Dijkstra(tx) => dijkstra::validate_dijkstra_tx(
-                tx,
-                utxos,
-                pp,
-                env.block_slot(),
-                env.network_id(),
-                cert_state,
-            ),
+            MultiEraTx::Dijkstra(tx) => {
+                let delta = dijkstra::validate_dijkstra_tx(
+                    tx,
+                    utxos,
+                    pp,
+                    env.block_slot(),
+                    env.network_id(),
+                    &cert_state.dijkstra,
+                )?;
+                cert_state.dijkstra.apply(delta);
+                Ok(())
+            }
             MultiEraTx::DijkstraSub(..) => Err(crate::utils::ValidationError::DijkstraUnsupported(
                 "subtransactions",
             )),
@@ -135,15 +141,17 @@ pub fn validate_tx_with_time(
     if let (MultiEraProtocolParameters::Dijkstra(pp), MultiEraTx::Dijkstra(tx)) =
         (env.prot_params(), metx)
     {
-        return dijkstra::validate_dijkstra_tx_with_time(
+        let delta = dijkstra::validate_dijkstra_tx_with_time(
             tx,
             utxos,
             pp,
             env.block_slot(),
             env.network_id(),
-            cert_state,
+            &cert_state.dijkstra,
             time,
-        );
+        )?;
+        cert_state.dijkstra.apply(delta);
+        return Ok(());
     }
     validate_tx(metx, txix, env, utxos, cert_state)
 }
