@@ -73,7 +73,7 @@
     "Cross-epoch capture is local-state regression evidence, not successful network execution.",
     "Slot/time mapping derived from configured genesis and observed one-second slots; native LSQ era history unavailable.",
     "Certificate presence/linkage and transaction commitments checked; BLS signatures/full consensus not independently verified.",
-    "Full consensus forecast enforcement is separate from checked affine TTL conversion."
+    "The forecast horizon is derived from the configured genesis stability window, not read from a node."
   ],
   "archive": {
     "directory": "/home/rodrigo/projects/musashi-readiness/local-dolos/ttl-fixture-consolidation-20261031",
@@ -116,8 +116,8 @@
     }
   ],
   "file_sha256": {
-    "README.md": "102dbfb158bde0d0bfdca0c4eb7e487dfb68d497c0f94483a088a78fa12f7b8a",
-    "baseline-api-adapter.patch": "10543acad1fd57db3b2e639b692c781c0006832f0f460500dda286a02cd7c7dd",
+    "README.md": "21d014df1bf0fc46733204da73bf0a5f90e200d13211646c6304a0dd26d8bc9a",
+    "baseline-api-adapter.patch": "50103cc76efcb7433508845f2940c5dab683f26012e9211d2f518fb767b156d4",
     "confirmed-ttl/announcing-parent.block": "0fc70c62c4c1a1990ee0958b4a5d3f2bae35df559572d63669c2a3e5f13b4571",
     "confirmed-ttl/baseline.txt": "3c5639cd88b9e2a4b886f776abd48fcf8effa991b76e6601feb7764f7d44db5d",
     "confirmed-ttl/dolos.txt": "0f26e65f811beed10aec4701f55225ad3cbc8640c1f65aedee53e5f2d99d61f7",
