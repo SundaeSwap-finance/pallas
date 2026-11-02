@@ -99,6 +99,7 @@ fn run(
         &mut state.clone(),
     )
 }
+#[cfg(feature = "phase2")]
 fn run_with_horizon(
     tx: &n::BlockTransaction<'_>,
     inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
