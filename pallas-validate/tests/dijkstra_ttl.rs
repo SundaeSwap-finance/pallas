@@ -34,6 +34,7 @@ struct Fixture {
     inputs: Vec<(n::TransactionInput, Vec<u8>)>,
     env: Environment,
     slots: phase2::script_context::SlotConfig,
+    stability_window: u64,
     expected: n::ExUnits,
 }
 
@@ -213,8 +214,17 @@ impl Fixture {
                 zero_time: number(&g["system_start"]) * 1000,
                 slot_length: number(&g["slot_length"]) * 1000,
             },
+            stability_window: (3.0 * number(&g["security_param"]) as f64
+                / g["active_slots_coefficient"].as_f64().unwrap())
+            .ceil() as u64,
             expected: units(&replay["reference_execution_units"]),
         }
+    }
+
+    fn horizon(&self) -> ForecastHorizon {
+        let epoch = self.env.prot_params.epoch_length();
+        let slot = self.env.block_slot + 1 + self.stability_window;
+        ForecastHorizon::Slot(slot.div_ceil(epoch) * epoch)
     }
 
     fn phase_two_inputs(&self) -> UtxoMap {
@@ -236,7 +246,7 @@ impl Fixture {
                 start_time_ms: self.slots.zero_time,
                 slot_length_ms: self.slots.slot_length,
             }],
-            self.env.block_slot,
+            self.horizon(),
         )
         .unwrap()
     }
@@ -438,7 +448,7 @@ fn synthetic_missing_or_incorrect_upper_bound_fails_the_validator() {
             start_time_ms: f.slots.zero_time + 1000,
             slot_length_ms: 1000,
         }],
-        f.env.block_slot,
+        f.horizon(),
     )
     .unwrap();
     let report =
@@ -466,7 +476,7 @@ fn historical_replay_does_not_use_current_expiry_or_spendability() {
                 slot_length_ms: 1000,
             },
         ],
-        f.env.block_slot,
+        f.horizon(),
     )
     .unwrap();
     assert_eq!(time.slot_to_posix_ms(50).unwrap(), f.slots.zero_time);
@@ -488,7 +498,7 @@ fn supplied_linear_slot_config_preserves_the_captured_upper_bound() {
 }
 
 #[test]
-fn synthetic_time_conversion_failure_and_mismatched_basis_reject() {
+fn synthetic_time_conversion_failure_and_missing_time_reject() {
     let f = Fixture::load();
     let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &f.transaction).unwrap();
     let inputs = f
@@ -507,7 +517,7 @@ fn synthetic_time_conversion_failure_and_mismatched_basis_reject() {
             start_time_ms: u64::MAX - 1000,
             slot_length_ms: 1000,
         }],
-        f.env.block_slot,
+        f.horizon(),
     )
     .unwrap();
     let result = phase1::validate_tx_with_time(
@@ -522,29 +532,10 @@ fn synthetic_time_conversion_failure_and_mismatched_basis_reject() {
     let result =
         phase2::evaluate_tx_with_time(&tx, &f.env.prot_params, &f.phase_two_inputs(), &overflow);
     assert!(format!("{:?}", result.unwrap_err()).contains("Overflow"));
-    let wrong_basis = DijkstraTimeContext::new(
-        vec![EraTime {
-            start_slot: 0,
-            start_time_ms: f.slots.zero_time,
-            slot_length_ms: 1000,
-        }],
-        f.env.block_slot + 1,
-    )
-    .unwrap();
-    let result = phase1::validate_tx_with_time(
-        &tx,
-        0,
-        &f.env,
-        &inputs,
-        &mut CertState::default(),
-        &wrong_basis,
-    );
-    assert!(format!("{:?}", result.unwrap_err()).contains("WrongValidationSlot"));
-    // As in earlier eras, phase one can check validity slots without a forecast.
     let result = phase1::validate_tx(&tx, 0, &f.env, &inputs, &mut CertState::default());
     assert!(
-        result.is_ok(),
-        "phase one must not require a consensus forecast: {result:?}"
+        matches!(result, Err(ValidationError::DijkstraUnsupported(_))),
+        "{result:?}"
     );
 }
 
@@ -562,7 +553,7 @@ fn earlier_era_conversion_matches_for_distant_and_absent_bounds() {
             start_time_ms: slots.zero_time,
             slot_length_ms: slots.slot_length,
         }],
-        75,
+        ForecastHorizon::Unbounded,
     )
     .unwrap();
     for (lower, upper) in [
@@ -606,12 +597,14 @@ fn earlier_era_conversion_matches_for_distant_and_absent_bounds() {
 }
 
 #[test]
-fn cross_epoch_signed_spend_admits_evaluates_and_estimates() {
+fn cross_epoch_signed_spend_past_the_horizon_is_refused() {
     let f = Fixture::load_from(fixture_root().join("cross-epoch-ttl"));
     let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &f.transaction).unwrap();
     assert_eq!(tx.hash().to_string(), f.transaction_id);
     let epoch_length = f.env.prot_params.epoch_length();
     assert!(f.env.block_slot / epoch_length < tx.ttl().unwrap() / epoch_length);
+    assert_eq!(f.horizon(), ForecastHorizon::Slot(885_600));
+    assert_eq!(tx.ttl(), Some(900_481));
     let inputs = f
         .inputs
         .iter()
@@ -630,18 +623,11 @@ fn cross_epoch_signed_spend_admits_evaluates_and_estimates() {
         &mut CertState::default(),
         &f.time(),
     );
-    assert!(
-        result.is_ok(),
-        "cross-epoch TTL must pass phase one: {result:?}"
-    );
+    assert!(format!("{result:?}").contains("PastHorizon"), "{result:?}");
     for result in [
         phase2::evaluate_tx_with_time(&tx, &f.env.prot_params, &f.phase_two_inputs(), &f.time()),
         phase2::estimate_tx_with_time(&tx, &f.env.prot_params, &f.phase_two_inputs(), &f.time()),
-        phase2::evaluate_tx(&tx, &f.env.prot_params, &f.phase_two_inputs(), &f.slots),
     ] {
-        let report = result.expect("cross-epoch TTL conversion must succeed");
-        assert_eq!(report.len(), 1);
-        assert!(report[0].success, "{report:?}");
-        assert_eq!(report[0].units, f.expected);
+        assert!(format!("{result:?}").contains("PastHorizon"), "{result:?}");
     }
 }

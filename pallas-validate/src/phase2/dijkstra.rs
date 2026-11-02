@@ -15,7 +15,7 @@ use super::{
 };
 use crate::phase1::dijkstra_ledger::{Level, needs};
 use crate::utils::{
-    DijkstraTimeContext, EraTime, MultiEraProtocolParameters, TxoRef, UtxoMap,
+    DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters, TxoRef, UtxoMap,
     dijkstra_context::check_translatable,
 };
 use pallas_addresses::{Address, ShelleyPaymentPart};
@@ -364,7 +364,7 @@ fn linear_time(slots: &SlotConfig) -> Result<DijkstraTimeContext, Error> {
             start_time_ms: slots.zero_time,
             slot_length_ms: slots.slot_length,
         }],
-        slots.zero_slot,
+        ForecastHorizon::Unbounded,
     )
     .map_err(Error::from)
 }
