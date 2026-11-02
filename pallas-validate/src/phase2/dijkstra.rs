@@ -126,29 +126,7 @@ fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<Conte
     if !matches!(address, Address::Shelley(_)) {
         return unsupported("output address (requires Shelley)");
     }
-    let script = match output.multi_era_script_ref() {
-        None => None,
-        Some(MultiEraScriptRef::Dijkstra(s)) => Some(match s.as_ref() {
-            n::ScriptRef::NativeScript(s) => {
-                pallas_traverse::MultiEraNativeScript::from_dijkstra(s).hash()
-            }
-            n::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
-            n::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
-            n::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
-            n::ScriptRef::PlutusV4Script(_) => {
-                return unsupported("reference script language (requires V3)");
-            }
-        }),
-        Some(MultiEraScriptRef::Conway(s)) => Some(match s.as_ref() {
-            c::ScriptRef::NativeScript(s) => {
-                pallas_traverse::MultiEraNativeScript::from_alonzo_compatible(s).hash()
-            }
-            c::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
-            c::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
-            c::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
-        }),
-        _ => return unsupported("reference script language (requires V3)"),
-    };
+    let script = output.multi_era_script_ref().map(|s| s.hash());
     Ok(ContextOutput {
         address,
         value: output.value().into_conway(),

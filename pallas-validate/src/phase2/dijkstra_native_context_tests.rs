@@ -70,6 +70,37 @@ fn dijkstra_native_reference_hash_survives_v3_projection() {
 }
 
 #[test]
+fn dijkstra_plutus_reference_hash_carries_its_language_tag() {
+    let bytes = [0x4d, 0x01, 0x00];
+    let scripts = [
+        (
+            n::ScriptRef::PlutusV3Script(n::PlutusScript(bytes.to_vec().into())),
+            3,
+        ),
+        (
+            n::ScriptRef::PlutusV4Script(n::PlutusScript(bytes.to_vec().into())),
+            4,
+        ),
+    ];
+    for (script, tag) in scripts {
+        let output = n::TransactionOutput::PostAlonzo(
+            n::PostAlonzoTransactionOutput {
+                address: [vec![0x60], vec![1; 28]].concat().into(),
+                value: c::Value::Coin(5_000_000),
+                datum_option: None,
+                script_ref: Some(CborWrap(script)),
+            }
+            .into(),
+        );
+        let projected = context_output(&MultiEraOutput::from_dijkstra(&output), true).unwrap();
+        assert_eq!(
+            projected.script,
+            Some(Hasher::<224>::hash_tagged(&bytes, tag))
+        );
+    }
+}
+
+#[test]
 fn dijkstra_pointer_output_keeps_its_pointer_in_a_context() {
     use super::super::to_plutus_data::ToPlutusData;
     let output = |delegation| {
