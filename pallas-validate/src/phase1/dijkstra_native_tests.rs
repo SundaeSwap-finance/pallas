@@ -1,5 +1,6 @@
 //! Native-script admission tests. All mutations below are explicitly synthetic.
 use super::{dijkstra_tests, *};
+use crate::utils::dijkstra_state::DijkstraAccount;
 use pallas_addresses::{Network, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart};
 use pallas_codec::{
     minicbor,
@@ -268,18 +269,22 @@ fn dijkstra_native_mint_registration_and_partial_withdrawal() {
         reward.extend(hash.as_ref());
         tx.transaction_body.withdrawals = Some(BTreeMap::from([(reward.into(), 1_000_000)]));
         let mut state = CertState::default();
-        state.dijkstra_registrations.insert(
-            n::StakeCredential::AddrKeyhash(key_hash()),
-            crate::utils::DijkstraRegistrationState::Unregistered,
-        );
         state
-            .dijkstra_account_balances
-            .insert(n::StakeCredential::ScriptHash(hash), Some(2_000_000));
+            .dijkstra
+            .accounts
+            .insert(n::StakeCredential::AddrKeyhash(key_hash()), None);
+        state.dijkstra.accounts.insert(
+            n::StakeCredential::ScriptHash(hash),
+            Some(DijkstraAccount {
+                balance: 2_000_000,
+                deposit: 2_000_000,
+            }),
+        );
         dijkstra_tests::sign(&mut tx);
         let result = run(&tx, &inputs, &env, &mut state);
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(
-            state.dijkstra_account_balances[&n::StakeCredential::ScriptHash(hash)],
+            state.dijkstra.accounts[&n::StakeCredential::ScriptHash(hash)].map(|x| x.balance),
             Some(1_000_000)
         );
         // Native certificate script, no withdrawal from the newly registered account.
@@ -292,16 +297,19 @@ fn dijkstra_native_mint_registration_and_partial_withdrawal() {
             *coin -= 1_000_000;
         }
         let mut state = CertState::default();
-        state.dijkstra_registrations.insert(
-            n::StakeCredential::ScriptHash(hash),
-            crate::utils::DijkstraRegistrationState::Unregistered,
-        );
+        state
+            .dijkstra
+            .accounts
+            .insert(n::StakeCredential::ScriptHash(hash), None);
         dijkstra_tests::sign(&mut tx);
         let result = run(&tx, &inputs, &env, &mut state);
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(
-            state.dijkstra_registrations[&n::StakeCredential::ScriptHash(hash)],
-            crate::utils::DijkstraRegistrationState::Registered
+            state.dijkstra.accounts[&n::StakeCredential::ScriptHash(hash)],
+            Some(DijkstraAccount {
+                balance: 0,
+                deposit: 2_000_000
+            })
         );
     });
 }

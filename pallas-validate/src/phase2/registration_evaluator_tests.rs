@@ -1,7 +1,7 @@
 //! Synthetic evaluator semantics, separate from the unchanged network capture.
 use super::{
     error::{Error, Unsupported},
-    evaluator::eval_native_v3,
+    evaluator::eval_native,
 };
 use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
 use pallas_codec::minicbor;
@@ -28,9 +28,12 @@ fn evaluate_calls(
     .unwrap();
     let costs: Vec<i64> =
         serde_json::from_value(params["cost_models_raw"]["PlutusV3"].clone()).unwrap();
-    eval_native_v3(
+    eval_native(
+        pallas_primitives::conway::Language::PlutusV3,
         &bytes,
-        &PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(vec![])),
+        &[&PlutusData::Array(
+            pallas_codec::utils::MaybeIndefArray::Def(vec![]),
+        )],
         &costs,
         ExUnits {
             mem: 16_500_000,
