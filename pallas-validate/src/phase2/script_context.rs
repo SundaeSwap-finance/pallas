@@ -158,9 +158,9 @@ impl DataLookupTable {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV1<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V1TxInfo<I, O> {
+    pub inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -171,6 +171,9 @@ pub struct TxInfoV1<'a> {
     pub redeemers: KeyValuePairs<ScriptPurpose, Redeemer>,
     pub id: Hash<32>,
 }
+
+/// The Conway-backed V1 context used by the existing evaluation APIs.
+pub type TxInfoV1<'a> = V1TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV1<'_> {
     pub fn from_transaction<'a>(
@@ -210,10 +213,10 @@ impl TxInfoV1<'_> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct TxInfoV2<'a> {
-    pub inputs: Vec<TxInInfo<'a>>,
-    pub reference_inputs: Vec<TxInInfo<'a>>,
-    pub outputs: Vec<TransactionOutput<'a>>,
+pub struct V2TxInfo<I, O> {
+    pub inputs: Vec<I>,
+    pub reference_inputs: Vec<I>,
+    pub outputs: Vec<O>,
     pub fee: Value,
     pub mint: MintValue,
     pub certificates: Vec<Certificate>,
@@ -224,6 +227,9 @@ pub struct TxInfoV2<'a> {
     pub data: KeyValuePairs<DatumHash, PlutusData>,
     pub id: Hash<32>,
 }
+
+/// The Conway-backed V2 context used by the existing evaluation APIs.
+pub type TxInfoV2<'a> = V2TxInfo<TxInInfo<'a>, TransactionOutput<'a>>;
 
 impl TxInfoV2<'_> {
     pub fn from_transaction<'a>(

@@ -1,6 +1,6 @@
 // Earlier eras retain the existing registry evaluator and its historical behavior.
 #[cfg(feature = "unstable")]
-pub(crate) use super::native_evaluator::eval_native_v3;
+pub(crate) use super::native_evaluator::eval_native;
 
 use amaru_uplc::{
     arena::Arena,
