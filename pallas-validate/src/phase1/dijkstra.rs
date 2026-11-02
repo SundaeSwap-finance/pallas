@@ -51,17 +51,10 @@ pub fn validate_dijkstra_tx_with_time<S: DijkstraLedgerState + ?Sized>(
     state: &S,
     time: &crate::utils::DijkstraTimeContext,
 ) -> Result<DijkstraLedgerDelta, ValidationError> {
-    if time.validation_slot() != *block_slot {
-        return Err(crate::utils::DijkstraTimeError::WrongValidationSlot {
-            basis: time.validation_slot(),
-            slot: *block_slot,
-        }
-        .into());
-    }
     validate_dijkstra_tx_inner(tx, utxos, pp, block_slot, network_id, state, Some(time))
 }
 
-fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
+pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     tx: &BlockTransaction<'_>,
     utxos: &UTxOs<'_>,
     pp: &DijkstraProtParams,
@@ -1108,10 +1101,18 @@ fn check_scripts(
             }
         });
     }
-    if !scripts.is_empty()
-        && let Some(time) = time
-    {
-        time.validity_bounds(b.validity_interval_start, b.ttl)?;
+    if !scripts.is_empty() {
+        match time {
+            Some(time) => {
+                time.validity_bounds(b.validity_interval_start, b.ttl)?;
+            }
+            None if b.ttl.is_some() => {
+                return Err(DijkstraUnsupported(
+                    "Plutus validity upper bound requires forecast state",
+                ));
+            }
+            None => {}
+        }
     }
     check_datums(tx, utxos, &scripts, &plutus)?;
     // The size cap covers the whole batch; the fee counts top-level references only.
