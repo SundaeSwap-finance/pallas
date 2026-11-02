@@ -8,6 +8,13 @@ pub struct EraTime {
     pub slot_length_ms: u64,
 }
 
+/// The first slot the ledger's time forecast does not cover.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForecastHorizon {
+    Slot(u64),
+    Unbounded,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DijkstraTimeError {
     #[error("invalid era time history: {0}")]
@@ -16,8 +23,8 @@ pub enum DijkstraTimeError {
     BeforeHistory { slot: u64, first_slot: u64 },
     #[error("POSIX millisecond conversion overflows at slot {0}")]
     Overflow(u64),
-    #[error("time context basis {basis} differs from validation slot {slot}")]
-    WrongValidationSlot { basis: u64, slot: u64 },
+    #[error("slot {slot} is at or past the forecast horizon {horizon}")]
+    PastHorizon { slot: u64, horizon: u64 },
 }
 
 impl EraTime {
@@ -35,28 +42,19 @@ impl EraTime {
     }
 }
 
-/// Slot/time mappings at a particular historical validation slot.
+/// Slot to POSIX millisecond translation over the known eras up to the forecast horizon.
 ///
-/// Each known era uses the same affine conversion as `SlotConfig`. Slots beyond
-/// the last known era start continue with that era's slot length. Known era
-/// transitions remain effective even beyond the validation slot. Arithmetic is
-/// checked; consensus forecast enforcement is a separate caller concern.
+/// Slots past the last known era start use that era's slot length.
 #[derive(Debug, Clone)]
 pub struct DijkstraTimeContext {
     eras: Vec<EraTime>,
-    validation_slot: u64,
+    horizon: ForecastHorizon,
 }
 
 impl DijkstraTimeContext {
-    pub fn new(eras: Vec<EraTime>, validation_slot: u64) -> Result<Self, DijkstraTimeError> {
-        let Some(first) = eras.first() else {
+    pub fn new(eras: Vec<EraTime>, horizon: ForecastHorizon) -> Result<Self, DijkstraTimeError> {
+        if eras.is_empty() {
             return Err(DijkstraTimeError::InvalidHistory("empty history"));
-        };
-        if validation_slot < first.start_slot {
-            return Err(DijkstraTimeError::BeforeHistory {
-                slot: validation_slot,
-                first_slot: first.start_slot,
-            });
         }
         if eras.iter().any(|e| e.slot_length_ms == 0) {
             return Err(DijkstraTimeError::InvalidHistory("zero slot length"));
@@ -71,23 +69,15 @@ impl DijkstraTimeContext {
                 return Err(DijkstraTimeError::InvalidHistory("discontinuous era times"));
             }
         }
-        let edge = eras
-            .iter()
-            .rev()
-            .find(|e| e.start_slot <= validation_slot)
-            .unwrap();
-        edge.translate(validation_slot)?;
-        Ok(Self {
-            eras,
-            validation_slot,
-        })
-    }
-
-    pub fn validation_slot(&self) -> u64 {
-        self.validation_slot
+        Ok(Self { eras, horizon })
     }
 
     pub fn slot_to_posix_ms(&self, slot: u64) -> Result<u64, DijkstraTimeError> {
+        if let ForecastHorizon::Slot(horizon) = self.horizon
+            && slot >= horizon
+        {
+            return Err(DijkstraTimeError::PastHorizon { slot, horizon });
+        }
         let era = self
             .eras
             .iter()
@@ -131,9 +121,13 @@ mod tests {
         ]
     }
 
+    fn unbounded(eras: Vec<EraTime>) -> DijkstraTimeContext {
+        DijkstraTimeContext::new(eras, ForecastHorizon::Unbounded).unwrap()
+    }
+
     #[test]
     fn historical_and_future_bounds_use_their_correct_slot_lengths() {
-        let time = DijkstraTimeContext::new(history(), 20).unwrap();
+        let time = unbounded(history());
         assert_eq!(
             time.validity_bounds(Some(5), Some(100)).unwrap(),
             (Some(1_100_000), Some(1_290_000))
@@ -148,7 +142,7 @@ mod tests {
 
     #[test]
     fn absent_bounds_remain_absent() {
-        let time = DijkstraTimeContext::new(history(), 20).unwrap();
+        let time = unbounded(history());
         assert_eq!(time.validity_bounds(None, None).unwrap(), (None, None));
         assert_eq!(
             time.validity_bounds(None, Some(10)).unwrap(),
@@ -161,9 +155,9 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_history_and_invalid_basis_are_explicit_errors() {
+    fn unavailable_history_is_an_explicit_error() {
         assert!(matches!(
-            DijkstraTimeContext::new(vec![], 0),
+            DijkstraTimeContext::new(vec![], ForecastHorizon::Unbounded),
             Err(DijkstraTimeError::InvalidHistory(_))
         ));
         let era = EraTime {
@@ -171,11 +165,7 @@ mod tests {
             start_time_ms: 1000,
             slot_length_ms: 1000,
         };
-        assert!(matches!(
-            DijkstraTimeContext::new(vec![era.clone()], 9),
-            Err(DijkstraTimeError::BeforeHistory { .. })
-        ));
-        let time = DijkstraTimeContext::new(vec![era], 11).unwrap();
+        let time = unbounded(vec![era]);
         assert!(matches!(
             time.validity_bounds(Some(9), Some(20)),
             Err(DijkstraTimeError::BeforeHistory { .. })
@@ -183,20 +173,36 @@ mod tests {
         let mut gap = history();
         gap[1].start_time_ms += 1;
         assert!(matches!(
-            DijkstraTimeContext::new(gap, 20),
+            DijkstraTimeContext::new(gap, ForecastHorizon::Unbounded),
             Err(DijkstraTimeError::InvalidHistory(_))
         ));
         let mut zero = history();
         zero[0].slot_length_ms = 0;
         assert!(matches!(
-            DijkstraTimeContext::new(zero, 20),
+            DijkstraTimeContext::new(zero, ForecastHorizon::Unbounded),
             Err(DijkstraTimeError::InvalidHistory(_))
         ));
     }
 
     #[test]
+    fn slots_at_or_past_the_horizon_are_refused() {
+        let time = DijkstraTimeContext::new(history(), ForecastHorizon::Slot(100)).unwrap();
+        assert_eq!(
+            time.validity_bounds(Some(20), Some(99)).unwrap(),
+            (Some(1_210_000), Some(1_289_000))
+        );
+        let past = DijkstraTimeError::PastHorizon {
+            slot: 100,
+            horizon: 100,
+        };
+        assert_eq!(time.slot_to_posix_ms(100), Err(past.clone()));
+        assert_eq!(time.validity_bounds(Some(20), Some(100)), Err(past.clone()));
+        assert_eq!(time.validity_bounds(Some(100), None), Err(past));
+    }
+
+    #[test]
     fn conversion_overflow_never_wraps_or_drops_a_bound() {
-        let time = DijkstraTimeContext::new(history(), 20).unwrap();
+        let time = unbounded(history());
         assert_eq!(
             time.validity_bounds(None, Some(u64::MAX)),
             Err(DijkstraTimeError::Overflow(u64::MAX))
@@ -206,21 +212,17 @@ mod tests {
             start_time_ms: u64::MAX - 1000,
             slot_length_ms: 1000,
         };
-        let time = DijkstraTimeContext::new(vec![near_max.clone()], 0).unwrap();
+        let time = unbounded(vec![near_max]);
         assert_eq!(time.slot_to_posix_ms(1).unwrap(), u64::MAX);
         assert_eq!(
             time.slot_to_posix_ms(2),
             Err(DijkstraTimeError::Overflow(2))
         );
-        assert!(matches!(
-            DijkstraTimeContext::new(vec![near_max], 2),
-            Err(DijkstraTimeError::Overflow(2))
-        ));
     }
 
     #[test]
-    fn known_era_transitions_apply_beyond_the_validation_slot() {
-        let time = DijkstraTimeContext::new(history(), 5).unwrap();
+    fn known_era_transitions_apply_to_later_slots() {
+        let time = unbounded(history());
         assert_eq!(time.slot_to_posix_ms(9).unwrap(), 1_180_000);
         assert_eq!(time.slot_to_posix_ms(10).unwrap(), 1_200_000);
         assert_eq!(time.slot_to_posix_ms(15).unwrap(), 1_205_000);

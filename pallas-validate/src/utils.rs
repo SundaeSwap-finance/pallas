@@ -9,7 +9,7 @@ pub mod dijkstra_state;
 #[cfg(feature = "unstable")]
 pub mod dijkstra_time;
 #[cfg(feature = "unstable")]
-pub use dijkstra_time::{DijkstraTimeContext, DijkstraTimeError, EraTime};
+pub use dijkstra_time::{DijkstraTimeContext, DijkstraTimeError, EraTime, ForecastHorizon};
 pub mod environment;
 pub mod validation;
 

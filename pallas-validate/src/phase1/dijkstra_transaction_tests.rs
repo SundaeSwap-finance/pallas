@@ -75,13 +75,8 @@ use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::BTreeMap;
 
-fn run(
-    tx: &n::BlockTransaction<'_>,
-    inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
-    env: &Environment,
-    state: &CertState,
-) -> crate::utils::ValidationResult {
-    let utxos = inputs
+fn utxos<'a>(inputs: &'a [(n::TransactionInput, n::TransactionOutput<'_>)]) -> UTxOs<'a> {
+    inputs
         .iter()
         .map(|(i, o)| {
             (
@@ -89,12 +84,44 @@ fn run(
                 MultiEraOutput::from_dijkstra(o),
             )
         })
-        .collect();
+        .collect()
+}
+fn run(
+    tx: &n::BlockTransaction<'_>,
+    inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
+    env: &Environment,
+    state: &CertState,
+) -> crate::utils::ValidationResult {
     validate_txs(
         &[MultiEraTx::from_dijkstra(tx)],
         env,
-        &utxos,
+        &utxos(inputs),
         &mut state.clone(),
+    )
+}
+fn run_with_horizon(
+    tx: &n::BlockTransaction<'_>,
+    inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
+    env: &Environment,
+    state: &CertState,
+    horizon: u64,
+) -> crate::utils::ValidationResult {
+    let time = crate::utils::DijkstraTimeContext::new(
+        vec![crate::utils::EraTime {
+            start_slot: 0,
+            start_time_ms: 1788739200000,
+            slot_length_ms: 1000,
+        }],
+        crate::utils::ForecastHorizon::Slot(horizon),
+    )
+    .unwrap();
+    validate_tx_with_time(
+        &MultiEraTx::from_dijkstra(tx),
+        0,
+        env,
+        &utxos(inputs),
+        &mut state.clone(),
+        &time,
     )
 }
 fn output_mut<'a, 'b>(
@@ -497,6 +524,38 @@ mod scripts {
                 assert!(result.is_ok(), "{len}: {result:?}");
                 seal(&mut tx, &env);
             }
+        });
+    }
+    #[test]
+    fn dijkstra_plutus_upper_bound_without_time_is_unsupported() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let slot = env.block_slot;
+            tx.transaction_body.validity_interval_start = Some(slot);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_body.ttl = Some(slot + 1);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "DijkstraUnsupported(\"Plutus validity upper bound requires forecast state\")",
+            );
+        });
+    }
+    #[test]
+    fn dijkstra_plutus_upper_bound_at_the_horizon_is_refused() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let horizon = env.block_slot + 100;
+            tx.transaction_body.ttl = Some(horizon - 1);
+            seal(&mut tx, &env);
+            let result = run_with_horizon(&tx, &inputs, &env, &state, horizon);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_body.ttl = Some(horizon);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run_with_horizon(&tx, &inputs, &env, &state, horizon),
+                &format!("DijkstraTime(PastHorizon {{ slot: {horizon}, horizon: {horizon} }})"),
+            );
         });
     }
     #[test]
