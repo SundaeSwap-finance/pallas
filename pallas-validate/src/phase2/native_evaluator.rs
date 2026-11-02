@@ -302,7 +302,7 @@ fn budget_to_ex_units(budget: ExBudget) -> ExUnits {
 }
 
 /// Decode introduced script bytes at the native protocol version, without execution.
-pub(crate) fn check_v3_script(script: &[u8]) -> Result<(), Error> {
+pub(crate) fn check_plutus_script(script: &[u8]) -> Result<(), Error> {
     let arena = Arena::from_bump(Bump::new());
     let mut decoder = minicbor::Decoder::new(script);
     let flat_bytes: minicbor::bytes::ByteVec = decoder.decode()?;
@@ -319,8 +319,39 @@ pub(crate) fn check_v3_script(script: &[u8]) -> Result<(), Error> {
 }
 
 fn check_program_version(version: amaru_uplc_native::machine::MachineVersion) -> Result<(), Error> {
-    if !matches!((version.major, version.minor, version.patch), (1, 0 | 1, 0)) {
-        return Err(Error::DijkstraInvalid("unsupported V3 UPLC version"));
+    if !matches!((version.major, version.minor, version.patch), (1, 0..=2, 0)) {
+        return Err(Error::DijkstraInvalid("unsupported UPLC version"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The script bytes of `(program major.minor.0 (lam x (con unit ())))`.
+    fn unit_lambda(major: u8, minor: u8) -> [u8; 6] {
+        [0x45, major, minor, 0x00, 0x24, 0x99]
+    }
+
+    fn refuses_version(script: &[u8]) -> bool {
+        matches!(
+            check_plutus_script(script),
+            Err(Error::DijkstraInvalid("unsupported UPLC version"))
+        )
+    }
+
+    #[test]
+    fn protocol_12_refuses_uplc_1_3_and_2_0() {
+        assert!(refuses_version(&unit_lambda(1, 3)));
+        assert!(refuses_version(&unit_lambda(2, 0)))
+    }
+
+    #[test]
+    fn protocol_12_accepts_uplc_1_0_to_1_2() {
+        for minor in 0..=2 {
+            let result = check_plutus_script(&unit_lambda(1, minor));
+            assert!(result.is_ok(), "1.{minor}.0 {result:?}");
+        }
+    }
 }
