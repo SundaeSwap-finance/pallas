@@ -521,7 +521,7 @@ fn dijkstra_batch_sub_metadata_must_match_its_hash() {
 }
 
 /// An address locked by the Byron key that `bootstrap` signs with.
-fn byron_address() -> pallas_codec::utils::Bytes {
+pub(super) fn byron_address() -> pallas_codec::utils::Bytes {
     use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress, SpendingData};
     let xpub = [SecretKey::from([7; 32]).public_key().as_ref(), &[9; 32][..]].concat();
     ByronAddress::from(AddressPayload::new(
@@ -532,7 +532,7 @@ fn byron_address() -> pallas_codec::utils::Bytes {
     .to_vec()
     .into()
 }
-fn bootstrap(signed: &[u8]) -> n::BootstrapWitness {
+pub(super) fn bootstrap(signed: &[u8]) -> n::BootstrapWitness {
     let key = SecretKey::from([7; 32]);
     n::BootstrapWitness {
         public_key: key.public_key().as_ref().to_vec().into(),
@@ -541,7 +541,7 @@ fn bootstrap(signed: &[u8]) -> n::BootstrapWitness {
         attributes: vec![0xa0].into(),
     }
 }
-fn body_hash<T: minicbor::Encode<()>>(body: &T) -> Hash<32> {
+pub(super) fn body_hash<T: minicbor::Encode<()>>(body: &T) -> Hash<32> {
     Hasher::<256>::hash(&minicbor::to_vec(body).unwrap())
 }
 
@@ -572,6 +572,508 @@ fn dijkstra_batch_sub_spends_a_bootstrap_input() {
                 Some(e) => error(result, e),
             }
         }
+    });
+}
+
+/// The key hash the ledger takes for the key `bootstrap` signs with, under `chain_code` and the `attributes` bytes as sent.
+fn bootstrap_root(chain_code: &[u8], attributes: &[u8]) -> Hash<28> {
+    let key = SecretKey::from([7; 32]);
+    pallas_addresses::byron::AddressPayload::hash_address_id_preimage(
+        &[
+            &super::conway::BOOTSTRAP_ROOT_HEADER[..],
+            key.public_key().as_ref(),
+            chain_code,
+            attributes,
+        ]
+        .concat(),
+    )
+}
+/// A Byron address whose root is `root`.
+fn byron_address_at(root: Hash<28>) -> pallas_codec::utils::Bytes {
+    use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress};
+    ByronAddress::from(AddressPayload {
+        root,
+        attributes: vec![].into(),
+        addrtype: AddrType::PubKey,
+    })
+    .to_vec()
+    .into()
+}
+/// `bootstrap`, with the given chain code and attribute bytes.
+fn bootstrap_with(signed: &[u8], chain_code: &[u8], attributes: &[u8]) -> n::BootstrapWitness {
+    n::BootstrapWitness {
+        chain_code: chain_code.to_vec().into(),
+        attributes: attributes.to_vec().into(),
+        ..bootstrap(signed)
+    }
+}
+/// Adds `witness` to the bootstrap witnesses of `witnesses`.
+pub(super) fn add_bootstrap(witnesses: &mut n::WitnessSet<'_>, witness: n::BootstrapWitness) {
+    let mut all: Vec<_> = witnesses
+        .bootstrap_witness
+        .iter()
+        .flat_map(|x| x.iter().cloned())
+        .collect();
+    all.push(witness);
+    witnesses.bootstrap_witness = n::NonEmptySet::from_vec(all);
+}
+
+#[test]
+fn dijkstra_bootstrap_roots_hash_the_attribute_bytes_as_sent() {
+    token_order_batch(|tx, input, sub_input| {
+        let body = body_hash(
+            &tx.transaction_body.sub_transactions.as_ref().unwrap()[0].sub_transaction_body,
+        );
+        for (address, expected) in [
+            (&[0xa0][..], Some("PostAlonzo(VKWitnessMissing)")),
+            (&[0xbf, 0xff][..], None),
+        ] {
+            let mut spent = sub_input.clone();
+            post_alonzo(&mut spent).address = byron_address_at(bootstrap_root(&[9; 32], address));
+            let mut changed = tx.clone();
+            change_sub(&mut changed, |sub| {
+                add_bootstrap(
+                    &mut sub.transaction_witness_set,
+                    bootstrap_with(body.as_ref(), &[9; 32], &[0xbf, 0xff]),
+                );
+            });
+            sign(&mut changed);
+            let result = run_sub(&changed, &input, &spent);
+            match expected {
+                None => assert!(result.is_ok(), "{result:?}"),
+                Some(e) => error(result, e),
+            }
+        }
+    });
+}
+
+/// The CRC-32 a Byron address checks its payload with.
+fn crc32(bytes: &[u8]) -> u32 {
+    !bytes.iter().fold(!0u32, |crc, byte| {
+        (0..8).fold(crc ^ u32::from(*byte), |c, _| {
+            (c >> 1) ^ (0xedb8_8320 & (c & 1).wrapping_neg())
+        })
+    })
+}
+/// A Byron address whose attributes are `entries`, each key with its value bytes.
+fn byron_address_attributed(entries: &[(u8, Vec<u8>)]) -> pallas_codec::utils::Bytes {
+    let mut e = minicbor::Encoder::new(vec![]);
+    e.array(3).unwrap().bytes(&[0; 28]).unwrap();
+    e.map(entries.len() as u64).unwrap();
+    for (key, value) in entries {
+        e.u8(*key).unwrap().bytes(value).unwrap();
+    }
+    e.u8(0).unwrap();
+    let payload = e.into_writer();
+    pallas_addresses::byron::ByronAddress::new(&payload, crc32(&payload))
+        .to_vec()
+        .into()
+}
+
+#[test]
+fn dijkstra_byron_test_addresses_carry_their_checksum() {
+    let address = pallas_addresses::byron::ByronAddress::from_bytes(&byron_address()).unwrap();
+    assert_eq!(crc32(&address.payload.0), address.crc);
+}
+
+#[test]
+fn dijkstra_outputs_may_pay_byron_addresses() {
+    let magic = minicbor::to_vec(42u32).unwrap();
+    let path = |n: usize| minicbor::to_vec(minicbor::bytes::ByteVec::from(vec![0; n])).unwrap();
+    let too_large = Some("DijkstraBootstrapAttributesTooLarge");
+    let cases = [
+        (vec![(2, magic.clone())], None),
+        (vec![], Some("PostAlonzo(OutputWrongNetworkID)")),
+        (vec![(1, path(64)), (2, magic.clone())], None),
+        (vec![(1, path(65)), (2, magic.clone())], too_large),
+        (vec![(2, magic.clone()), (7, vec![0; 64])], None),
+        (vec![(2, magic.clone()), (7, vec![0; 65])], too_large),
+    ];
+    token_order_batch(|tx, input, sub_input| {
+        for (entries, expected) in cases {
+            let address = byron_address_attributed(&entries);
+            let mut top = tx.clone();
+            let mut outputs = top.transaction_body.outputs.clone().to_vec();
+            post_alonzo(&mut outputs[0]).address = address.clone();
+            top.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+            sign(&mut top);
+            let mut sub = tx.clone();
+            resign(&mut sub, |sub| {
+                let mut outputs = sub.sub_transaction_body.outputs.clone().to_vec();
+                let order = post_alonzo(&mut outputs[0]);
+                order.address = address.clone();
+                order.datum_option = None;
+                sub.sub_transaction_body.outputs = MaybeIndefArray::Def(outputs);
+            });
+            for (level, changed) in [("top", top), ("sub", sub)] {
+                let result = run_sub(&changed, &input, &sub_input);
+                match expected {
+                    None => assert!(result.is_ok(), "{level} {entries:?} {result:?}"),
+                    Some(e) => error(result, e),
+                }
+            }
+        }
+    });
+}
+
+#[test]
+fn dijkstra_key_guards_are_met_by_bootstrap_keys() {
+    batch(|tx, input| {
+        let root = bootstrap_root(&[9; 32], &[0xa0]);
+        let guards = Some(n::Guards::AddrKeyhashes(
+            n::NonEmptySet::from_vec(vec![guard_key(), root]).unwrap(),
+        ));
+        for witnessed in [false, true] {
+            let mut changed = tx.clone();
+            change_sub(&mut changed, |sub| {
+                sub.sub_transaction_body.guards = guards.clone();
+                sign_sub(sub);
+                if witnessed {
+                    let body = body_hash(&sub.sub_transaction_body);
+                    add_bootstrap(&mut sub.transaction_witness_set, bootstrap(body.as_ref()));
+                }
+            });
+            sign(&mut changed);
+            let result = run(&changed, &input, &env());
+            match witnessed {
+                true => assert!(result.is_ok(), "sub {result:?}"),
+                false => error(result, "PostAlonzo(VKWitnessMissing)"),
+            }
+            let mut changed = tx.clone();
+            changed.transaction_body.guards = guards.clone();
+            sign(&mut changed);
+            if witnessed {
+                let body = body_hash(&changed.transaction_body);
+                add_bootstrap(
+                    &mut changed.transaction_witness_set,
+                    bootstrap(body.as_ref()),
+                );
+            }
+            let result = run(&changed, &input, &env());
+            match witnessed {
+                true => assert!(result.is_ok(), "top {result:?}"),
+                false => error(result, "PostAlonzo(VKWitnessMissing)"),
+            }
+        }
+    });
+}
+
+#[test]
+fn dijkstra_native_signatures_are_not_met_by_bootstrap_keys() {
+    batch(|mut tx, input| {
+        let policy = native(n::NativeScript::ScriptPubkey(bootstrap_root(
+            &[9; 32],
+            &[0xa0],
+        )));
+        let mut outputs = tx.transaction_body.outputs.clone().to_vec();
+        let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
+        let minted: n::Multiasset<n::NonZeroInt> = [(
+            policy.original_hash(),
+            [(b"token".to_vec().into(), 5.try_into().unwrap())]
+                .into_iter()
+                .collect(),
+        )]
+        .into_iter()
+        .collect();
+        post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
+            coin,
+            [(
+                policy.original_hash(),
+                [(b"token".to_vec().into(), 5.try_into().unwrap())]
+                    .into_iter()
+                    .collect(),
+            )]
+            .into_iter()
+            .collect(),
+        );
+        tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+        tx.transaction_body.mint = Some(minted);
+        tx.transaction_witness_set.native_script = n::NonEmptySet::from_vec(vec![policy]);
+        sign(&mut tx);
+        let body = body_hash(&tx.transaction_body);
+        add_bootstrap(&mut tx.transaction_witness_set, bootstrap(body.as_ref()));
+        error(run(&tx, &input, &env()), "PostAlonzo(NativeScriptDenial)");
+    });
+}
+
+#[test]
+fn dijkstra_bootstrap_chain_codes_are_32_bytes() {
+    batch(|tx, input| {
+        for (length, expected) in [
+            (31, Some("DijkstraMalformed(\"bootstrap witness\")")),
+            (33, Some("DijkstraMalformed(\"bootstrap witness\")")),
+            (32, None),
+        ] {
+            let mut changed = tx.clone();
+            let body = body_hash(&changed.transaction_body);
+            add_bootstrap(
+                &mut changed.transaction_witness_set,
+                bootstrap_with(body.as_ref(), &vec![9; length], &[0xa0]),
+            );
+            let result = run(&changed, &input, &env());
+            match expected {
+                None => assert!(result.is_ok(), "top {length} {result:?}"),
+                Some(e) => error(result, e),
+            }
+            let mut changed = tx.clone();
+            change_sub(&mut changed, |sub| {
+                let body = body_hash(&sub.sub_transaction_body);
+                add_bootstrap(
+                    &mut sub.transaction_witness_set,
+                    bootstrap_with(body.as_ref(), &vec![9; length], &[0xa0]),
+                );
+            });
+            sign(&mut changed);
+            let result = run(&changed, &input, &env());
+            match expected {
+                None => assert!(result.is_ok(), "sub {length} {result:?}"),
+                Some(e) => error(result, e),
+            }
+        }
+    });
+}
+
+/// A key witness over `hash` by the key with seed byte `seed`.
+fn key_witness(seed: u8, hash: &[u8]) -> n::VKeyWitness {
+    let key = SecretKey::from([seed; 32]);
+    n::VKeyWitness {
+        vkey: key.public_key().as_ref().to_vec().into(),
+        signature: key.sign(hash).as_ref().to_vec().into(),
+    }
+}
+/// Key and bootstrap witness sets over `body`, each with the verdict it should get.
+fn witness_cases(body: &[u8]) -> Vec<(Vec<n::VKeyWitness>, Vec<n::BootstrapWitness>, &str)> {
+    let signed = key_witness(71, body);
+    let key = |vkey: usize, signature: usize| n::VKeyWitness {
+        vkey: signed.vkey[..vkey].to_vec().into(),
+        signature: signed.signature[..signature].to_vec().into(),
+    };
+    let byron = |public_key: usize, signature: usize| {
+        let whole = bootstrap(body);
+        n::BootstrapWitness {
+            public_key: whole.public_key[..public_key].to_vec().into(),
+            signature: whole.signature[..signature].to_vec().into(),
+            ..whole
+        }
+    };
+    vec![
+        (
+            vec![signed.clone(), key_witness(72, body)],
+            vec![],
+            "Ok(())",
+        ),
+        (
+            vec![signed.clone(), key_witness(71, b"elsewhere")],
+            vec![],
+            "Err(PostAlonzo(VKWrongSignature))",
+        ),
+        (
+            vec![signed.clone(), signed.clone()],
+            vec![],
+            "Err(DijkstraMalformed(\"duplicate key witnesses\"))",
+        ),
+        (
+            vec![key(31, 64)],
+            vec![],
+            "Err(DijkstraMalformed(\"key witness\"))",
+        ),
+        (
+            vec![key(32, 63)],
+            vec![],
+            "Err(DijkstraMalformed(\"key witness\"))",
+        ),
+        (
+            vec![signed.clone()],
+            vec![bootstrap(body), bootstrap_with(body, &[8; 32], &[0xa0])],
+            "Ok(())",
+        ),
+        (
+            vec![signed.clone()],
+            vec![bootstrap(body), bootstrap(b"elsewhere")],
+            "Err(DijkstraMalformed(\"duplicate bootstrap witnesses\"))",
+        ),
+        (
+            vec![signed.clone()],
+            vec![byron(31, 64)],
+            "Err(DijkstraMalformed(\"bootstrap witness\"))",
+        ),
+        (
+            vec![signed.clone()],
+            vec![byron(32, 63)],
+            "Err(DijkstraMalformed(\"bootstrap witness\"))",
+        ),
+    ]
+}
+
+#[test]
+fn dijkstra_an_empty_guards_set_in_a_sub_is_no_guards() {
+    batch(|tx, input| {
+        let cases = [
+            (
+                &[0xf6][..],
+                "Err(DijkstraUnsupported(\"subtransaction body fields\"))",
+            ),
+            (&[0x80], "Ok(())"),
+            (&[0x9f, 0xff], "Ok(())"),
+            (&[0xd9, 0x01, 0x02, 0x80], "Ok(())"),
+        ];
+        for (set, expected) in cases {
+            let mut sub = tx.transaction_body.sub_transactions.as_ref().unwrap()[0].clone();
+            sub.sub_transaction_body.guards = None;
+            let mut raw = minicbor::to_vec(&sub.sub_transaction_body).unwrap();
+            raw[0] += 1;
+            raw.push(14);
+            raw.extend_from_slice(set);
+            sub.sub_transaction_body = minicbor::decode(&raw).unwrap();
+            sign_sub(&mut sub);
+            let mut changed = tx.clone();
+            changed.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+            sign(&mut changed);
+            assert_eq!(
+                format!("{:?}", run(&changed, &input, &env())),
+                expected,
+                "{set:02x?}"
+            );
+        }
+    });
+}
+
+#[test]
+fn dijkstra_witnesses_the_node_does_not_decode_are_malformed() {
+    batch(|tx, input| {
+        let top = body_hash(&tx.transaction_body);
+        for (i, (keys, bootstraps, expected)) in witness_cases(top.as_ref()).into_iter().enumerate()
+        {
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.vkeywitness = n::NonEmptySet::from_vec(keys);
+            changed.transaction_witness_set.bootstrap_witness =
+                n::NonEmptySet::from_vec(bootstraps);
+            let result = run(&changed, &input, &env());
+            assert_eq!(format!("{result:?}"), expected, "top case {i}");
+        }
+        let sub = tx.transaction_body.sub_transactions.as_ref().unwrap()[0].clone();
+        let sub = body_hash(&sub.sub_transaction_body);
+        for (i, (keys, bootstraps, expected)) in witness_cases(sub.as_ref()).into_iter().enumerate()
+        {
+            let mut changed = tx.clone();
+            change_sub(&mut changed, |sub| {
+                sub.transaction_witness_set.vkeywitness = n::NonEmptySet::from_vec(keys);
+                sub.transaction_witness_set.bootstrap_witness =
+                    n::NonEmptySet::from_vec(bootstraps);
+            });
+            sign(&mut changed);
+            let result = run(&changed, &input, &env());
+            assert_eq!(format!("{result:?}"), expected, "sub case {i}");
+        }
+    });
+}
+
+#[test]
+fn dijkstra_fields_the_node_does_not_decode_are_malformed() {
+    batch(|tx, input| {
+        let outcome =
+            |changed: &n::BlockTransaction<'_>| format!("{:?}", run(changed, &input, &env()));
+        let malformed = |label: &str| format!("Err(DijkstraMalformed({label:?}))");
+        let key = guard_key();
+        let other = Hasher::<224>::hash(SecretKey::from([72; 32]).public_key().as_ref());
+        let guards = |keys: Vec<Hash<28>>| {
+            Some(n::Guards::AddrKeyhashes(
+                n::NonEmptySet::from_vec(keys).unwrap(),
+            ))
+        };
+        let mut changed = tx.clone();
+        changed.transaction_body.guards = guards(vec![key, other]);
+        let body = body_hash(&changed.transaction_body);
+        changed.transaction_witness_set.vkeywitness = n::NonEmptySet::from_vec(vec![
+            key_witness(71, body.as_ref()),
+            key_witness(72, body.as_ref()),
+        ]);
+        assert_eq!(outcome(&changed), "Ok(())");
+        changed.transaction_body.guards = guards(vec![key, key]);
+        sign(&mut changed);
+        assert_eq!(outcome(&changed), malformed("duplicate guards"));
+        let mut changed = tx.clone();
+        change_sub(&mut changed, |sub| {
+            sub.sub_transaction_body.guards = guards(vec![key, key]);
+            sign_sub(sub);
+        });
+        sign(&mut changed);
+        assert_eq!(outcome(&changed), malformed("duplicate guards"));
+
+        let mut changed = tx.clone();
+        changed.transaction_body.required_top_level_guards = Some(Default::default());
+        sign(&mut changed);
+        assert_eq!(
+            outcome(&changed),
+            malformed("empty required top-level guards")
+        );
+        let mut changed = tx.clone();
+        change_sub(&mut changed, |sub| {
+            sub.sub_transaction_body.required_top_level_guards = Some(Default::default());
+            sign_sub(sub);
+        });
+        sign(&mut changed);
+        assert_eq!(
+            outcome(&changed),
+            malformed("empty required top-level guards")
+        );
+
+        let mut changed = tx.clone();
+        changed.transaction_body.withdrawals = Some(Default::default());
+        sign(&mut changed);
+        assert_eq!(outcome(&changed), malformed("empty withdrawals"));
+
+        let policy = |names: Vec<(Vec<u8>, i64)>| -> n::Multiasset<n::NonZeroInt> {
+            [(
+                key,
+                names
+                    .into_iter()
+                    .map(|(name, quantity)| (name.into(), quantity.try_into().unwrap()))
+                    .collect(),
+            )]
+            .into_iter()
+            .collect()
+        };
+        for mint in [
+            Default::default(),
+            policy(vec![]),
+            policy(vec![(vec![1; 33], 1)]),
+        ] {
+            let mut changed = tx.clone();
+            changed.transaction_body.mint = Some(mint);
+            sign(&mut changed);
+            assert_eq!(outcome(&changed), malformed("multi-asset value"));
+        }
+
+        let redeemed = |redeemer: KeepRaw<'static, n::Redeemers>| {
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.redeemer = Some(redeemer);
+            outcome(&changed)
+        };
+        assert_eq!(
+            redeemed(KeepRaw::from(n::Redeemers(Default::default()))),
+            malformed("empty redeemers")
+        );
+        let limit = i64::MAX as u64;
+        assert_eq!(
+            redeemed(spend_redeemer(limit, limit)),
+            redeemed(spend_redeemer(1, 1))
+        );
+        for (mem, steps) in [(limit + 1, 0), (0, limit + 1)] {
+            assert_eq!(
+                redeemed(spend_redeemer(mem, steps)),
+                malformed("execution units")
+            );
+        }
+
+        let datums = |raw: &'static [u8]| {
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.plutus_data = Some(minicbor::decode(raw).unwrap());
+            outcome(&changed)
+        };
+        // Zero written in one byte and in two bytes are different datums.
+        assert_eq!(datums(&[0x82, 0x00, 0x18, 0x00]), datums(&[0x81, 0x00]));
+        assert_eq!(datums(&[0x82, 0x00, 0x00]), malformed("duplicate datums"));
     });
 }
 
@@ -867,6 +1369,61 @@ fn dijkstra_min_fee_is_the_fee_validation_refuses_one_below() {
     });
 }
 
+/// Redeemers declaring one spend of `mem` memory and no steps.
+fn redeemers(mem: u64) -> KeepRaw<'static, n::Redeemers> {
+    spend_redeemer(mem, 0)
+}
+/// Redeemers declaring one spend of `mem` memory and `steps` steps.
+fn spend_redeemer(mem: u64, steps: u64) -> KeepRaw<'static, n::Redeemers> {
+    let map = [(
+        n::RedeemersKey {
+            tag: n::RedeemerTag::Spend,
+            index: 0,
+        },
+        n::RedeemersValue {
+            data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+            ex_units: pallas_primitives::ExUnits { mem, steps },
+        },
+    )]
+    .into_iter()
+    .collect::<std::collections::BTreeMap<_, _>>();
+    KeepRaw::from(n::Redeemers(map))
+}
+
+#[test]
+fn dijkstra_min_fee_prices_the_redeemers_of_every_level_once() {
+    batch(|tx, input| {
+        let mut e = env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
+            unreachable!()
+        };
+        pp.minfee_a = 0;
+        pp.minfee_b = 0;
+        pp.execution_costs.mem_price = pallas_primitives::RationalNumber {
+            numerator: 1,
+            denominator: 2,
+        };
+        // At half a lovelace per memory unit, two redeemers of one unit cost 1 priced together
+        // and 2 priced one level at a time.
+        for (top, sub, expected) in [(None, Some(3), 2), (Some(1), Some(1), 1)] {
+            let mut changed = tx.clone();
+            changed.transaction_witness_set.redeemer = top.map(redeemers);
+            change_sub(&mut changed, |sub_tx| {
+                sub_tx.transaction_witness_set.redeemer = sub.map(redeemers);
+            });
+            let original = changed.transaction_body.inputs[0].clone();
+            let utxos = [(owned(original), MultiEraOutput::from_dijkstra(&input))]
+                .into_iter()
+                .collect();
+            assert_eq!(
+                dijkstra::dijkstra_min_fee(&changed, &utxos, pp).unwrap(),
+                expected,
+                "{top:?} {sub:?}"
+            );
+        }
+    });
+}
+
 #[test]
 fn dijkstra_batch_sub_reference_inputs_are_distinct_and_counted_once() {
     token_order_batch(|tx, input, sub_input| {
@@ -1015,7 +1572,7 @@ fn dijkstra_batch_rejects_duplicate_required_top_level_guards() {
             let patched: n::BlockTransaction = minicbor::decode(&raw).unwrap();
             error(
                 run(&patched, &input, &env()),
-                "DijkstraUnsupported(\"duplicate required top-level guards\")",
+                "DijkstraMalformed(\"duplicate required top-level guards\")",
             );
         }
     });

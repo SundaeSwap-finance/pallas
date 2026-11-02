@@ -36,6 +36,10 @@ pub enum ValidationError {
     DijkstraPointerInCollateralReturn,
 
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra output Byron address attributes exceed 64 bytes")]
+    DijkstraBootstrapAttributesTooLarge,
+
+    #[cfg(feature = "unstable")]
     #[error("Dijkstra withdrawal requires the original account balance for {0}")]
     DijkstraAccountStateUnavailable(String),
 
@@ -50,6 +54,10 @@ pub enum ValidationError {
     #[cfg(feature = "unstable")]
     #[error("malformed Dijkstra Plutus V3 script")]
     DijkstraMalformedScript,
+
+    #[cfg(feature = "unstable")]
+    #[error("malformed Dijkstra transaction field: {0}")]
+    DijkstraMalformed(&'static str),
 
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
