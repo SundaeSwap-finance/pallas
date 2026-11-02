@@ -20,7 +20,7 @@ use amaru_uplc_native::{
     term::Term,
 };
 use pallas_codec::minicbor;
-use pallas_primitives::conway::{ExUnits, PlutusData};
+use pallas_primitives::conway::{ExUnits, Language, PlutusData};
 
 /// A builtin function of the native evaluation.
 pub use amaru_uplc_native::builtin::DefaultFunction as Builtin;
@@ -33,10 +33,11 @@ pub fn audited_builtins() -> Vec<Builtin> {
         .collect()
 }
 
-/// Evaluate a protocol 12 Plutus V3 script, with the builtins it called in order of first call, refusing a call to a builtin outside the audited set.
-pub(crate) fn eval_native_v3(
+/// Evaluate a protocol 12 Plutus script applied to `args`, with the builtins it called in order of first call, refusing a call to a builtin outside the audited set.
+pub(crate) fn eval_native(
+    language: Language,
     script_bytes: &[u8],
-    context: &PlutusData,
+    args: &[&PlutusData],
     costs: &[i64],
     budget: ExUnits,
 ) -> Result<(ScriptEvalResult, Vec<Builtin>), Error> {
@@ -54,12 +55,19 @@ pub(crate) fn eval_native_v3(
         cpu: i64::try_from(budget.steps)
             .map_err(|_| Error::DijkstraInvalid("CPU budget overflow"))?,
     };
-    let program = program.apply(&arena, plutus_data_to_term(&arena, context));
+    let program = args.iter().fold(program, |program, arg| {
+        program.apply(&arena, plutus_data_to_term(&arena, arg))
+    });
+    let version = match language {
+        Language::PlutusV1 => PlutusVersion::V1,
+        Language::PlutusV2 => PlutusVersion::V2,
+        Language::PlutusV3 => PlutusVersion::V3,
+    };
     let mut calls = Vec::new();
     let result = run(
         &arena,
         program,
-        CostModel::new(PlutusVersion::V3, ProtocolVersion::new(12, 0), costs),
+        CostModel::new(version, ProtocolVersion::new(12, 0), costs),
         initial,
         &mut calls,
     )?;
@@ -80,12 +88,18 @@ pub(crate) fn eval_native_v3(
         budget: units,
         logs: logs.clone(),
     });
-    let success = matches!(result.term, Ok(Term::Constant(c)) if matches!(**c, Constant::Unit))
-        && units.mem <= budget.mem
-        && units.steps <= budget.steps;
+    // A V1 or V2 script succeeds by returning any value, a V3 script by returning unit.
+    let returned = match (&result.term, language) {
+        (Ok(_), Language::PlutusV1 | Language::PlutusV2) => true,
+        (Ok(term), Language::PlutusV3) => {
+            matches!(term, Term::Constant(c) if matches!(**c, Constant::Unit))
+        }
+        (Err(_), _) => false,
+    };
+    let success = returned && units.mem <= budget.mem && units.steps <= budget.steps;
     if !success && failure.is_none() {
         failure = Some(MachineFailure {
-            message: "Plutus V3 script did not return unit".into(),
+            message: "Plutus script did not return unit or exceeded its budget".into(),
             budget: units,
             logs: logs.clone(),
         });

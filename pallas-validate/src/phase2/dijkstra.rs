@@ -1,42 +1,32 @@
-//! Native protocol-12 V3 spending, minting, withdrawals and registration evaluation.
+//! Native protocol-12 evaluation of the Plutus V1, V2 and V3 scripts the top level of a Dijkstra transaction runs.
 //! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
     error::{Error, Unsupported},
     evaluator,
     native_evaluator::Builtin,
-    script_context::{ScriptPurpose, SlotConfig, TimeRange, V3TxInfo},
-    to_plutus_data::{MintValue, ToPlutusData, v3_script_context_data, wrap_multiple_with_constr},
+    script_context::{
+        ScriptPurpose, SlotConfig, TimeRange, V1TxInfo, V2TxInfo, V3TxInfo, get_votes_info,
+    },
+    to_plutus_data::{
+        LegacyContextData, MintValue, ToPlutusData, WithWrappedTransactionId, WithZeroAdaAsset,
+        v1v2_script_context_data, v3_script_context_data, wrap_multiple_with_constr,
+    },
     tx::TxEvalResult,
 };
-use crate::utils::{DijkstraTimeContext, EraTime, MultiEraProtocolParameters, TxoRef, UtxoMap};
-use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart, StakePayload};
-use pallas_codec::utils::CborWrap;
+use crate::phase1::dijkstra_ledger::{Level, needs};
+use crate::utils::{
+    DijkstraTimeContext, EraTime, MultiEraProtocolParameters, TxoRef, UtxoMap,
+    dijkstra_context::check_translatable,
+};
+use pallas_addresses::{Address, ShelleyPaymentPart};
+use pallas_codec::{minicbor, utils::CborWrap};
+use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
-}
-
-/// A V3 context exposes only the original reference-script hash. Keep script
-/// discovery separate from that projection: Dijkstra native constructors must
-/// never be decoded as Conway just to obtain a V3 output representation.
-#[derive(Debug, Clone)]
-enum ContextReferenceScript {
-    Native(n::ScriptHash),
-    PlutusV1(n::ScriptHash),
-    PlutusV2(n::ScriptHash),
-    PlutusV3(n::PlutusScript<3>),
-}
-
-impl ContextReferenceScript {
-    fn hash(&self) -> n::ScriptHash {
-        match self {
-            Self::Native(hash) | Self::PlutusV1(hash) | Self::PlutusV2(hash) => *hash,
-            Self::PlutusV3(script) => script.compute_hash(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -44,7 +34,7 @@ struct ContextOutput {
     address: Address,
     value: c::Value,
     datum: Option<c::DatumOption<'static>>,
-    script: Option<ContextReferenceScript>,
+    script: Option<n::ScriptHash>,
 }
 
 impl ToPlutusData for ContextOutput {
@@ -55,10 +45,36 @@ impl ToPlutusData for ContextOutput {
                 self.address.to_plutus_data(),
                 self.value.to_plutus_data(),
                 self.datum.to_plutus_data(),
-                self.script
-                    .as_ref()
-                    .map(ContextReferenceScript::hash)
-                    .to_plutus_data(),
+                self.script.to_plutus_data(),
+            ],
+        )
+    }
+}
+
+impl LegacyContextData for ContextOutput {
+    fn to_plutus_data_v1(&self) -> c::PlutusData {
+        let datum_hash = match &self.datum {
+            Some(c::DatumOption::Hash(hash)) => Some(*hash),
+            _ => None,
+        };
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.address.to_plutus_data(),
+                WithZeroAdaAsset(&self.value).to_plutus_data(),
+                datum_hash.to_plutus_data(),
+            ],
+        )
+    }
+
+    fn to_plutus_data_v2(&self) -> c::PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                self.address.to_plutus_data(),
+                WithZeroAdaAsset(&self.value).to_plutus_data(),
+                self.datum.to_plutus_data(),
+                self.script.to_plutus_data(),
             ],
         )
     }
@@ -82,49 +98,55 @@ impl ToPlutusData for ContextInput {
     }
 }
 
-/// Ledger Babbage.transTxOutV2 (also used by Dijkstra V3) hashes native
-/// reference scripts without inspecting constructors, including RequireGuard.
-/// Retained CBOR is authoritative; constructed or mutated scripts fall back to
-/// encoding their current value.
-/// See test_data/musashi-guard-reference/README.md for pinned reference evidence.
+impl LegacyContextData for ContextInput {
+    fn to_plutus_data_v1(&self) -> c::PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                WithWrappedTransactionId(&self.out_ref).to_plutus_data(),
+                self.resolved.to_plutus_data_v1(),
+            ],
+        )
+    }
+
+    fn to_plutus_data_v2(&self) -> c::PlutusData {
+        wrap_multiple_with_constr(
+            0,
+            vec![
+                WithWrappedTransactionId(&self.out_ref).to_plutus_data(),
+                self.resolved.to_plutus_data_v2(),
+            ],
+        )
+    }
+}
+
+/// The fields of an output a script context holds, with any reference script reduced to the hash of its original bytes.
 fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<ContextOutput, Error> {
     let address = output.address()?;
-    match &address {
-        Address::Shelley(a) if matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)) => {
-            return unsupported("pointer address in a V3 script context");
-        }
-        Address::Shelley(_) => {}
-        _ => return unsupported("output address (requires Shelley)"),
+    if !matches!(address, Address::Shelley(_)) {
+        return unsupported("output address (requires Shelley)");
     }
     let script = match output.multi_era_script_ref() {
         None => None,
-        Some(MultiEraScriptRef::Dijkstra(s)) => match s.as_ref() {
-            n::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
-                pallas_traverse::MultiEraNativeScript::from_dijkstra(s).hash(),
-            )),
-            n::ScriptRef::PlutusV1Script(s) => {
-                Some(ContextReferenceScript::PlutusV1(s.compute_hash()))
+        Some(MultiEraScriptRef::Dijkstra(s)) => Some(match s.as_ref() {
+            n::ScriptRef::NativeScript(s) => {
+                pallas_traverse::MultiEraNativeScript::from_dijkstra(s).hash()
             }
-            n::ScriptRef::PlutusV2Script(s) => {
-                Some(ContextReferenceScript::PlutusV2(s.compute_hash()))
-            }
-            n::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
+            n::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
+            n::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
+            n::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
             n::ScriptRef::PlutusV4Script(_) => {
                 return unsupported("reference script language (requires V3)");
             }
-        },
-        Some(MultiEraScriptRef::Conway(s)) => match s.as_ref() {
-            c::ScriptRef::NativeScript(s) => Some(ContextReferenceScript::Native(
-                pallas_traverse::MultiEraNativeScript::from_alonzo_compatible(s).hash(),
-            )),
-            c::ScriptRef::PlutusV1Script(s) => {
-                Some(ContextReferenceScript::PlutusV1(s.compute_hash()))
+        }),
+        Some(MultiEraScriptRef::Conway(s)) => Some(match s.as_ref() {
+            c::ScriptRef::NativeScript(s) => {
+                pallas_traverse::MultiEraNativeScript::from_alonzo_compatible(s).hash()
             }
-            c::ScriptRef::PlutusV2Script(s) => {
-                Some(ContextReferenceScript::PlutusV2(s.compute_hash()))
-            }
-            c::ScriptRef::PlutusV3Script(s) => Some(ContextReferenceScript::PlutusV3(s.clone())),
-        },
+            c::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
+            c::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
+            c::ScriptRef::PlutusV3Script(s) => s.compute_hash(),
+        }),
         _ => return unsupported("reference script language (requires V3)"),
     };
     Ok(ContextOutput {
@@ -138,32 +160,182 @@ fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<Conte
     })
 }
 
-fn resolve(
-    inputs: &[n::TransactionInput],
-    utxos: &UtxoMap,
-    reference: bool,
-) -> Result<Vec<ContextInput>, Error> {
+/// The output `input` spends or references, decoded under its own era.
+fn decode<'a>(
+    input: &n::TransactionInput,
+    utxos: &'a UtxoMap,
+) -> Result<MultiEraOutput<'a>, Error> {
+    let index = u32::try_from(input.index).map_err(|_| Error::DijkstraInvalid("input index"))?;
+    let raw = utxos
+        .get(&TxoRef(input.transaction_id, index))
+        .ok_or_else(|| Error::ResolvedInputNotFound(input.clone()))?;
+    MultiEraOutput::decode(raw.0, &raw.1)
+        .map_err(|_| Error::DijkstraInvalid("input decoding for original era"))
+}
+
+/// The inputs in the order the ledger indexes their redeemers.
+fn ordered(inputs: &[n::TransactionInput]) -> Result<Vec<&n::TransactionInput>, Error> {
     let mut ordered: Vec<_> = inputs.iter().collect();
     ordered.sort();
     if ordered.windows(2).any(|x| x[0] == x[1]) {
         return Err(Error::DijkstraInvalid("duplicate input"));
     }
-    ordered
+    Ok(ordered)
+}
+
+fn resolve(
+    inputs: &[n::TransactionInput],
+    utxos: &UtxoMap,
+    reference: bool,
+) -> Result<Vec<ContextInput>, Error> {
+    ordered(inputs)?
         .into_iter()
         .map(|i| {
-            let index =
-                u32::try_from(i.index).map_err(|_| Error::DijkstraInvalid("input index"))?;
-            let raw = utxos
-                .get(&TxoRef(i.transaction_id, index))
-                .ok_or_else(|| Error::ResolvedInputNotFound(i.clone()))?;
-            let output = MultiEraOutput::decode(raw.0, &raw.1)
-                .map_err(|_| Error::DijkstraInvalid("input decoding for original era"))?;
             Ok(ContextInput {
                 out_ref: i.clone(),
-                resolved: context_output(&output, reference)?,
+                resolved: context_output(&decode(i, utxos)?, reference)?,
             })
         })
         .collect()
+}
+
+/// A script a transaction provides, as its top level runs it.
+enum Provided {
+    Native,
+    Plutus(c::Language, Vec<u8>),
+    PlutusV4,
+}
+
+/// The script a reference output carries, by hash.
+fn reference_script(output: &MultiEraOutput<'_>) -> Result<Option<(Hash<28>, Provided)>, Error> {
+    let Some(script) = output.multi_era_script_ref() else {
+        return Ok(None);
+    };
+    let plutus = |language, bytes: &[u8]| Provided::Plutus(language, bytes.to_vec());
+    let provided = match &script {
+        MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
+            n::ScriptRef::NativeScript(_) => Provided::Native,
+            n::ScriptRef::PlutusV1Script(x) => plutus(c::Language::PlutusV1, x.as_ref()),
+            n::ScriptRef::PlutusV2Script(x) => plutus(c::Language::PlutusV2, x.as_ref()),
+            n::ScriptRef::PlutusV3Script(x) => plutus(c::Language::PlutusV3, x.as_ref()),
+            n::ScriptRef::PlutusV4Script(_) => Provided::PlutusV4,
+        },
+        MultiEraScriptRef::Conway(s) => match s.as_ref() {
+            c::ScriptRef::NativeScript(_) => Provided::Native,
+            c::ScriptRef::PlutusV1Script(x) => plutus(c::Language::PlutusV1, x.as_ref()),
+            c::ScriptRef::PlutusV2Script(x) => plutus(c::Language::PlutusV2, x.as_ref()),
+            c::ScriptRef::PlutusV3Script(x) => plutus(c::Language::PlutusV3, x.as_ref()),
+        },
+        _ => return unsupported("reference script language (requires V3)"),
+    };
+    Ok(Some((script.hash(), provided)))
+}
+
+/// The scripts the witness sets and the spent and referenced outputs of every level of a batch provide.
+fn provided_scripts(
+    tx: &n::BlockTransaction<'_>,
+    utxos: &UtxoMap,
+) -> Result<BTreeMap<Hash<28>, Provided>, Error> {
+    let b = &tx.transaction_body;
+    let subs = b.sub_transactions.iter().flatten();
+    let witnesses = std::iter::once(&tx.transaction_witness_set)
+        .chain(subs.clone().map(|x| &x.transaction_witness_set));
+    let mut provided = BTreeMap::new();
+    for w in witnesses {
+        for script in w.native_script.iter().flatten() {
+            provided.insert(script.original_hash(), Provided::Native);
+        }
+        let v1 = w.plutus_v1_script.iter().flatten();
+        let v2 = w.plutus_v2_script.iter().flatten();
+        let v3 = w.plutus_v3_script.iter().flatten();
+        for (hash, language, bytes) in v1
+            .map(|x| (x.compute_hash(), c::Language::PlutusV1, x.as_ref()))
+            .chain(v2.map(|x| (x.compute_hash(), c::Language::PlutusV2, x.as_ref())))
+            .chain(v3.map(|x| (x.compute_hash(), c::Language::PlutusV3, x.as_ref())))
+        {
+            super::native_evaluator::check_plutus_script(bytes)?;
+            provided.insert(hash, Provided::Plutus(language, bytes.to_vec()));
+        }
+        for script in w.plutus_v4_script.iter().flatten() {
+            provided.insert(script.compute_hash(), Provided::PlutusV4);
+        }
+    }
+    let levels = std::iter::once((&b.inputs, &b.reference_inputs)).chain(subs.map(|x| {
+        (
+            &x.sub_transaction_body.inputs,
+            &x.sub_transaction_body.reference_inputs,
+        )
+    }));
+    for (inputs, references) in levels {
+        for input in inputs.iter().chain(references.iter().flatten()) {
+            if let Some((hash, script)) = reference_script(&decode(input, utxos)?)? {
+                provided.insert(hash, script);
+            }
+        }
+    }
+    Ok(provided)
+}
+
+/// The Conway form of a Dijkstra certificate, without the pool BLS key no script context holds.
+fn conway_certificate(cert: &n::Certificate) -> c::Certificate {
+    match cert.clone() {
+        n::Certificate::StakeDelegation(x, pool) => c::Certificate::StakeDelegation(x, pool),
+        n::Certificate::PoolRegistration {
+            operator,
+            vrf_keyhash,
+            bls_key: _,
+            pledge,
+            cost,
+            margin,
+            reward_account,
+            pool_owners,
+            relays,
+            pool_metadata,
+        } => c::Certificate::PoolRegistration {
+            operator,
+            vrf_keyhash,
+            pledge,
+            cost,
+            margin,
+            reward_account,
+            pool_owners: pool_owners.to_vec().into(),
+            relays,
+            pool_metadata,
+        },
+        n::Certificate::PoolRetirement(pool, epoch) => c::Certificate::PoolRetirement(pool, epoch),
+        n::Certificate::Reg(x, deposit) => c::Certificate::Reg(x, deposit),
+        n::Certificate::UnReg(x, deposit) => c::Certificate::UnReg(x, deposit),
+        n::Certificate::VoteDeleg(x, drep) => c::Certificate::VoteDeleg(x, drep),
+        n::Certificate::StakeVoteDeleg(x, pool, drep) => {
+            c::Certificate::StakeVoteDeleg(x, pool, drep)
+        }
+        n::Certificate::StakeRegDeleg(x, pool, deposit) => {
+            c::Certificate::StakeRegDeleg(x, pool, deposit)
+        }
+        n::Certificate::VoteRegDeleg(x, drep, deposit) => {
+            c::Certificate::VoteRegDeleg(x, drep, deposit)
+        }
+        n::Certificate::StakeVoteRegDeleg(x, pool, drep, deposit) => {
+            c::Certificate::StakeVoteRegDeleg(x, pool, drep, deposit)
+        }
+        n::Certificate::AuthCommitteeHot(cold, hot) => c::Certificate::AuthCommitteeHot(cold, hot),
+        n::Certificate::ResignCommitteeCold(cold, anchor) => {
+            c::Certificate::ResignCommitteeCold(cold, anchor)
+        }
+        n::Certificate::RegDRepCert(x, deposit, anchor) => {
+            c::Certificate::RegDRepCert(x, deposit, anchor)
+        }
+        n::Certificate::UnRegDRepCert(x, deposit) => c::Certificate::UnRegDRepCert(x, deposit),
+        n::Certificate::UpdateDRepCert(x, anchor) => c::Certificate::UpdateDRepCert(x, anchor),
+    }
+}
+
+/// The Conway form of a Dijkstra proposal, which exists when its protocol parameter update has a Conway encoding.
+fn conway_proposal(proposal: &n::ProposalProcedure) -> Result<c::ProposalProcedure, Error> {
+    let raw = minicbor::to_vec(proposal)
+        .map_err(|_| Error::DijkstraInvalid("proposal procedure encoding"))?;
+    minicbor::decode(&raw)
+        .or_else(|_| unsupported("protocol parameter update outside Conway in a script context"))
 }
 
 pub(super) fn eval_tx(
@@ -213,218 +385,131 @@ pub(super) fn eval_tx_with_mode(
     }
     let b = &native.transaction_body;
     let w = &native.transaction_witness_set;
-    if b.sub_transactions.is_some() {
-        return unsupported("subtransactions");
+    if b.sub_transactions.iter().flatten().any(|x| {
+        x.transaction_witness_set
+            .redeemer
+            .as_ref()
+            .is_some_and(|x| !x.is_empty())
+    }) {
+        return unsupported("subtransaction redeemers");
     }
-    if b.required_top_level_guards.is_some()
-        || b.direct_deposits.is_some()
-        || b.account_balance_intervals.is_some()
-        || b.starting_account_balance_intervals.is_some()
-    {
-        return unsupported("account features or required top-level guards");
-    }
-    if b.voting_procedures.is_some()
-        || b.proposal_procedures.is_some()
-        || b.treasury_value.is_some()
-        || b.donation.is_some()
-    {
-        return unsupported("governance");
-    }
-    if w.plutus_v1_script.is_some() || w.plutus_v2_script.is_some() || w.bootstrap_witness.is_some()
-    {
-        return unsupported("unsupported witness scripts or bootstrap witnesses");
-    }
-    let mut signatories = match &b.guards {
-        None => vec![],
-        Some(n::Guards::AddrKeyhashes(keys)) => keys.to_vec(),
-        Some(n::Guards::Credentials(credentials)) => credentials
-            .iter()
-            .map(|g| match g {
-                n::StakeCredential::AddrKeyhash(key) => Ok(*key),
-                _ => unsupported("script guards"),
-            })
-            .collect::<Result<Vec<_>, _>>()?,
-    };
-    signatories.sort();
-    signatories.dedup();
-    let certificates = b
-        .certificates
-        .iter()
-        .flat_map(|x| x.iter())
-        .map(|cert| match cert {
-            n::Certificate::Reg(credential, deposit) => {
-                Ok(c::Certificate::Reg(credential.clone(), *deposit))
-            }
-            _ => unsupported("certificate kind (requires Reg)"),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let inputs = resolve(&b.inputs, utxos, false)?;
-    let refs: Vec<_> = b
-        .reference_inputs
-        .iter()
-        .flat_map(|x| x.iter())
-        .cloned()
-        .collect();
-    if refs.iter().any(|r| b.inputs.contains(r)) {
-        return Err(Error::DijkstraInvalid(
-            "overlapping spending/reference inputs",
-        ));
-    }
-    let reference_inputs = resolve(&refs, utxos, true)?;
-    let outputs = b
-        .outputs
-        .iter()
-        .map(|o| context_output(&MultiEraOutput::from_dijkstra(o), false))
-        .collect::<Result<Vec<_>, _>>()?;
-    // Collateral is a phase-one concern and is not part of the V3 context or
-    // script lookup.
-    let mut natives = std::collections::BTreeSet::new();
-    for script in w.native_script.iter().flat_map(|x| x.iter()) {
-        natives.insert(script.original_hash());
-    }
-    for input in inputs.iter().chain(&reference_inputs) {
-        if let Some(ContextReferenceScript::Native(hash)) = &input.resolved.script {
-            natives.insert(*hash);
-        }
-    }
-    let mut scripts = BTreeMap::new();
-    for script in w.plutus_v3_script.iter().flat_map(|x| x.iter()) {
-        super::native_evaluator::check_plutus_script(script.as_ref())?;
-        scripts.insert(script.compute_hash(), script.clone());
-    }
-    let mut unevaluable = std::collections::BTreeSet::new();
-    for i in inputs.iter().chain(&reference_inputs) {
-        match &i.resolved.script {
-            Some(ContextReferenceScript::PlutusV3(s)) => {
-                scripts.insert(s.compute_hash(), s.clone());
-            }
-            Some(
-                ContextReferenceScript::PlutusV1(hash) | ContextReferenceScript::PlutusV2(hash),
-            ) => {
-                unevaluable.insert(*hash);
-            }
-            Some(ContextReferenceScript::Native(_)) | None => {}
-        }
-    }
+    let id = Hasher::<256>::hash_cbor(b);
+    let inputs = ordered(&b.inputs)?;
     let mut expected = BTreeMap::new();
-    let mut purposes_by_pointer = BTreeMap::new();
-    let mut spending_datums = BTreeMap::new();
-    let datums: BTreeMap<_, _> = w
-        .plutus_data
-        .iter()
-        .flat_map(|x| x.iter())
-        .map(|d| {
-            (
-                pallas_crypto::hash::Hasher::<256>::hash_cbor(d),
-                (**d).clone(),
-            )
-        })
-        .collect();
     for (index, input) in inputs.iter().enumerate() {
-        if let Address::Shelley(address) = &input.resolved.address
+        if let Address::Shelley(address) = decode(input, utxos)?.address()?
             && let ShelleyPaymentPart::Script(hash) = address.payment()
         {
-            if natives.contains(hash) {
-                continue;
-            }
             let key = n::RedeemersKey {
                 tag: n::RedeemerTag::Spend,
                 index: index as u32,
             };
-            let datum = match input.resolved.datum.clone() {
-                Some(c::DatumOption::Data(d)) => Some(d.0.unwrap()),
-                Some(c::DatumOption::Hash(hash)) => Some(datums.get(&hash).cloned().ok_or_else(
-                    || Error::MissingRequiredDatum {
-                        hash: hash.to_string(),
-                    },
-                )?),
-                None => None,
-            };
-            if let Some(datum) = datum {
-                spending_datums.insert(key.clone(), datum);
-            }
-            expected.insert(key.clone(), *hash);
-            purposes_by_pointer.insert(key, ScriptPurpose::Spending(input.out_ref.clone(), ()));
+            expected.insert(key, *hash);
         }
     }
-    for (index, (hash, _)) in b.mint.iter().flat_map(|x| x.iter()).enumerate() {
+    let policies: Vec<_> = b.mint.iter().flat_map(|x| x.keys()).copied().collect();
+    for (index, policy) in policies.iter().enumerate() {
         let key = n::RedeemersKey {
             tag: n::RedeemerTag::Mint,
             index: index as u32,
         };
-        expected.insert(key.clone(), *hash);
-        purposes_by_pointer.insert(key, ScriptPurpose::Minting(*hash));
+        expected.insert(key, *policy);
     }
-    for (index, cert) in certificates.iter().enumerate() {
-        if let c::Certificate::Reg(n::StakeCredential::ScriptHash(hash), _) = cert {
-            let key = n::RedeemersKey {
-                tag: n::RedeemerTag::Cert,
-                index: index as u32,
-            };
-            expected.insert(key.clone(), *hash);
-            purposes_by_pointer.insert(key, ScriptPurpose::Certifying(index, cert.clone()));
-        }
-    }
-    let mut withdrawals = b
-        .withdrawals
-        .iter()
-        .flat_map(|x| x.iter())
-        .map(|(raw, amount)| {
-            let address = Address::from_bytes(raw)?;
-            if !matches!(address, Address::Stake(_)) {
-                return Err(Error::BadWithdrawalAddress);
-            }
-            Ok((raw, address, *amount))
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-    withdrawals.sort_by(|a, b| super::script_context::sort_reward_accounts(a.0, b.0));
-    for (index, (_, address, _)) in withdrawals.iter().enumerate() {
-        if let Address::Stake(address) = address
-            && let StakePayload::Script(hash) = address.payload()
-        {
-            let key = n::RedeemersKey {
-                tag: n::RedeemerTag::Reward,
-                index: index as u32,
-            };
-            expected.insert(key.clone(), *hash);
-            purposes_by_pointer.insert(
-                key,
-                ScriptPurpose::Rewarding(n::StakeCredential::ScriptHash(*hash)),
-            );
-        }
-    }
-    expected.retain(|_, hash| !natives.contains(hash));
-    purposes_by_pointer.retain(|key, _| expected.contains_key(key));
+    let level = Level::top(b, id);
+    let ledger = needs(&level).map_err(|_| Error::BadWithdrawalAddress)?;
+    expected.extend(ledger.scripts);
+    let scripts = provided_scripts(native, utxos)?;
+    expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
+    let mut languages = BTreeSet::new();
     for hash in expected.values() {
-        if unevaluable.contains(hash) && !scripts.contains_key(hash) {
-            return unsupported("reference script language (requires V3)");
-        }
-        if !scripts.contains_key(hash) {
-            return Err(Error::MissingRequiredScript {
-                hash: hash.to_string(),
-            });
+        match scripts.get(hash) {
+            Some(Provided::Plutus(language, _)) => {
+                languages.insert(language.clone());
+            }
+            Some(Provided::PlutusV4) => {
+                return unsupported("reference script language (requires V3)");
+            }
+            Some(Provided::Native) | None => {
+                return Err(Error::MissingRequiredScript {
+                    hash: hash.to_string(),
+                });
+            }
         }
     }
     let redeemers = tx.redeemers();
+    if expected.is_empty() && redeemers.is_empty() {
+        return Ok(vec![]);
+    }
+    let references: Vec<_> = b.reference_inputs.iter().flatten().cloned().collect();
+    let spent = inputs
+        .iter()
+        .map(|x| decode(x, utxos))
+        .collect::<Result<Vec<_>, _>>()?;
+    let referenced = references
+        .iter()
+        .map(|x| decode(x, utxos))
+        .collect::<Result<Vec<_>, _>>()?;
+    for language in &languages {
+        check_translatable(
+            language.clone(),
+            b,
+            &spent.iter().collect::<Vec<_>>(),
+            &referenced.iter().collect::<Vec<_>>(),
+        )
+        .map_err(|x| Error::DijkstraInvalid(x.0))?;
+    }
+    let certificates: Vec<_> = b
+        .certificates
+        .iter()
+        .flatten()
+        .map(conway_certificate)
+        .collect();
+    let proposals = b
+        .proposal_procedures
+        .iter()
+        .flatten()
+        .map(conway_proposal)
+        .collect::<Result<Vec<_>, _>>()?;
+    let voters: Vec<_> = b.voting_procedures.iter().flat_map(|x| x.keys()).collect();
+    let withdrawals: Vec<_> = level.ordered_withdrawals();
     let mut purposes = Vec::new();
-    let mut seen = std::collections::BTreeSet::new();
+    let mut seen = BTreeSet::new();
     for r in &redeemers {
         let (key, value) = r.as_dijkstra().ok_or(Error::WrongEra())?;
-        let purpose = purposes_by_pointer
-            .get(key)
-            .ok_or(Error::ExtraneousRedeemer)?;
-        if !seen.insert(key.clone()) {
+        let index = key.index as usize;
+        if !expected.contains_key(key) || !seen.insert(key.clone()) {
             return Err(Error::ExtraneousRedeemer);
         }
-        let tag = match key.tag {
-            n::RedeemerTag::Spend => c::RedeemerTag::Spend,
-            n::RedeemerTag::Mint => c::RedeemerTag::Mint,
-            n::RedeemerTag::Cert => c::RedeemerTag::Cert,
-            n::RedeemerTag::Reward => c::RedeemerTag::Reward,
-            _ => return unsupported("redeemer purpose"),
+        let (tag, purpose) = match key.tag {
+            n::RedeemerTag::Spend => (
+                c::RedeemerTag::Spend,
+                ScriptPurpose::Spending(inputs[index].clone(), ()),
+            ),
+            n::RedeemerTag::Mint => (
+                c::RedeemerTag::Mint,
+                ScriptPurpose::Minting(policies[index]),
+            ),
+            n::RedeemerTag::Cert => (
+                c::RedeemerTag::Cert,
+                ScriptPurpose::Certifying(index, certificates[index].clone()),
+            ),
+            n::RedeemerTag::Reward => (
+                c::RedeemerTag::Reward,
+                ScriptPurpose::Rewarding(n::StakeCredential::ScriptHash(expected[key])),
+            ),
+            n::RedeemerTag::Vote => (
+                c::RedeemerTag::Vote,
+                ScriptPurpose::Voting(voters[index].clone()),
+            ),
+            n::RedeemerTag::Propose => (
+                c::RedeemerTag::Propose,
+                ScriptPurpose::Proposing(index, proposals[index].clone()),
+            ),
+            n::RedeemerTag::Guarding => return unsupported("redeemer purpose"),
         };
         purposes.push((
-            purpose.clone(),
+            key.clone(),
+            purpose,
             c::Redeemer {
                 tag,
                 index: key.index,
@@ -443,46 +528,136 @@ pub(super) fn eval_tx_with_mode(
             extra: vec![],
         });
     }
-    if purposes.is_empty() {
-        return Ok(vec![]);
-    }
     let (lower_bound, upper_bound) = time.validity_bounds(b.validity_interval_start, b.ttl)?;
-    let info = V3TxInfo {
-        inputs,
-        reference_inputs,
-        outputs,
-        fee: b.fee,
-        mint: MintValue {
-            mint_value: b.mint.clone().unwrap_or_default(),
-        },
-        certificates,
-        withdrawals: withdrawals
-            .into_iter()
-            .map(|(_, a, n)| (a, n))
-            .collect::<Vec<_>>()
-            .into(),
-        valid_range: TimeRange {
-            lower_bound,
-            upper_bound,
-        },
-        signatories,
-        redeemers: purposes.clone().into(),
-        data: datums.into_iter().collect::<Vec<_>>().into(),
-        id: pallas_crypto::hash::Hasher::<256>::hash_cbor(b),
-        votes: vec![].into(),
-        proposal_procedures: vec![],
-        current_treasury_amount: None,
-        treasury_donation: None,
+    let valid_range = TimeRange {
+        lower_bound,
+        upper_bound,
     };
-    let cost_model_v3 = pp
-        .cost_models_for_script_languages
-        .plutus_v3
-        .as_ref()
-        .ok_or(Error::CostModelNotFound(c::Language::PlutusV3))?;
+    let datums: BTreeMap<_, _> = w
+        .plutus_data
+        .iter()
+        .flat_map(|x| x.iter())
+        .map(|d| (Hasher::<256>::hash_cbor(d), (**d).clone()))
+        .collect();
+    let mut spending_datums = BTreeMap::new();
+    for (key, _, _) in &purposes {
+        if key.tag != n::RedeemerTag::Spend {
+            continue;
+        }
+        let datum = match spent[key.index as usize].datum() {
+            Some(c::DatumOption::Data(d)) => d.0.unwrap(),
+            Some(c::DatumOption::Hash(hash)) => {
+                datums
+                    .get(&hash)
+                    .cloned()
+                    .ok_or_else(|| Error::MissingRequiredDatum {
+                        hash: hash.to_string(),
+                    })?
+            }
+            None => continue,
+        };
+        spending_datums.insert(key.clone(), datum);
+    }
+    let inputs = resolve(&b.inputs, utxos, false)?;
+    let reference_inputs = resolve(&references, utxos, true)?;
+    let outputs = b
+        .outputs
+        .iter()
+        .map(|o| context_output(&MultiEraOutput::from_dijkstra(o), false))
+        .collect::<Result<Vec<_>, _>>()?;
+    let withdrawals = withdrawals
+        .into_iter()
+        .map(|(raw, amount)| match Address::from_bytes(raw)? {
+            address @ Address::Stake(_) => Ok((address, amount)),
+            _ => Err(Error::BadWithdrawalAddress),
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    let signatories = {
+        let mut keys: Vec<_> = match &b.guards {
+            None => vec![],
+            Some(n::Guards::AddrKeyhashes(keys)) => keys.to_vec(),
+            Some(n::Guards::Credentials(credentials)) => credentials
+                .iter()
+                .filter_map(|g| match g {
+                    n::StakeCredential::AddrKeyhash(key) => Some(*key),
+                    n::StakeCredential::ScriptHash(_) => None,
+                })
+                .collect(),
+        };
+        keys.sort();
+        keys.dedup();
+        keys
+    };
+    let mint = MintValue {
+        mint_value: b.mint.clone().unwrap_or_default(),
+    };
+    let redeemer_pairs: Vec<_> = purposes
+        .iter()
+        .map(|(_, purpose, r)| (purpose.clone(), r.clone()))
+        .collect();
+    let info = |language: c::Language| match language {
+        c::Language::PlutusV1 => V1TxInfo {
+            inputs: inputs.clone(),
+            outputs: outputs.clone(),
+            fee: c::Value::Coin(b.fee),
+            mint: mint.clone(),
+            certificates: certificates.clone(),
+            withdrawals: withdrawals.clone(),
+            valid_range: valid_range.clone(),
+            signatories: signatories.clone(),
+            data: datums.clone().into_iter().collect(),
+            redeemers: redeemer_pairs.clone().into(),
+            id,
+        }
+        .to_plutus_data(),
+        c::Language::PlutusV2 => V2TxInfo {
+            inputs: inputs.clone(),
+            reference_inputs: reference_inputs.clone(),
+            outputs: outputs.clone(),
+            fee: c::Value::Coin(b.fee),
+            mint: mint.clone(),
+            certificates: certificates.clone(),
+            withdrawals: withdrawals.clone().into(),
+            valid_range: valid_range.clone(),
+            signatories: signatories.clone(),
+            redeemers: redeemer_pairs.clone().into(),
+            data: datums.clone().into_iter().collect::<Vec<_>>().into(),
+            id,
+        }
+        .to_plutus_data(),
+        c::Language::PlutusV3 => V3TxInfo {
+            inputs: inputs.clone(),
+            reference_inputs: reference_inputs.clone(),
+            outputs: outputs.clone(),
+            fee: b.fee,
+            mint: mint.clone(),
+            certificates: certificates.clone(),
+            withdrawals: withdrawals.clone().into(),
+            valid_range: valid_range.clone(),
+            signatories: signatories.clone(),
+            redeemers: redeemer_pairs.clone().into(),
+            data: datums.clone().into_iter().collect::<Vec<_>>().into(),
+            id,
+            votes: get_votes_info(&b.voting_procedures),
+            proposal_procedures: proposals.clone(),
+            current_treasury_amount: b.treasury_value,
+            treasury_donation: b.donation,
+        }
+        .to_plutus_data_with_protocol(12),
+    };
+    let costs = &pp.cost_models_for_script_languages;
+    let cost_model = |language: c::Language| {
+        match language {
+            c::Language::PlutusV1 => costs.plutus_v1.as_ref(),
+            c::Language::PlutusV2 => costs.plutus_v2.as_ref(),
+            c::Language::PlutusV3 => costs.plutus_v3.as_ref(),
+        }
+        .ok_or(Error::CostModelNotFound(language))
+    };
     if !estimate {
         let mut total_mem = 0u64;
         let mut total_steps = 0u64;
-        for (_, r) in &purposes {
+        for (_, _, r) in &purposes {
             total_mem = total_mem
                 .checked_add(r.ex_units.mem)
                 .ok_or(Error::DijkstraInvalid("budget overflow"))?;
@@ -506,30 +681,36 @@ pub(super) fn eval_tx_with_mode(
     }
     purposes
         .iter()
-        .map(|(purpose, r)| {
-            let tag = match r.tag {
-                c::RedeemerTag::Spend => n::RedeemerTag::Spend,
-                c::RedeemerTag::Mint => n::RedeemerTag::Mint,
-                c::RedeemerTag::Cert => n::RedeemerTag::Cert,
-                c::RedeemerTag::Reward => n::RedeemerTag::Reward,
-                _ => return unsupported("redeemer purpose"),
+        .map(|(key, purpose, r)| {
+            let Some(Provided::Plutus(language, bytes)) = scripts.get(&expected[key]) else {
+                return Err(Error::MissingRequiredScript {
+                    hash: expected[key].to_string(),
+                });
             };
-            let key = n::RedeemersKey {
-                tag,
-                index: r.index,
+            let datum = spending_datums.get(key);
+            let context = match language {
+                c::Language::PlutusV3 => v3_script_context_data(
+                    info(c::Language::PlutusV3),
+                    &r.data,
+                    &purpose.clone().into_script_info(datum.cloned()),
+                    12,
+                ),
+                c::Language::PlutusV1 | c::Language::PlutusV2 => {
+                    v1v2_script_context_data(info(language.clone()), purpose)
+                }
             };
-            let data = v3_script_context_data(
-                info.to_plutus_data_with_protocol(12),
-                &r.data,
-                &purpose
-                    .clone()
-                    .into_script_info(spending_datums.get(&key).cloned()),
-                12,
-            );
-            let (result, calls) = evaluator::eval_native_v3(
-                scripts[&expected[&key]].as_ref(),
-                &data,
-                cost_model_v3,
+            // A V3 script takes the context alone, a V1 or V2 script takes the datum it spends, the redeemer and the context.
+            let args: Vec<&c::PlutusData> = match language {
+                c::Language::PlutusV3 => vec![&context],
+                c::Language::PlutusV1 | c::Language::PlutusV2 => {
+                    datum.into_iter().chain([&r.data, &context]).collect()
+                }
+            };
+            let (result, calls) = evaluator::eval_native(
+                language.clone(),
+                bytes,
+                &args,
+                cost_model(language.clone())?,
                 if estimate {
                     execution_limit
                 } else {

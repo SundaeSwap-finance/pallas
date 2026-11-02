@@ -29,6 +29,7 @@ tracing.workspace = true
 amaru-uplc = { version = "=0.1.0", optional = true }
 amaru-uplc-native = { package = "amaru-uplc", git = "https://github.com/SundaeSwap-finance/amaru.git", rev = "ede1c76be037b16412c24b2590456e0fdee8fe4a", optional = true }
 amaru-kernel = { git = "https://github.com/SundaeSwap-finance/amaru.git", rev = "ede1c76be037b16412c24b2590456e0fdee8fe4a", optional = true }
+blst = { version = "0.3", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
@@ -40,4 +41,5 @@ unstable = [
     "pallas-primitives/unstable",
     "dep:amaru-uplc-native",
     "dep:amaru-kernel",
+    "dep:blst",
 ]
