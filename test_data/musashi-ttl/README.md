@@ -6,7 +6,7 @@ Dijkstra bytes:
 | Fixture | Purpose |
 | --- | --- |
 | `confirmed-ttl` | Successful final-pair live spend; default regression input |
-| `cross-epoch-ttl` | Signed cross-epoch bounds regression using its original historical local parameters; no network success claimed |
+| `cross-epoch-ttl` | Signed spend whose upper bound is past the forecast horizon at its validation slot, refused under its original historical local parameters |
 
 The tiny Plutus V3 validator requires the owner's signature and a finite,
 exclusive upper bound equal to the redeemer's POSIX-millisecond value. It has no
@@ -37,8 +37,10 @@ The confirmed capture uses the observed 350-entry V3 model. The cross-epoch case
 keeps its original 251-entry local model; it is not evidence of network validity.
 Parameters came from Dolos, without an independent reference-node parameter RPC.
 The CLI era interpreter derives the observed one-second mapping, not an LSQ era
-history dump. Upstream node build is unknown. Full consensus forecast enforcement
-is separate. No keys or private deployment journals are included.
+history dump. Upstream node build is unknown. The tests take the forecast
+horizon as the first epoch start at or after the validation slot plus one plus
+the stability window (3k/f), which puts the cross-epoch upper bound 900481 past
+its horizon 885600. No keys or private deployment journals are included.
 
 Run from Pallas (Rust 1.97.0, dependencies cached for `--offline`):
 

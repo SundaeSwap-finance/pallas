@@ -984,7 +984,7 @@ fn native_builtin_reports_preserve_historical_time() {
                 start_time_ms: slots.zero_time,
                 slot_length_ms: slots.slot_length,
             }],
-            1_401_365,
+            crate::utils::ForecastHorizon::Unbounded,
         )
         .unwrap();
         let ordinary = estimate_tx_calls(&tx, &params(), &utxos, &slots).unwrap();
