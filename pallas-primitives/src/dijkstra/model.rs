@@ -1020,6 +1020,41 @@ impl<C> minicbor::Encode<C> for Guards {
     }
 }
 
+/// Decoders for a body's optional [`Guards`] field, where an empty set is no guards.
+pub(crate) mod guards_field {
+    use super::Guards;
+    use pallas_codec::minicbor::{self, data::Type, decode::Error};
+
+    /// Decodes a body's guards, reading null or an empty set as `None`.
+    pub fn decode_option<Ctx>(
+        d: &mut minicbor::Decoder<'_>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<Guards>, Error> {
+        let mut probe = minicbor::Decoder::new(&d.input()[d.position()..]);
+        if probe.datatype()? == Type::Null {
+            d.skip()?;
+            return Ok(None);
+        }
+        if probe.datatype()? == Type::Tag {
+            probe.tag()?;
+        }
+        let empty = match probe.array()? {
+            Some(len) => len == 0,
+            None => probe.datatype()? == Type::Break,
+        };
+        if empty {
+            d.skip()?;
+            return Ok(None);
+        }
+        d.decode_with(ctx).map(Some)
+    }
+
+    /// The value of a body's guards field that is absent.
+    pub fn none() -> Option<Option<Guards>> {
+        Some(None)
+    }
+}
+
 pub type DirectDeposits = BTreeMap<RewardAccount, Coin>;
 
 pub type RequiredTopLevelGuards = BTreeMap<StakeCredential, Nullable<PlutusData>>;
@@ -1159,6 +1194,10 @@ pub struct SubTransactionBody<'a> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(14)]
+    #[cbor(
+        decode_with = "guards_field::decode_option",
+        nil = "guards_field::none"
+    )]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1243,6 +1282,10 @@ pub struct TransactionBody<'a> {
     pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
+    #[cbor(
+        decode_with = "guards_field::decode_option",
+        nil = "guards_field::none"
+    )]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1491,6 +1534,14 @@ crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
     2 => PlutusV2Script(script),
     3 => PlutusV3Script(script),
     4 => PlutusV4Script(script),
+);
+
+crate::babbage::decode_joined_script_ref!(
+    ScriptRef,
+    PlutusV1Script,
+    PlutusV2Script,
+    PlutusV3Script,
+    PlutusV4Script
 );
 
 /// `block_body` (`defs.cddl`). Dijkstra replaces Conway's segregated witness
