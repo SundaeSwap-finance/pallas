@@ -3,7 +3,7 @@ use super::{
     Certificate, CostModels, DRep, DatumOption, EndorserBlock, GovAction, Guards, Header,
     MempoolTransaction, NativeScript, NonEmptySet, PlutusData, ProposalProcedure,
     ProtocolParamUpdate, RationalNumber, Relay, ScriptRef, Set, SetArm, StakeCredential,
-    TransactionBody, TransactionOutput, Value, Voter, WitnessSet,
+    SubTransactionBody, TransactionBody, TransactionOutput, Value, Voter, WitnessSet,
 };
 use crate::flat_enum::assert_reads_either_length_form;
 use pallas_codec::minicbor;
@@ -1142,6 +1142,40 @@ fn an_empty_guards_array_is_refused() {
     let decoded: Guards =
         minicbor::decode(&one_credential).expect("a one element credential guards must decode");
     assert!(matches!(decoded, Guards::Credentials(_)));
+}
+
+/// The bytes of a body with one input and no outputs, ending with the given hex keys.
+fn body_ending(top: bool, rest: &str) -> &'static [u8] {
+    let (header, fee) = if top { ("a4", "0200") } else { ("a3", "") };
+    let input = format!("d9010281825820{}00", "03".repeat(32));
+    generated(&format!("{header}00{input}0180{fee}{rest}"))
+}
+
+#[test]
+fn an_empty_guards_set_in_either_body_reads_as_no_guards() {
+    for empty in ["d9010280", "80", "9fff"] {
+        let top: TransactionBody = decode_all(empty, body_ending(true, &format!("0e{empty}")));
+        assert_eq!(top.guards, None, "{empty}");
+        let sub: SubTransactionBody = decode_all(empty, body_ending(false, &format!("0e{empty}")));
+        assert_eq!(sub.guards, None, "{empty}");
+    }
+}
+
+#[test]
+fn a_guards_set_with_a_key_in_either_body_reads_as_that_key() {
+    let one = format!("0ed9010281581c{}", "06".repeat(28));
+    let top: TransactionBody = decode_all("the body", body_ending(true, &one));
+    assert!(matches!(top.guards, Some(Guards::AddrKeyhashes(_))));
+    let sub: SubTransactionBody = decode_all("the sub body", body_ending(false, &one));
+    assert!(matches!(sub.guards, Some(Guards::AddrKeyhashes(_))));
+}
+
+#[test]
+fn a_guards_value_that_is_not_a_set_is_refused_in_either_body() {
+    let top: Result<TransactionBody, _> = minicbor::decode(body_ending(true, "0e01"));
+    assert!(top.is_err());
+    let sub: Result<SubTransactionBody, _> = minicbor::decode(body_ending(false, "0e01"));
+    assert!(sub.is_err());
 }
 
 /// A type reaching Alonzo's native script from here would refuse a whole
