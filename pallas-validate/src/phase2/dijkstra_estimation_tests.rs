@@ -11,7 +11,7 @@ fn unsigned(tx: &mut n::BlockTransaction<'_>) {
 }
 fn exact(r: &EvalReport) {
     assert_eq!(r.len(), 1);
-    assert_eq!((r[0].tag, r[0].index), (c::RedeemerTag::Cert, 0));
+    assert_eq!((r[0].tag, r[0].index), (MultiEraRedeemerTag::Cert, 0));
     assert!(r[0].success, "{r:?}");
     assert_eq!(
         r[0].units,
@@ -264,7 +264,7 @@ fn estimation_aggregate_boundaries_and_indices() {
             for (i, entry) in r.iter().enumerate() {
                 assert_eq!(
                     (entry.tag, entry.index),
-                    (c::RedeemerTag::Cert, i as u32 + 1)
+                    (MultiEraRedeemerTag::Cert, i as u32 + 1)
                 );
                 assert!(entry.success, "independent budgets: {r:?}");
                 assert_eq!(entry.units, units);
@@ -481,7 +481,7 @@ fn estimation_per_script_failure_does_not_reduce_later_budget() {
         });
         let r = with_limit(&tx, &u, limit).unwrap();
         assert_eq!(r.len(), 2);
-        assert_eq!((r[0].tag, r[0].index), (c::RedeemerTag::Cert, 1));
+        assert_eq!((r[0].tag, r[0].index), (MultiEraRedeemerTag::Cert, 1));
         assert!(!r[0].success);
         assert!(r[0].units.mem > 0 && r[0].units.steps > 0);
         assert!(
@@ -491,7 +491,7 @@ fn estimation_per_script_failure_does_not_reduce_later_budget() {
                 .contains("Explicit error"),
             "{r:?}"
         );
-        assert_eq!((r[1].tag, r[1].index), (c::RedeemerTag::Cert, 2));
+        assert_eq!((r[1].tag, r[1].index), (MultiEraRedeemerTag::Cert, 2));
         assert!(
             r[1].success,
             "earlier failure must not reduce the next allowance: {r:?}"

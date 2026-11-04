@@ -608,7 +608,7 @@ mod scripts {
                     ])
                     .zip(&expected)
                 {
-                    assert_eq!((entry.tag, entry.index), (tag, index));
+                    assert_eq!((entry.tag, entry.index), (tag.into(), index));
                     assert!(entry.success, "{report:?}");
                     assert_eq!(entry.units, original.units);
                     assert_eq!(entry.logs, original.logs);
@@ -1329,7 +1329,7 @@ mod scripts {
             assert!(
                 !report
                     .iter()
-                    .find(|r| r.tag == c::RedeemerTag::Mint)
+                    .find(|r| r.tag == c::RedeemerTag::Mint.into())
                     .unwrap()
                     .success
             );

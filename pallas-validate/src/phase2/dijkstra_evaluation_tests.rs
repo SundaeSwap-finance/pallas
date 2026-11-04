@@ -3,7 +3,7 @@ use super::*;
 use crate::utils::{EraCbor, TxoRef};
 use pallas_codec::minicbor;
 use pallas_primitives::{conway as c, dijkstra as n};
-use pallas_traverse::{Era, MultiEraBlock, MultiEraTx};
+use pallas_traverse::{Era, MultiEraBlock, MultiEraRedeemerTag, MultiEraTx};
 
 fn slots() -> SlotConfig {
     SlotConfig {
@@ -63,7 +63,7 @@ fn native_registration_executes_with_historical_budget() {
         let original = minicbor::to_vec(&tx).unwrap();
         let r = run(&tx, &u).expect("native protocol-12 registration must evaluate");
         assert_eq!(r.len(), 1);
-        assert_eq!((r[0].tag, r[0].index), (c::RedeemerTag::Cert, 0));
+        assert_eq!((r[0].tag, r[0].index), (MultiEraRedeemerTag::Cert, 0));
         assert!(r[0].success, "{r:?}");
         let view = MultiEraTx::from_dijkstra(&tx);
         let budgets = view.redeemers();
