@@ -1,4 +1,4 @@
-//! Native protocol-12 evaluation of the Plutus V1, V2 and V3 scripts the top level of a Dijkstra transaction runs.
+//! Native protocol-12 evaluation of the Plutus scripts the top level of a Dijkstra transaction runs.
 //! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
     error::{Error, Unsupported},
@@ -13,7 +13,7 @@ use super::{
     },
     tx::TxEvalResult,
 };
-use crate::phase1::dijkstra_ledger::{Level, needs};
+use crate::phase1::dijkstra_ledger::{Level, guarding_scripts, needs};
 use crate::utils::{
     DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters, TxoRef, UtxoMap,
     dijkstra_context::check_translatable,
@@ -24,6 +24,9 @@ use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
 use std::collections::{BTreeMap, BTreeSet};
+
+#[path = "dijkstra_v4_context.rs"]
+mod v4_context;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
@@ -180,8 +183,7 @@ fn resolve(
 /// A script a transaction provides, as its top level runs it.
 enum Provided {
     Native,
-    Plutus(c::Language, Vec<u8>),
-    PlutusV4,
+    Plutus(n::Language, Vec<u8>),
 }
 
 /// The script a reference output carries, by hash.
@@ -193,16 +195,16 @@ fn reference_script(output: &MultiEraOutput<'_>) -> Result<Option<(Hash<28>, Pro
     let provided = match &script {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
             n::ScriptRef::NativeScript(_) => Provided::Native,
-            n::ScriptRef::PlutusV1Script(x) => plutus(c::Language::PlutusV1, x.as_ref()),
-            n::ScriptRef::PlutusV2Script(x) => plutus(c::Language::PlutusV2, x.as_ref()),
-            n::ScriptRef::PlutusV3Script(x) => plutus(c::Language::PlutusV3, x.as_ref()),
-            n::ScriptRef::PlutusV4Script(_) => Provided::PlutusV4,
+            n::ScriptRef::PlutusV1Script(x) => plutus(n::Language::PlutusV1, x.as_ref()),
+            n::ScriptRef::PlutusV2Script(x) => plutus(n::Language::PlutusV2, x.as_ref()),
+            n::ScriptRef::PlutusV3Script(x) => plutus(n::Language::PlutusV3, x.as_ref()),
+            n::ScriptRef::PlutusV4Script(x) => plutus(n::Language::PlutusV4, x.as_ref()),
         },
         MultiEraScriptRef::Conway(s) => match s.as_ref() {
             c::ScriptRef::NativeScript(_) => Provided::Native,
-            c::ScriptRef::PlutusV1Script(x) => plutus(c::Language::PlutusV1, x.as_ref()),
-            c::ScriptRef::PlutusV2Script(x) => plutus(c::Language::PlutusV2, x.as_ref()),
-            c::ScriptRef::PlutusV3Script(x) => plutus(c::Language::PlutusV3, x.as_ref()),
+            c::ScriptRef::PlutusV1Script(x) => plutus(n::Language::PlutusV1, x.as_ref()),
+            c::ScriptRef::PlutusV2Script(x) => plutus(n::Language::PlutusV2, x.as_ref()),
+            c::ScriptRef::PlutusV3Script(x) => plutus(n::Language::PlutusV3, x.as_ref()),
         },
         _ => return unsupported("reference script language (requires V3)"),
     };
@@ -226,16 +228,15 @@ fn provided_scripts(
         let v1 = w.plutus_v1_script.iter().flatten();
         let v2 = w.plutus_v2_script.iter().flatten();
         let v3 = w.plutus_v3_script.iter().flatten();
+        let v4 = w.plutus_v4_script.iter().flatten();
         for (hash, language, bytes) in v1
-            .map(|x| (x.compute_hash(), c::Language::PlutusV1, x.as_ref()))
-            .chain(v2.map(|x| (x.compute_hash(), c::Language::PlutusV2, x.as_ref())))
-            .chain(v3.map(|x| (x.compute_hash(), c::Language::PlutusV3, x.as_ref())))
+            .map(|x| (x.compute_hash(), n::Language::PlutusV1, x.as_ref()))
+            .chain(v2.map(|x| (x.compute_hash(), n::Language::PlutusV2, x.as_ref())))
+            .chain(v3.map(|x| (x.compute_hash(), n::Language::PlutusV3, x.as_ref())))
+            .chain(v4.map(|x| (x.compute_hash(), n::Language::PlutusV4, x.as_ref())))
         {
             super::native_evaluator::check_plutus_script(&language, bytes)?;
             provided.insert(hash, Provided::Plutus(language, bytes.to_vec()));
-        }
-        for script in w.plutus_v4_script.iter().flatten() {
-            provided.insert(script.compute_hash(), Provided::PlutusV4);
         }
     }
     let levels = std::iter::once((&b.inputs, &b.reference_inputs)).chain(subs.map(|x| {
@@ -335,7 +336,7 @@ pub(super) fn estimate_tx(
     eval_tx_with_mode(tx, pparams, utxos, &linear_time(slots)?, true)
 }
 
-fn linear_time(slots: &SlotConfig) -> Result<DijkstraTimeContext, Error> {
+pub(super) fn linear_time(slots: &SlotConfig) -> Result<DijkstraTimeContext, Error> {
     DijkstraTimeContext::new(
         vec![EraTime {
             start_slot: slots.zero_slot,
@@ -354,6 +355,44 @@ pub(super) fn eval_tx_with_mode(
     time: &DijkstraTimeContext,
     estimate: bool,
 ) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
+    runs(tx, pparams, utxos, time, estimate)?
+        .into_iter()
+        .map(|run| {
+            let args: Vec<_> = run.args.iter().collect();
+            let (result, calls) =
+                evaluator::eval_native(run.language, &run.script, &args, &run.costs, run.budget)?;
+            let result = TxEvalResult {
+                tag: run.tag.into(),
+                index: run.index,
+                units: result.units,
+                success: result.success,
+                logs: result.logs,
+                failure_message: result.failure.map(|f| f.message),
+            };
+            Ok((result, calls))
+        })
+        .collect()
+}
+
+/// A redeemer's script with the arguments, cost model and budget it runs with.
+pub(super) struct Run {
+    pub(super) tag: c::RedeemerTag,
+    pub(super) index: u32,
+    pub(super) language: n::Language,
+    pub(super) script: Vec<u8>,
+    pub(super) args: Vec<c::PlutusData>,
+    pub(super) costs: Vec<i64>,
+    pub(super) budget: c::ExUnits,
+}
+
+/// The script runs of the top level redeemers of `tx`, in redeemer order.
+pub(super) fn runs(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &DijkstraTimeContext,
+    estimate: bool,
+) -> Result<Vec<Run>, Error> {
     let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
     let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
         return unsupported("protocol parameters require Dijkstra");
@@ -396,6 +435,7 @@ pub(super) fn eval_tx_with_mode(
     let level = Level::top(b, id);
     let ledger = needs(&level).map_err(|_| Error::BadWithdrawalAddress)?;
     expected.extend(ledger.scripts);
+    expected.extend(guarding_scripts(b.guards.as_ref()));
     let scripts = provided_scripts(native, utxos)?;
     expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
     let mut languages = BTreeSet::new();
@@ -403,9 +443,6 @@ pub(super) fn eval_tx_with_mode(
         match scripts.get(hash) {
             Some(Provided::Plutus(language, _)) => {
                 languages.insert(language.clone());
-            }
-            Some(Provided::PlutusV4) => {
-                return unsupported("reference script language (requires V3)");
             }
             Some(Provided::Native) | None => {
                 return Err(Error::MissingRequiredScript {
@@ -429,7 +466,7 @@ pub(super) fn eval_tx_with_mode(
         .collect::<Result<Vec<_>, _>>()?;
     for language in &languages {
         check_translatable(
-            language.clone(),
+            language,
             b,
             &spent.iter().collect::<Vec<_>>(),
             &referenced.iter().collect::<Vec<_>>(),
@@ -573,64 +610,18 @@ pub(super) fn eval_tx_with_mode(
         .iter()
         .map(|(_, purpose, r)| (purpose.clone(), r.clone()))
         .collect();
-    let info = |language: c::Language| match language {
-        c::Language::PlutusV1 => V1TxInfo {
-            inputs: inputs.clone(),
-            outputs: outputs.clone(),
-            fee: c::Value::Coin(b.fee),
-            mint: mint.clone(),
-            certificates: certificates.clone(),
-            withdrawals: withdrawals.clone(),
-            valid_range: valid_range.clone(),
-            signatories: signatories.clone(),
-            data: datums.clone().into_iter().collect(),
-            redeemers: redeemer_pairs.clone().into(),
-            id,
-        }
-        .to_plutus_data(),
-        c::Language::PlutusV2 => V2TxInfo {
-            inputs: inputs.clone(),
-            reference_inputs: reference_inputs.clone(),
-            outputs: outputs.clone(),
-            fee: c::Value::Coin(b.fee),
-            mint: mint.clone(),
-            certificates: certificates.clone(),
-            withdrawals: withdrawals.clone().into(),
-            valid_range: valid_range.clone(),
-            signatories: signatories.clone(),
-            redeemers: redeemer_pairs.clone().into(),
-            data: datums.clone().into_iter().collect::<Vec<_>>().into(),
-            id,
-        }
-        .to_plutus_data(),
-        c::Language::PlutusV3 => V3TxInfo {
-            inputs: inputs.clone(),
-            reference_inputs: reference_inputs.clone(),
-            outputs: outputs.clone(),
-            fee: b.fee,
-            mint: mint.clone(),
-            certificates: certificates.clone(),
-            withdrawals: withdrawals.clone().into(),
-            valid_range: valid_range.clone(),
-            signatories: signatories.clone(),
-            redeemers: redeemer_pairs.clone().into(),
-            data: datums.clone().into_iter().collect::<Vec<_>>().into(),
-            id,
-            votes: get_votes_info(&b.voting_procedures),
-            proposal_procedures: proposals.clone(),
-            current_treasury_amount: b.treasury_value,
-            treasury_donation: b.donation,
-        }
-        .to_plutus_data_with_protocol(12),
-    };
     let costs = &pp.cost_models_for_script_languages;
-    let cost_model = |language: c::Language| {
-        match language {
-            c::Language::PlutusV1 => costs.plutus_v1.as_ref(),
-            c::Language::PlutusV2 => costs.plutus_v2.as_ref(),
-            c::Language::PlutusV3 => costs.plutus_v3.as_ref(),
-        }
-        .ok_or(Error::CostModelNotFound(language))
+    let top = v4_context::Top {
+        body: b,
+        id,
+        inputs: &inputs,
+        reference_inputs: &reference_inputs,
+        outputs: &outputs,
+        valid_range: &valid_range,
+        datums: &datums,
+        proposals: &proposals,
+        redeemers: &purposes,
+        scripts: &expected,
     };
     if !estimate {
         let mut total_mem = 0u64;
@@ -666,44 +657,96 @@ pub(super) fn eval_tx_with_mode(
                 });
             };
             let datum = spending_datums.get(key);
-            let context = match language {
-                c::Language::PlutusV3 => v3_script_context_data(
-                    info(c::Language::PlutusV3),
-                    &r.data,
-                    &purpose.clone().into_script_info(datum.cloned()),
-                    12,
-                ),
-                c::Language::PlutusV1 | c::Language::PlutusV2 => {
-                    v1v2_script_context_data(info(language.clone()), purpose)
+            // A V1 or V2 script takes the datum it spends, the redeemer and the context, a V3 or V4 script takes the context alone.
+            let legacy = |context: c::PlutusData| -> Vec<c::PlutusData> {
+                datum
+                    .cloned()
+                    .into_iter()
+                    .chain([r.data.clone(), context])
+                    .collect()
+            };
+            let (args, model) = match language {
+                n::Language::PlutusV1 => {
+                    let info = V1TxInfo {
+                        inputs: inputs.clone(),
+                        outputs: outputs.clone(),
+                        fee: c::Value::Coin(b.fee),
+                        mint: mint.clone(),
+                        certificates: certificates.clone(),
+                        withdrawals: withdrawals.clone(),
+                        valid_range: valid_range.clone(),
+                        signatories: signatories.clone(),
+                        data: datums.clone().into_iter().collect(),
+                        redeemers: redeemer_pairs.clone().into(),
+                        id,
+                    };
+                    let context = v1v2_script_context_data(info.to_plutus_data(), purpose);
+                    (legacy(context), costs.plutus_v1.as_ref())
+                }
+                n::Language::PlutusV2 => {
+                    let info = V2TxInfo {
+                        inputs: inputs.clone(),
+                        reference_inputs: reference_inputs.clone(),
+                        outputs: outputs.clone(),
+                        fee: c::Value::Coin(b.fee),
+                        mint: mint.clone(),
+                        certificates: certificates.clone(),
+                        withdrawals: withdrawals.clone().into(),
+                        valid_range: valid_range.clone(),
+                        signatories: signatories.clone(),
+                        redeemers: redeemer_pairs.clone().into(),
+                        data: datums.clone().into_iter().collect::<Vec<_>>().into(),
+                        id,
+                    };
+                    let context = v1v2_script_context_data(info.to_plutus_data(), purpose);
+                    (legacy(context), costs.plutus_v2.as_ref())
+                }
+                n::Language::PlutusV3 => {
+                    let info = V3TxInfo {
+                        inputs: inputs.clone(),
+                        reference_inputs: reference_inputs.clone(),
+                        outputs: outputs.clone(),
+                        fee: b.fee,
+                        mint: mint.clone(),
+                        certificates: certificates.clone(),
+                        withdrawals: withdrawals.clone().into(),
+                        valid_range: valid_range.clone(),
+                        signatories: signatories.clone(),
+                        redeemers: redeemer_pairs.clone().into(),
+                        data: datums.clone().into_iter().collect::<Vec<_>>().into(),
+                        id,
+                        votes: get_votes_info(&b.voting_procedures),
+                        proposal_procedures: proposals.clone(),
+                        current_treasury_amount: b.treasury_value,
+                        treasury_donation: b.donation,
+                    };
+                    let context = v3_script_context_data(
+                        info.to_plutus_data_with_protocol(12),
+                        &r.data,
+                        &purpose.clone().into_script_info(datum.cloned()),
+                        12,
+                    );
+                    (vec![context], costs.plutus_v3.as_ref())
+                }
+                n::Language::PlutusV4 => {
+                    let context = top.script_context(key, purpose, &r.data, datum)?;
+                    (vec![context], costs.plutus_v4.as_ref())
                 }
             };
-            // A V3 script takes the context alone, a V1 or V2 script takes the datum it spends, the redeemer and the context.
-            let args: Vec<&c::PlutusData> = match language {
-                c::Language::PlutusV3 => vec![&context],
-                c::Language::PlutusV1 | c::Language::PlutusV2 => {
-                    datum.into_iter().chain([&r.data, &context]).collect()
-                }
-            };
-            let (result, calls) = evaluator::eval_native(
-                language.clone(),
-                bytes,
-                &args,
-                cost_model(language.clone())?,
-                if estimate {
+            let model = model.ok_or_else(|| Error::DijkstraCostModelNotFound(language.clone()))?;
+            Ok(Run {
+                tag: r.tag,
+                index: r.index,
+                language: language.clone(),
+                script: bytes.clone(),
+                args,
+                costs: model.clone(),
+                budget: if estimate {
                     execution_limit
                 } else {
                     r.ex_units
                 },
-            )?;
-            let result = TxEvalResult {
-                tag: r.tag.into(),
-                index: r.index,
-                units: result.units,
-                success: result.success,
-                logs: result.logs,
-                failure_message: result.failure.map(|f| f.message),
-            };
-            Ok((result, calls))
+            })
         })
         .collect()
 }

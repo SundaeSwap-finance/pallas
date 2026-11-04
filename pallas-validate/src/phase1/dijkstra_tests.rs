@@ -481,7 +481,7 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
         changed.transaction_witness_set = minicbor::decode(&raw).unwrap();
         error(
             dispatch(&changed, &output, &env()),
-            "DijkstraUnsupported(\"witness fields\")",
+            "PostAlonzo(UnneededPlutusV3Script)",
         );
         changed = tx.clone();
         changed.auxiliary_data = pallas_codec::utils::Nullable::Undefined;
@@ -610,6 +610,15 @@ fn dijkstra_typed_features_reject_explicitly() {
             dispatch(&changed, &output, &env()),
             "PostAlonzo(TxInsEmpty)",
         );
+        // The same sub transaction with one PlutusV4 script under witness key 8.
+        let v4_bytes = hex::decode("83a200800180a108814100f6").unwrap();
+        let v4_sub: native::SubTransaction = minicbor::decode(&v4_bytes).unwrap();
+        let mut changed = tx.clone();
+        changed.transaction_body.sub_transactions = native::NonEmptySet::from_vec(vec![v4_sub]);
+        error(
+            dispatch(&changed, &output, &env()),
+            "DijkstraUnsupported(\"witness fields\")",
+        );
         error(
             validate_txs(
                 &[MultiEraTx::from_dijkstra_sub(&sub, true)],
@@ -700,13 +709,37 @@ fn dijkstra_spent_plutus_scripts_no_purpose_needs_pass() {
 }
 
 #[test]
-fn dijkstra_a_needed_v1_or_v2_script_without_a_cost_model_is_refused() {
+fn dijkstra_a_v4_guard_script_is_unsupported() {
+    synthetic(|mut tx, input| {
+        use pallas_traverse::ComputeHash;
+        let script = plutus_v4();
+        let native::ScriptRef::PlutusV4Script(s) = &script else {
+            unreachable!()
+        };
+        tx.transaction_body.guards = Some(native::Guards::Credentials(
+            native::NonEmptySet::from_vec(vec![native::StakeCredential::ScriptHash(
+                s.compute_hash(),
+            )])
+            .unwrap(),
+        ));
+        sign(&mut tx);
+        let input = with_script(&input, script);
+        error(
+            dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
+            "DijkstraUnsupported(\"redeemer purpose\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_needed_v1_v2_or_v4_script_without_a_cost_model_is_refused() {
     synthetic(|tx, input| {
         use pallas_traverse::ComputeHash;
-        for script in plutus_v1_and_v2(&[1]) {
+        for script in plutus_v1_and_v2(&[1]).into_iter().chain([plutus_v4()]) {
             let hash = match &script {
                 native::ScriptRef::PlutusV1Script(s) => s.compute_hash(),
                 native::ScriptRef::PlutusV2Script(s) => s.compute_hash(),
+                native::ScriptRef::PlutusV4Script(s) => s.compute_hash(),
                 _ => unreachable!(),
             };
             let mut locked = with_script(&input, script);
@@ -734,7 +767,7 @@ fn dijkstra_a_needed_v1_or_v2_script_without_a_cost_model_is_refused() {
 }
 
 #[test]
-fn dijkstra_new_v1_and_v2_scripts_are_checked_and_v4_is_unsupported() {
+fn dijkstra_new_v1_v2_and_v4_scripts_are_checked() {
     #[cfg(feature = "phase2")]
     let (well_formed, malformed) = (Some(well_formed_script()), "DijkstraMalformedScript");
     #[cfg(not(feature = "phase2"))]
@@ -742,22 +775,24 @@ fn dijkstra_new_v1_and_v2_scripts_are_checked_and_v4_is_unsupported() {
         None::<Vec<u8>>,
         "DijkstraUnsupported(\"new Plutus script validation requires phase2 feature\")",
     );
+    let v4 = |bytes: &[u8]| {
+        native::ScriptRef::PlutusV4Script(pallas_primitives::PlutusScript(bytes.to_vec().into()))
+    };
     synthetic(|tx, input| {
         let output = MultiEraOutput::from_dijkstra(&input);
-        for script in well_formed.iter().flat_map(|bytes| plutus_v1_and_v2(bytes)) {
+        for script in well_formed
+            .iter()
+            .flat_map(|bytes| plutus_v1_and_v2(bytes).into_iter().chain([v4(bytes)]))
+        {
             let result = dispatch(&with_new_script(&tx, script), &output, &env());
             assert!(result.is_ok(), "{result:?}");
         }
-        for script in plutus_v1_and_v2(&[1]) {
+        for script in plutus_v1_and_v2(&[1]).into_iter().chain([plutus_v4()]) {
             error(
                 dispatch(&with_new_script(&tx, script), &output, &env()),
                 malformed,
             );
         }
-        error(
-            dispatch(&with_new_script(&tx, plutus_v4()), &output, &env()),
-            "DijkstraUnsupported(\"new script language (requires V3)\")",
-        );
     });
 }
 

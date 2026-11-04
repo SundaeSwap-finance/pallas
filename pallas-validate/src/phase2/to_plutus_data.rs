@@ -73,7 +73,7 @@ struct WithArrayRational<'a, T>(&'a T);
 
 struct WithPartialCertificates<'a, T>(&'a T);
 
-struct WithRegistrationDeposit<'a, T>(&'a T, bool);
+pub(super) struct WithRegistrationDeposit<'a, T>(pub(super) &'a T, pub(super) bool);
 
 pub trait ToPlutusData {
     fn to_plutus_data(&self) -> PlutusData;
