@@ -13,8 +13,14 @@ fn evaluate(body: &str) -> Result<super::evaluator::ScriptEvalResult, Error> {
 fn evaluate_calls(
     body: &str,
 ) -> Result<(super::evaluator::ScriptEvalResult, Vec<super::Builtin>), Error> {
+    evaluate_program("1.1.0", body)
+}
+fn evaluate_program(
+    version: &str,
+    body: &str,
+) -> Result<(super::evaluator::ScriptEvalResult, Vec<super::Builtin>), Error> {
     let arena = Arena::new();
-    let source = format!("(program 1.1.0 (lam ctx {body}))");
+    let source = format!("(program {version} (lam ctx {body}))");
     let program = parse_program(&arena, &source, amaru_kernel::ProtocolVersion::new(12, 0))
         .into_result()
         .expect(&source);
@@ -177,11 +183,12 @@ fn registration_cons_byte_string_keeps_v3_byte_range() {
 fn registration_integer_bounds_are_explicit_subset_errors() {
     use amaru_uplc_native::constant::Integer;
     let bound = Integer::from(1) << 262_143usize;
+    let one = Integer::from(1);
     for (value, supported) in [
-        (&bound - 1, true),
-        (-&bound, true),
+        (&bound - &one, true),
+        (-bound.clone(), true),
         (bound.clone(), false),
-        (-&bound - 1, false),
+        (-bound.clone() - &one, false),
     ] {
         let body = ignore(&format!(
             "[[(builtin addInteger) (con integer {value})] (con integer 0)]"
@@ -212,6 +219,21 @@ fn registration_builtin_case_matches_independent_cli_budget() {
             mem: 700,
             steps: 96_100
         }
+    );
+}
+
+#[test]
+fn case_on_constr_data_runs_from_program_1_2_0() {
+    // The second branch rebuilds the scrutinee from its tag and the fields it receives.
+    let body = "(case (con data (Constr 1 [I 5, B #01])) (error) (lam fields \
+        (case [[(builtin equalsData) [[(builtin constrData) (con integer 1)] fields]] \
+        (con data (Constr 1 [I 5, B #01]))] (error) (con unit ()))))";
+    let ran = evaluate_program("1.2.0", body).unwrap().0;
+    assert!(ran.success, "{ran:?}");
+    let refused = evaluate_program("1.1.0", body).unwrap().0;
+    assert_eq!(
+        refused.failure.map(|failure| failure.message),
+        Some("Non-constructor scrutinized".to_owned())
     );
 }
 

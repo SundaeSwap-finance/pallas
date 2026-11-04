@@ -373,10 +373,14 @@ fn native_registration_builtin_inventory() {
         };
         let bytes: pallas_codec::minicbor::bytes::ByteVec = minicbor::decode(s.as_ref()).unwrap();
         let arena = Arena::new();
-        let program: &Program<DeBruijn> =
-            flat::decode(&arena, &bytes, amaru_kernel::ProtocolVersion::new(12, 0))
-                .unwrap()
-                .0;
+        let program: &Program<DeBruijn> = flat::decode(
+            &arena,
+            &bytes,
+            amaru_kernel::PlutusVersion::V3,
+            amaru_kernel::ProtocolVersion::new(12, 0),
+        )
+        .unwrap()
+        .0;
         let mut pending = vec![program.term];
         let mut names = std::collections::BTreeSet::new();
         while let Some(t) = pending.pop() {
