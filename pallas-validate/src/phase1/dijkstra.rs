@@ -75,18 +75,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     let mut keys = guard_keys(&guards);
     let top_guards: BTreeSet<_> = guards.iter().cloned().collect();
     check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
-    let mut scripts = BTreeMap::new();
-    for (index, credential) in guards.iter().enumerate() {
-        if let StakeCredential::ScriptHash(hash) = credential {
-            scripts.insert(
-                RedeemersKey {
-                    tag: RedeemerTag::Guarding,
-                    index: index as u32,
-                },
-                *hash,
-            );
-        }
-    }
+    let mut scripts = ledger::guarding_scripts(b.guards.as_ref());
     let top = ledger::needs(&Level::top(b, Hasher::<256>::hash(b.raw_cbor())))?;
     keys.extend(top.keys);
     scripts.extend(top.scripts);
@@ -131,8 +120,11 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     }
     let subs = sub_scripts(b, utxos)?;
     let provided = check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id, time)?;
-    // A top level Plutus script up to V3 puts the batch in legacy mode, native scripts do not.
-    let legacy = !provided.languages.is_empty();
+    // A top level Plutus script up to V3 puts the batch in legacy mode, native and V4 scripts do not.
+    let legacy = provided.languages.iter().any(|x| match x {
+        Language::PlutusV1 | Language::PlutusV2 | Language::PlutusV3 => true,
+        Language::PlutusV4 => false,
+    });
     let rule = match legacy {
         true => WithdrawalRule::Legacy,
         false => WithdrawalRule::Partial,
@@ -254,13 +246,8 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
         })
         .collect::<Result<Vec<_>, _>>()?;
     for language in &provided.languages {
-        crate::utils::dijkstra_context::check_translatable(
-            language.clone(),
-            b,
-            &inputs,
-            &references,
-        )
-        .map_err(|x| DijkstraScriptContext(x.0))?;
+        crate::utils::dijkstra_context::check_translatable(language, b, &inputs, &references)
+            .map_err(|x| DijkstraScriptContext(x.0))?;
     }
     Ok(delta)
 }
@@ -703,7 +690,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
         }
     }
     check_guards(b.guards.as_ref())?;
-    check_witness_fields(&tx.transaction_witness_set)
+    check_witness_fields(&tx.transaction_witness_set, &[0, 1, 2, 3, 4, 5, 6, 7, 8])
 }
 fn check_guards(guards: Option<&Guards>) -> ValidationResult {
     let guards = guard_credentials(guards);
@@ -712,7 +699,7 @@ fn check_guards(guards: Option<&Guards>) -> ValidationResult {
         false => Err(DijkstraMalformed("duplicate guards")),
     }
 }
-fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
+fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>, fields: &[u64]) -> ValidationResult {
     let mut keys = HashSet::new();
     for x in w.vkeywitness.iter().flat_map(|x| x.iter()) {
         if x.vkey.len() != 32 || x.signature.len() != 64 {
@@ -751,7 +738,7 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
             return Err(DijkstraMalformed("execution units"));
         }
     }
-    check_map_keys(&encode(w)?, &[0, 1, 2, 3, 4, 5, 6, 7], "witness fields")
+    check_map_keys(&encode(w)?, fields, "witness fields")
 }
 fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     let b = &tx.sub_transaction_body;
@@ -795,7 +782,7 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
         }
     }
     check_guards(b.guards.as_ref())?;
-    check_witness_fields(&tx.transaction_witness_set)
+    check_witness_fields(&tx.transaction_witness_set, &[0, 1, 2, 3, 4, 5, 6, 7])
 }
 /// Decoding into a BTreeMap would hide duplicate guards, which the ledger rejects.
 fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
@@ -975,16 +962,18 @@ fn plutus_witnesses<'a>(
     let v1 = w.plutus_v1_script.iter().flatten();
     let v2 = w.plutus_v2_script.iter().flatten();
     let v3 = w.plutus_v3_script.iter().flatten();
+    let v4 = w.plutus_v4_script.iter().flatten();
     v1.map(|x| (x.compute_hash(), Language::PlutusV1, x.as_ref()))
         .chain(v2.map(|x| (x.compute_hash(), Language::PlutusV2, x.as_ref())))
         .chain(v3.map(|x| (x.compute_hash(), Language::PlutusV3, x.as_ref())))
+        .chain(v4.map(|x| (x.compute_hash(), Language::PlutusV4, x.as_ref())))
 }
 
-/// The scripts a batch provides and the context languages of the Plutus scripts its top level runs.
+/// The scripts a batch provides and the languages of the Plutus scripts its top level runs.
 struct Provided {
     natives: Natives,
     plutus: Plutus,
-    languages: BTreeSet<pallas_primitives::conway::Language>,
+    languages: BTreeSet<Language>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1051,7 +1040,7 @@ fn check_scripts(
     let unneeded_plutus = |language| match language {
         Language::PlutusV1 => PostAlonzo(UnneededPlutusV1Script),
         Language::PlutusV2 => PostAlonzo(UnneededPlutusV2Script),
-        _ => PostAlonzo(UnneededPlutusV3Script),
+        Language::PlutusV3 | Language::PlutusV4 => PostAlonzo(UnneededPlutusV3Script),
     };
     for (hash, language, bytes) in plutus_witnesses(w) {
         if unneeded(&hash) {
@@ -1089,17 +1078,13 @@ fn check_scripts(
         .collect();
     let mut languages = BTreeSet::new();
     for hash in scripts.values() {
-        languages.insert(match plutus.get(hash) {
-            None => return Err(PostAlonzo(ScriptWitnessMissing)),
-            Some(Language::PlutusV1) => pallas_primitives::conway::Language::PlutusV1,
-            Some(Language::PlutusV2) => pallas_primitives::conway::Language::PlutusV2,
-            Some(Language::PlutusV3) => pallas_primitives::conway::Language::PlutusV3,
-            Some(Language::PlutusV4) => {
-                return Err(DijkstraUnsupported(
-                    "reference script language (requires V3)",
-                ));
-            }
-        });
+        let language = plutus.get(hash).ok_or(PostAlonzo(ScriptWitnessMissing))?;
+        languages.insert(language.clone());
+    }
+    if scripts.iter().any(|(key, hash)| {
+        key.tag == RedeemerTag::Guarding && plutus.get(hash) == Some(&Language::PlutusV4)
+    }) {
+        return Err(DijkstraUnsupported("redeemer purpose"));
     }
     if !scripts.is_empty() {
         match time {
@@ -1148,9 +1133,10 @@ fn check_scripts(
     let mut views = BTreeMap::new();
     for language in &languages {
         let (key, model) = match language {
-            pallas_primitives::conway::Language::PlutusV1 => (0, &models.plutus_v1),
-            pallas_primitives::conway::Language::PlutusV2 => (1, &models.plutus_v2),
-            pallas_primitives::conway::Language::PlutusV3 => (2, &models.plutus_v3),
+            Language::PlutusV1 => (0, &models.plutus_v1),
+            Language::PlutusV2 => (1, &models.plutus_v2),
+            Language::PlutusV3 => (2, &models.plutus_v3),
+            Language::PlutusV4 => (3, &models.plutus_v4),
         };
         let model = model.clone().ok_or(DijkstraScriptContext("cost model"))?;
         views.insert(key, model);
@@ -1614,17 +1600,9 @@ fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     }
 }
 fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
-    let language = match language {
-        Language::PlutusV1 => pallas_primitives::conway::Language::PlutusV1,
-        Language::PlutusV2 => pallas_primitives::conway::Language::PlutusV2,
-        Language::PlutusV3 => pallas_primitives::conway::Language::PlutusV3,
-        Language::PlutusV4 => {
-            return Err(DijkstraUnsupported("new script language (requires V3)"));
-        }
-    };
     #[cfg(feature = "phase2")]
     {
-        crate::phase2::native_evaluator::check_plutus_script(&language, script)
+        crate::phase2::native_evaluator::check_plutus_script(language, script)
             .map_err(|_| DijkstraMalformedScript)
     }
     #[cfg(not(feature = "phase2"))]

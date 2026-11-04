@@ -488,15 +488,10 @@ fn native_registration_script_presence_language_and_machine_failures() {
         replace_script(
             &mut v4,
             &mut v4_utxos,
-            Some(n::ScriptRef::PlutusV4Script(n::PlutusScript(
-                vec![0].into(),
-            ))),
+            Some(v4_script("(program 1.1.0 (lam ctx (con unit ())))")),
             true,
         );
-        error(
-            run(&v4, &v4_utxos),
-            "reference script language (requires V3)",
-        );
+        error(run(&v4, &v4_utxos), "DijkstraCostModelNotFound(PlutusV4)");
         for source in [
             "(program 1.1.0 (lam ctx (error)))",
             "(program 1.1.0 (lam ctx (con integer 1)))",
@@ -525,6 +520,125 @@ fn native_registration_script_presence_language_and_machine_failures() {
             run(&tx, &u),
             "V3 builtin outside audited protocol-12 subset",
         );
+    });
+}
+fn v4_script(source: &str) -> n::ScriptRef<'static> {
+    n::ScriptRef::PlutusV4Script(n::PlutusScript(script(source).0))
+}
+fn v4_params() -> MultiEraProtocolParameters {
+    let mut pp = params();
+    let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
+        unreachable!()
+    };
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../test_data/dijkstra-plutus-v4/1896.json"
+    ))
+    .unwrap();
+    p.cost_models_for_script_languages.plutus_v4 =
+        Some(serde_json::from_value(fixture["plutus_v4"].clone()).unwrap());
+    pp
+}
+#[test]
+fn native_registration_runs_a_v4_script_on_the_v4_context() {
+    // Unit when ctx is a list of at least four elements, which the V4 context is and the V3 context is not.
+    let four = "(program 1.1.0 (lam ctx [(lam ignore (con unit ())) [(force (builtin headList)) [(force (builtin tailList)) [(force (builtin tailList)) [(force (builtin tailList)) [(builtin unListData) ctx]]]]]]))";
+    fixture(|tx, u| {
+        let run = |script: n::ScriptRef<'static>| {
+            let mut tx = tx.clone();
+            let mut u = u.clone();
+            replace_script(&mut tx, &mut u, Some(script), true);
+            evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &v4_params(), &u, &slots())
+        };
+        let unit = run(v4_script("(program 1.1.0 (lam ctx (con unit ())))")).unwrap();
+        assert!(unit[0].success, "{unit:?}");
+        let failing = run(v4_script("(program 1.1.0 (lam ctx (error)))")).unwrap();
+        assert!(!failing[0].success, "{failing:?}");
+        let v4 = run(v4_script(four)).unwrap();
+        assert!(v4[0].success, "{v4:?}");
+        let v3 = run(n::ScriptRef::PlutusV3Script(script(four))).unwrap();
+        assert!(!v3[0].success, "{v3:?}");
+    });
+}
+#[test]
+fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
+    use crate::utils::dijkstra_context::{Untranslatable, check_translatable};
+    use pallas_addresses::{
+        Network, Pointer, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart,
+    };
+    fixture(|tx, u| {
+        let unit = "(program 1.1.0 (lam ctx (con unit ())))";
+        let run = |script: n::ScriptRef<'static>| {
+            let mut tx = tx.clone();
+            let mut u = u.clone();
+            replace_script(&mut tx, &mut u, Some(script), true);
+            let mut b = (*tx.transaction_body).clone();
+            let mut outputs = b.outputs.to_vec();
+            let address = ShelleyAddress::new(
+                Network::Testnet,
+                ShelleyPaymentPart::Key([0; 28].into()),
+                ShelleyDelegationPart::Pointer(Pointer::new(1, 2, 3)),
+            );
+            outputs.push(n::TransactionOutput::PostAlonzo(
+                n::PostAlonzoTransactionOutput {
+                    address: address.to_vec().into(),
+                    value: c::Value::Coin(1),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            ));
+            b.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
+            let held = |language| check_translatable(&language, &b, &[], &[]);
+            let held = (held(n::Language::PlutusV3), held(n::Language::PlutusV4));
+            tx.transaction_body = b.into();
+            let report = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &v4_params(), &u, &slots());
+            (report, held)
+        };
+        let (v3, held) = run(n::ScriptRef::PlutusV3Script(script(unit)));
+        let v3 = v3.unwrap();
+        assert!(v3[0].success, "{v3:?}");
+        assert_eq!(held, (Ok(()), Err(Untranslatable("pointer address"))));
+        error(run(v4_script(unit)).0, "pointer address");
+    });
+}
+#[test]
+fn native_registration_refuses_a_v4_guarding_redeemer() {
+    fixture(|mut tx, mut u| {
+        use pallas_traverse::ComputeHash;
+        let n::ScriptRef::PlutusV4Script(script) =
+            v4_script("(program 1.1.0 (lam ctx (con unit ())))")
+        else {
+            unreachable!()
+        };
+        let hash = script.compute_hash();
+        replace_script(
+            &mut tx,
+            &mut u,
+            Some(n::ScriptRef::PlutusV4Script(script)),
+            true,
+        );
+        let mut b = (*tx.transaction_body).clone();
+        b.guards = Some(n::Guards::Credentials(
+            vec![n::StakeCredential::ScriptHash(hash)]
+                .try_into()
+                .unwrap(),
+        ));
+        tx.transaction_body = b.into();
+        let evaluate = |tx: &n::BlockTransaction<'_>| {
+            evaluate_tx(&MultiEraTx::from_dijkstra(tx), &v4_params(), &u, &slots())
+        };
+        error(evaluate(&tx), "RequiredRedeemersMismatch");
+        let mut w = (*tx.transaction_witness_set).clone();
+        let mut redeemers = w.redeemer.as_ref().unwrap().0.clone();
+        let value = redeemers.values().next().unwrap().clone();
+        let key = n::RedeemersKey {
+            tag: n::RedeemerTag::Guarding,
+            index: 0,
+        };
+        redeemers.insert(key, value);
+        w.redeemer = Some(n::Redeemers(redeemers).into());
+        tx.transaction_witness_set = w.into();
+        error(evaluate(&tx), "redeemer purpose");
     });
 }
 #[test]
@@ -607,10 +721,12 @@ fn native_registration_features_and_protocols() {
                     "evaluates"
                 }
                 4 => {
+                    let n::Certificate::Reg(registered, _) = &b.certificates.as_ref().unwrap()[0]
+                    else {
+                        unreachable!()
+                    };
                     b.guards = Some(n::Guards::Credentials(
-                        vec![n::StakeCredential::ScriptHash([0; 28].into())]
-                            .try_into()
-                            .unwrap(),
+                        vec![registered.clone()].try_into().unwrap(),
                     ));
                     "script guards"
                 }
