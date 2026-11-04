@@ -69,16 +69,18 @@ impl<'a> Level<'a> {
             .flat_map(|x| x.iter())
             .map(|(a, c)| (a, *c))
             .collect();
-        // The ledger orders reward accounts by network, then script credentials before key credentials, then hash.
-        ordered.sort_by_key(|(raw, _)| {
-            (
-                raw.first().map(|x| x & 15),
-                raw.first().map(|x| 15 - (x >> 4)),
-                raw.get(1..),
-            )
-        });
+        ordered.sort_by(|(x, _), (y, _)| account_order(x).cmp(&account_order(y)));
         ordered
     }
+}
+
+/// The key the ledger orders reward accounts by: network, then script credentials before key credentials, then hash.
+pub(crate) fn account_order(raw: &[u8]) -> (Option<u8>, Option<u8>, Option<&[u8]>) {
+    (
+        raw.first().map(|x| x & 15),
+        raw.first().map(|x| 15 - (x >> 4)),
+        raw.get(1..),
+    )
 }
 
 /// The key hashes and scripts one level's ledger fields require, by redeemer purpose.
@@ -119,6 +121,27 @@ pub(crate) fn reward_account(raw: &[u8]) -> Result<(u8, StakeCredential), Valida
         StakePayload::Script(hash) => StakeCredential::ScriptHash(*hash),
     };
     Ok((address.network().value(), credential))
+}
+
+/// The script of each script guard in `guards`, by its Guarding redeemer key.
+pub(crate) fn guarding_scripts(guards: Option<&Guards>) -> BTreeMap<RedeemersKey, Hash<28>> {
+    let Some(Guards::Credentials(credentials)) = guards else {
+        return BTreeMap::new();
+    };
+    credentials
+        .iter()
+        .enumerate()
+        .filter_map(|(index, credential)| match credential {
+            StakeCredential::ScriptHash(hash) => Some((
+                RedeemersKey {
+                    tag: RedeemerTag::Guarding,
+                    index: index as u32,
+                },
+                *hash,
+            )),
+            StakeCredential::AddrKeyhash(_) => None,
+        })
+        .collect()
 }
 
 /// The witnesses and scripts the withdrawals, certificates, votes and proposals of a level require.

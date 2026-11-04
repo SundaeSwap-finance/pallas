@@ -74,6 +74,11 @@ only when it calls a builtin outside the audited set, and the integer-operand
 restriction remains. The retained transaction matches the
 independent CLI for all five purposes (`cli-comparison.json`).
 
+PlutusV4 scripts run at the top level for every purpose except Guarding, on the
+V4 script context. A V4 Guarding redeemer and a V4 script in a subtransaction
+are refused. The V4 contexts and budgets of six conformance records are in
+[the V4 fixtures](../dijkstra-plutus-v4/README.md).
+
 Guard-free native scripts are additionally supported; see
 [the native-script fixtures](../dijkstra-native-scripts/README.md).
 
@@ -84,7 +89,7 @@ as the ledger does. The reference-script size cap covers the whole batch; the
 fee counts top-level references only. The top level of a batch may mint and
 withdraw under native scripts.
 
-Explicit exclusions remain: other Plutus languages, Plutus anywhere in a batch,
+Explicit exclusions remain: Plutus anywhere in a batch,
 script guards, governance, direct deposits/account intervals, non-Reg
 certificates, certificates alongside subtransactions, mint/withdrawals/
 certificates inside subtransactions, bootstrap output addresses,

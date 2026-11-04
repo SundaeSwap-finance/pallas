@@ -22,6 +22,9 @@ pub enum Error {
     #[cfg(feature = "unstable")]
     #[error("invalid native Dijkstra evaluation: {0}")]
     DijkstraInvalid(&'static str),
+    #[cfg(feature = "unstable")]
+    #[error("cost model not found for language\n{:>13} {:?}", "Language", .0)]
+    DijkstraCostModelNotFound(pallas_primitives::dijkstra::Language),
     #[error("address error: {0}")]
     Address(#[from] pallas_addresses::Error),
     #[error("only shelley reward addresses can be a part of withdrawals")]

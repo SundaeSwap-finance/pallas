@@ -20,7 +20,10 @@ use amaru_uplc_native::{
     term::Term,
 };
 use pallas_codec::minicbor;
-use pallas_primitives::conway::{ExUnits, Language, PlutusData};
+use pallas_primitives::{
+    conway::{ExUnits, PlutusData},
+    dijkstra::Language,
+};
 
 /// A builtin function of the native evaluation.
 pub use amaru_uplc_native::builtin::DefaultFunction as Builtin;
@@ -44,8 +47,15 @@ pub(crate) fn eval_native(
     let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
     let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
     let version = plutus_version(&language);
+    let protocol = ProtocolVersion::new(12, 0);
+    let cost_model = match language {
+        Language::PlutusV1 | Language::PlutusV2 | Language::PlutusV3 => {
+            CostModel::new(version, protocol, costs)
+        }
+        Language::PlutusV4 => CostModel::v4(costs),
+    };
     let (program, remainder): (&Program<DeBruijn>, _) =
-        flat::decode(&arena, &flat_bytes, version, ProtocolVersion::new(12, 0))?;
+        flat::decode(&arena, &flat_bytes, version, protocol)?;
     if remainder > 0 {
         return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
     }
@@ -59,13 +69,7 @@ pub(crate) fn eval_native(
         program.apply(&arena, plutus_data_to_term(&arena, arg))
     });
     let mut calls = Vec::new();
-    let (value, info) = run(
-        &arena,
-        program,
-        CostModel::new(version, ProtocolVersion::new(12, 0), costs),
-        initial,
-        &mut calls,
-    )?;
+    let (value, info) = run(&arena, program, cost_model, initial, &mut calls)?;
     if matches!(
         value,
         Err(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))
@@ -81,10 +85,12 @@ pub(crate) fn eval_native(
         budget: units,
         logs: logs.clone(),
     });
-    // A V1 or V2 script succeeds by returning any value, a V3 script by returning unit.
+    // A V1 or V2 script succeeds by returning any value, a V3 or V4 script by returning unit.
     let returned = match (&value, language) {
         (Ok(_), Language::PlutusV1 | Language::PlutusV2) => true,
-        (Ok(value), Language::PlutusV3) => matches!(value, Value::Con(Constant::Unit)),
+        (Ok(value), Language::PlutusV3 | Language::PlutusV4) => {
+            matches!(value, Value::Con(Constant::Unit))
+        }
         (Err(_), _) => false,
     };
     let success = returned && units.mem <= budget.mem && units.steps <= budget.steps;
@@ -291,11 +297,12 @@ fn budget_to_ex_units(budget: ExBudget) -> ExUnits {
     }
 }
 
+/// The version whose flat encoding and builtins a script of `language` decodes with.
 fn plutus_version(language: &Language) -> PlutusVersion {
     match language {
         Language::PlutusV1 => PlutusVersion::V1,
         Language::PlutusV2 => PlutusVersion::V2,
-        Language::PlutusV3 => PlutusVersion::V3,
+        Language::PlutusV3 | Language::PlutusV4 => PlutusVersion::V3,
     }
 }
 
@@ -328,7 +335,12 @@ mod tests {
         [0x45, major, minor, 0x00, 0x24, 0x99]
     }
 
-    const LANGUAGES: [Language; 3] = [Language::PlutusV1, Language::PlutusV2, Language::PlutusV3];
+    const LANGUAGES: [Language; 4] = [
+        Language::PlutusV1,
+        Language::PlutusV2,
+        Language::PlutusV3,
+        Language::PlutusV4,
+    ];
 
     #[test]
     fn protocol_12_refuses_uplc_1_3_and_2_0() {

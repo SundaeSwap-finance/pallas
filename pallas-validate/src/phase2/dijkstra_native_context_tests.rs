@@ -225,7 +225,7 @@ fn ttl_validator_detects_an_inclusive_upper_bound() {
             vec![construct(0, fields), expected.clone(), construct(1, vec![])],
         );
         let (result, _) = crate::phase2::native_evaluator::eval_native(
-            pallas_primitives::conway::Language::PlutusV3,
+            pallas_primitives::dijkstra::Language::PlutusV3,
             script.as_ref(),
             &[&context],
             &costs,

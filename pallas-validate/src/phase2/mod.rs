@@ -113,3 +113,6 @@ mod v3_deposit_context_tests;
 
 #[cfg(all(test, feature = "unstable"))]
 mod registration_evaluator_tests;
+
+#[cfg(all(test, feature = "unstable"))]
+mod dijkstra_v4_tests;

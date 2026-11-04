@@ -35,7 +35,7 @@ fn evaluate_program(
     let costs: Vec<i64> =
         serde_json::from_value(params["cost_models_raw"]["PlutusV3"].clone()).unwrap();
     eval_native(
-        pallas_primitives::conway::Language::PlutusV3,
+        pallas_primitives::dijkstra::Language::PlutusV3,
         &bytes,
         &[&PlutusData::Array(
             pallas_codec::utils::MaybeIndefArray::Def(vec![]),
