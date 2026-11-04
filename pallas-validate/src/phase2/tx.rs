@@ -11,15 +11,15 @@ use super::{
 };
 use pallas_primitives::{
     ExUnits, PlutusData,
-    conway::{Language, Redeemer, RedeemerTag},
+    conway::{Language, Redeemer},
 };
-use pallas_traverse::{MultiEraRedeemer, MultiEraTx};
+use pallas_traverse::{MultiEraRedeemer, MultiEraRedeemerTag, MultiEraTx};
 
 use tracing::{debug, instrument};
 
 #[derive(Debug)]
 pub struct TxEvalResult {
-    pub tag: RedeemerTag,
+    pub tag: MultiEraRedeemerTag,
     pub index: u32,
     pub units: ExUnits,
     pub success: bool,
@@ -108,7 +108,7 @@ pub(super) fn execute_script(
     });
 
     Ok(TxEvalResult {
-        tag: redeemer.tag,
+        tag: redeemer.tag.into(),
         index: redeemer.index,
         success: result.success,
         units: result.units,

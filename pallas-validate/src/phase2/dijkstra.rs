@@ -696,7 +696,7 @@ pub(super) fn eval_tx_with_mode(
                 },
             )?;
             let result = TxEvalResult {
-                tag: r.tag,
+                tag: r.tag.into(),
                 index: r.index,
                 units: result.units,
                 success: result.success,
