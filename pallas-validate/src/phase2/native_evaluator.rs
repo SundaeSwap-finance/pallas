@@ -13,7 +13,7 @@ use amaru_uplc_native::{
     data::PlutusData as PragmaPlutusData,
     flat,
     machine::{
-        CostModel, EvalResult, ExBudget, Machine, MachineError, context::Context, env::Env,
+        CostModel, ExBudget, Machine, MachineError, MachineInfo, RuntimeError, env::Env,
         state::MachineState, value::Value,
     },
     program::Program,
@@ -43,9 +43,9 @@ pub(crate) fn eval_native(
 ) -> Result<(ScriptEvalResult, Vec<Builtin>), Error> {
     let arena = Arena::from_bump(Bump::with_capacity(1_024_000));
     let flat_bytes: minicbor::bytes::ByteVec = minicbor::decode(script_bytes)?;
+    let version = plutus_version(&language);
     let (program, remainder): (&Program<DeBruijn>, _) =
-        flat::decode(&arena, &flat_bytes, ProtocolVersion::new(12, 0))?;
-    check_program_version(program.version)?;
+        flat::decode(&arena, &flat_bytes, version, ProtocolVersion::new(12, 0))?;
     if remainder > 0 {
         return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
     }
@@ -58,13 +58,8 @@ pub(crate) fn eval_native(
     let program = args.iter().fold(program, |program, arg| {
         program.apply(&arena, plutus_data_to_term(&arena, arg))
     });
-    let version = match language {
-        Language::PlutusV1 => PlutusVersion::V1,
-        Language::PlutusV2 => PlutusVersion::V2,
-        Language::PlutusV3 => PlutusVersion::V3,
-    };
     let mut calls = Vec::new();
-    let result = run(
+    let (value, info) = run(
         &arena,
         program,
         CostModel::new(version, ProtocolVersion::new(12, 0), costs),
@@ -72,28 +67,24 @@ pub(crate) fn eval_native(
         &mut calls,
     )?;
     if matches!(
-        result.term,
-        Err(amaru_uplc_native::machine::MachineError::Runtime(
-            amaru_uplc_native::machine::RuntimeError::IntegerOperandOutOfBounds
-        ))
+        value,
+        Err(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))
     ) {
         return Err(Error::DijkstraUnsupported(Unsupported(
             "integer operand outside audited registration range",
         )));
     }
-    let units = budget_to_ex_units(result.info.consumed_budget);
-    let logs = result.info.logs;
-    let mut failure = result.term.as_ref().err().map(|err| MachineFailure {
+    let units = budget_to_ex_units(info.consumed_budget);
+    let logs = info.logs;
+    let mut failure = value.as_ref().err().map(|err| MachineFailure {
         message: err.to_string(),
         budget: units,
         logs: logs.clone(),
     });
     // A V1 or V2 script succeeds by returning any value, a V3 script by returning unit.
-    let returned = match (&result.term, language) {
+    let returned = match (&value, language) {
         (Ok(_), Language::PlutusV1 | Language::PlutusV2) => true,
-        (Ok(term), Language::PlutusV3) => {
-            matches!(term, Term::Constant(c) if matches!(**c, Constant::Unit))
-        }
+        (Ok(value), Language::PlutusV3) => matches!(value, Value::Con(Constant::Unit)),
         (Err(_), _) => false,
     };
     let success = returned && units.mem <= budget.mem && units.steps <= budget.steps;
@@ -115,6 +106,9 @@ pub(crate) fn eval_native(
     ))
 }
 
+/// The value a program returns, or the machine error that stops it.
+type Evaluated<'a> = Result<&'a Value<'a, DeBruijn>, MachineError<'a, DeBruijn>>;
+
 /// Evaluate a program to its result and spent budget, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
 fn run<'a>(
     arena: &'a Arena,
@@ -122,37 +116,36 @@ fn run<'a>(
     costs: CostModel,
     initial: ExBudget,
     calls: &mut Vec<Builtin>,
-) -> Result<EvalResult<'a, DeBruijn>, Error> {
+) -> Result<(Evaluated<'a>, MachineInfo), Error> {
     let startup = costs.machine_costs.startup;
     let started = ExBudget {
         mem: initial.mem.saturating_sub(startup.mem),
         cpu: initial.cpu.saturating_sub(startup.cpu),
     };
-    let mut machine = Machine::new(arena, started, costs, program.version);
-    let term = if started.mem < 0 || started.cpu < 0 {
+    let mut machine = program.machine(arena, costs, started);
+    let value = if started.mem < 0 || started.cpu < 0 {
         Err(MachineError::OutOfExError(started))
     } else {
         steps(arena, &mut machine, program.term, calls)?
     };
     let mut info = machine.info();
     info.consumed_budget = initial - info.remaining_budget;
-    Ok(EvalResult { term, info })
+    Ok((value, info))
 }
 
 /// Step the machine from `term` to its result, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
 fn steps<'a>(
     arena: &'a Arena,
-    machine: &mut Machine<'a>,
+    machine: &mut Machine<'a, DeBruijn>,
     term: &'a Term<'a, DeBruijn>,
     calls: &mut Vec<Builtin>,
-) -> Result<Result<&'a Term<'a, DeBruijn>, MachineError<'a, DeBruijn>>, Error> {
-    let mut state =
-        MachineState::compute(arena, Context::no_frame(arena), Env::new_in(arena), term);
+) -> Result<Evaluated<'a>, Error> {
+    let mut state = MachineState::compute(0, Env::new_in(arena), term);
     loop {
-        let next = match *state {
+        let next = match state {
             MachineState::Compute(context, env, term) => machine.compute(context, env, term),
             MachineState::Return(context, value) => {
-                if let Some(fun) = called(context, value) {
+                if let Some(fun) = machine.saturated_builtin(value) {
                     if !audited(fun) {
                         return Err(Error::DijkstraUnsupported(Unsupported(
                             "V3 builtin outside audited protocol-12 subset",
@@ -164,29 +157,12 @@ fn steps<'a>(
                 }
                 machine.return_compute(context, value)
             }
-            MachineState::Done(term) => return Ok(Ok(term)),
+            MachineState::Done(value) => return Ok(Ok(value)),
         };
         match next {
             Ok(next) => state = next,
             Err(error) => return Ok(Err(error)),
         }
-    }
-}
-
-/// The builtin that returning `value` to `context` calls, if the step saturates one.
-fn called<'a>(
-    context: &Context<'a, DeBruijn>,
-    value: &Value<'a, DeBruijn>,
-) -> Option<DefaultFunction> {
-    match (context, value) {
-        (Context::FrameForce(_), Value::Builtin(runtime)) => {
-            (runtime.needs_force() && runtime.is_ready()).then_some(runtime.fun)
-        }
-        (Context::FrameAwaitArg(Value::Builtin(runtime), _), _)
-        | (Context::FrameAwaitFunValue(_, _), Value::Builtin(runtime)) => (!runtime.needs_force()
-            && runtime.args.len() + 1 == runtime.fun.arity())
-        .then_some(runtime.fun),
-        _ => None,
     }
 }
 
@@ -315,26 +291,30 @@ fn budget_to_ex_units(budget: ExBudget) -> ExUnits {
     }
 }
 
-/// Decode introduced script bytes at the native protocol version, without execution.
-pub(crate) fn check_plutus_script(script: &[u8]) -> Result<(), Error> {
+fn plutus_version(language: &Language) -> PlutusVersion {
+    match language {
+        Language::PlutusV1 => PlutusVersion::V1,
+        Language::PlutusV2 => PlutusVersion::V2,
+        Language::PlutusV3 => PlutusVersion::V3,
+    }
+}
+
+/// Decode introduced script bytes of `language` at the native protocol version, without execution.
+pub(crate) fn check_plutus_script(language: &Language, script: &[u8]) -> Result<(), Error> {
     let arena = Arena::from_bump(Bump::new());
     let mut decoder = minicbor::Decoder::new(script);
     let flat_bytes: minicbor::bytes::ByteVec = decoder.decode()?;
     if decoder.position() != script.len() {
         return Err(Error::DijkstraInvalid("trailing script CBOR"));
     }
-    let (program, remainder): (&Program<DeBruijn>, _) =
-        flat::decode(&arena, &flat_bytes, ProtocolVersion::new(12, 0))?;
-    check_program_version(program.version)?;
+    let (_, remainder): (&Program<DeBruijn>, _) = flat::decode(
+        &arena,
+        &flat_bytes,
+        plutus_version(language),
+        ProtocolVersion::new(12, 0),
+    )?;
     if remainder != 0 {
         return Err(amaru_uplc_native::flat::FlatDecodeError::TrailingBytes(remainder).into());
-    }
-    Ok(())
-}
-
-fn check_program_version(version: amaru_uplc_native::machine::MachineVersion) -> Result<(), Error> {
-    if !matches!((version.major, version.minor, version.patch), (1, 0..=2, 0)) {
-        return Err(Error::DijkstraInvalid("unsupported UPLC version"));
     }
     Ok(())
 }
@@ -348,24 +328,33 @@ mod tests {
         [0x45, major, minor, 0x00, 0x24, 0x99]
     }
 
-    fn refuses_version(script: &[u8]) -> bool {
-        matches!(
-            check_plutus_script(script),
-            Err(Error::DijkstraInvalid("unsupported UPLC version"))
-        )
-    }
+    const LANGUAGES: [Language; 3] = [Language::PlutusV1, Language::PlutusV2, Language::PlutusV3];
 
     #[test]
     fn protocol_12_refuses_uplc_1_3_and_2_0() {
-        assert!(refuses_version(&unit_lambda(1, 3)));
-        assert!(refuses_version(&unit_lambda(2, 0)))
+        for language in &LANGUAGES {
+            for (major, minor) in [(1, 3), (2, 0)] {
+                let result = check_plutus_script(language, &unit_lambda(major, minor));
+                assert!(
+                    matches!(
+                        result,
+                        Err(Error::NativeFlatDecode(
+                            flat::FlatDecodeError::ProgramVersionNotAvailable { .. }
+                        ))
+                    ),
+                    "{language:?} {major}.{minor}.0 {result:?}"
+                );
+            }
+        }
     }
 
     #[test]
     fn protocol_12_accepts_uplc_1_0_to_1_2() {
-        for minor in 0..=2 {
-            let result = check_plutus_script(&unit_lambda(1, minor));
-            assert!(result.is_ok(), "1.{minor}.0 {result:?}");
+        for language in &LANGUAGES {
+            for minor in 0..=2 {
+                let result = check_plutus_script(language, &unit_lambda(1, minor));
+                assert!(result.is_ok(), "{language:?} 1.{minor}.0 {result:?}");
+            }
         }
     }
 }

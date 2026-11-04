@@ -957,7 +957,7 @@ fn sub_scripts(b: &TransactionBody<'_>, utxos: &UTxOs<'_>) -> Result<SubScripts,
                 .insert(script.original_hash(), (**script).clone());
         }
         for (hash, language, bytes) in plutus_witnesses(w) {
-            well_formed_plutus(bytes)?;
+            well_formed_plutus(&language, bytes)?;
             subs.plutus_witnessed.push((hash, language.clone()));
             subs.plutus.insert(hash, language);
         }
@@ -1057,7 +1057,7 @@ fn check_scripts(
         if unneeded(&hash) {
             return Err(unneeded_plutus(language));
         }
-        well_formed_plutus(bytes)?;
+        well_formed_plutus(&language, bytes)?;
         plutus.insert(hash, language);
     }
     if let Some((_, language)) = subs.plutus_witnessed.iter().find(|(x, _)| unneeded(x)) {
@@ -1605,25 +1605,31 @@ fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
     match script {
         MultiEraScriptRef::Dijkstra(s) => match s.as_ref() {
             ScriptRef::NativeScript(_) => Ok(()),
-            ScriptRef::PlutusV1Script(s) => well_formed_plutus(s.as_ref()),
-            ScriptRef::PlutusV2Script(s) => well_formed_plutus(s.as_ref()),
-            ScriptRef::PlutusV3Script(s) => well_formed_plutus(s.as_ref()),
-            ScriptRef::PlutusV4Script(_) => {
-                Err(DijkstraUnsupported("new script language (requires V3)"))
-            }
+            ScriptRef::PlutusV1Script(s) => well_formed_plutus(&Language::PlutusV1, s.as_ref()),
+            ScriptRef::PlutusV2Script(s) => well_formed_plutus(&Language::PlutusV2, s.as_ref()),
+            ScriptRef::PlutusV3Script(s) => well_formed_plutus(&Language::PlutusV3, s.as_ref()),
+            ScriptRef::PlutusV4Script(s) => well_formed_plutus(&Language::PlutusV4, s.as_ref()),
         },
         _ => Err(DijkstraUnsupported("new script language (requires V3)")),
     }
 }
-fn well_formed_plutus(script: &[u8]) -> ValidationResult {
+fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
+    let language = match language {
+        Language::PlutusV1 => pallas_primitives::conway::Language::PlutusV1,
+        Language::PlutusV2 => pallas_primitives::conway::Language::PlutusV2,
+        Language::PlutusV3 => pallas_primitives::conway::Language::PlutusV3,
+        Language::PlutusV4 => {
+            return Err(DijkstraUnsupported("new script language (requires V3)"));
+        }
+    };
     #[cfg(feature = "phase2")]
     {
-        crate::phase2::native_evaluator::check_plutus_script(script)
+        crate::phase2::native_evaluator::check_plutus_script(&language, script)
             .map_err(|_| DijkstraMalformedScript)
     }
     #[cfg(not(feature = "phase2"))]
     {
-        let _ = script;
+        let _ = (language, script);
         Err(DijkstraUnsupported(
             "new Plutus script validation requires phase2 feature",
         ))

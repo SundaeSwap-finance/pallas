@@ -231,7 +231,7 @@ fn provided_scripts(
             .chain(v2.map(|x| (x.compute_hash(), c::Language::PlutusV2, x.as_ref())))
             .chain(v3.map(|x| (x.compute_hash(), c::Language::PlutusV3, x.as_ref())))
         {
-            super::native_evaluator::check_plutus_script(bytes)?;
+            super::native_evaluator::check_plutus_script(&language, bytes)?;
             provided.insert(hash, Provided::Plutus(language, bytes.to_vec()));
         }
         for script in w.plutus_v4_script.iter().flatten() {
