@@ -879,6 +879,54 @@ fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
         error(run(v4_script(unit)).0, "pointer address");
     });
 }
+#[test]
+fn native_registration_refuses_a_byron_or_reward_account_output_in_every_context() {
+    use crate::phase1::dijkstra_ledger::Level;
+    use crate::utils::dijkstra_context::{Untranslatable, check_translatable};
+    use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress};
+    let byron = ByronAddress::from(AddressPayload {
+        root: [0; 28].into(),
+        attributes: vec![].into(),
+        addrtype: AddrType::PubKey,
+    })
+    .to_vec();
+    let reward = [vec![0xe0], vec![0x55; 28]].concat();
+    fixture(|tx, u| {
+        let unit = "(program 1.1.0 (lam ctx (con unit ())))";
+        for (address, part) in [(byron, "Byron address"), (reward, "reward account address")] {
+            for s in [n::ScriptRef::PlutusV3Script(script(unit)), v4_script(unit)] {
+                let mut tx = tx.clone();
+                let mut u = u.clone();
+                replace_script(&mut tx, &mut u, Some(s), true);
+                let mut b = (*tx.transaction_body).clone();
+                let mut outputs = b.outputs.to_vec();
+                outputs.push(n::TransactionOutput::PostAlonzo(
+                    n::PostAlonzoTransactionOutput {
+                        address: address.clone().into(),
+                        value: c::Value::Coin(1),
+                        datum_option: None,
+                        script_ref: None,
+                    }
+                    .into(),
+                ));
+                b.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
+                let level = Level::top(&b, Hash::new([0; 32]));
+                for language in [n::Language::PlutusV3, n::Language::PlutusV4] {
+                    let held = check_translatable(&language, &level, &[], &[]);
+                    assert_eq!(held, Err(Untranslatable(part)));
+                }
+                tx.transaction_body = b.into();
+                let report = evaluate_multi_era_tx(
+                    &MultiEraTx::from_dijkstra(&tx),
+                    &v4_params(),
+                    &u,
+                    &slots(),
+                );
+                error(report, &format!("DijkstraInvalid(\"{part}\")"));
+            }
+        }
+    });
+}
 fn with_v4_guard(tx: &mut n::BlockTransaction<'_>, u: &mut UtxoMap) -> Hash<28> {
     use pallas_traverse::ComputeHash;
     let n::ScriptRef::PlutusV4Script(script) = v4_script("(program 1.1.0 (lam ctx (con unit ())))")

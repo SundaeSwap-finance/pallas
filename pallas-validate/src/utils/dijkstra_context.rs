@@ -1,6 +1,6 @@
 //! The Dijkstra transactions the script context of each Plutus language can hold.
 use crate::phase1::dijkstra_ledger::Level;
-use pallas_addresses::{Address, ShelleyDelegationPart};
+use pallas_addresses::{Address, ShelleyAddress, ShelleyDelegationPart};
 use pallas_primitives::dijkstra::{Certificate, DatumOption, Guards, Language, StakeCredential};
 use pallas_traverse::MultiEraOutput;
 
@@ -13,7 +13,6 @@ struct Holds {
     governance: bool,
     dijkstra_fields: bool,
     inline_datums: bool,
-    pointers: bool,
     shared_inputs: bool,
 }
 
@@ -33,6 +32,27 @@ pub(crate) fn check_sub_transaction(language: &Language) -> Result<PlutusV4, Unt
     }
 }
 
+/// The Shelley address a script context holds for an output at `address`.
+pub(crate) fn context_address(address: Address) -> Result<ShelleyAddress, Untranslatable> {
+    match address {
+        Address::Shelley(x) => Ok(x),
+        Address::Byron(_) => Err(Untranslatable("Byron address")),
+        Address::Stake(_) => Err(Untranslatable("reward account address")),
+    }
+}
+
+/// The stake credential a PlutusV4 script context holds for the delegation part of `address`.
+pub(crate) fn v4_stake(
+    address: &ShelleyAddress,
+) -> Result<Option<StakeCredential>, Untranslatable> {
+    match address.delegation() {
+        ShelleyDelegationPart::Key(hash) => Ok(Some(StakeCredential::AddrKeyhash(*hash))),
+        ShelleyDelegationPart::Script(hash) => Ok(Some(StakeCredential::ScriptHash(*hash))),
+        ShelleyDelegationPart::Null => Ok(None),
+        ShelleyDelegationPart::Pointer(_) => Err(Untranslatable("pointer address")),
+    }
+}
+
 /// Checks that the `language` script context can hold the level `b`, whose inputs and reference inputs resolve to `inputs` and `references`.
 pub(crate) fn check_translatable(
     language: &Language,
@@ -48,28 +68,24 @@ pub(crate) fn check_translatable(
             governance: false,
             dijkstra_fields: false,
             inline_datums: false,
-            pointers: true,
             shared_inputs: true,
         },
         Language::PlutusV2 => Holds {
             governance: false,
             dijkstra_fields: false,
             inline_datums: true,
-            pointers: true,
             shared_inputs: true,
         },
         Language::PlutusV3 => Holds {
             governance: true,
             dijkstra_fields: false,
             inline_datums: true,
-            pointers: true,
             shared_inputs: false,
         },
         Language::PlutusV4 => Holds {
             governance: true,
             dijkstra_fields: true,
             inline_datums: true,
-            pointers: false,
             shared_inputs: false,
         },
     };
@@ -126,15 +142,18 @@ pub(crate) fn check_translatable(
     let any = |f: &dyn Fn(&MultiEraOutput<'_>) -> bool| {
         inputs.iter().any(|x| f(x)) || references.iter().any(|x| f(x)) || outputs.iter().any(f)
     };
-    if any(&|x| matches!(x.address(), Ok(Address::Byron(_)))) {
-        return refuse("Byron address");
-    }
-    let pointer = |x: &MultiEraOutput<'_>| match x.address() {
-        Ok(Address::Shelley(a)) => matches!(a.delegation(), ShelleyDelegationPart::Pointer(_)),
-        _ => false,
-    };
-    if !holds.pointers && any(&pointer) {
-        return refuse("pointer address");
+    let addresses = inputs
+        .iter()
+        .map(|x| x.address())
+        .chain(references.iter().map(|x| x.address()))
+        .chain(outputs.iter().map(MultiEraOutput::address))
+        .filter_map(Result::ok)
+        .map(context_address)
+        .collect::<Result<Vec<_>, _>>()?;
+    if *language == Language::PlutusV4 {
+        for address in &addresses {
+            v4_stake(address)?;
+        }
     }
     if !holds.inline_datums && any(&|x| matches!(x.datum(), Some(DatumOption::Data(_)))) {
         return refuse("inline datum");
