@@ -1087,11 +1087,6 @@ fn check_scripts(
         let language = plutus.get(hash).ok_or(PostAlonzo(ScriptWitnessMissing))?;
         languages.insert(language.clone());
     }
-    if scripts.iter().any(|(key, hash)| {
-        key.tag == RedeemerTag::Guarding && plutus.get(hash) == Some(&Language::PlutusV4)
-    }) {
-        return Err(DijkstraUnsupported("redeemer purpose"));
-    }
     if !scripts.is_empty() {
         match time {
             Some(time) => {
