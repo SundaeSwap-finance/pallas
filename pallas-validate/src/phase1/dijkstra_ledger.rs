@@ -16,9 +16,19 @@ use pallas_crypto::hash::Hash;
 use pallas_primitives::dijkstra::*;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-/// The ledger state fields of a top level or sub transaction body.
+/// The fields a top level and a sub transaction body share, with the position of a sub transaction in its batch.
+#[derive(Clone, Copy)]
 pub(crate) struct Level<'a> {
     pub id: Hash<32>,
+    pub sub: Option<u32>,
+    pub inputs: &'a Set<TransactionInput>,
+    pub reference_inputs: Option<&'a NonEmptySet<TransactionInput>>,
+    pub outputs: &'a [TransactionOutput<'a>],
+    pub validity_interval_start: Option<u64>,
+    pub ttl: Option<u64>,
+    pub mint: Option<&'a Mint>,
+    pub guards: Option<&'a Guards>,
+    pub required_top_level_guards: Option<&'a RequiredTopLevelGuards>,
     pub withdrawals: Option<&'a Withdrawals>,
     pub certificates: Option<&'a NonEmptySet<Certificate>>,
     pub direct_deposits: Option<&'a DirectDeposits>,
@@ -31,9 +41,18 @@ pub(crate) struct Level<'a> {
 }
 
 impl<'a> Level<'a> {
-    pub fn top(b: &'a TransactionBody<'_>, id: Hash<32>) -> Self {
+    pub fn top(b: &'a TransactionBody<'a>, id: Hash<32>) -> Self {
         Level {
             id,
+            sub: None,
+            inputs: &b.inputs,
+            reference_inputs: b.reference_inputs.as_ref(),
+            outputs: &b.outputs,
+            validity_interval_start: b.validity_interval_start,
+            ttl: b.ttl,
+            mint: b.mint.as_ref(),
+            guards: b.guards.as_ref(),
+            required_top_level_guards: b.required_top_level_guards.as_ref(),
             withdrawals: b.withdrawals.as_ref(),
             certificates: b.certificates.as_ref(),
             direct_deposits: b.direct_deposits.as_ref(),
@@ -46,9 +65,18 @@ impl<'a> Level<'a> {
         }
     }
 
-    pub fn sub(b: &'a SubTransactionBody<'_>, id: Hash<32>) -> Self {
+    pub fn sub(b: &'a SubTransactionBody<'a>, id: Hash<32>, index: u32) -> Self {
         Level {
             id,
+            sub: Some(index),
+            inputs: &b.inputs,
+            reference_inputs: b.reference_inputs.as_ref(),
+            outputs: &b.outputs,
+            validity_interval_start: b.validity_interval_start,
+            ttl: b.ttl,
+            mint: b.mint.as_ref(),
+            guards: b.guards.as_ref(),
+            required_top_level_guards: b.required_top_level_guards.as_ref(),
             withdrawals: b.withdrawals.as_ref(),
             certificates: b.certificates.as_ref(),
             direct_deposits: b.direct_deposits.as_ref(),

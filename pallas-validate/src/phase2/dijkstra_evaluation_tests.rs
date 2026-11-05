@@ -295,10 +295,7 @@ fn native_registration_invalid_redeemer_and_budget() {
         }
         let mut excess = tx.clone();
         change_redeemer(&mut excess, |_, v| v.ex_units.steps = u64::MAX);
-        error(
-            run(&excess, &u),
-            "declared transaction budget exceeds maximum",
-        );
+        error(run(&excess, &u), "CPU budget overflow");
     });
 }
 #[test]
@@ -564,6 +561,7 @@ fn native_registration_runs_a_v4_script_on_the_v4_context() {
 }
 #[test]
 fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
+    use crate::phase1::dijkstra_ledger::Level;
     use crate::utils::dijkstra_context::{Untranslatable, check_translatable};
     use pallas_addresses::{
         Network, Pointer, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart,
@@ -591,7 +589,8 @@ fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
                 .into(),
             ));
             b.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
-            let held = |language| check_translatable(&language, &b, &[], &[]);
+            let level = Level::top(&b, Hash::new([0; 32]));
+            let held = |language| check_translatable(&language, &level, &[], &[]);
             let held = (held(n::Language::PlutusV3), held(n::Language::PlutusV4));
             tx.transaction_body = b.into();
             let report = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &v4_params(), &u, &slots());
@@ -634,7 +633,7 @@ const GUARDING: n::RedeemersKey = n::RedeemersKey {
     index: 0,
 };
 #[test]
-fn native_registration_runs_a_v4_guarding_redeemer_of_a_batch_without_subtransactions() {
+fn native_registration_runs_a_v4_guarding_redeemer_of_a_batch() {
     fixture(|mut tx, mut u| {
         with_v4_guard(&mut tx, &mut u);
         let evaluate = |tx: &n::BlockTransaction<'_>| {
@@ -653,7 +652,71 @@ fn native_registration_runs_a_v4_guarding_redeemer_of_a_batch_without_subtransac
         let mut b = (*tx.transaction_body).clone();
         b.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
         tx.transaction_body = b.into();
-        error(evaluate(&tx), "guarding redeemer with subtransactions");
+        let report = evaluate(&tx).unwrap();
+        assert!(
+            report
+                .iter()
+                .all(|r| r.success && r.sub_transaction.is_none()),
+            "{report:?}"
+        );
+    });
+}
+#[test]
+fn native_registration_gives_only_a_top_level_guard_the_batch_view() {
+    use crate::phase1::dijkstra_ledger::Level;
+    use crate::utils::dijkstra_context::{LEGACY_IN_SUB, check_translatable};
+    use c::PlutusData;
+    fixture(|mut tx, mut u| {
+        with_v4_guard(&mut tx, &mut u);
+        add_redeemer(&mut tx, GUARDING);
+        let mut sub: n::SubTransaction =
+            minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
+        let level = Level::sub(&sub.sub_transaction_body, Hash::new([0; 32]), 0);
+        assert_eq!(
+            check_translatable(&n::Language::PlutusV3, &level, &[], &[]),
+            Err(LEGACY_IN_SUB)
+        );
+        assert_eq!(
+            check_translatable(&n::Language::PlutusV4, &level, &[], &[]),
+            Ok(())
+        );
+        let mut body = (*sub.sub_transaction_body).clone();
+        body.guards = tx.transaction_body.guards.clone();
+        sub.sub_transaction_body = body.into();
+        let redeemers = &tx.transaction_witness_set.redeemer.as_ref().unwrap().0;
+        let value = redeemers.values().next().unwrap().clone();
+        let mut w = (*sub.transaction_witness_set).clone();
+        w.redeemer = Some(n::Redeemers([(GUARDING, value)].into_iter().collect()).into());
+        sub.transaction_witness_set = w.into();
+        let mut b = (*tx.transaction_body).clone();
+        b.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+        tx.transaction_body = b.into();
+        let tx = MultiEraTx::from_dijkstra(&tx);
+        let report = evaluate_tx(&tx, &v4_params(), &u, &slots()).unwrap();
+        let levels: Vec<_> = report
+            .iter()
+            .filter(|r| r.tag == MultiEraRedeemerTag::Guarding)
+            .map(|r| (r.sub_transaction, r.success))
+            .collect();
+        assert_eq!(levels, [(Some(0), true), (None, true)], "{report:?}");
+        let time = super::dijkstra::linear_time(&slots()).unwrap();
+        let runs = super::dijkstra::runs(&tx, &v4_params(), &u, &time, false).unwrap();
+        let view = |sub: Option<u32>| {
+            let run = runs
+                .iter()
+                .find(|r| r.sub == sub && r.tag == n::RedeemerTag::Guarding)
+                .unwrap();
+            let PlutusData::Array(context) = &run.args[0] else {
+                panic!("{:?}", run.args[0])
+            };
+            let PlutusData::Constr(info) = &context[2] else {
+                panic!("{:?}", context[2])
+            };
+            info.fields[1].clone()
+        };
+        let none = None::<PlutusData>.to_plutus_data();
+        assert_eq!(view(Some(0)), none);
+        assert_ne!(view(None), none);
     });
 }
 #[test]
@@ -909,13 +972,6 @@ fn native_registration_features_and_protocols() {
                 error(run(&changed, &u), expected);
             }
         }
-        let bytes =
-            hex::decode(include_str!("../../../test_data/dijkstra-subtx.tx").trim()).unwrap();
-        let batch = MultiEraTx::decode_for_era(Era::Dijkstra, &bytes).unwrap();
-        error(
-            evaluate_tx(&batch, &params(), &u, &slots()),
-            "subtransaction redeemers",
-        );
     });
 }
 

@@ -1,5 +1,5 @@
-//! The PlutusV4 script context of a top level redeemer.
-use super::{ContextInput, ContextOutput, Purpose, conway_certificate, unsupported};
+//! The PlutusV4 script context of a redeemer of a level of a batch.
+use super::{Context, ContextInput, ContextOutput, Purpose, conway_certificate, unsupported};
 use crate::phase1::dijkstra_ledger::{account_order, reward_account};
 use crate::phase2::{
     error::Error,
@@ -7,7 +7,7 @@ use crate::phase2::{
     to_plutus_data::{MintValue, ToPlutusData, WithRegistrationDeposit, wrap_multiple_with_constr},
 };
 use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart};
-use pallas_codec::utils::{KeyValuePairs, MaybeIndefArray, Nullable};
+use pallas_codec::utils::{Int, KeyValuePairs, MaybeIndefArray, Nullable};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
     RewardAccount,
@@ -16,77 +16,71 @@ use pallas_primitives::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The parts of the top level of a transaction its PlutusV4 script contexts hold.
-pub(super) struct Top<'a, 'b> {
-    pub(super) body: &'a n::TransactionBody<'b>,
-    pub(super) id: Hash<32>,
-    pub(super) inputs: &'a [ContextInput],
-    pub(super) reference_inputs: &'a [ContextInput],
-    pub(super) outputs: &'a [ContextOutput],
-    pub(super) valid_range: &'a TimeRange,
-    pub(super) datums: &'a BTreeMap<Hash<32>, PlutusData>,
-    pub(super) proposals: &'a [c::ProposalProcedure],
-    pub(super) redeemers: &'a [(n::RedeemersKey, Purpose, n::RedeemersValue)],
-    pub(super) scripts: &'a BTreeMap<n::RedeemersKey, Hash<28>>,
+/// The sub transaction levels of a batch and the validity interval of all its levels, which the script info of a top level guard holds.
+pub(super) struct Batch<'a> {
+    pub(super) subs: Vec<Context<'a>>,
+    pub(super) valid_range: TimeRange,
 }
 
-/// The fields of a PlutusV4 transaction info, encoded.
+/// The fields of a PlutusV4 transaction info, encoded, with the items of its lists apart so the levels of a batch can join them.
 struct TxInfo {
     id: PlutusData,
-    inputs: PlutusData,
-    reference_inputs: PlutusData,
-    outputs: PlutusData,
+    sub: PlutusData,
+    inputs: Vec<PlutusData>,
+    reference_inputs: Vec<PlutusData>,
+    outputs: Vec<PlutusData>,
     mint: PlutusData,
-    certificates: PlutusData,
+    certificates: Vec<PlutusData>,
     withdrawals: PlutusData,
     direct_deposits: PlutusData,
     balance_intervals: PlutusData,
     valid_range: PlutusData,
-    guards: PlutusData,
+    guards: Vec<PlutusData>,
     required_guards: PlutusData,
     redeemers: PlutusData,
     data: PlutusData,
     votes: PlutusData,
-    proposals: PlutusData,
+    proposals: Vec<PlutusData>,
     treasury: PlutusData,
     donation: PlutusData,
 }
 
 impl TxInfo {
-    /// The encoded transaction info of the top level, which has no fee and no sub transaction index.
-    fn data(self) -> PlutusData {
+    /// The encoded transaction info, which has no fee.
+    fn data(&self) -> PlutusData {
         list(vec![
-            self.id,
-            None::<u64>.to_plutus_data(),
-            self.inputs,
-            self.reference_inputs,
-            self.outputs,
-            self.mint,
-            self.certificates,
-            self.withdrawals,
-            self.direct_deposits,
-            self.balance_intervals,
-            self.valid_range,
-            self.guards,
-            self.required_guards,
-            self.redeemers,
-            self.data,
-            self.votes,
-            self.proposals,
-            self.treasury,
-            self.donation,
+            self.id.clone(),
+            self.sub.clone(),
+            list(self.inputs.clone()),
+            list(self.reference_inputs.clone()),
+            list(self.outputs.clone()),
+            self.mint.clone(),
+            list(self.certificates.clone()),
+            self.withdrawals.clone(),
+            self.direct_deposits.clone(),
+            self.balance_intervals.clone(),
+            self.valid_range.clone(),
+            list(self.guards.clone()),
+            self.required_guards.clone(),
+            self.redeemers.clone(),
+            self.data.clone(),
+            self.votes.clone(),
+            list(self.proposals.clone()),
+            self.treasury.clone(),
+            self.donation.clone(),
         ])
     }
 }
 
-impl Top<'_, '_> {
-    /// The script context of the redeemer at `key`, with the datum it spends.
+impl<'a> Context<'a> {
+    /// The script context of the redeemer at `key`, with the datum it spends and the batch a top level guard reads.
     pub(super) fn script_context(
         &self,
         key: &n::RedeemersKey,
         purpose: &Purpose,
         redeemer: &PlutusData,
         datum: Option<&PlutusData>,
+        batch: &dyn Fn() -> Result<Batch<'a>, Error>,
     ) -> Result<PlutusData, Error> {
         let hash = &self.scripts[key];
         let tx_info = self.tx_info()?;
@@ -97,7 +91,11 @@ impl Top<'_, '_> {
             }
             Purpose::Conway(..) => {}
             Purpose::Guarding(_) => {
-                fields.push(Some(self.top_tx_info(hash, &tx_info)?).to_plutus_data())
+                let top = match self.level.sub {
+                    Some(_) => None,
+                    None => Some(self.top_tx_info(hash, &tx_info, &batch()?)?),
+                };
+                fields.push(top.to_plutus_data())
             }
         }
         Ok(list(vec![
@@ -108,11 +106,11 @@ impl Top<'_, '_> {
         ]))
     }
 
-    /// The transaction info fields of the top level.
+    /// The transaction info fields of the level.
     fn tx_info(&self) -> Result<TxInfo, Error> {
-        let b = self.body;
+        let level = &self.level;
         let mut redeemers = Vec::new();
-        for (key, purpose, redeemer) in self.redeemers {
+        for (key, purpose, redeemer) in &self.redeemers {
             let (index, fields) = self.fields(purpose)?;
             let purpose = std::iter::once(self.scripts[key].to_plutus_data()).chain(fields);
             redeemers.push((
@@ -122,7 +120,7 @@ impl Top<'_, '_> {
             ));
         }
         redeemers.sort_by(|x, y| x.0.cmp(y.0));
-        let guards = match &b.guards {
+        let guards = match level.guards {
             None => vec![],
             Some(n::Guards::AddrKeyhashes(keys)) => keys
                 .iter()
@@ -132,48 +130,48 @@ impl Top<'_, '_> {
                 credentials.iter().map(|x| x.to_plutus_data()).collect()
             }
         };
-        let mut required: Vec<_> = b.required_top_level_guards.iter().flatten().collect();
-        required.sort_by_key(|(credential, _)| credential_order(credential));
-        let votes = get_votes_info(&b.voting_procedures)
-            .iter()
-            .map(|(voter, actions)| {
-                let actions = actions
-                    .iter()
-                    .map(|(id, procedure)| (gov_action_id(id), procedure.vote.to_plutus_data()))
-                    .collect();
-                (voter.to_plutus_data(), map(actions))
-            })
+        let mut required: Vec<_> = level
+            .required_top_level_guards
+            .into_iter()
+            .flatten()
             .collect();
+        required.sort_by_key(|(credential, _)| credential_order(credential));
         Ok(TxInfo {
-            id: self.id.to_plutus_data(),
-            inputs: list(self.inputs.iter().map(input).collect::<Result<_, _>>()?),
-            reference_inputs: list(
-                self.reference_inputs
-                    .iter()
-                    .map(input)
-                    .collect::<Result<_, _>>()?,
-            ),
-            outputs: list(self.outputs.iter().map(output).collect::<Result<_, _>>()?),
+            id: level.id.to_plutus_data(),
+            sub: level.sub.to_plutus_data(),
+            inputs: self.inputs.iter().map(input).collect::<Result<_, _>>()?,
+            reference_inputs: self
+                .reference_inputs
+                .iter()
+                .map(input)
+                .collect::<Result<_, _>>()?,
+            outputs: self.outputs.iter().map(output).collect::<Result<_, _>>()?,
             mint: MintValue {
-                mint_value: b.mint.clone().unwrap_or_default(),
+                mint_value: level.mint.cloned().unwrap_or_default(),
             }
             .to_plutus_data(),
-            certificates: list(b.certificates.iter().flatten().map(certificate).collect()),
-            withdrawals: map(by_account(b.withdrawals.iter().flatten(), |x| {
+            certificates: level
+                .certificates
+                .into_iter()
+                .flatten()
+                .map(certificate)
+                .collect(),
+            withdrawals: map(by_account(level.withdrawals.into_iter().flatten(), |x| {
                 x.to_plutus_data()
             })?),
-            direct_deposits: map(by_account(b.direct_deposits.iter().flatten(), |x| {
-                x.to_plutus_data()
-            })?),
+            direct_deposits: map(by_account(
+                level.direct_deposits.into_iter().flatten(),
+                |x| x.to_plutus_data(),
+            )?),
             balance_intervals: map(by_account(
-                b.account_balance_intervals.iter().flatten(),
+                level.intervals.into_iter().flatten(),
                 balance_interval,
             )?),
             valid_range: list(vec![
                 self.valid_range.lower_bound.to_plutus_data(),
                 self.valid_range.upper_bound.to_plutus_data(),
             ]),
-            guards: list(guards),
+            guards,
             required_guards: map(required
                 .into_iter()
                 .map(|(credential, datum)| (credential.to_plutus_data(), datum.to_plutus_data()))
@@ -187,21 +185,20 @@ impl Top<'_, '_> {
                 .iter()
                 .map(|(hash, datum)| (hash.to_plutus_data(), datum.clone()))
                 .collect()),
-            votes: map(votes),
-            proposals: list(
-                self.proposals
-                    .iter()
-                    .map(proposal)
-                    .collect::<Result<_, _>>()?,
-            ),
-            treasury: b.treasury_value.to_plutus_data(),
-            donation: b.donation.as_ref().map_or(0, u64::from).to_plutus_data(),
+            votes: votes(&level.votes.cloned()),
+            proposals: self
+                .proposals
+                .iter()
+                .map(proposal)
+                .collect::<Result<_, _>>()?,
+            treasury: level.treasury_value.to_plutus_data(),
+            donation: level.donation.unwrap_or(0).to_plutus_data(),
         })
     }
 
     /// The constructor index of `purpose` and the fields its script purpose and script info share.
     fn fields(&self, purpose: &Purpose) -> Result<(u64, Vec<PlutusData>), Error> {
-        let certificates: Vec<_> = self.body.certificates.iter().flatten().collect();
+        let certificates: Vec<_> = self.level.certificates.into_iter().flatten().collect();
         Ok(match purpose {
             Purpose::Conway(_, ScriptInfo::Minting(policy)) => (0, vec![policy.to_plutus_data()]),
             Purpose::Conway(_, ScriptInfo::Spending(spent, ())) => (1, vec![out_ref(spent)]),
@@ -219,57 +216,116 @@ impl Top<'_, '_> {
         })
     }
 
-    /// The view of the whole transaction in the script info of the guard `hash`.
-    fn top_tx_info(&self, hash: &Hash<28>, tx_info: &TxInfo) -> Result<PlutusData, Error> {
-        let b = self.body;
-        if b.sub_transactions.iter().flatten().next().is_some() {
-            return unsupported("guarding redeemer with subtransactions");
-        }
-        let datums = match b
-            .required_top_level_guards
-            .as_ref()
-            .and_then(|x| x.get(&StakeCredential::ScriptHash(*hash)))
-        {
-            Some(Nullable::Some(datum)) => vec![(tx_info.id.clone(), datum.clone())],
-            _ => vec![],
-        };
-        let mut required: Vec<_> = b.required_top_level_guards.iter().flatten().collect();
-        required.sort_by_key(|(credential, _)| credential_order(credential));
-        let redeemer_hashes: BTreeSet<_> = self
-            .redeemers
+    /// The view of the whole batch in the script info of the guard `hash` of this top level, whose transaction info is `tx_info`.
+    fn top_tx_info(
+        &self,
+        hash: &Hash<28>,
+        tx_info: &TxInfo,
+        batch: &Batch<'_>,
+    ) -> Result<PlutusData, Error> {
+        let subs = batch
+            .subs
             .iter()
-            .map(|(key, ..)| self.scripts[key])
+            .map(|x| x.tx_info())
+            .collect::<Result<Vec<_>, _>>()?;
+        let levels: Vec<(&Context<'_>, &TxInfo)> = batch
+            .subs
+            .iter()
+            .zip(&subs)
+            .chain([(self, tx_info)])
             .collect();
+        let guard = StakeCredential::ScriptHash(*hash);
+        let mut datums = BTreeMap::new();
+        for (context, _) in &levels {
+            if let Some(Nullable::Some(datum)) = context
+                .level
+                .required_top_level_guards
+                .and_then(|x| x.get(&guard))
+            {
+                datums.insert(context.level.id, datum.clone());
+            }
+        }
+        let concat = |field: fn(&TxInfo) -> &Vec<PlutusData>| {
+            list(levels.iter().flat_map(|(_, x)| field(x).clone()).collect())
+        };
+        let mints: Vec<_> = levels.iter().filter_map(|(x, _)| x.level.mint).collect();
+        let mut withdrawals = BTreeMap::new();
+        let mut deposits = BTreeMap::new();
+        let mut required = BTreeSet::new();
+        let mut redeemer_hashes = BTreeSet::new();
+        let mut data = BTreeMap::new();
+        let mut voters = BTreeMap::new();
+        let mut donation = 0;
+        for (context, _) in &levels {
+            let level = &context.level;
+            for (account, coin) in level.withdrawals.into_iter().flatten() {
+                *withdrawals.entry(account.clone()).or_insert(0) += i128::from(*coin);
+            }
+            for (account, coin) in level.direct_deposits.into_iter().flatten() {
+                *deposits.entry(account.clone()).or_insert(0) += i128::from(*coin);
+            }
+            for (credential, _) in level.required_top_level_guards.into_iter().flatten() {
+                required.insert(credential_order(credential));
+            }
+            redeemer_hashes.extend(
+                context
+                    .redeemers
+                    .iter()
+                    .map(|(key, ..)| context.scripts[key]),
+            );
+            data.extend(context.datums.clone());
+            for (voter, actions) in level.votes.into_iter().flatten() {
+                let entry: &mut BTreeMap<_, _> = voters.entry(voter.clone()).or_default();
+                entry.extend(actions.clone());
+            }
+            donation += i128::from(level.donation.unwrap_or(0));
+        }
         let simplified = list(vec![
-            list(vec![tx_info.id.clone()]),
-            tx_info.inputs.clone(),
-            tx_info.reference_inputs.clone(),
-            tx_info.outputs.clone(),
-            mint_part(b.mint.as_ref(), true),
-            mint_part(b.mint.as_ref(), false),
-            tx_info.certificates.clone(),
-            tx_info.withdrawals.clone(),
-            tx_info.direct_deposits.clone(),
-            tx_info.valid_range.clone(),
-            tx_info.guards.clone(),
+            list(levels.iter().map(|(_, x)| x.id.clone()).collect()),
+            concat(|x| &x.inputs),
+            concat(|x| &x.reference_inputs),
+            concat(|x| &x.outputs),
+            mint_part(&mints, true),
+            mint_part(&mints, false),
+            concat(|x| &x.certificates),
+            map(by_account(withdrawals.iter(), |x| integer(*x))?),
+            map(by_account(deposits.iter(), |x| integer(*x))?),
+            list(vec![
+                batch.valid_range.lower_bound.to_plutus_data(),
+                batch.valid_range.upper_bound.to_plutus_data(),
+            ]),
+            concat(|x| &x.guards),
             list(
                 required
                     .into_iter()
-                    .map(|(credential, _)| credential.to_plutus_data())
+                    .map(|(key, hash)| match key {
+                        false => StakeCredential::ScriptHash(hash),
+                        true => StakeCredential::AddrKeyhash(hash),
+                    })
+                    .map(|x| x.to_plutus_data())
                     .collect(),
             ),
             list(redeemer_hashes.iter().map(|x| x.to_plutus_data()).collect()),
-            tx_info.data.clone(),
-            tx_info.votes.clone(),
-            tx_info.proposals.clone(),
-            tx_info.treasury.clone(),
-            tx_info.donation.clone(),
+            map(data
+                .iter()
+                .map(|(hash, datum)| (hash.to_plutus_data(), datum.clone()))
+                .collect()),
+            votes(&Some(voters)),
+            concat(|x| &x.proposals),
+            levels
+                .iter()
+                .find_map(|(x, _)| x.level.treasury_value)
+                .to_plutus_data(),
+            integer(donation),
         ]);
         Ok(list(vec![
-            list(vec![]),
-            map(datums),
+            list(subs.iter().map(TxInfo::data).collect()),
+            map(datums
+                .iter()
+                .map(|(id, datum)| (id.to_plutus_data(), datum.clone()))
+                .collect()),
             map(by_account(
-                b.starting_account_balance_intervals.iter().flatten(),
+                self.level.starting_intervals.into_iter().flatten(),
                 balance_interval,
             )?),
             simplified,
@@ -277,21 +333,63 @@ impl Top<'_, '_> {
     }
 }
 
-/// The entries of `mint` with positive amounts, or with negative amounts, without the policies left empty.
-fn mint_part(mint: Option<&c::Mint>, positive: bool) -> PlutusData {
-    let mint_value = mint
-        .into_iter()
-        .flatten()
-        .filter_map(|(policy, assets)| {
-            let assets: BTreeMap<_, _> = assets
+/// The votes of `procedures`, by voter and then by governance action.
+fn votes(procedures: &Option<c::VotingProcedures>) -> PlutusData {
+    map(get_votes_info(procedures)
+        .iter()
+        .map(|(voter, actions)| {
+            let actions = actions
                 .iter()
-                .filter(|(_, amount)| (i64::from(*amount) > 0) == positive)
-                .map(|(name, amount)| (name.clone(), *amount))
+                .map(|(id, procedure)| (gov_action_id(id), procedure.vote.to_plutus_data()))
                 .collect();
-            (!assets.is_empty()).then_some((*policy, assets))
+            (voter.to_plutus_data(), map(actions))
         })
-        .collect();
-    MintValue { mint_value }.to_plutus_data()
+        .collect())
+}
+
+/// The entries of the `mints` with positive amounts, or with negative amounts, summed, without the policies left empty.
+fn mint_part(mints: &[&c::Mint], positive: bool) -> PlutusData {
+    let mut sums: BTreeMap<_, BTreeMap<_, i128>> = BTreeMap::new();
+    for (policy, assets) in mints.iter().copied().flatten() {
+        for (name, amount) in assets {
+            let amount = i64::from(*amount);
+            if (amount > 0) == positive {
+                *sums
+                    .entry(*policy)
+                    .or_default()
+                    .entry(name.clone())
+                    .or_default() += i128::from(amount);
+            }
+        }
+    }
+    map(sums
+        .into_iter()
+        .map(|(policy, assets)| {
+            let assets = assets
+                .into_iter()
+                .map(|(name, amount)| (name.to_plutus_data(), integer(amount)))
+                .collect();
+            (policy.to_plutus_data(), map(assets))
+        })
+        .collect())
+}
+
+/// An integer, in the data encoding of its size.
+fn integer(value: impl Into<i128>) -> PlutusData {
+    let value = value.into();
+    match Int::try_from(value) {
+        Ok(x) => PlutusData::BigInt(c::BigInt::Int(x)),
+        Err(_) => {
+            let (magnitude, big): (u128, fn(_) -> c::BigInt) = if value < 0 {
+                ((!value) as u128, c::BigInt::BigNInt)
+            } else {
+                (value as u128, c::BigInt::BigUInt)
+            };
+            let bytes = magnitude.to_be_bytes();
+            let first = bytes.iter().position(|x| *x != 0).unwrap_or(bytes.len());
+            PlutusData::BigInt(big(bytes[first..].to_vec().into()))
+        }
+    }
 }
 
 /// A record or a list, which PlutusV4 encodes as a data list.
