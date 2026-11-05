@@ -1,5 +1,5 @@
 use super::*;
-use pallas_addresses::ShelleyDelegationPart;
+use pallas_addresses::{ShelleyDelegationPart, ShelleyPaymentPart};
 use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_traverse::OriginalHash;
 

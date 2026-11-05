@@ -1386,6 +1386,39 @@ fn native_registration_resolves_synthetic_earlier_era_outputs() {
         }
     });
 }
+#[test]
+fn native_registration_refuses_a_spent_input_at_a_reward_account() {
+    use pallas_primitives::alonzo;
+    let output = alonzo::TransactionOutput {
+        address: [vec![0xe0], vec![0x55; 28]].concat().into(),
+        amount: alonzo::Value::Coin(50),
+        datum_hash: None,
+    };
+    fixture(|mut tx, mut u| {
+        replace_script(
+            &mut tx,
+            &mut u,
+            Some(n::ScriptRef::PlutusV3Script(script(
+                "(program 1.1.0 (lam ctx (con unit ())))",
+            ))),
+            true,
+        );
+        let key = TxoRef([0x77; 32].into(), 0);
+        let mut body = (*tx.transaction_body).clone();
+        body.inputs = vec![n::TransactionInput {
+            transaction_id: key.0,
+            index: 0,
+        }]
+        .try_into()
+        .unwrap();
+        tx.transaction_body = body.into();
+        u.insert(
+            key,
+            EraCbor(Era::Alonzo, minicbor::to_vec(&output).unwrap()),
+        );
+        error(run(&tx, &u), "DijkstraInvalid(\"input address\")");
+    });
+}
 
 #[test]
 fn native_registration_excludes_collateral_and_unrelated_script_sources() {

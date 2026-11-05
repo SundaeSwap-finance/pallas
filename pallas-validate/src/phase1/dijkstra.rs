@@ -24,7 +24,10 @@ use pallas_traverse::{
     ComputeHash, MultiEraInput, MultiEraNativeScript, MultiEraOutput, MultiEraScriptRef,
     OriginalHash,
 };
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet, HashSet},
+};
 
 type Keys = HashSet<Hash<28>>;
 const MALFORMED_VALUE: ValidationError = DijkstraMalformed("multi-asset value");
@@ -78,7 +81,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
     let level = Level::top(b, Hasher::<256>::hash(b.raw_cbor()));
     keys.extend(ledger::needs(&level)?.keys);
-    let scripts = ledger::redeemer_scripts(&level, |x| locking(x, utxos))?;
+    let scripts = ledger::redeemer_scripts(&level, |x| spent(x, utxos))?;
     check_interval(
         level.validity_interval_start,
         level.ttl,
@@ -207,18 +210,16 @@ fn resolve<'a, 'b>(
         .collect()
 }
 
-/// The script that locks the spent `input`, resolved in `utxos`.
-fn locking(
+/// The output the spent `input` resolves to in `utxos`.
+fn spent<'a, 'b>(
     input: &TransactionInput,
-    utxos: &UTxOs<'_>,
-) -> Result<Option<Hash<28>>, ValidationError> {
-    let output = utxos
-        .get(&MultiEraInput::from_alonzo_compatible(input))
-        .ok_or(PostAlonzo(InputNotInUTxO))?;
-    match spender(output)? {
-        Spender::Script(hash) => Ok(Some(hash)),
-        Spender::Key(_) => Ok(None),
-    }
+    utxos: &'a UTxOs<'b>,
+) -> Result<&'a MultiEraOutput<'b>, ValidationError> {
+    utxos
+        .get(&MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(
+            input.clone(),
+        ))))
+        .ok_or(PostAlonzo(InputNotInUTxO))
 }
 
 /// The ledger state changes of a transaction the ledger has accepted, computed against `state`.
@@ -451,12 +452,12 @@ fn check_inputs(
     }
     Ok(coin)
 }
-enum Spender {
+pub(crate) enum Spender {
     Key(Hash<28>),
     Script(Hash<28>),
 }
 /// Pointer delegation plays no part in spending, so pointer addresses pass.
-fn spender(output: &MultiEraOutput<'_>) -> Result<Spender, ValidationError> {
+pub(crate) fn spender(output: &MultiEraOutput<'_>) -> Result<Spender, ValidationError> {
     match output.address().map_err(|_| PostAlonzo(AddressDecoding))? {
         Address::Shelley(address) => Ok(match address.payment() {
             ShelleyPaymentPart::Key(key) => Spender::Key(*key),
@@ -859,7 +860,7 @@ fn sub_scripts(b: &TransactionBody<'_>, utxos: &UTxOs<'_>) -> Result<SubScripts,
     for (index, sub) in (0..).zip(b.sub_transactions.iter().flatten()) {
         let sb = &sub.sub_transaction_body;
         let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index);
-        let scripts = ledger::redeemer_scripts(&level, |x| locking(x, utxos))?;
+        let scripts = ledger::redeemer_scripts(&level, |x| spent(x, utxos))?;
         subs.needed.extend(scripts.values());
         subs.levels.push(scripts);
         let mut outputs = Vec::new();
