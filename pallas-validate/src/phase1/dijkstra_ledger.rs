@@ -1,4 +1,5 @@
 //! Dijkstra rules on account, pool, DRep, committee and proposal state.
+use super::dijkstra::{Spender, spender};
 use crate::utils::{
     DijkstraProtParams,
     PostAlonzoError::*,
@@ -14,6 +15,7 @@ use pallas_addresses::{Address, StakePayload};
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::dijkstra::*;
+use pallas_traverse::MultiEraOutput;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// The fields a top level and a sub transaction body share, with the position of a sub transaction in its batch.
@@ -172,10 +174,10 @@ fn guarding_scripts(guards: Option<&Guards>) -> BTreeMap<RedeemersKey, Hash<28>>
         .collect()
 }
 
-/// The script each redeemer key of the level `b` names, where `locking` gives the script that locks a spent input.
-pub(crate) fn redeemer_scripts(
+/// The script each redeemer key of the level `b` names, where `spent` gives the output a spent input resolves to.
+pub(crate) fn redeemer_scripts<'o, 'x: 'o>(
     b: &Level<'_>,
-    mut locking: impl FnMut(&TransactionInput) -> Result<Option<Hash<28>>, ValidationError>,
+    mut spent: impl FnMut(&TransactionInput) -> Result<&'o MultiEraOutput<'x>, ValidationError>,
 ) -> Result<BTreeMap<RedeemersKey, Hash<28>>, ValidationError> {
     let mut scripts = guarding_scripts(b.guards);
     scripts.extend(needs(b)?.scripts);
@@ -186,7 +188,7 @@ pub(crate) fn redeemer_scripts(
         .into_iter()
         .enumerate()
     {
-        if let Some(hash) = locking(input)? {
+        if let Spender::Script(hash) = spender(spent(input)?)? {
             let tag = RedeemerTag::Spend;
             scripts.insert(
                 RedeemersKey {
