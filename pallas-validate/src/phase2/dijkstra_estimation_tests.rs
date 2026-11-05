@@ -1,7 +1,7 @@
 //! Synthetic derivatives of the unchanged registration capture; phase two only.
 use super::*;
 
-fn estimate(tx: &n::BlockTransaction<'_>, u: &UtxoMap) -> Result<EvalReport, Error> {
+fn estimate(tx: &n::BlockTransaction<'_>, u: &UtxoMap) -> Result<MultiEraEvalReport, Error> {
     estimate_tx(&MultiEraTx::from_dijkstra(tx), &params(), u, &slots())
 }
 fn unsigned(tx: &mut n::BlockTransaction<'_>) {
@@ -9,7 +9,7 @@ fn unsigned(tx: &mut n::BlockTransaction<'_>) {
     w.vkeywitness = None;
     tx.transaction_witness_set = w.into();
 }
-fn exact(r: &EvalReport) {
+fn exact(r: &MultiEraEvalReport) {
     assert_eq!(r.len(), 1);
     assert_eq!((r[0].tag, r[0].index), (MultiEraRedeemerTag::Cert, 0));
     assert!(r[0].success, "{r:?}");
@@ -114,7 +114,7 @@ fn with_limit(
     tx: &n::BlockTransaction<'_>,
     u: &UtxoMap,
     limit: n::ExUnits,
-) -> Result<EvalReport, Error> {
+) -> Result<MultiEraEvalReport, Error> {
     let mut pp = params();
     let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
         unreachable!()
@@ -292,7 +292,7 @@ fn estimation_aggregate_boundaries_and_indices() {
                 "{r:?}"
             );
         }
-        // The aggregate of the declared budgets is a phase one rule, so evaluate_tx runs each redeemer on its own budget.
+        // The aggregate of the declared budgets is a phase one rule, so evaluate_multi_era_tx runs each redeemer on its own budget.
         let mut declared = tx.clone();
         for value in declared
             .transaction_witness_set
@@ -320,7 +320,8 @@ fn estimation_aggregate_boundaries_and_indices() {
                 unreachable!()
             };
             p.max_tx_ex_units = limit;
-            let result = evaluate_tx(&MultiEraTx::from_dijkstra(&declared), &pp, &u, &slots());
+            let result =
+                evaluate_multi_era_tx(&MultiEraTx::from_dijkstra(&declared), &pp, &u, &slots());
             let result = result.unwrap();
             assert_eq!(result.len(), 2);
             assert!(result.iter().all(|r| r.success), "{result:?}");
