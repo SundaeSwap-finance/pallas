@@ -13,14 +13,17 @@ const PROTOCOL_V12: u64 = 12;
 const PROTOCOL_V13: u64 = 13;
 const PROTOCOL_V14: u64 = 14;
 const PROTOCOL_V15: u64 = 15;
+const PROTOCOL_V16: u64 = 16;
 
 const PEER_SHARING_DISABLED: u8 = 0;
+const PERAS_UNSUPPORTED: bool = false;
 
-/// Minimum N2N protocol version that carries the Leios overlay (the Dijkstra-era
-/// version 15). When a connection negotiates this version or higher, the
-/// leios-notify / leios-fetch mini-protocols are available. The version data
-/// shape is unchanged from v13/v14.
-pub const LEIOS_MIN_VERSION: u64 = PROTOCOL_V15;
+/// Minimum N2N protocol version that carries the Leios overlay. The Haskell node
+/// runs the leios-notify / leios-fetch mini-protocols only on connections that
+/// negotiated version 16 or higher; version 15 is mainline's SRV support and has
+/// no Leios mini-protocols, so opening them on a v15 connection gets it reset.
+/// From version 16 the version data carries a Peras support flag.
+pub const LEIOS_MIN_VERSION: u64 = PROTOCOL_V16;
 
 impl VersionTable {
     /// Builds a version table for v4 and above (deprecated, delegates to v7).
@@ -134,6 +137,16 @@ impl VersionTable {
                     Some(query),
                 ),
             ),
+            (
+                PROTOCOL_V16,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                )
+                .with_peras_support(PERAS_UNSUPPORTED),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -194,6 +207,50 @@ impl VersionTable {
                     Some(query),
                 ),
             ),
+            (
+                PROTOCOL_V16,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                )
+                .with_peras_support(PERAS_UNSUPPORTED),
+            ),
+        ]
+        .into_iter()
+        .collect::<HashMap<u64, VersionData>>();
+
+        VersionTable { values }
+    }
+
+    /// Builds a version table for v15 and above with query mode disabled.
+    pub fn v15_and_above(network_magic: u64) -> VersionTable {
+        Self::v15_and_above_with_query(network_magic, false)
+    }
+
+    /// Builds a version table for v15 and above, optionally enabling query mode.
+    pub fn v15_and_above_with_query(network_magic: u64, query: bool) -> VersionTable {
+        let values = vec![
+            (
+                PROTOCOL_V15,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                ),
+            ),
+            (
+                PROTOCOL_V16,
+                VersionData::new(
+                    network_magic,
+                    true,
+                    Some(PEER_SHARING_DISABLED),
+                    Some(query),
+                )
+                .with_peras_support(PERAS_UNSUPPORTED),
+            ),
         ]
         .into_iter()
         .collect::<HashMap<u64, VersionData>>();
@@ -213,10 +270,16 @@ pub struct VersionData {
     pub peer_sharing: Option<u8>,
     /// Whether this is a query-only connection (available from protocol v11+).
     pub query: Option<bool>,
+    /// Whether the node runs the Peras mini-protocols (required from protocol
+    /// v16, rejected by the Haskell node below it).
+    pub peras_support: Option<bool>,
 }
 
 impl VersionData {
     /// Creates new version data with the given parameters.
+    ///
+    /// Peras support is left unset (`None`), which is the shape of every version
+    /// below v16. Use [`VersionData::with_peras_support`] to set it for v16+.
     pub fn new(
         network_magic: u64,
         initiator_only_diffusion_mode: bool,
@@ -228,7 +291,15 @@ impl VersionData {
             initiator_only_diffusion_mode,
             peer_sharing,
             query,
+            peras_support: None,
         }
+    }
+
+    /// Sets the Peras support flag, required from protocol v16 (encoded only
+    /// when `peer_sharing` and `query` are also set).
+    pub fn with_peras_support(mut self, peras_support: bool) -> Self {
+        self.peras_support = Some(peras_support);
+        self
     }
 }
 
@@ -238,8 +309,16 @@ impl Encode<()> for VersionData {
         e: &mut Encoder<W>,
         _ctx: &mut (),
     ) -> Result<(), encode::Error<W::Error>> {
-        match (self.peer_sharing, self.query) {
-            (Some(peer_sharing), Some(query)) => {
+        match (self.peer_sharing, self.query, self.peras_support) {
+            (Some(peer_sharing), Some(query), Some(peras_support)) => {
+                e.array(5)?
+                    .u64(self.network_magic)?
+                    .bool(self.initiator_only_diffusion_mode)?
+                    .u8(peer_sharing)?
+                    .bool(query)?
+                    .bool(peras_support)?;
+            }
+            (Some(peer_sharing), Some(query), None) => {
                 e.array(4)?
                     .u64(self.network_magic)?
                     .bool(self.initiator_only_diffusion_mode)?
@@ -263,11 +342,15 @@ impl<'b> Decode<'b, ()> for VersionData {
         let network_magic = d.u64()?;
         let initiator_only_diffusion_mode = d.bool()?;
         let peer_sharing = match len {
-            Some(4) => Some(d.u8()?),
+            Some(4 | 5) => Some(d.u8()?),
             _ => None,
         };
         let query = match len {
-            Some(4) => Some(d.bool()?),
+            Some(4 | 5) => Some(d.bool()?),
+            _ => None,
+        };
+        let peras_support = match len {
+            Some(5) => Some(d.bool()?),
             _ => None,
         };
 
@@ -276,6 +359,7 @@ impl<'b> Decode<'b, ()> for VersionData {
             initiator_only_diffusion_mode,
             peer_sharing,
             query,
+            peras_support,
         })
     }
 }
