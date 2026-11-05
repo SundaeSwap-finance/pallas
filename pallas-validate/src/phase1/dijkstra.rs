@@ -7,6 +7,7 @@ use crate::utils::{
     UTxOs, ValidationError,
     ValidationError::*,
     ValidationResult,
+    dijkstra_context::{check_sub_transaction, check_translatable},
     dijkstra_state::{DijkstraLedgerDelta, DijkstraLedgerOverlay, DijkstraLedgerState},
     verify_signature,
 };
@@ -76,7 +77,8 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     let top_guards: BTreeSet<_> = guards.iter().cloned().collect();
     check_required_guards(b.required_top_level_guards.as_ref(), &top_guards)?;
     let mut scripts = ledger::guarding_scripts(b.guards.as_ref());
-    let top = ledger::needs(&Level::top(b, Hasher::<256>::hash(b.raw_cbor())))?;
+    let level = Level::top(b, Hasher::<256>::hash(b.raw_cbor()));
+    let top = ledger::needs(&level)?;
     keys.extend(top.keys);
     scripts.extend(top.scripts);
     for (index, input) in b
@@ -99,7 +101,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
             );
         }
     }
-    for (index, hash) in b.mint.iter().flat_map(|x| x.keys()).enumerate() {
+    for (index, hash) in level.mint.into_iter().flat_map(|x| x.keys()).enumerate() {
         scripts.insert(
             RedeemersKey {
                 tag: RedeemerTag::Mint,
@@ -109,8 +111,8 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
         );
     }
     check_interval(
-        b.validity_interval_start,
-        b.ttl,
+        level.validity_interval_start,
+        level.ttl,
         b.network_id,
         *block_slot,
         *network_id,
@@ -129,21 +131,22 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     let mut spent = Spent::new();
     let mut consumed = flows.consumed;
     let mut output_coin = 0;
-    for sub in b.sub_transactions.iter().flat_map(|x| x.iter()) {
+    for (index, sub) in (0..).zip(b.sub_transactions.iter().flat_map(|x| x.iter())) {
         let sb = &sub.sub_transaction_body;
         let w = &sub.transaction_witness_set;
+        let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index);
         check_auxiliary(sb.auxiliary_data_hash, &sub.auxiliary_data)?;
         check_required_guards(sb.required_top_level_guards.as_ref(), &top_guards)?;
         check_interval(
-            sb.validity_interval_start,
-            sb.ttl,
+            level.validity_interval_start,
+            level.ttl,
             sb.network_id,
             *block_slot,
             *network_id,
         )?;
         let guards = guard_credentials(sb.guards.as_ref());
         let mut sub_keys = guard_keys(&guards);
-        let needs = ledger::needs(&Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor())))?;
+        let needs = ledger::needs(&level)?;
         sub_keys.extend(needs.keys);
         let spending = check_inputs(&sb.inputs, utxos, &mut spent, &mut sub_keys)?;
         consumed = add(consumed, spending.coin)?;
@@ -154,22 +157,22 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
             .iter()
             .chain(guard_scripts(&guards))
             .chain(needs.scripts.values())
-            .chain(sb.mint.iter().flat_map(|x| x.keys()))
+            .chain(level.mint.into_iter().flat_map(|x| x.keys()))
         {
             let Some(script) = provided.natives.get(hash) else {
                 return Err(match provided.plutus.get(hash) {
                     None => PostAlonzo(ScriptWitnessMissing),
-                    Some(Language::PlutusV4) => {
-                        DijkstraUnsupported("reference script language (requires V3)")
-                    }
-                    Some(_) => DijkstraScriptContext("Plutus V1 to V3 script in a subtransaction"),
+                    Some(language) => match check_sub_transaction(language) {
+                        Ok(()) => DijkstraUnsupported("reference script language (requires V3)"),
+                        Err(x) => DijkstraScriptContext(x.0),
+                    },
                 });
             };
             if !crate::utils::dijkstra_native::evaluate(
                 script,
                 &witnesses,
-                sb.validity_interval_start,
-                sb.ttl,
+                level.validity_interval_start,
+                level.ttl,
                 &credentials,
             ) {
                 return Err(PostAlonzo(NativeScriptDenial));
@@ -238,8 +241,9 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
                 .ok_or(PostAlonzo(ReferenceInputNotInUTxO))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let level = Level::top(b, Hasher::<256>::hash(b.raw_cbor()));
     for language in &provided.languages {
-        crate::utils::dijkstra_context::check_translatable(language, b, &inputs, &references)
+        check_translatable(language, &level, &inputs, &references)
             .map_err(|x| DijkstraScriptContext(x.0))?;
     }
     Ok(delta)
@@ -269,9 +273,9 @@ fn ledger_rules<S: DijkstraLedgerState + ?Sized>(
     let b = &tx.transaction_body;
     let mut current = DijkstraLedgerOverlay::new(state);
     let mut flows = Flows::default();
-    for sub in b.sub_transactions.iter().flatten() {
+    for (index, sub) in (0..).zip(b.sub_transactions.iter().flatten()) {
         let sb = &sub.sub_transaction_body;
-        let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()));
+        let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index);
         ledger::check_treasury(&level, state)?;
         flows.add(ledger::entities(
             &level,
@@ -883,11 +887,11 @@ struct SubScripts {
 }
 fn sub_scripts(b: &TransactionBody<'_>, utxos: &UTxOs<'_>) -> Result<SubScripts, ValidationError> {
     let mut subs = SubScripts::default();
-    for sub in b.sub_transactions.iter().flatten() {
+    for (index, sub) in (0..).zip(b.sub_transactions.iter().flatten()) {
         let sb = &sub.sub_transaction_body;
         subs.needed
             .extend(guard_scripts(&guard_credentials(sb.guards.as_ref())));
-        let needs = ledger::needs(&Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor())))?;
+        let needs = ledger::needs(&Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index))?;
         subs.needed.extend(needs.scripts.into_values());
         subs.needed.extend(sb.mint.iter().flat_map(|x| x.keys()));
         let mut outputs = Vec::new();

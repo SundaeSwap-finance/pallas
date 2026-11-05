@@ -71,8 +71,8 @@ pub fn estimate_tx_calls_with_time(
 ///
 /// Successful estimates may sum to more than the transaction maximum. Callers
 /// must check the aggregate before building a valid transaction; estimation does
-/// not certify admission. [`evaluate_tx`] still checks aggregate declared budgets
-/// and enforces each redeemer's declared allowance.
+/// not certify admission. [`evaluate_tx`] enforces each redeemer's declared
+/// allowance, and phase one checks the aggregate of the declared budgets.
 ///
 /// The transaction, script context, redeemer data and cost model are unchanged.
 /// This is phase two only, not admission validation. Existing native feature and
