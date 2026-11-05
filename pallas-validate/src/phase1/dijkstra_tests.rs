@@ -304,6 +304,51 @@ fn dijkstra_validity_is_half_open() {
     });
 }
 #[test]
+fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold() {
+    synthetic(|mut tx, input| {
+        let collateral = native::TransactionInput {
+            transaction_id: [12; 32].into(),
+            index: 0,
+        };
+        let spent = tx.transaction_body.inputs[0].clone();
+        let output = MultiEraOutput::from_dijkstra(&input);
+        let utxos = [spent, collateral.clone()]
+            .into_iter()
+            .map(|x| {
+                (
+                    MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(x))),
+                    output.clone(),
+                )
+            })
+            .collect();
+        let mut e = env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
+            unreachable!()
+        };
+        pp.minfee_a = 0;
+        pp.minfee_b = 0;
+        let run = |tx: &native::BlockTransaction<'_>, e: &Environment| {
+            validate_txs(
+                &[MultiEraTx::from_dijkstra(tx)],
+                e,
+                &utxos,
+                &mut CertState::default(),
+            )
+        };
+        // The annotation disagrees with the collateral balance, which the ledger reads only for a batch with redeemers.
+        tx.transaction_body.collateral = native::NonEmptySet::from_vec(vec![collateral]);
+        tx.transaction_body.total_collateral = Some(1);
+        sign(&mut tx);
+        let accepted = run(&tx, &e);
+        assert!(accepted.is_ok(), "{accepted:?}");
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
+            unreachable!()
+        };
+        pp.max_collateral_inputs = 0;
+        error(run(&tx, &e), "PostAlonzo(TooManyCollaterals)");
+    });
+}
+#[test]
 fn dijkstra_size_fee_and_output_boundaries() {
     captured(|tx, output| {
         assert_eq!(read("control.mempool.hex").len(), 196);
@@ -571,7 +616,7 @@ fn dijkstra_typed_features_reject_explicitly() {
                 }
                 6 => {
                     changed.transaction_body.total_collateral = Some(0);
-                    "collateral without Plutus"
+                    "a collateral annotation without redeemers passes to the signature check"
                 }
                 7 => {
                     changed.transaction_body.reference_inputs =
@@ -591,11 +636,10 @@ fn dijkstra_typed_features_reject_explicitly() {
                 0 => "PostAlonzo(ScriptWitnessMissing)".to_owned(),
                 1 => "PostAlonzo(ReqSignerMissing)".to_owned(),
                 2..=4 => format!("DijkstraMalformed({expected:?})"),
-                7 => "PostAlonzo(VKWrongSignature)".to_owned(),
+                6 | 7 => "PostAlonzo(VKWrongSignature)".to_owned(),
                 5 => "DijkstraTreasuryValueMismatch".to_owned(),
                 8 => "PostAlonzo(ScriptIntegrityHash)".to_owned(),
-                9 => "PostAlonzo(MetadataHash)".to_owned(),
-                _ => format!("DijkstraUnsupported({expected:?})"),
+                _ => "PostAlonzo(MetadataHash)".to_owned(),
             };
             let result = dispatch(&changed, &output, &env());
             assert!(result.is_err(), "field {field} passes");

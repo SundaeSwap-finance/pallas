@@ -1063,33 +1063,27 @@ fn check_scripts(
             .flatten()
             .map(|s| &s.transaction_witness_set),
     );
-    if levels
+    let redeemers = levels
         .into_iter()
-        .any(|w| w.redeemer.as_ref().is_some_and(|x| !x.is_empty()))
-    {
-        check_collateral(b, utxos, pp, keys, network)?;
-    } else if b.collateral.is_some()
-        || b.collateral_return.is_some()
-        || b.total_collateral.is_some()
-    {
-        return Err(DijkstraUnsupported("collateral without Plutus"));
-    }
+        .any(|w| w.redeemer.as_ref().is_some_and(|x| !x.is_empty()));
+    check_collateral(b, utxos, pp, keys, network, redeemers)?;
     Ok(Provided {
         languages,
         ..provided
     })
 }
 
-/// Checks the collateral of a batch in which some level runs a Plutus script, adding the key of each collateral input to `keys`.
+/// Checks the collateral of a batch, with the balance rules only where some level has `redeemers`, adding the key of each key locked collateral input to `keys`.
 fn check_collateral(
     b: &TransactionBody<'_>,
     utxos: &UTxOs<'_>,
     pp: &DijkstraProtParams,
     keys: &mut Keys,
     network: u8,
+    redeemers: bool,
 ) -> ValidationResult {
-    let collateral = b.collateral.as_ref().ok_or(PostAlonzo(CollateralMissing))?;
-    if collateral.is_empty() {
+    let collateral: Vec<_> = b.collateral.iter().flatten().collect();
+    if redeemers && collateral.is_empty() {
         return Err(PostAlonzo(CollateralMissing));
     }
     if collateral.len() > pp.max_collateral_inputs as usize {
@@ -1098,19 +1092,24 @@ fn check_collateral(
     let mut collateral_ids = Spent::new();
     let mut collateral_assets = BTreeMap::new();
     let mut total = 0;
-    for input in collateral.iter() {
+    for input in collateral {
         if !collateral_ids.insert((input.transaction_id, input.index)) {
             return Err(DijkstraUnsupported("duplicate collateral inputs"));
         }
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
             .ok_or(PostAlonzo(CollateralNotInUTxO))?;
-        let Spender::Key(key) = spender(output)? else {
-            return Err(PostAlonzo(CollateralNotVKeyLocked));
-        };
-        keys.insert(key);
-        total = add(total, output.value().coin())?;
-        accumulate_assets(&mut collateral_assets, output, 1)?;
+        match spender(output)? {
+            Spender::Key(key) => {
+                keys.insert(key);
+            }
+            Spender::Script(_) if redeemers => return Err(PostAlonzo(CollateralNotVKeyLocked)),
+            Spender::Script(_) => {}
+        }
+        if redeemers {
+            total = add(total, output.value().coin())?;
+            accumulate_assets(&mut collateral_assets, output, 1)?;
+        }
     }
     let returned = match &b.collateral_return {
         Some(output) => check_outputs(std::slice::from_ref(output), pp, &network)?,
@@ -1124,6 +1123,9 @@ fn check_collateral(
             return Err(DijkstraPointerInCollateralReturn);
         }
         accumulate_assets(&mut collateral_assets, &view, -1)?;
+    }
+    if !redeemers {
+        return Ok(());
     }
     if collateral_assets.values().any(|x| *x != 0) {
         return Err(PostAlonzo(NonLovelaceCollateral));
