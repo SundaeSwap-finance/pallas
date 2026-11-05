@@ -178,7 +178,7 @@ fn dijkstra_pointer_output_keeps_its_pointer_in_a_context() {
             .into(),
         )
     };
-    let address = |output: &ContextOutput| output.address.to_plutus_data();
+    let address = |output: &ContextOutput| output.address_data();
     let base = output(ShelleyDelegationPart::Null);
     let projected = context_output(&MultiEraOutput::from_dijkstra(&base), false).unwrap();
     let payment =

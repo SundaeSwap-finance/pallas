@@ -1,13 +1,13 @@
 //! The PlutusV4 script context of a redeemer of a level of a batch.
-use super::{Context, ContextInput, ContextOutput, Purpose, conway_certificate, unsupported};
+use super::{Context, ContextInput, ContextOutput, Purpose, conway_certificate};
 use crate::phase1::dijkstra_ledger::{account_order, reward_account};
 use crate::phase2::{
     error::Error,
     script_context::{ScriptInfo, TimeRange, get_votes_info},
     to_plutus_data::{MintValue, ToPlutusData, WithRegistrationDeposit, wrap_multiple_with_constr},
 };
-use crate::utils::dijkstra_context::PlutusV4;
-use pallas_addresses::{Address, ShelleyDelegationPart, ShelleyPaymentPart};
+use crate::utils::dijkstra_context::{PlutusV4, v4_stake};
+use pallas_addresses::ShelleyPaymentPart;
 use pallas_codec::utils::{Int, KeyValuePairs, MaybeIndefArray, Nullable};
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{
@@ -464,19 +464,11 @@ fn input(input: &ContextInput) -> Result<PlutusData, Error> {
 
 /// An output, whose address holds a payment credential and an optional stake credential.
 fn output(output: &ContextOutput) -> Result<PlutusData, Error> {
-    let Address::Shelley(address) = &output.address else {
-        return unsupported("output address (requires Shelley)");
-    };
-    let payment = match address.payment() {
+    let payment = match output.address.payment() {
         ShelleyPaymentPart::Key(hash) => StakeCredential::AddrKeyhash(*hash),
         ShelleyPaymentPart::Script(hash) => StakeCredential::ScriptHash(*hash),
     };
-    let stake = match address.delegation() {
-        ShelleyDelegationPart::Key(hash) => Some(StakeCredential::AddrKeyhash(*hash)),
-        ShelleyDelegationPart::Script(hash) => Some(StakeCredential::ScriptHash(*hash)),
-        ShelleyDelegationPart::Null => None,
-        ShelleyDelegationPart::Pointer(_) => return Err(Error::DijkstraInvalid("pointer address")),
-    };
+    let stake = v4_stake(&output.address).map_err(|x| Error::DijkstraInvalid(x.0))?;
     Ok(list(vec![
         list(vec![payment.to_plutus_data(), stake.to_plutus_data()]),
         output.value.to_plutus_data(),
