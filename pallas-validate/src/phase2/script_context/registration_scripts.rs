@@ -4,7 +4,7 @@ use super::*;
 use crate::phase2::{data::Data, to_plutus_data::ToPlutusData, tx::eval_redeemer};
 use pallas_codec::{minicbor, utils::Nullable};
 use pallas_crypto::hash::Hasher;
-use pallas_traverse::{Era, MultiEraBlock, MultiEraRedeemer, MultiEraRedeemerTag};
+use pallas_traverse::{Era, MultiEraBlock, MultiEraRedeemer};
 
 const HASH: &str = "9eb9018892f84064087cfb1559cab8956d6300c47b6f325a7262c3db";
 
@@ -122,7 +122,7 @@ fn captured_registration_executes_reference_script_in_conway_view() {
         assert!(result.success, "{result:?}");
         assert!(result.failure_message.is_none(), "{result:?}");
         assert!(result.units.mem > 0 && result.units.steps > 0, "{result:?}");
-        assert_eq!((result.tag, result.index), (MultiEraRedeemerTag::Cert, 0));
+        assert_eq!((result.tag, result.index), (RedeemerTag::Cert, 0));
         println!("captured execution: {result:?}");
     });
 }

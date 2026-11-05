@@ -492,7 +492,8 @@ fn supplied_linear_slot_config_preserves_the_captured_upper_bound() {
     let f = Fixture::load();
     let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &f.transaction).unwrap();
     let report =
-        phase2::evaluate_tx(&tx, &f.env.prot_params, &f.phase_two_inputs(), &f.slots).unwrap();
+        phase2::evaluate_multi_era_tx(&tx, &f.env.prot_params, &f.phase_two_inputs(), &f.slots)
+            .unwrap();
     assert!(report[0].success);
     assert_eq!(report[0].units, f.expected);
 }

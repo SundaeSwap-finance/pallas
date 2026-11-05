@@ -107,7 +107,7 @@ fn plutus_v4_redeemers_spend_the_ledger_budget() {
         let fixture = read(record);
         let raw = bytes(&fixture["tx"]);
         let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
-        let report = evaluate_tx(&tx, &params(&fixture), &utxos(&fixture), &slots())
+        let report = evaluate_multi_era_tx(&tx, &params(&fixture), &utxos(&fixture), &slots())
             .unwrap_or_else(|e| panic!("record {record}: {e:?}"));
         let want = fixture["redeemers"].as_array().unwrap();
         assert_eq!(report.len(), want.len(), "record {record}: {report:?}");

@@ -272,7 +272,7 @@ mod scripts {
         tx: &n::BlockTransaction<'_>,
         inputs: &[(n::TransactionInput, n::TransactionOutput<'_>)],
         env: &Environment,
-    ) -> Result<crate::phase2::EvalReport, crate::phase2::error::Error> {
+    ) -> Result<crate::phase2::MultiEraEvalReport, crate::phase2::error::Error> {
         let map: UtxoMap = inputs
             .iter()
             .map(|(i, o)| {
@@ -282,7 +282,7 @@ mod scripts {
                 )
             })
             .collect();
-        crate::phase2::evaluate_tx(
+        crate::phase2::evaluate_multi_era_tx(
             &MultiEraTx::from_dijkstra(tx),
             &env.prot_params,
             &map,
