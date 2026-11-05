@@ -1,4 +1,4 @@
-//! Native protocol-12 evaluation of the Plutus scripts the top level of a Dijkstra transaction runs.
+//! Native protocol-12 evaluation of the Plutus scripts the top level and the sub transactions of a Dijkstra transaction run.
 //! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
     error::{Error, Unsupported},
@@ -16,7 +16,7 @@ use super::{
 use crate::phase1::dijkstra_ledger::{Level, guarding_scripts, needs};
 use crate::utils::{
     DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters, TxoRef, UtxoMap,
-    dijkstra_context::check_translatable,
+    dijkstra_context::{LEGACY_IN_SUB, check_translatable},
 };
 use pallas_addresses::{Address, ShelleyPaymentPart};
 use pallas_codec::{minicbor, utils::CborWrap};
@@ -362,6 +362,7 @@ pub(super) fn eval_tx_with_mode(
             let (result, calls) =
                 evaluator::eval_native(run.language, &run.script, &args, &run.costs, run.budget)?;
             let result = TxEvalResult {
+                sub_transaction: run.sub,
                 tag: run.tag.into(),
                 index: run.index,
                 units: result.units,
@@ -374,7 +375,7 @@ pub(super) fn eval_tx_with_mode(
         .collect()
 }
 
-/// The script purpose of a top level redeemer.
+/// The script purpose of a redeemer.
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Purpose {
     Conway(c::RedeemerTag, ScriptPurpose),
@@ -412,6 +413,7 @@ fn conway_redeemers(
 
 /// A redeemer's script with the arguments, cost model and budget it runs with.
 pub(super) struct Run {
+    pub(super) sub: Option<u32>,
     pub(super) tag: n::RedeemerTag,
     pub(super) index: u32,
     pub(super) language: n::Language,
@@ -421,35 +423,53 @@ pub(super) struct Run {
     pub(super) budget: c::ExUnits,
 }
 
-/// The script runs of the top level redeemers of `tx`, in redeemer order.
-pub(super) fn runs(
-    tx: &MultiEraTx,
-    pparams: &MultiEraProtocolParameters,
+/// A level of a batch, the top level transaction or the sub transaction at its index.
+#[derive(Clone, Copy)]
+enum Part<'a> {
+    Top(&'a n::BlockTransaction<'a>),
+    Sub(u32, &'a n::SubTransaction<'a>),
+}
+
+impl<'a> Part<'a> {
+    /// The body fields of the level, with its id.
+    fn level(self) -> Level<'a> {
+        match self {
+            Part::Top(tx) => {
+                let b = &tx.transaction_body;
+                Level::top(b, Hasher::<256>::hash_cbor(b))
+            }
+            Part::Sub(index, sub) => {
+                let b = &sub.sub_transaction_body;
+                Level::sub(b, Hasher::<256>::hash_cbor(b), index)
+            }
+        }
+    }
+
+    /// The witness set of the level.
+    fn witnesses(self) -> &'a n::WitnessSet<'a> {
+        match self {
+            Part::Top(tx) => &tx.transaction_witness_set,
+            Part::Sub(_, sub) => &sub.transaction_witness_set,
+        }
+    }
+}
+
+/// The scripts a level runs by redeemer key, their languages, and the redeemers the level declares.
+struct Scope<'a> {
+    expected: BTreeMap<n::RedeemersKey, Hash<28>>,
+    languages: BTreeSet<n::Language>,
+    redeemers: Vec<(&'a n::RedeemersKey, &'a n::RedeemersValue)>,
+}
+
+/// The scripts, languages and redeemers of the level `part`.
+fn scope<'a>(
+    part: Part<'a>,
+    scripts: &BTreeMap<Hash<28>, Provided>,
     utxos: &UtxoMap,
-    time: &DijkstraTimeContext,
-    estimate: bool,
-) -> Result<Vec<Run>, Error> {
-    let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
-    let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
-        return unsupported("protocol parameters require Dijkstra");
-    };
-    if pp.protocol_version != (12, 0) {
-        return unsupported("protocol version (requires 12.0)");
-    }
-    let b = &native.transaction_body;
-    let w = &native.transaction_witness_set;
-    if b.sub_transactions.iter().flatten().any(|x| {
-        x.transaction_witness_set
-            .redeemer
-            .as_ref()
-            .is_some_and(|x| !x.is_empty())
-    }) {
-        return unsupported("subtransaction redeemers");
-    }
-    let id = Hasher::<256>::hash_cbor(b);
-    let inputs = ordered(&b.inputs)?;
+) -> Result<Scope<'a>, Error> {
+    let level = part.level();
     let mut expected = BTreeMap::new();
-    for (index, input) in inputs.iter().enumerate() {
+    for (index, input) in ordered(level.inputs)?.iter().enumerate() {
         if let Address::Shelley(address) = decode(input, utxos)?.address()?
             && let ShelleyPaymentPart::Script(hash) = address.payment()
         {
@@ -460,19 +480,16 @@ pub(super) fn runs(
             expected.insert(key, *hash);
         }
     }
-    let policies: Vec<_> = b.mint.iter().flat_map(|x| x.keys()).copied().collect();
-    for (index, policy) in policies.iter().enumerate() {
+    for (index, policy) in level.mint.into_iter().flat_map(|x| x.keys()).enumerate() {
         let key = n::RedeemersKey {
             tag: n::RedeemerTag::Mint,
             index: index as u32,
         };
         expected.insert(key, *policy);
     }
-    let level = Level::top(b, id);
     let ledger = needs(&level).map_err(|_| Error::BadWithdrawalAddress)?;
     expected.extend(ledger.scripts);
-    expected.extend(guarding_scripts(b.guards.as_ref()));
-    let scripts = provided_scripts(native, utxos)?;
+    expected.extend(guarding_scripts(level.guards));
     expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
     let mut languages = BTreeSet::new();
     for hash in expected.values() {
@@ -487,11 +504,51 @@ pub(super) fn runs(
             }
         }
     }
-    let redeemers = tx.redeemers();
-    if expected.is_empty() && redeemers.is_empty() {
-        return Ok(vec![]);
-    }
-    let references: Vec<_> = b.reference_inputs.iter().flatten().cloned().collect();
+    let redeemers = part
+        .witnesses()
+        .redeemer
+        .iter()
+        .flat_map(|x| x.iter())
+        .collect();
+    Ok(Scope {
+        expected,
+        languages,
+        redeemers,
+    })
+}
+
+/// The parts of one level of a batch its script contexts hold.
+struct Context<'a> {
+    level: Level<'a>,
+    inputs: Vec<ContextInput>,
+    reference_inputs: Vec<ContextInput>,
+    outputs: Vec<ContextOutput>,
+    valid_range: TimeRange,
+    datums: BTreeMap<Hash<32>, c::PlutusData>,
+    spending_datums: BTreeMap<n::RedeemersKey, c::PlutusData>,
+    certificates: Vec<c::Certificate>,
+    proposals: Vec<c::ProposalProcedure>,
+    redeemers: Vec<(n::RedeemersKey, Purpose, n::RedeemersValue)>,
+    scripts: BTreeMap<n::RedeemersKey, Hash<28>>,
+}
+
+/// The script context parts of the level `part`, whose scripts in `scope` run in contexts of `languages`.
+fn level_context<'a>(
+    part: Part<'a>,
+    scope: &Scope<'_>,
+    languages: &BTreeSet<n::Language>,
+    utxos: &UtxoMap,
+    time: &DijkstraTimeContext,
+) -> Result<Context<'a>, Error> {
+    let level = part.level();
+    let expected = &scope.expected;
+    let inputs = ordered(level.inputs)?;
+    let references: Vec<_> = level
+        .reference_inputs
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect();
     let spent = inputs
         .iter()
         .map(|x| decode(x, utxos))
@@ -500,33 +557,32 @@ pub(super) fn runs(
         .iter()
         .map(|x| decode(x, utxos))
         .collect::<Result<Vec<_>, _>>()?;
-    for language in &languages {
+    for language in languages {
         check_translatable(
             language,
-            b,
+            &level,
             &spent.iter().collect::<Vec<_>>(),
             &referenced.iter().collect::<Vec<_>>(),
         )
         .map_err(|x| Error::DijkstraInvalid(x.0))?;
     }
-    let certificates: Vec<_> = b
+    let certificates: Vec<_> = level
         .certificates
-        .iter()
+        .into_iter()
         .flatten()
         .map(conway_certificate)
         .collect();
-    let proposals = b
-        .proposal_procedures
-        .iter()
+    let proposals = level
+        .proposals
+        .into_iter()
         .flatten()
         .map(conway_proposal)
         .collect::<Result<Vec<_>, _>>()?;
-    let voters: Vec<_> = b.voting_procedures.iter().flat_map(|x| x.keys()).collect();
-    let withdrawals: Vec<_> = level.ordered_withdrawals();
+    let policies: Vec<_> = level.mint.into_iter().flat_map(|x| x.keys()).collect();
+    let voters: Vec<_> = level.votes.into_iter().flat_map(|x| x.keys()).collect();
     let mut purposes = Vec::new();
     let mut seen = BTreeSet::new();
-    for r in &redeemers {
-        let (key, value) = r.as_dijkstra().ok_or(Error::WrongEra())?;
+    for (key, value) in scope.redeemers.iter().copied() {
         let index = key.index as usize;
         if !expected.contains_key(key) || !seen.insert(key.clone()) {
             return Err(Error::ExtraneousRedeemer);
@@ -538,7 +594,7 @@ pub(super) fn runs(
             ),
             n::RedeemerTag::Mint => Purpose::Conway(
                 c::RedeemerTag::Mint,
-                ScriptPurpose::Minting(policies[index]),
+                ScriptPurpose::Minting(*policies[index]),
             ),
             n::RedeemerTag::Cert => Purpose::Conway(
                 c::RedeemerTag::Cert,
@@ -570,12 +626,14 @@ pub(super) fn runs(
             extra: vec![],
         });
     }
-    let (lower_bound, upper_bound) = time.validity_bounds(b.validity_interval_start, b.ttl)?;
+    let (lower_bound, upper_bound) =
+        time.validity_bounds(level.validity_interval_start, level.ttl)?;
     let valid_range = TimeRange {
         lower_bound,
         upper_bound,
     };
-    let datums: BTreeMap<_, _> = w
+    let datums: BTreeMap<_, _> = part
+        .witnesses()
         .plutus_data
         .iter()
         .flat_map(|x| x.iter())
@@ -600,22 +658,46 @@ pub(super) fn runs(
         };
         spending_datums.insert(key.clone(), datum);
     }
-    let inputs = resolve(&b.inputs, utxos, false)?;
-    let reference_inputs = resolve(&references, utxos, true)?;
-    let outputs = b
-        .outputs
-        .iter()
-        .map(|o| context_output(&MultiEraOutput::from_dijkstra(o), false))
-        .collect::<Result<Vec<_>, _>>()?;
-    let withdrawals = withdrawals
-        .into_iter()
-        .map(|(raw, amount)| match Address::from_bytes(raw)? {
-            address @ Address::Stake(_) => Ok((address, amount)),
-            _ => Err(Error::BadWithdrawalAddress),
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-    let signatories = {
-        let mut keys: Vec<_> = match &b.guards {
+    Ok(Context {
+        level,
+        inputs: resolve(level.inputs, utxos, false)?,
+        reference_inputs: resolve(&references, utxos, true)?,
+        outputs: level
+            .outputs
+            .iter()
+            .map(|o| context_output(&MultiEraOutput::from_dijkstra(o), false))
+            .collect::<Result<Vec<_>, _>>()?,
+        valid_range,
+        datums,
+        spending_datums,
+        certificates,
+        proposals,
+        redeemers: purposes,
+        scripts: expected.clone(),
+    })
+}
+
+/// The fields of a PlutusV1 to V3 transaction info of the top level body `b` beyond those of its level context.
+struct Legacy {
+    mint: MintValue,
+    withdrawals: Vec<(Address, u64)>,
+    signatories: Vec<Hash<28>>,
+    data: Vec<(Hash<32>, c::PlutusData)>,
+    redeemers: Vec<(ScriptPurpose, c::Redeemer)>,
+}
+
+impl Legacy {
+    fn new(b: &n::TransactionBody<'_>, context: &Context<'_>) -> Result<Self, Error> {
+        let withdrawals = context
+            .level
+            .ordered_withdrawals()
+            .into_iter()
+            .map(|(raw, amount)| match Address::from_bytes(raw)? {
+                address @ Address::Stake(_) => Ok((address, amount)),
+                _ => Err(Error::BadWithdrawalAddress),
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        let mut signatories: Vec<_> = match &b.guards {
             None => vec![],
             Some(n::Guards::AddrKeyhashes(keys)) => keys.to_vec(),
             Some(n::Guards::Credentials(credentials)) => credentials
@@ -626,140 +708,194 @@ pub(super) fn runs(
                 })
                 .collect(),
         };
-        keys.sort();
-        keys.dedup();
-        keys
-    };
-    let mint = MintValue {
-        mint_value: b.mint.clone().unwrap_or_default(),
-    };
-    let costs = &pp.cost_models_for_script_languages;
-    let top = v4_context::Top {
-        body: b,
-        id,
-        inputs: &inputs,
-        reference_inputs: &reference_inputs,
-        outputs: &outputs,
-        valid_range: &valid_range,
-        datums: &datums,
-        proposals: &proposals,
-        redeemers: &purposes,
-        scripts: &expected,
-    };
-    if !estimate {
-        let mut total_mem = 0u64;
-        let mut total_steps = 0u64;
-        for (_, _, r) in &purposes {
-            total_mem = total_mem
-                .checked_add(r.ex_units.mem)
-                .ok_or(Error::DijkstraInvalid("budget overflow"))?;
-            total_steps = total_steps
-                .checked_add(r.ex_units.steps)
-                .ok_or(Error::DijkstraInvalid("budget overflow"))?;
+        signatories.sort();
+        signatories.dedup();
+        Ok(Legacy {
+            mint: MintValue {
+                mint_value: b.mint.clone().unwrap_or_default(),
+            },
+            withdrawals,
+            signatories,
+            data: context.datums.clone().into_iter().collect(),
+            redeemers: conway_redeemers(&context.redeemers)?,
+        })
+    }
+}
+
+/// The sub transaction levels of a batch, as PlutusV4 contexts, and the validity interval its levels share.
+fn batch<'a>(
+    parts: &[Part<'a>],
+    scopes: &[Scope<'_>],
+    utxos: &UtxoMap,
+    time: &DijkstraTimeContext,
+) -> Result<v4_context::Batch<'a>, Error> {
+    let v4 = BTreeSet::from([n::Language::PlutusV4]);
+    let mut subs = Vec::new();
+    let (mut start, mut ttl) = (None, None);
+    for (part, scope) in parts.iter().zip(scopes) {
+        let level = part.level();
+        start = start.max(level.validity_interval_start);
+        ttl = match (ttl, level.ttl) {
+            (Some(x), Some(y)) => Some(u64::min(x, y)),
+            (x, y) => x.or(y),
+        };
+        if let Part::Sub(..) = part {
+            subs.push(level_context(*part, scope, &v4, utxos, time)?);
         }
-        if total_mem > pp.max_tx_ex_units.mem || total_steps > pp.max_tx_ex_units.steps {
+    }
+    let (lower_bound, upper_bound) = time.validity_bounds(start, ttl)?;
+    Ok(v4_context::Batch {
+        subs,
+        valid_range: TimeRange {
+            lower_bound,
+            upper_bound,
+        },
+    })
+}
+
+/// The script runs of the redeemers of every level of `tx`, its sub transactions in order and then its top level.
+pub(super) fn runs(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &DijkstraTimeContext,
+    estimate: bool,
+) -> Result<Vec<Run>, Error> {
+    let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
+    let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
+        return unsupported("protocol parameters require Dijkstra");
+    };
+    if pp.protocol_version != (12, 0) {
+        return unsupported("protocol version (requires 12.0)");
+    }
+    let scripts = provided_scripts(native, utxos)?;
+    let parts: Vec<_> = (0..)
+        .zip(native.transaction_body.sub_transactions.iter().flatten())
+        .map(|(index, sub)| Part::Sub(index, sub))
+        .chain([Part::Top(native)])
+        .collect();
+    let scopes = parts
+        .iter()
+        .map(|part| scope(*part, &scripts, utxos))
+        .collect::<Result<Vec<_>, _>>()?;
+    let batch = || batch(&parts, &scopes, utxos, time);
+    let costs = &pp.cost_models_for_script_languages;
+    let execution_limit = pp.max_tx_ex_units;
+    let mut runs = Vec::new();
+    for (part, scope) in parts.iter().copied().zip(&scopes) {
+        if scope.expected.is_empty() && scope.redeemers.is_empty() {
+            continue;
+        }
+        let context = level_context(part, scope, &scope.languages, utxos, time)?;
+        if estimate
+            && (execution_limit.mem > i64::MAX as u64 || execution_limit.steps > i64::MAX as u64)
+        {
             return Err(Error::DijkstraInvalid(
-                "declared transaction budget exceeds maximum",
+                "transaction execution limit overflow",
             ));
         }
-    }
-    let execution_limit = pp.max_tx_ex_units;
-    if estimate
-        && (execution_limit.mem > i64::MAX as u64 || execution_limit.steps > i64::MAX as u64)
-    {
-        return Err(Error::DijkstraInvalid(
-            "transaction execution limit overflow",
-        ));
-    }
-    purposes
-        .iter()
-        .map(|(key, purpose, r)| {
-            let Some(Provided::Plutus(language, bytes)) = scripts.get(&expected[key]) else {
+        for (key, purpose, r) in &context.redeemers {
+            let hash = &context.scripts[key];
+            let Some(Provided::Plutus(language, bytes)) = scripts.get(hash) else {
                 return Err(Error::MissingRequiredScript {
-                    hash: expected[key].to_string(),
+                    hash: hash.to_string(),
                 });
             };
-            let datum = spending_datums.get(key);
+            let datum = context.spending_datums.get(key);
             // A V1 or V2 script takes the datum it spends, the redeemer and the context, a V3 or V4 script takes the context alone.
-            let legacy = |context: c::PlutusData| -> Vec<c::PlutusData> {
+            let legacy = |info: c::PlutusData| -> Vec<c::PlutusData> {
                 datum
                     .cloned()
                     .into_iter()
-                    .chain([r.data.clone(), context])
+                    .chain([r.data.clone(), info])
                     .collect()
             };
-            let (args, model) = match language {
-                n::Language::PlutusV1 => {
+            let args = match (language, part) {
+                (n::Language::PlutusV1, Part::Top(tx)) => {
+                    let b = &tx.transaction_body;
+                    let x = Legacy::new(b, &context)?;
                     let info = V1TxInfo {
-                        inputs: inputs.clone(),
-                        outputs: outputs.clone(),
+                        inputs: context.inputs.clone(),
+                        outputs: context.outputs.clone(),
                         fee: c::Value::Coin(b.fee),
-                        mint: mint.clone(),
-                        certificates: certificates.clone(),
-                        withdrawals: withdrawals.clone(),
-                        valid_range: valid_range.clone(),
-                        signatories: signatories.clone(),
-                        data: datums.clone().into_iter().collect(),
-                        redeemers: conway_redeemers(&purposes)?.into(),
-                        id,
+                        mint: x.mint,
+                        certificates: context.certificates.clone(),
+                        withdrawals: x.withdrawals,
+                        valid_range: context.valid_range.clone(),
+                        signatories: x.signatories,
+                        data: x.data,
+                        redeemers: x.redeemers.into(),
+                        id: context.level.id,
                     };
-                    let context =
-                        v1v2_script_context_data(info.to_plutus_data(), purpose.conway()?.1);
-                    (legacy(context), costs.plutus_v1.as_ref())
+                    legacy(v1v2_script_context_data(
+                        info.to_plutus_data(),
+                        purpose.conway()?.1,
+                    ))
                 }
-                n::Language::PlutusV2 => {
+                (n::Language::PlutusV2, Part::Top(tx)) => {
+                    let b = &tx.transaction_body;
+                    let x = Legacy::new(b, &context)?;
                     let info = V2TxInfo {
-                        inputs: inputs.clone(),
-                        reference_inputs: reference_inputs.clone(),
-                        outputs: outputs.clone(),
+                        inputs: context.inputs.clone(),
+                        reference_inputs: context.reference_inputs.clone(),
+                        outputs: context.outputs.clone(),
                         fee: c::Value::Coin(b.fee),
-                        mint: mint.clone(),
-                        certificates: certificates.clone(),
-                        withdrawals: withdrawals.clone().into(),
-                        valid_range: valid_range.clone(),
-                        signatories: signatories.clone(),
-                        redeemers: conway_redeemers(&purposes)?.into(),
-                        data: datums.clone().into_iter().collect::<Vec<_>>().into(),
-                        id,
+                        mint: x.mint,
+                        certificates: context.certificates.clone(),
+                        withdrawals: x.withdrawals.into(),
+                        valid_range: context.valid_range.clone(),
+                        signatories: x.signatories,
+                        redeemers: x.redeemers.into(),
+                        data: x.data.into(),
+                        id: context.level.id,
                     };
-                    let context =
-                        v1v2_script_context_data(info.to_plutus_data(), purpose.conway()?.1);
-                    (legacy(context), costs.plutus_v2.as_ref())
+                    legacy(v1v2_script_context_data(
+                        info.to_plutus_data(),
+                        purpose.conway()?.1,
+                    ))
                 }
-                n::Language::PlutusV3 => {
+                (n::Language::PlutusV3, Part::Top(tx)) => {
+                    let b = &tx.transaction_body;
+                    let x = Legacy::new(b, &context)?;
                     let info = V3TxInfo {
-                        inputs: inputs.clone(),
-                        reference_inputs: reference_inputs.clone(),
-                        outputs: outputs.clone(),
+                        inputs: context.inputs.clone(),
+                        reference_inputs: context.reference_inputs.clone(),
+                        outputs: context.outputs.clone(),
                         fee: b.fee,
-                        mint: mint.clone(),
-                        certificates: certificates.clone(),
-                        withdrawals: withdrawals.clone().into(),
-                        valid_range: valid_range.clone(),
-                        signatories: signatories.clone(),
-                        redeemers: conway_redeemers(&purposes)?.into(),
-                        data: datums.clone().into_iter().collect::<Vec<_>>().into(),
-                        id,
+                        mint: x.mint,
+                        certificates: context.certificates.clone(),
+                        withdrawals: x.withdrawals.into(),
+                        valid_range: context.valid_range.clone(),
+                        signatories: x.signatories,
+                        redeemers: x.redeemers.into(),
+                        data: x.data.into(),
+                        id: context.level.id,
                         votes: get_votes_info(&b.voting_procedures),
-                        proposal_procedures: proposals.clone(),
+                        proposal_procedures: context.proposals.clone(),
                         current_treasury_amount: b.treasury_value,
                         treasury_donation: b.donation,
                     };
-                    let context = v3_script_context_data(
+                    vec![v3_script_context_data(
                         info.to_plutus_data_with_protocol(12),
                         &r.data,
                         &purpose.conway()?.1.clone().into_script_info(datum.cloned()),
                         12,
-                    );
-                    (vec![context], costs.plutus_v3.as_ref())
+                    )]
                 }
-                n::Language::PlutusV4 => {
-                    let context = top.script_context(key, purpose, &r.data, datum)?;
-                    (vec![context], costs.plutus_v4.as_ref())
+                (n::Language::PlutusV4, _) => {
+                    vec![context.script_context(key, purpose, &r.data, datum, &batch)?]
                 }
+                (_, Part::Sub(..)) => return Err(Error::DijkstraInvalid(LEGACY_IN_SUB.0)),
+            };
+            let model = match language {
+                n::Language::PlutusV1 => costs.plutus_v1.as_ref(),
+                n::Language::PlutusV2 => costs.plutus_v2.as_ref(),
+                n::Language::PlutusV3 => costs.plutus_v3.as_ref(),
+                n::Language::PlutusV4 => costs.plutus_v4.as_ref(),
             };
             let model = model.ok_or_else(|| Error::DijkstraCostModelNotFound(language.clone()))?;
-            Ok(Run {
+            runs.push(Run {
+                sub: context.level.sub,
                 tag: key.tag,
                 index: key.index,
                 language: language.clone(),
@@ -771,11 +907,11 @@ pub(super) fn runs(
                 } else {
                     r.ex_units
                 },
-            })
-        })
-        .collect()
+            });
+        }
+    }
+    Ok(runs)
 }
-
 #[cfg(test)]
 #[path = "dijkstra_native_context_tests.rs"]
 mod native_context_tests;

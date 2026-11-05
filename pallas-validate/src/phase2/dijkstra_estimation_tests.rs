@@ -106,7 +106,7 @@ fn estimation_ignores_excessive_declared_budgets() {
                 steps: u64::MAX,
             }
         });
-        error(run(&tx, &u), "declared transaction budget exceeds maximum");
+        error(run(&tx, &u), "memory budget overflow");
         preserved(&tx, &u);
     });
 }
@@ -292,8 +292,7 @@ fn estimation_aggregate_boundaries_and_indices() {
                 "{r:?}"
             );
         }
-        // Declaring the measured units is still rejected by evaluate_tx if the
-        // aggregate exceeds the transaction limit. Estimates are not admission.
+        // The aggregate of the declared budgets is a phase one rule, so evaluate_tx runs each redeemer on its own budget.
         let mut declared = tx.clone();
         for value in declared
             .transaction_witness_set
@@ -322,11 +321,9 @@ fn estimation_aggregate_boundaries_and_indices() {
             };
             p.max_tx_ex_units = limit;
             let result = evaluate_tx(&MultiEraTx::from_dijkstra(&declared), &pp, &u, &slots());
-            if limit == max {
-                assert!(result.unwrap().iter().all(|r| r.success));
-            } else {
-                error(result, "declared transaction budget exceeds maximum");
-            }
+            let result = result.unwrap();
+            assert_eq!(result.len(), 2);
+            assert!(result.iter().all(|r| r.success), "{result:?}");
         }
         let r = with_limit(&tx, &u, n::ExUnits { mem: 0, steps: 0 }).unwrap();
         assert!(r.iter().all(|x| {

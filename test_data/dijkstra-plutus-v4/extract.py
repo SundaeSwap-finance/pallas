@@ -8,7 +8,14 @@ import json
 import sys
 from pathlib import Path
 
-RECORDS = [900, 1896, 2109, 2113, 2165, 2302, 9846]
+RECORDS = [890, 900, 1344, 1896, 2109, 2113, 2165, 2302, 9820, 9846]
+
+
+def levels(record):
+    """Each level of a record, as its name in the case names, its sub transaction index and its ledger rows."""
+    yield "top", None, record["ex_units"]
+    for index, rows in enumerate(record.get("sub_ex_units") or []):
+        yield f"sub {index}", index, rows
 
 
 def main():
@@ -31,23 +38,25 @@ def main():
             continue
         tx = record["tx"]
         redeemers = []
-        scripts = [
-            case
-            for name, case in contexts.items()
-            if name.startswith(f"record {record['n']}, top, script ")
-        ]
-        assert len(scripts) == len(record["ex_units"]), record["n"]
-        for row in record["ex_units"]:
-            (case,) = [c for c in scripts if c["haskell"]["ran"] == row["evaluation"]["ran"]]
-            mem, steps = row["evaluation"]["ran"]
-            redeemers.append(
-                {
+        for level, sub, rows in levels(record):
+            scripts = [
+                case
+                for name, case in contexts.items()
+                if name.startswith(f"record {record['n']}, {level}, script ")
+            ]
+            assert len(scripts) == len(rows), (record["n"], level)
+            for row in rows:
+                (case,) = [c for c in scripts if c["haskell"]["ran"] == row["evaluation"]["ran"]]
+                mem, steps = row["evaluation"]["ran"]
+                redeemer = {
                     "purpose": row["purpose"],
                     "mem": mem,
                     "steps": steps,
                     "context": case["args"][0],
                 }
-            )
+                if sub is not None:
+                    redeemer["sub"] = sub
+                redeemers.append(redeemer)
         fixture = {
             "record": record["n"],
             "tx": tx,

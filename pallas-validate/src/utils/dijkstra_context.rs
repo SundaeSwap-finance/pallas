@@ -1,8 +1,7 @@
 //! The Dijkstra transactions the script context of each Plutus language can hold.
+use crate::phase1::dijkstra_ledger::Level;
 use pallas_addresses::{Address, ShelleyDelegationPart};
-use pallas_primitives::dijkstra::{
-    Certificate, DatumOption, Guards, Language, StakeCredential, TransactionBody,
-};
+use pallas_primitives::dijkstra::{Certificate, DatumOption, Guards, Language, StakeCredential};
 use pallas_traverse::MultiEraOutput;
 
 /// The part of a transaction that a script context cannot hold.
@@ -18,13 +17,28 @@ struct Holds {
     shared_inputs: bool,
 }
 
-/// Checks that the `language` script context can hold the top level of `b`, whose inputs and reference inputs resolve to `inputs` and `references`.
+/// The sub transaction a PlutusV1 to V3 script context cannot hold.
+pub(crate) const LEGACY_IN_SUB: Untranslatable =
+    Untranslatable("Plutus V1 to V3 script in a subtransaction");
+
+/// Checks that the `language` script context can hold a sub transaction, which only PlutusV4 holds.
+pub(crate) fn check_sub_transaction(language: &Language) -> Result<(), Untranslatable> {
+    match language {
+        Language::PlutusV4 => Ok(()),
+        _ => Err(LEGACY_IN_SUB),
+    }
+}
+
+/// Checks that the `language` script context can hold the level `b`, whose inputs and reference inputs resolve to `inputs` and `references`.
 pub(crate) fn check_translatable(
     language: &Language,
-    b: &TransactionBody<'_>,
+    b: &Level<'_>,
     inputs: &[&MultiEraOutput<'_>],
     references: &[&MultiEraOutput<'_>],
 ) -> Result<(), Untranslatable> {
+    if b.sub.is_some() {
+        check_sub_transaction(language)?;
+    }
     let holds = match language {
         Language::PlutusV1 => Holds {
             governance: false,
@@ -57,10 +71,10 @@ pub(crate) fn check_translatable(
     };
     let refuse = |part| Err(Untranslatable(part));
     if !holds.governance {
-        if b.voting_procedures.as_ref().is_some_and(|x| !x.is_empty()) {
+        if b.votes.is_some_and(|x| !x.is_empty()) {
             return refuse("votes");
         }
-        if b.proposal_procedures.is_some() {
+        if b.proposals.is_some() {
             return refuse("proposal procedures");
         }
         if b.treasury_value.is_some() {
@@ -69,7 +83,7 @@ pub(crate) fn check_translatable(
         if b.donation.is_some() {
             return refuse("treasury donation");
         }
-        if b.certificates.iter().flatten().any(|x| {
+        if b.certificates.into_iter().flatten().any(|x| {
             !matches!(
                 x,
                 Certificate::Reg(..)
@@ -83,22 +97,16 @@ pub(crate) fn check_translatable(
         }
     }
     if !holds.dijkstra_fields {
-        if b.direct_deposits.as_ref().is_some_and(|x| !x.is_empty()) {
+        if b.direct_deposits.is_some_and(|x| !x.is_empty()) {
             return refuse("direct deposits");
         }
-        if b.account_balance_intervals
-            .as_ref()
-            .is_some_and(|x| !x.is_empty())
-        {
+        if b.intervals.is_some_and(|x| !x.is_empty()) {
             return refuse("account balance intervals");
         }
-        if b.required_top_level_guards
-            .as_ref()
-            .is_some_and(|x| !x.is_empty())
-        {
+        if b.required_top_level_guards.is_some_and(|x| !x.is_empty()) {
             return refuse("required top-level guards");
         }
-        if let Some(Guards::Credentials(xs)) = &b.guards
+        if let Some(Guards::Credentials(xs)) = b.guards
             && xs
                 .iter()
                 .any(|x| matches!(x, StakeCredential::ScriptHash(_)))
@@ -129,7 +137,7 @@ pub(crate) fn check_translatable(
     }
     if !holds.shared_inputs
         && b.reference_inputs
-            .iter()
+            .into_iter()
             .flatten()
             .any(|x| b.inputs.contains(x))
     {

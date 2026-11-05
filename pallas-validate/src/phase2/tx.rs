@@ -19,6 +19,9 @@ use tracing::{debug, instrument};
 
 #[derive(Debug)]
 pub struct TxEvalResult {
+    /// The index in its batch of the sub transaction whose redeemer this is, none for a top level redeemer.
+    #[cfg(feature = "unstable")]
+    pub sub_transaction: Option<u32>,
     pub tag: MultiEraRedeemerTag,
     pub index: u32,
     pub units: ExUnits,
@@ -108,6 +111,8 @@ pub(super) fn execute_script(
     });
 
     Ok(TxEvalResult {
+        #[cfg(feature = "unstable")]
+        sub_transaction: None,
         tag: redeemer.tag.into(),
         index: redeemer.index,
         success: result.success,

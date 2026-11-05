@@ -1,11 +1,11 @@
-//! Top level PlutusV4 redeemers of ledger conformance records, against the contexts the ledger built and the budgets it spent.
+//! PlutusV4 redeemers of ledger conformance records, against the contexts the ledger built and the budgets it spent.
 use super::*;
 use crate::utils::{EraCbor, TxoRef};
 use pallas_codec::minicbor;
 use pallas_primitives::dijkstra as n;
 use pallas_traverse::{Era, MultiEraRedeemerTag, MultiEraTx};
 
-const RECORDS: [u32; 7] = [900, 1896, 2109, 2113, 2165, 2302, 9846];
+const RECORDS: [u32; 10] = [890, 900, 1344, 1896, 2109, 2113, 2165, 2302, 9820, 9846];
 
 fn read(record: u32) -> serde_json::Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -51,8 +51,9 @@ fn slots() -> SlotConfig {
     }
 }
 
-/// The redeemer tag and index a fixture purpose names.
-fn purpose(redeemer: &serde_json::Value) -> (MultiEraRedeemerTag, u32) {
+/// The sub transaction index, redeemer tag and index a fixture redeemer names.
+fn purpose(redeemer: &serde_json::Value) -> (Option<u32>, MultiEraRedeemerTag, u32) {
+    let sub = redeemer.get("sub").map(|x| x.as_u64().unwrap() as u32);
     let (tag, index): (u8, u32) = minicbor::decode(&bytes(&redeemer["purpose"])).unwrap();
     let tag = match tag {
         0 => MultiEraRedeemerTag::Spend,
@@ -64,7 +65,7 @@ fn purpose(redeemer: &serde_json::Value) -> (MultiEraRedeemerTag, u32) {
         6 => MultiEraRedeemerTag::Guarding,
         other => panic!("purpose tag {other}"),
     };
-    (tag, index)
+    (sub, tag, index)
 }
 
 /// The tree of `data` with its definite and indefinite encodings identified.
@@ -88,7 +89,7 @@ fn shape(data: &n::PlutusData) -> String {
 }
 
 #[test]
-fn top_level_plutus_v4_contexts_equal_the_ledger_contexts() {
+fn plutus_v4_contexts_equal_the_ledger_contexts() {
     for record in RECORDS {
         let fixture = read(record);
         let raw = bytes(&fixture["tx"]);
@@ -102,7 +103,7 @@ fn top_level_plutus_v4_contexts_equal_the_ledger_contexts() {
             let key = purpose(redeemer);
             let run = runs
                 .iter()
-                .find(|r| (MultiEraRedeemerTag::from(r.tag), r.index) == key)
+                .find(|r| (r.sub, MultiEraRedeemerTag::from(r.tag), r.index) == key)
                 .unwrap_or_else(|| panic!("record {record}: no run for {key:?}"));
             assert_eq!(
                 run.language,
@@ -121,7 +122,7 @@ fn top_level_plutus_v4_contexts_equal_the_ledger_contexts() {
 }
 
 #[test]
-fn top_level_plutus_v4_redeemers_spend_the_ledger_budget() {
+fn plutus_v4_redeemers_spend_the_ledger_budget() {
     for record in RECORDS {
         let fixture = read(record);
         let raw = bytes(&fixture["tx"]);
@@ -134,7 +135,7 @@ fn top_level_plutus_v4_redeemers_spend_the_ledger_budget() {
             let key = purpose(redeemer);
             let got = report
                 .iter()
-                .find(|r| (r.tag, r.index) == key)
+                .find(|r| (r.sub_transaction, r.tag, r.index) == key)
                 .unwrap_or_else(|| panic!("record {record}: no result for {key:?}"));
             assert!(got.success, "record {record}: {got:?}");
             assert_eq!(
