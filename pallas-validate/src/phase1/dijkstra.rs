@@ -437,6 +437,9 @@ fn check_required_guards(
         if !top.contains(credential) {
             return Err(PostAlonzo(ReqSignerMissing));
         }
+        if matches!(credential, StakeCredential::ScriptHash(_)) {
+            return Err(DijkstraGuardWithoutDatum);
+        }
     }
     Ok(())
 }
