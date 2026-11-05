@@ -15,10 +15,13 @@ use super::{
 };
 use crate::phase1::dijkstra_ledger::{Level, redeemer_scripts};
 use crate::utils::{
-    DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters, TxoRef, UtxoMap,
-    dijkstra_context::{LEGACY_IN_SUB, check_translatable},
+    DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters,
+    PostAlonzoError::{InputDecoding, InputNotInUTxO},
+    TxoRef, UtxoMap,
+    ValidationError::PostAlonzo,
+    dijkstra_context::{check_sub_transaction, check_translatable},
 };
-use pallas_addresses::{Address, ShelleyPaymentPart};
+use pallas_addresses::Address;
 use pallas_codec::{minicbor, utils::CborWrap};
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway as c, dijkstra as n};
@@ -27,6 +30,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "dijkstra_v4_context.rs"]
 mod v4_context;
+use v4_context::Reach;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
@@ -468,19 +472,17 @@ fn scope<'a>(
     utxos: &UtxoMap,
 ) -> Result<Scope<'a>, Error> {
     let level = part.level();
-    let mut locks = BTreeMap::new();
+    let mut spent = BTreeMap::new();
     for input in ordered(level.inputs)? {
-        let lock = match decode(input, utxos)?.address()? {
-            Address::Shelley(address) => match address.payment() {
-                ShelleyPaymentPart::Script(hash) => Some(*hash),
-                ShelleyPaymentPart::Key(_) => None,
-            },
-            _ => None,
-        };
-        locks.insert(input, lock);
+        let output = decode(input, utxos)?;
+        output.address()?;
+        spent.insert(input, output);
     }
-    let mut expected = redeemer_scripts(&level, |x| Ok(locks.get(x).copied().flatten()))
-        .map_err(|_| Error::BadWithdrawalAddress)?;
+    let mut expected = redeemer_scripts(&level, |x| spent.get(x).ok_or(PostAlonzo(InputNotInUTxO)))
+        .map_err(|x| match x {
+            PostAlonzo(InputDecoding) => Error::DijkstraInvalid("input address"),
+            _ => Error::BadWithdrawalAddress,
+        })?;
     expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
     let mut languages = BTreeSet::new();
     for hash in expected.values() {
@@ -802,6 +804,11 @@ pub(super) fn runs(
                     .collect()
             };
             let args = match (language, part) {
+                (_, Part::Sub(..)) => {
+                    let v4 =
+                        check_sub_transaction(language).map_err(|x| Error::DijkstraInvalid(x.0))?;
+                    vec![context.script_context(key, purpose, &r.data, datum, Reach::Sub(v4))?]
+                }
                 (n::Language::PlutusV1, Part::Top(tx)) => {
                     let b = &tx.transaction_body;
                     let x = Legacy::new(b, &context)?;
@@ -873,10 +880,15 @@ pub(super) fn runs(
                         12,
                     )]
                 }
-                (n::Language::PlutusV4, _) => {
-                    vec![context.script_context(key, purpose, &r.data, datum, &batch)?]
+                (n::Language::PlutusV4, Part::Top(_)) => {
+                    vec![context.script_context(
+                        key,
+                        purpose,
+                        &r.data,
+                        datum,
+                        Reach::Top(&batch),
+                    )?]
                 }
-                (_, Part::Sub(..)) => return Err(Error::DijkstraInvalid(LEGACY_IN_SUB.0)),
             };
             let model = match language {
                 n::Language::PlutusV1 => costs.plutus_v1.as_ref(),
