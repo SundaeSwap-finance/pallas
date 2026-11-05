@@ -11,7 +11,7 @@ use super::{
         LegacyContextData, MintValue, ToPlutusData, WithWrappedTransactionId, WithZeroAdaAsset,
         v1v2_script_context_data, v3_script_context_data, wrap_multiple_with_constr,
     },
-    tx::TxEvalResult,
+    tx::MultiEraTxEvalResult,
 };
 use crate::phase1::dijkstra_ledger::{Level, redeemer_scripts};
 use crate::utils::{
@@ -322,7 +322,7 @@ pub(super) fn eval_tx(
     pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
     slots: &SlotConfig,
-) -> Result<Vec<TxEvalResult>, Error> {
+) -> Result<Vec<MultiEraTxEvalResult>, Error> {
     let results = eval_tx_with_mode(tx, pparams, utxos, &linear_time(slots)?, false)?;
     Ok(results.into_iter().map(|(result, _)| result).collect())
 }
@@ -332,7 +332,7 @@ pub(super) fn estimate_tx(
     pparams: &MultiEraProtocolParameters,
     utxos: &UtxoMap,
     slots: &SlotConfig,
-) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
+) -> Result<Vec<(MultiEraTxEvalResult, Vec<Builtin>)>, Error> {
     eval_tx_with_mode(tx, pparams, utxos, &linear_time(slots)?, true)
 }
 
@@ -354,14 +354,14 @@ pub(super) fn eval_tx_with_mode(
     utxos: &UtxoMap,
     time: &DijkstraTimeContext,
     estimate: bool,
-) -> Result<Vec<(TxEvalResult, Vec<Builtin>)>, Error> {
+) -> Result<Vec<(MultiEraTxEvalResult, Vec<Builtin>)>, Error> {
     runs(tx, pparams, utxos, time, estimate)?
         .into_iter()
         .map(|run| {
             let args: Vec<_> = run.args.iter().collect();
             let (result, calls) =
                 evaluator::eval_native(run.language, &run.script, &args, &run.costs, run.budget)?;
-            let result = TxEvalResult {
+            let result = MultiEraTxEvalResult {
                 sub_transaction: run.sub,
                 tag: run.tag.into(),
                 index: run.index,

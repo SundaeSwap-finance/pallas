@@ -375,7 +375,7 @@ fn dijkstra_native_phase_two_has_no_jobs_or_time_translation() {
                     )
                 })
                 .collect();
-            let result = crate::phase2::evaluate_tx(
+            let result = crate::phase2::evaluate_multi_era_tx(
                 &MultiEraTx::from_dijkstra(&tx),
                 &dijkstra_tests::env().prot_params,
                 &utxos,
