@@ -615,10 +615,12 @@ fn dijkstra_typed_features_reject_explicitly() {
         let v4_sub: native::SubTransaction = minicbor::decode(&v4_bytes).unwrap();
         let mut changed = tx.clone();
         changed.transaction_body.sub_transactions = native::NonEmptySet::from_vec(vec![v4_sub]);
-        error(
-            dispatch(&changed, &output, &env()),
-            "DijkstraUnsupported(\"witness fields\")",
-        );
+        #[cfg(feature = "phase2")]
+        let malformed = "DijkstraMalformedScript";
+        #[cfg(not(feature = "phase2"))]
+        let malformed =
+            "DijkstraUnsupported(\"new Plutus script validation requires phase2 feature\")";
+        error(dispatch(&changed, &output, &env()), malformed);
         error(
             validate_txs(
                 &[MultiEraTx::from_dijkstra_sub(&sub, true)],

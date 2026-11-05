@@ -13,7 +13,7 @@ use super::{
     },
     tx::TxEvalResult,
 };
-use crate::phase1::dijkstra_ledger::{Level, guarding_scripts, needs};
+use crate::phase1::dijkstra_ledger::{Level, redeemer_scripts};
 use crate::utils::{
     DijkstraTimeContext, EraTime, ForecastHorizon, MultiEraProtocolParameters, TxoRef, UtxoMap,
     dijkstra_context::{LEGACY_IN_SUB, check_translatable},
@@ -468,28 +468,19 @@ fn scope<'a>(
     utxos: &UtxoMap,
 ) -> Result<Scope<'a>, Error> {
     let level = part.level();
-    let mut expected = BTreeMap::new();
-    for (index, input) in ordered(level.inputs)?.iter().enumerate() {
-        if let Address::Shelley(address) = decode(input, utxos)?.address()?
-            && let ShelleyPaymentPart::Script(hash) = address.payment()
-        {
-            let key = n::RedeemersKey {
-                tag: n::RedeemerTag::Spend,
-                index: index as u32,
-            };
-            expected.insert(key, *hash);
-        }
-    }
-    for (index, policy) in level.mint.into_iter().flat_map(|x| x.keys()).enumerate() {
-        let key = n::RedeemersKey {
-            tag: n::RedeemerTag::Mint,
-            index: index as u32,
+    let mut locks = BTreeMap::new();
+    for input in ordered(level.inputs)? {
+        let lock = match decode(input, utxos)?.address()? {
+            Address::Shelley(address) => match address.payment() {
+                ShelleyPaymentPart::Script(hash) => Some(*hash),
+                ShelleyPaymentPart::Key(_) => None,
+            },
+            _ => None,
         };
-        expected.insert(key, *policy);
+        locks.insert(input, lock);
     }
-    let ledger = needs(&level).map_err(|_| Error::BadWithdrawalAddress)?;
-    expected.extend(ledger.scripts);
-    expected.extend(guarding_scripts(level.guards));
+    let mut expected = redeemer_scripts(&level, |x| Ok(locks.get(x).copied().flatten()))
+        .map_err(|_| Error::BadWithdrawalAddress)?;
     expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
     let mut languages = BTreeSet::new();
     for hash in expected.values() {
