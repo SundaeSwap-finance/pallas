@@ -1631,3 +1631,36 @@ fn dijkstra_batch_rejects_duplicate_required_top_level_guards() {
         }
     });
 }
+
+#[test]
+fn dijkstra_batch_required_script_guard_needs_a_datum() {
+    batch(|mut tx, input| {
+        let script = native(n::NativeScript::ScriptAll(vec![]));
+        let guard = n::StakeCredential::ScriptHash(script.original_hash());
+        tx.transaction_body.guards = Some(n::Guards::Credentials(
+            n::NonEmptySet::from_vec(vec![
+                n::StakeCredential::AddrKeyhash(guard_key()),
+                guard.clone(),
+            ])
+            .unwrap(),
+        ));
+        tx.transaction_witness_set.native_script = n::NonEmptySet::from_vec(vec![script]);
+        sign(&mut tx);
+        let result = run(&tx, &input, &env());
+        assert!(result.is_ok(), "{result:?}");
+        let mut changed = tx.clone();
+        resign(&mut changed, |sub| {
+            sub.sub_transaction_body
+                .required_top_level_guards
+                .as_mut()
+                .unwrap()
+                .insert(guard.clone(), Nullable::Null);
+        });
+        error(run(&changed, &input, &env()), "DijkstraGuardWithoutDatum");
+        let mut changed = tx.clone();
+        changed.transaction_body.required_top_level_guards =
+            Some([(guard.clone(), Nullable::Null)].into_iter().collect());
+        sign(&mut changed);
+        error(run(&changed, &input, &env()), "DijkstraGuardWithoutDatum");
+    });
+}

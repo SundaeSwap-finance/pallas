@@ -48,6 +48,10 @@ pub enum ValidationError {
     DijkstraInputWithoutDatum,
 
     #[cfg(feature = "unstable")]
+    #[error("Dijkstra script credential required as a top-level guard has no datum")]
+    DijkstraGuardWithoutDatum,
+
+    #[cfg(feature = "unstable")]
     #[error("Dijkstra collateral return pays to a pointer address")]
     DijkstraPointerInCollateralReturn,
 
