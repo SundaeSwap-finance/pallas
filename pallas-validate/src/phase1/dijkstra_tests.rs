@@ -709,6 +709,31 @@ fn dijkstra_spent_plutus_scripts_no_purpose_needs_pass() {
 }
 
 #[test]
+fn dijkstra_only_a_v1_v2_or_v3_script_puts_the_batch_in_legacy_mode() {
+    use native::Language::*;
+    let legacy = |languages: &[native::Language]| {
+        dijkstra::withdrawal_rule(&languages.iter().cloned().collect())
+            == dijkstra_ledger::WithdrawalRule::Legacy
+    };
+    assert_eq!(
+        [&[][..], &[PlutusV4]].map(legacy),
+        [false, false],
+        "native scripts alone or a V4 script"
+    );
+    assert_eq!(
+        [
+            &[PlutusV1][..],
+            &[PlutusV2],
+            &[PlutusV3],
+            &[PlutusV3, PlutusV4]
+        ]
+        .map(legacy),
+        [true, true, true, true],
+        "a V1, V2 or V3 script, alone or beside a V4 script"
+    );
+}
+
+#[test]
 fn dijkstra_a_v4_guard_script_is_unsupported() {
     synthetic(|mut tx, input| {
         use pallas_traverse::ComputeHash;
