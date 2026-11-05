@@ -19,9 +19,9 @@ use crate::utils::{
     PostAlonzoError::{InputDecoding, InputNotInUTxO},
     TxoRef, UtxoMap,
     ValidationError::PostAlonzo,
-    dijkstra_context::{check_sub_transaction, check_translatable},
+    dijkstra_context::{check_sub_transaction, check_translatable, context_address},
 };
-use pallas_addresses::Address;
+use pallas_addresses::{Address, ShelleyAddress};
 use pallas_codec::{minicbor, utils::CborWrap};
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway as c, dijkstra as n};
@@ -38,10 +38,17 @@ fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
 
 #[derive(Debug, Clone)]
 struct ContextOutput {
-    address: Address,
+    address: ShelleyAddress,
     value: c::Value,
     datum: Option<c::DatumOption<'static>>,
     script: Option<n::ScriptHash>,
+}
+
+impl ContextOutput {
+    /// The address as a PlutusV1 to V3 script context holds it.
+    fn address_data(&self) -> c::PlutusData {
+        Address::Shelley(self.address.clone()).to_plutus_data()
+    }
 }
 
 impl ToPlutusData for ContextOutput {
@@ -49,7 +56,7 @@ impl ToPlutusData for ContextOutput {
         wrap_multiple_with_constr(
             0,
             vec![
-                self.address.to_plutus_data(),
+                self.address_data(),
                 self.value.to_plutus_data(),
                 self.datum.to_plutus_data(),
                 self.script.to_plutus_data(),
@@ -67,7 +74,7 @@ impl LegacyContextData for ContextOutput {
         wrap_multiple_with_constr(
             0,
             vec![
-                self.address.to_plutus_data(),
+                self.address_data(),
                 WithZeroAdaAsset(&self.value).to_plutus_data(),
                 datum_hash.to_plutus_data(),
             ],
@@ -78,7 +85,7 @@ impl LegacyContextData for ContextOutput {
         wrap_multiple_with_constr(
             0,
             vec![
-                self.address.to_plutus_data(),
+                self.address_data(),
                 WithZeroAdaAsset(&self.value).to_plutus_data(),
                 self.datum.to_plutus_data(),
                 self.script.to_plutus_data(),
@@ -129,10 +136,7 @@ impl LegacyContextData for ContextInput {
 
 /// The fields of an output a script context holds, with any reference script reduced to the hash of its original bytes.
 fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<ContextOutput, Error> {
-    let address = output.address()?;
-    if !matches!(address, Address::Shelley(_)) {
-        return unsupported("output address (requires Shelley)");
-    }
+    let address = context_address(output.address()?).map_err(|x| Error::DijkstraInvalid(x.0))?;
     let script = output.multi_era_script_ref().map(|s| s.hash());
     Ok(ContextOutput {
         address,
