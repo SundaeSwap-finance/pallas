@@ -120,15 +120,8 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     }
     let subs = sub_scripts(b, utxos)?;
     let provided = check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id, time)?;
-    // A top level Plutus script up to V3 puts the batch in legacy mode, native and V4 scripts do not.
-    let legacy = provided.languages.iter().any(|x| match x {
-        Language::PlutusV1 | Language::PlutusV2 | Language::PlutusV3 => true,
-        Language::PlutusV4 => false,
-    });
-    let rule = match legacy {
-        true => WithdrawalRule::Legacy,
-        false => WithdrawalRule::Partial,
-    };
+    let rule = withdrawal_rule(&provided.languages);
+    let legacy = rule == WithdrawalRule::Legacy;
     let (flows, top_flows, delta) = ledger_rules(tx, pp, *network_id, rule, state)?;
     if b.fee < dijkstra_min_fee(tx, utxos, pp)? {
         return Err(PostAlonzo(FeeBelowMin));
@@ -967,6 +960,19 @@ fn plutus_witnesses<'a>(
         .chain(v2.map(|x| (x.compute_hash(), Language::PlutusV2, x.as_ref())))
         .chain(v3.map(|x| (x.compute_hash(), Language::PlutusV3, x.as_ref())))
         .chain(v4.map(|x| (x.compute_hash(), Language::PlutusV4, x.as_ref())))
+}
+
+/// The rule the top level withdrawals of a batch whose top level runs Plutus scripts of `languages` are judged by.
+pub(super) fn withdrawal_rule(languages: &BTreeSet<Language>) -> WithdrawalRule {
+    // A top level Plutus script up to V3 puts the batch in legacy mode, native and V4 scripts do not.
+    let legacy = languages.iter().any(|x| match x {
+        Language::PlutusV1 | Language::PlutusV2 | Language::PlutusV3 => true,
+        Language::PlutusV4 => false,
+    });
+    match legacy {
+        true => WithdrawalRule::Legacy,
+        false => WithdrawalRule::Partial,
+    }
 }
 
 /// The scripts a batch provides and the languages of the Plutus scripts its top level runs.
