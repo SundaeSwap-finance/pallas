@@ -1660,5 +1660,33 @@ fn dijkstra_batch_required_native_guard_has_no_datum() {
         sign(&mut tx);
         let result = run(&tx, &input, &env());
         assert!(result.is_ok(), "{result:?}");
+        tx.transaction_body.required_top_level_guards = Some(
+            [(guard.clone(), Nullable::Some(datum()))]
+                .into_iter()
+                .collect(),
+        );
+        sign(&mut tx);
+        error(run(&tx, &input, &env()), "DijkstraMalformedGuardDatum");
+    });
+}
+
+fn datum() -> n::PlutusData {
+    n::PlutusData::BoundedBytes(vec![1].into())
+}
+
+#[test]
+fn dijkstra_batch_required_key_guard_has_no_datum() {
+    batch(|mut tx, input| {
+        let result = run(&tx, &input, &env());
+        assert!(result.is_ok(), "{result:?}");
+        resign(&mut tx, |sub| {
+            let guard = n::StakeCredential::AddrKeyhash(guard_key());
+            sub.sub_transaction_body
+                .required_top_level_guards
+                .as_mut()
+                .unwrap()
+                .insert(guard, Nullable::Some(datum()));
+        });
+        error(run(&tx, &input, &env()), "DijkstraMalformedGuardDatum");
     });
 }

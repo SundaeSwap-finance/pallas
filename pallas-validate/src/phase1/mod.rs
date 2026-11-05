@@ -13,6 +13,8 @@ pub(crate) mod dijkstra_ledger;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_native_tests;
 #[cfg(all(test, feature = "unstable"))]
+pub(crate) mod dijkstra_records_tests;
+#[cfg(all(test, feature = "unstable"))]
 pub(crate) mod dijkstra_registration_tests;
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_tests;
