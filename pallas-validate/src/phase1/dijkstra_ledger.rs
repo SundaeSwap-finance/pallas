@@ -152,7 +152,7 @@ pub(crate) fn reward_account(raw: &[u8]) -> Result<(u8, StakeCredential), Valida
 }
 
 /// The script of each script guard in `guards`, by its Guarding redeemer key.
-pub(crate) fn guarding_scripts(guards: Option<&Guards>) -> BTreeMap<RedeemersKey, Hash<28>> {
+fn guarding_scripts(guards: Option<&Guards>) -> BTreeMap<RedeemersKey, Hash<28>> {
     let Some(Guards::Credentials(credentials)) = guards else {
         return BTreeMap::new();
     };
@@ -170,6 +170,44 @@ pub(crate) fn guarding_scripts(guards: Option<&Guards>) -> BTreeMap<RedeemersKey
             StakeCredential::AddrKeyhash(_) => None,
         })
         .collect()
+}
+
+/// The script each redeemer key of the level `b` names, where `locking` gives the script that locks a spent input.
+pub(crate) fn redeemer_scripts(
+    b: &Level<'_>,
+    mut locking: impl FnMut(&TransactionInput) -> Result<Option<Hash<28>>, ValidationError>,
+) -> Result<BTreeMap<RedeemersKey, Hash<28>>, ValidationError> {
+    let mut scripts = guarding_scripts(b.guards);
+    scripts.extend(needs(b)?.scripts);
+    for (index, input) in b
+        .inputs
+        .iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+    {
+        if let Some(hash) = locking(input)? {
+            let tag = RedeemerTag::Spend;
+            scripts.insert(
+                RedeemersKey {
+                    tag,
+                    index: index as u32,
+                },
+                hash,
+            );
+        }
+    }
+    for (index, hash) in b.mint.into_iter().flat_map(|x| x.keys()).enumerate() {
+        let tag = RedeemerTag::Mint;
+        scripts.insert(
+            RedeemersKey {
+                tag,
+                index: index as u32,
+            },
+            *hash,
+        );
+    }
+    Ok(scripts)
 }
 
 /// The witnesses and scripts the withdrawals, certificates, votes and proposals of a level require.
