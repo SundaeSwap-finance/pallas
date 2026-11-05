@@ -1,8 +1,8 @@
 # Dijkstra PlutusV4 top level redeemers
 
-Six records of a Dijkstra ledger conformance corpus whose top level redeemers run
-PlutusV4 scripts: spend (1896, 2165), certificate (2109, 2165, 2302), reward
-(2113) and proposal (9846). Each fixture holds the transaction, the UTxO entries
+Seven records of a Dijkstra ledger conformance corpus whose top level redeemers run
+PlutusV4 scripts: guarding (900), spend (1896, 2165), certificate (2109, 2165, 2302),
+reward (2113) and proposal (9846). Each fixture holds the transaction, the UTxO entries
 it reads, the PlutusV4 cost model, and per redeemer the ex units the Haskell
 ledger spent and the script context it built.
 
@@ -21,6 +21,7 @@ python3 -I extract.py ic.jsonl.gz all-cases.json .
 
 | File | sha256 |
 |---|---|
+| 900.json | 9388374ee77cf9625d85abd124e16854df4a74648067d97d86d0bf3dc8cd9ece |
 | 1896.json | acb8eaa6b99e403476e175329c2db27ba06d05ad89fb9eeede89e10b1771b25b |
 | 2109.json | 8eeec7b4042f1696f351e28f6e3d977a1de339c0080abcd1740eb5d571863318 |
 | 2113.json | cbba6897fa27b3bff1fa64d3fb746ceb87a3ffaff57ef9e9686bb3d71403266a |

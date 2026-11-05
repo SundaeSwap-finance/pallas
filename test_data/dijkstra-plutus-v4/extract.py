@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-RECORDS = [1896, 2109, 2113, 2165, 2302, 9846]
+RECORDS = [900, 1896, 2109, 2113, 2165, 2302, 9846]
 
 
 def main():

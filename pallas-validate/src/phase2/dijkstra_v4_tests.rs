@@ -5,7 +5,7 @@ use pallas_codec::minicbor;
 use pallas_primitives::dijkstra as n;
 use pallas_traverse::{Era, MultiEraRedeemerTag, MultiEraTx};
 
-const RECORDS: [u32; 6] = [1896, 2109, 2113, 2165, 2302, 9846];
+const RECORDS: [u32; 7] = [900, 1896, 2109, 2113, 2165, 2302, 9846];
 
 fn read(record: u32) -> serde_json::Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -61,6 +61,7 @@ fn purpose(redeemer: &serde_json::Value) -> (MultiEraRedeemerTag, u32) {
         3 => MultiEraRedeemerTag::Reward,
         4 => MultiEraRedeemerTag::Vote,
         5 => MultiEraRedeemerTag::Propose,
+        6 => MultiEraRedeemerTag::Guarding,
         other => panic!("purpose tag {other}"),
     };
     (tag, index)
