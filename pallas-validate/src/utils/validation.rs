@@ -48,7 +48,7 @@ pub enum ValidationError {
     DijkstraInputWithoutDatum,
 
     #[cfg(feature = "unstable")]
-    #[error("Dijkstra script credential required as a top-level guard has no datum")]
+    #[error("Dijkstra Plutus script credential required as a top-level guard has no datum")]
     DijkstraGuardWithoutDatum,
 
     #[cfg(feature = "unstable")]

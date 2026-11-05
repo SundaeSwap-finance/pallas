@@ -122,6 +122,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     }
     let subs = sub_scripts(b, utxos)?;
     let provided = check_scripts(tx, utxos, pp, &scripts, &subs, &mut keys, *network_id, time)?;
+    check_guard_datums(b.required_top_level_guards.as_ref(), &provided.plutus)?;
     let rule = withdrawal_rule(&provided.languages);
     let legacy = rule == WithdrawalRule::Legacy;
     let (flows, top_flows, delta) = ledger_rules(tx, pp, *network_id, rule, state)?;
@@ -137,6 +138,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
         let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index);
         check_auxiliary(sb.auxiliary_data_hash, &sub.auxiliary_data)?;
         check_required_guards(sb.required_top_level_guards.as_ref(), &top_guards)?;
+        check_guard_datums(sb.required_top_level_guards.as_ref(), &provided.plutus)?;
         check_interval(
             level.validity_interval_start,
             level.ttl,
@@ -437,7 +439,18 @@ fn check_required_guards(
         if !top.contains(credential) {
             return Err(PostAlonzo(ReqSignerMissing));
         }
-        if matches!(credential, StakeCredential::ScriptHash(_)) {
+    }
+    Ok(())
+}
+fn check_guard_datums(
+    required: Option<&RequiredTopLevelGuards>,
+    plutus: &Plutus,
+) -> ValidationResult {
+    for (credential, datum) in required.into_iter().flatten() {
+        if let StakeCredential::ScriptHash(hash) = credential
+            && matches!(datum, Nullable::Null)
+            && plutus.contains_key(hash)
+        {
             return Err(DijkstraGuardWithoutDatum);
         }
     }
