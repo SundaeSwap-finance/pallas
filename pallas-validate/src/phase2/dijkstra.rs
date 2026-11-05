@@ -374,9 +374,45 @@ pub(super) fn eval_tx_with_mode(
         .collect()
 }
 
+/// The script purpose of a top level redeemer.
+#[allow(clippy::large_enum_variant)]
+pub(super) enum Purpose {
+    Conway(c::RedeemerTag, ScriptPurpose),
+    Guarding(u32),
+}
+
+impl Purpose {
+    /// The Conway tag and script purpose, which a PlutusV1 to V3 script context requires.
+    fn conway(&self) -> Result<(c::RedeemerTag, &ScriptPurpose), Error> {
+        match self {
+            Purpose::Conway(tag, purpose) => Ok((*tag, purpose)),
+            Purpose::Guarding(_) => Err(Error::DijkstraInvalid("script guards")),
+        }
+    }
+}
+
+/// The redeemers of a PlutusV1 to V3 transaction info, by script purpose.
+fn conway_redeemers(
+    purposes: &[(n::RedeemersKey, Purpose, n::RedeemersValue)],
+) -> Result<Vec<(ScriptPurpose, c::Redeemer)>, Error> {
+    purposes
+        .iter()
+        .map(|(key, purpose, value)| {
+            let (tag, purpose) = purpose.conway()?;
+            let redeemer = c::Redeemer {
+                tag,
+                index: key.index,
+                data: value.data.clone(),
+                ex_units: value.ex_units,
+            };
+            Ok((purpose.clone(), redeemer))
+        })
+        .collect()
+}
+
 /// A redeemer's script with the arguments, cost model and budget it runs with.
 pub(super) struct Run {
-    pub(super) tag: c::RedeemerTag,
+    pub(super) tag: n::RedeemerTag,
     pub(super) index: u32,
     pub(super) language: n::Language,
     pub(super) script: Vec<u8>,
@@ -495,43 +531,34 @@ pub(super) fn runs(
         if !expected.contains_key(key) || !seen.insert(key.clone()) {
             return Err(Error::ExtraneousRedeemer);
         }
-        let (tag, purpose) = match key.tag {
-            n::RedeemerTag::Spend => (
+        let purpose = match key.tag {
+            n::RedeemerTag::Spend => Purpose::Conway(
                 c::RedeemerTag::Spend,
                 ScriptPurpose::Spending(inputs[index].clone(), ()),
             ),
-            n::RedeemerTag::Mint => (
+            n::RedeemerTag::Mint => Purpose::Conway(
                 c::RedeemerTag::Mint,
                 ScriptPurpose::Minting(policies[index]),
             ),
-            n::RedeemerTag::Cert => (
+            n::RedeemerTag::Cert => Purpose::Conway(
                 c::RedeemerTag::Cert,
                 ScriptPurpose::Certifying(index, certificates[index].clone()),
             ),
-            n::RedeemerTag::Reward => (
+            n::RedeemerTag::Reward => Purpose::Conway(
                 c::RedeemerTag::Reward,
                 ScriptPurpose::Rewarding(n::StakeCredential::ScriptHash(expected[key])),
             ),
-            n::RedeemerTag::Vote => (
+            n::RedeemerTag::Vote => Purpose::Conway(
                 c::RedeemerTag::Vote,
                 ScriptPurpose::Voting(voters[index].clone()),
             ),
-            n::RedeemerTag::Propose => (
+            n::RedeemerTag::Propose => Purpose::Conway(
                 c::RedeemerTag::Propose,
                 ScriptPurpose::Proposing(index, proposals[index].clone()),
             ),
-            n::RedeemerTag::Guarding => return unsupported("redeemer purpose"),
+            n::RedeemerTag::Guarding => Purpose::Guarding(key.index),
         };
-        purposes.push((
-            key.clone(),
-            purpose,
-            c::Redeemer {
-                tag,
-                index: key.index,
-                data: value.data.clone(),
-                ex_units: value.ex_units,
-            },
-        ));
+        purposes.push((key.clone(), purpose, value.clone()));
     }
     if purposes.len() != expected.len() {
         return Err(Error::RequiredRedeemersMismatch {
@@ -606,10 +633,6 @@ pub(super) fn runs(
     let mint = MintValue {
         mint_value: b.mint.clone().unwrap_or_default(),
     };
-    let redeemer_pairs: Vec<_> = purposes
-        .iter()
-        .map(|(_, purpose, r)| (purpose.clone(), r.clone()))
-        .collect();
     let costs = &pp.cost_models_for_script_languages;
     let top = v4_context::Top {
         body: b,
@@ -677,10 +700,11 @@ pub(super) fn runs(
                         valid_range: valid_range.clone(),
                         signatories: signatories.clone(),
                         data: datums.clone().into_iter().collect(),
-                        redeemers: redeemer_pairs.clone().into(),
+                        redeemers: conway_redeemers(&purposes)?.into(),
                         id,
                     };
-                    let context = v1v2_script_context_data(info.to_plutus_data(), purpose);
+                    let context =
+                        v1v2_script_context_data(info.to_plutus_data(), purpose.conway()?.1);
                     (legacy(context), costs.plutus_v1.as_ref())
                 }
                 n::Language::PlutusV2 => {
@@ -694,11 +718,12 @@ pub(super) fn runs(
                         withdrawals: withdrawals.clone().into(),
                         valid_range: valid_range.clone(),
                         signatories: signatories.clone(),
-                        redeemers: redeemer_pairs.clone().into(),
+                        redeemers: conway_redeemers(&purposes)?.into(),
                         data: datums.clone().into_iter().collect::<Vec<_>>().into(),
                         id,
                     };
-                    let context = v1v2_script_context_data(info.to_plutus_data(), purpose);
+                    let context =
+                        v1v2_script_context_data(info.to_plutus_data(), purpose.conway()?.1);
                     (legacy(context), costs.plutus_v2.as_ref())
                 }
                 n::Language::PlutusV3 => {
@@ -712,7 +737,7 @@ pub(super) fn runs(
                         withdrawals: withdrawals.clone().into(),
                         valid_range: valid_range.clone(),
                         signatories: signatories.clone(),
-                        redeemers: redeemer_pairs.clone().into(),
+                        redeemers: conway_redeemers(&purposes)?.into(),
                         data: datums.clone().into_iter().collect::<Vec<_>>().into(),
                         id,
                         votes: get_votes_info(&b.voting_procedures),
@@ -723,7 +748,7 @@ pub(super) fn runs(
                     let context = v3_script_context_data(
                         info.to_plutus_data_with_protocol(12),
                         &r.data,
-                        &purpose.clone().into_script_info(datum.cloned()),
+                        &purpose.conway()?.1.clone().into_script_info(datum.cloned()),
                         12,
                     );
                     (vec![context], costs.plutus_v3.as_ref())
@@ -735,8 +760,8 @@ pub(super) fn runs(
             };
             let model = model.ok_or_else(|| Error::DijkstraCostModelNotFound(language.clone()))?;
             Ok(Run {
-                tag: r.tag,
-                index: r.index,
+                tag: key.tag,
+                index: key.index,
                 language: language.clone(),
                 script: bytes.clone(),
                 args,

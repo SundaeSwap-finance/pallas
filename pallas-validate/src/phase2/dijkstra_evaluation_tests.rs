@@ -2,8 +2,11 @@
 use super::*;
 use crate::utils::{EraCbor, TxoRef};
 use pallas_codec::minicbor;
+use pallas_crypto::hash::Hash;
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{Era, MultiEraBlock, MultiEraRedeemerTag, MultiEraTx};
+use std::collections::BTreeMap;
+use to_plutus_data::{MintValue, ToPlutusData, wrap_multiple_with_constr};
 
 fn slots() -> SlotConfig {
     SlotConfig {
@@ -601,44 +604,163 @@ fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
         error(run(v4_script(unit)).0, "pointer address");
     });
 }
+fn with_v4_guard(tx: &mut n::BlockTransaction<'_>, u: &mut UtxoMap) -> Hash<28> {
+    use pallas_traverse::ComputeHash;
+    let n::ScriptRef::PlutusV4Script(script) = v4_script("(program 1.1.0 (lam ctx (con unit ())))")
+    else {
+        unreachable!()
+    };
+    let hash = script.compute_hash();
+    replace_script(tx, u, Some(n::ScriptRef::PlutusV4Script(script)), true);
+    let mut b = (*tx.transaction_body).clone();
+    b.guards = Some(n::Guards::Credentials(
+        vec![n::StakeCredential::ScriptHash(hash)]
+            .try_into()
+            .unwrap(),
+    ));
+    tx.transaction_body = b.into();
+    hash
+}
+fn add_redeemer(tx: &mut n::BlockTransaction<'_>, key: n::RedeemersKey) {
+    let mut w = (*tx.transaction_witness_set).clone();
+    let mut redeemers = w.redeemer.as_ref().unwrap().0.clone();
+    let value = redeemers.values().next().unwrap().clone();
+    redeemers.insert(key, value);
+    w.redeemer = Some(n::Redeemers(redeemers).into());
+    tx.transaction_witness_set = w.into();
+}
+const GUARDING: n::RedeemersKey = n::RedeemersKey {
+    tag: n::RedeemerTag::Guarding,
+    index: 0,
+};
 #[test]
-fn native_registration_refuses_a_v4_guarding_redeemer() {
+fn native_registration_runs_a_v4_guarding_redeemer_of_a_batch_without_subtransactions() {
     fixture(|mut tx, mut u| {
-        use pallas_traverse::ComputeHash;
-        let n::ScriptRef::PlutusV4Script(script) =
-            v4_script("(program 1.1.0 (lam ctx (con unit ())))")
-        else {
-            unreachable!()
-        };
-        let hash = script.compute_hash();
-        replace_script(
-            &mut tx,
-            &mut u,
-            Some(n::ScriptRef::PlutusV4Script(script)),
-            true,
-        );
-        let mut b = (*tx.transaction_body).clone();
-        b.guards = Some(n::Guards::Credentials(
-            vec![n::StakeCredential::ScriptHash(hash)]
-                .try_into()
-                .unwrap(),
-        ));
-        tx.transaction_body = b.into();
+        with_v4_guard(&mut tx, &mut u);
         let evaluate = |tx: &n::BlockTransaction<'_>| {
             evaluate_tx(&MultiEraTx::from_dijkstra(tx), &v4_params(), &u, &slots())
         };
         error(evaluate(&tx), "RequiredRedeemersMismatch");
+        add_redeemer(&mut tx, GUARDING);
+        let report = evaluate(&tx).unwrap();
+        let guarding = report
+            .iter()
+            .find(|r| (r.tag, r.index) == (MultiEraRedeemerTag::Guarding, 0))
+            .unwrap_or_else(|| panic!("{report:?}"));
+        assert!(guarding.success, "{report:?}");
+        let sub: n::SubTransaction =
+            minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
+        let mut b = (*tx.transaction_body).clone();
+        b.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+        tx.transaction_body = b.into();
+        error(evaluate(&tx), "guarding redeemer with subtransactions");
+    });
+}
+#[test]
+fn native_registration_guarding_info_splits_the_mint_and_reads_the_guard_datum() {
+    use pallas_codec::utils::{KeepRaw, NonZeroInt, Nullable};
+    use pallas_traverse::ComputeHash;
+    fixture(|mut tx, mut u| {
+        let hash = with_v4_guard(&mut tx, &mut u);
+        let native = minicbor::to_vec(n::NativeScript::ScriptAll(vec![])).unwrap();
+        let native: KeepRaw<'_, n::NativeScript> = minicbor::decode(&native).unwrap();
+        let native = native.to_owned();
+        let policy = native.compute_hash();
+        add_redeemer(&mut tx, GUARDING);
+        add_redeemer(
+            &mut tx,
+            n::RedeemersKey {
+                tag: n::RedeemerTag::Mint,
+                index: u32::from(policy < hash),
+            },
+        );
         let mut w = (*tx.transaction_witness_set).clone();
-        let mut redeemers = w.redeemer.as_ref().unwrap().0.clone();
-        let value = redeemers.values().next().unwrap().clone();
-        let key = n::RedeemersKey {
-            tag: n::RedeemerTag::Guarding,
-            index: 0,
-        };
-        redeemers.insert(key, value);
-        w.redeemer = Some(n::Redeemers(redeemers).into());
+        w.native_script = n::NonEmptySet::from_vec(vec![native]);
         tx.transaction_witness_set = w.into();
-        error(evaluate(&tx), "redeemer purpose");
+        let amount = |x: i64| NonZeroInt::try_from(x).unwrap();
+        let assets = |xs: &[(&[u8], i64)]| -> BTreeMap<_, _> {
+            xs.iter()
+                .map(|(name, x)| (name.to_vec().into(), amount(*x)))
+                .collect()
+        };
+        let key = n::StakeCredential::AddrKeyhash([0; 28].into());
+        let account = [&[0xe0][..], &[4; 28]].concat();
+        let mut b = (*tx.transaction_body).clone();
+        b.mint = Some(BTreeMap::from([
+            (hash, assets(&[(b"a", 1), (b"b", -2)])),
+            (policy, assets(&[(b"c", 5)])),
+        ]));
+        b.required_top_level_guards = Some(BTreeMap::from([
+            (key.clone(), Nullable::Null),
+            (
+                n::StakeCredential::ScriptHash(hash),
+                Nullable::Some(7u64.to_plutus_data()),
+            ),
+        ]));
+        b.starting_account_balance_intervals = Some(BTreeMap::from([(
+            account.into(),
+            n::AccountBalanceInterval::Exact(9),
+        )]));
+        tx.transaction_body = b.into();
+        let time = dijkstra::linear_time(&slots()).unwrap();
+        let runs = dijkstra::runs(
+            &MultiEraTx::from_dijkstra(&tx),
+            &v4_params(),
+            &u,
+            &time,
+            false,
+        )
+        .unwrap();
+        let run = runs
+            .iter()
+            .find(|r| r.tag == n::RedeemerTag::Guarding)
+            .unwrap();
+        let items = |x: &c::PlutusData| match x {
+            c::PlutusData::Array(xs) => xs.clone().to_vec(),
+            c::PlutusData::Constr(x) => x.fields.clone().to_vec(),
+            other => panic!("{other:?}"),
+        };
+        let context = items(&run.args[0]);
+        let info = items(&context[2]);
+        let top = items(&items(&info[1])[0]);
+        let simplified = items(&top[3]);
+        let mint = |x: c::Mint| MintValue { mint_value: x }.to_plutus_data();
+        assert_eq!(
+            [&simplified[4], &simplified[5]],
+            [
+                &mint(BTreeMap::from([
+                    (hash, assets(&[(b"a", 1)])),
+                    (policy, assets(&[(b"c", 5)])),
+                ])),
+                &mint(BTreeMap::from([(hash, assets(&[(b"b", -2)]))])),
+            ],
+            "mints, then burns, without the policy left empty"
+        );
+        assert_eq!(
+            simplified[11],
+            c::PlutusData::Array(pallas_codec::utils::MaybeIndefArray::Def(vec![
+                n::StakeCredential::ScriptHash(hash).to_plutus_data(),
+                key.to_plutus_data(),
+            ])),
+            "required guard credentials, script first"
+        );
+        let id = items(&context[0])[0].clone();
+        assert_eq!(
+            top[1],
+            c::PlutusData::Map(pallas_codec::utils::KeyValuePairs::Def(vec![(
+                id,
+                7u64.to_plutus_data()
+            )])),
+            "the datum the transaction gives its guard, by transaction id"
+        );
+        assert_eq!(
+            top[2],
+            c::PlutusData::Map(pallas_codec::utils::KeyValuePairs::Def(vec![(
+                n::StakeCredential::AddrKeyhash([4; 28].into()).to_plutus_data(),
+                wrap_multiple_with_constr(3, vec![9u64.to_plutus_data()]),
+            )])),
+            "starting account balance intervals"
+        );
     });
 }
 #[test]

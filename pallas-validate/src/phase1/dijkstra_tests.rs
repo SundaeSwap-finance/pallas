@@ -734,7 +734,7 @@ fn dijkstra_only_a_v1_v2_or_v3_script_puts_the_batch_in_legacy_mode() {
 }
 
 #[test]
-fn dijkstra_a_v4_guard_script_is_unsupported() {
+fn dijkstra_a_v4_guard_script_needs_its_guarding_redeemer() {
     synthetic(|mut tx, input| {
         use pallas_traverse::ComputeHash;
         let script = plutus_v4();
@@ -749,9 +749,14 @@ fn dijkstra_a_v4_guard_script_is_unsupported() {
         ));
         sign(&mut tx);
         let input = with_script(&input, script);
+        let mut env = env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = env.prot_params else {
+            unreachable!()
+        };
+        pp.cost_models_for_script_languages.plutus_v4 = Some(vec![]);
         error(
-            dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env()),
-            "DijkstraUnsupported(\"redeemer purpose\")",
+            dispatch(&tx, &MultiEraOutput::from_dijkstra(&input), &env),
+            "PostAlonzo(RedeemerMissing)",
         );
     });
 }
