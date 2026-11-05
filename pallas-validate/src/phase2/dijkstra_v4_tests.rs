@@ -122,6 +122,73 @@ fn plutus_v4_contexts_equal_the_ledger_contexts() {
 }
 
 #[test]
+fn phase_one_refuses_a_plutus_guard_required_with_no_datum() {
+    use crate::utils::{CertState, ValidationError};
+    use pallas_codec::utils::Nullable;
+    use pallas_traverse::{MultiEraInput, MultiEraOutput};
+    let fixture = read(1344);
+    let pairs: Vec<_> = fixture["utxos"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pair| (bytes(&pair[0]), bytes(&pair[1])))
+        .collect();
+    let utxos: crate::utils::UTxOs = pairs
+        .iter()
+        .map(|(input, output)| {
+            let input: n::TransactionInput = minicbor::decode(input).unwrap();
+            (
+                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(input))),
+                MultiEraOutput::decode(Era::Dijkstra, output).unwrap(),
+            )
+        })
+        .collect();
+    let mut env = crate::phase1::dijkstra_registration_tests::params();
+    env.prot_params = params(&fixture);
+    env.block_slot = 5179681;
+    let run = |tx: &n::BlockTransaction<'_>| {
+        crate::phase1::validate_txs(
+            &[MultiEraTx::from_dijkstra(tx)],
+            &env,
+            &utxos,
+            &mut CertState::default(),
+        )
+    };
+    let raw = bytes(&fixture["tx"]);
+    let tx: n::MempoolTransaction = minicbor::decode(&raw).unwrap();
+    let tx = n::BlockTransaction::from(tx);
+    let result = run(&tx);
+    assert!(
+        matches!(
+            result,
+            Err(ValidationError::DijkstraUnsupported("guard datum"))
+        ),
+        "{result:?}"
+    );
+    let mut body = (*tx.transaction_body).clone();
+    let mut subs = body.sub_transactions.clone().unwrap().to_vec();
+    let mut sub_body = (*subs[0].sub_transaction_body).clone();
+    let nulled: Option<n::RequiredTopLevelGuards> = sub_body
+        .required_top_level_guards
+        .take()
+        .map(|x| x.into_keys().map(|k| (k, Nullable::Null)).collect());
+    for (top, sub) in [(None, nulled.clone()), (nulled, None)] {
+        let mut tx = tx.clone();
+        let mut sub_body = sub_body.clone();
+        sub_body.required_top_level_guards = sub;
+        subs[0].sub_transaction_body = sub_body.into();
+        body.sub_transactions = n::NonEmptySet::from_vec(subs.clone());
+        body.required_top_level_guards = top;
+        tx.transaction_body = body.clone().into();
+        let result = run(&tx);
+        assert!(
+            matches!(result, Err(ValidationError::DijkstraGuardWithoutDatum)),
+            "{result:?}"
+        );
+    }
+}
+
+#[test]
 fn plutus_v4_redeemers_spend_the_ledger_budget() {
     for record in RECORDS {
         let fixture = read(record);
