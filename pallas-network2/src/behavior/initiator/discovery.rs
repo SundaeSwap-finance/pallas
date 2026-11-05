@@ -135,7 +135,7 @@ mod tests {
         let mut s = InitiatorState::new();
         s.connection = ConnectionState::Initialized;
         // Set handshake to Done(Accepted) with peer_sharing > 0
-        let vd = handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let vd = handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false), None);
         s.handshake = handshake::State::Done(handshake::DoneState::Accepted(13, vd));
         s
     }

@@ -109,7 +109,7 @@ mod tests {
     fn make_initialized_state() -> ResponderState {
         let mut s = ResponderState::new();
         s.connection = ConnectionState::Initialized;
-        let vd = handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+        let vd = handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false), None);
         s.handshake = handshake::State::Done(handshake::DoneState::Accepted(13, vd));
         s
     }

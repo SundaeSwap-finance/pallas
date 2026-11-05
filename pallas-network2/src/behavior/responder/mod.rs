@@ -779,7 +779,7 @@ mod tests {
         drain_outputs(behavior);
 
         let version_data =
-            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false), None);
         let mut values = StdHashMap::new();
         values.insert(13u64, version_data.clone());
         let version_table = handshake::VersionTable { values };
@@ -833,7 +833,7 @@ mod tests {
 
         // Peer sends Propose → our handshake visitor sends Accept + PeerInitialized
         let version_data =
-            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false));
+            handshake::n2n::VersionData::new(MAINNET_MAGIC, false, Some(1), Some(false), None);
         let mut values = StdHashMap::new();
         values.insert(13u64, version_data.clone());
         let version_table = handshake::VersionTable { values };
