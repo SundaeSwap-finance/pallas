@@ -4,7 +4,9 @@ use crate::utils::{EraCbor, TxoRef};
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::{conway as c, dijkstra as n};
-use pallas_traverse::{Era, MultiEraBlock, MultiEraRedeemerTag, MultiEraTx};
+use pallas_traverse::{
+    ComputeHash, Era, MultiEraBlock, MultiEraRedeemerTag, MultiEraTx, OriginalHash,
+};
 use std::collections::BTreeMap;
 use to_plutus_data::{MintValue, ToPlutusData, wrap_multiple_with_constr};
 
@@ -101,6 +103,266 @@ fn error(result: Result<EvalReport, Error>, expected: &str) {
         "expected {expected}, got {actual}"
     );
 }
+
+// Historical V3 and V4 vectors keep the omission regressions independent of
+// missing-cost-model errors. Fixture mutations are documented in
+// test_data/musashi-guard-discovery/README.md.
+fn guard_params() -> MultiEraProtocolParameters {
+    let mut pp = params();
+    let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
+        unreachable!()
+    };
+    let historical: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../test_data/musashi-phase1/registration-epoch64-parameters.json"
+    ))
+    .unwrap();
+    p.cost_models_for_script_languages.plutus_v4 =
+        Some(serde_json::from_value(historical["cost_models_raw"]["PlutusV4"].clone()).unwrap());
+    pp
+}
+
+#[test]
+fn native_guard_without_witness_is_rejected() {
+    fixture(|mut tx, u| {
+        // Synthetic mutation: replace the captured certificate purpose with a guard.
+        let script = n::PlutusScript::<4>(hex::decode("450101002499").unwrap().into());
+
+        let mut body = (*tx.transaction_body).clone();
+        body.certificates = None;
+        body.guards = Some(n::Guards::Credentials(
+            vec![n::StakeCredential::ScriptHash(script.compute_hash())]
+                .try_into()
+                .unwrap(),
+        ));
+        tx.transaction_body = body.into();
+
+        let mut witness = (*tx.transaction_witness_set).clone();
+        witness.plutus_v3_script = None;
+        witness.plutus_v4_script = None;
+        witness.redeemer = None;
+        tx.transaction_witness_set = witness.into();
+
+        let view = MultiEraTx::from_dijkstra(&tx);
+        let results = [
+            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            estimate_tx(&view, &guard_params(), &u, &slots()),
+        ];
+        println!("[evaluate, estimate]: {results:?}");
+        for result in results {
+            error(result, "MissingRequiredScript");
+        }
+    });
+}
+
+#[test]
+fn native_guard_with_v4_witness_requires_redeemer() {
+    fixture(|mut tx, u| {
+        // Synthetic mutation: replace the captured certificate purpose with a guard.
+        let script = n::PlutusScript::<4>(hex::decode("450101002499").unwrap().into());
+
+        let mut body = (*tx.transaction_body).clone();
+        body.certificates = None;
+        body.guards = Some(n::Guards::Credentials(
+            vec![n::StakeCredential::ScriptHash(script.compute_hash())]
+                .try_into()
+                .unwrap(),
+        ));
+        tx.transaction_body = body.into();
+
+        let mut witness = (*tx.transaction_witness_set).clone();
+        witness.plutus_v3_script = None;
+        witness.plutus_v4_script = Some(vec![script].try_into().unwrap());
+        witness.redeemer = None;
+        tx.transaction_witness_set = witness.into();
+
+        let view = MultiEraTx::from_dijkstra(&tx);
+        let results = [
+            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            estimate_tx(&view, &guard_params(), &u, &slots()),
+        ];
+        println!("[evaluate, estimate]: {results:?}");
+        for result in results {
+            match result {
+                Err(Error::RequiredRedeemersMismatch { missing, extra }) => {
+                    assert_eq!(missing, vec!["Guarding[0]".to_owned()]);
+                    assert!(extra.is_empty());
+                }
+                other => panic!("expected the missing Guarding redeemer, got {other:?}"),
+            }
+        }
+    });
+}
+
+#[test]
+fn native_guard_absent_returns_empty_report() {
+    fixture(|mut tx, u| {
+        // Synthetic control: remove the captured certificates and all guards.
+
+        let mut body = (*tx.transaction_body).clone();
+        body.certificates = None;
+        body.guards = None;
+        tx.transaction_body = body.into();
+
+        let mut witness = (*tx.transaction_witness_set).clone();
+        witness.plutus_v3_script = None;
+        witness.plutus_v4_script = None;
+        witness.redeemer = None;
+        tx.transaction_witness_set = witness.into();
+
+        let view = MultiEraTx::from_dijkstra(&tx);
+        let results = [
+            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            estimate_tx(&view, &guard_params(), &u, &slots()),
+        ];
+        println!("[evaluate, estimate]: {results:?}");
+        for result in results {
+            assert!(result.expect("no scripts need evaluation").is_empty());
+        }
+    });
+}
+
+#[test]
+fn native_guard_native_script_is_filtered_before_redeemer_checks() {
+    for reference in [false, true] {
+        fixture(|mut tx, mut u| {
+            // Synthetic native guard, supplied either directly or by reference.
+            let bytes = minicbor::to_vec(n::NativeScript::ScriptAll(vec![])).unwrap();
+            let native =
+                minicbor::decode::<pallas_codec::utils::KeepRaw<'_, n::NativeScript>>(&bytes)
+                    .unwrap()
+                    .to_owned();
+            let mut body = (*tx.transaction_body).clone();
+            body.certificates = None;
+            body.guards = Some(n::Guards::Credentials(
+                vec![n::StakeCredential::ScriptHash(native.original_hash())]
+                    .try_into()
+                    .unwrap(),
+            ));
+            tx.transaction_body = body.into();
+            let mut witness = (*tx.transaction_witness_set).clone();
+            witness.plutus_v3_script = None;
+            witness.plutus_v4_script = None;
+            witness.redeemer = None;
+            witness.native_script = if reference {
+                None
+            } else {
+                Some(vec![native.clone()].try_into().unwrap())
+            };
+            tx.transaction_witness_set = witness.into();
+            if reference {
+                replace_script(
+                    &mut tx,
+                    &mut u,
+                    Some(n::ScriptRef::NativeScript(native)),
+                    false,
+                );
+            }
+            let view = MultiEraTx::from_dijkstra(&tx);
+            for result in [
+                evaluate_tx(&view, &guard_params(), &u, &slots()),
+                estimate_tx(&view, &guard_params(), &u, &slots()),
+            ] {
+                assert!(
+                    result
+                        .expect("native guards require no phase-two redeemer")
+                        .is_empty()
+                );
+            }
+        });
+    }
+}
+
+#[test]
+fn native_guard_legacy_languages_remain_excluded() {
+    for language in [1, 2, 3] {
+        fixture(|mut tx, u| {
+            // A supplied synthetic legacy script reaches context exclusion,
+            // rather than failing earlier on a missing witness.
+            let bytes = script("(program 1.0.0 (lam ctx (con unit ())))").0;
+            let mut witness = (*tx.transaction_witness_set).clone();
+            witness.plutus_v1_script = None;
+            witness.plutus_v2_script = None;
+            witness.plutus_v3_script = None;
+            witness.plutus_v4_script = None;
+            witness.redeemer = None;
+            let hash = match language {
+                1 => {
+                    let script = n::PlutusScript::<1>(bytes);
+                    let hash = script.compute_hash();
+                    witness.plutus_v1_script = Some(vec![script].try_into().unwrap());
+                    hash
+                }
+                2 => {
+                    let script = n::PlutusScript::<2>(bytes);
+                    let hash = script.compute_hash();
+                    witness.plutus_v2_script = Some(vec![script].try_into().unwrap());
+                    hash
+                }
+                _ => {
+                    let script = n::PlutusScript::<3>(bytes);
+                    let hash = script.compute_hash();
+                    witness.plutus_v3_script = Some(vec![script].try_into().unwrap());
+                    hash
+                }
+            };
+            tx.transaction_witness_set = witness.into();
+            let mut body = (*tx.transaction_body).clone();
+            body.certificates = None;
+            body.guards = Some(n::Guards::Credentials(
+                vec![n::StakeCredential::ScriptHash(hash)]
+                    .try_into()
+                    .unwrap(),
+            ));
+            tx.transaction_body = body.into();
+            let view = MultiEraTx::from_dijkstra(&tx);
+            for result in [
+                evaluate_tx(&view, &guard_params(), &u, &slots()),
+                estimate_tx(&view, &guard_params(), &u, &slots()),
+            ] {
+                error(result, "script guards");
+            }
+        });
+    }
+}
+
+#[test]
+fn native_guard_with_redeemer_evaluates_v4() {
+    fixture(|mut tx, u| {
+        // Synthetic positive control for upstream V4 support. Use the conformance
+        // V4 model supplied by v4_params(), not the historical refusal-only vector.
+        let script = n::PlutusScript::<4>(hex::decode("450101002499").unwrap().into());
+        let mut body = (*tx.transaction_body).clone();
+        body.certificates = None;
+        body.guards = Some(n::Guards::Credentials(
+            vec![n::StakeCredential::ScriptHash(script.compute_hash())]
+                .try_into()
+                .unwrap(),
+        ));
+        tx.transaction_body = body.into();
+        let mut witness = (*tx.transaction_witness_set).clone();
+        witness.plutus_v3_script = None;
+        witness.plutus_v4_script = Some(vec![script].try_into().unwrap());
+        tx.transaction_witness_set = witness.into();
+        change_redeemer(&mut tx, |key, _| {
+            key.tag = n::RedeemerTag::Guarding;
+            key.index = 0;
+        });
+        let view = MultiEraTx::from_dijkstra(&tx);
+        for result in [
+            evaluate_tx(&view, &v4_params(), &u, &slots()),
+            estimate_tx(&view, &v4_params(), &u, &slots()),
+        ] {
+            let report = result.expect("the supplied Guarding redeemer must evaluate");
+            assert_eq!(report.len(), 1);
+            assert_eq!(
+                (report[0].tag, report[0].index),
+                (MultiEraRedeemerTag::Guarding, 0)
+            );
+            assert!(report[0].success, "{report:?}");
+        }
+    });
+}
+
 #[test]
 fn native_registration_accepts_a_guard_native_witness() {
     fixture(|mut tx, u| {
