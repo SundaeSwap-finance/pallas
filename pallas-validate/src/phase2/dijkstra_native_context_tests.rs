@@ -21,7 +21,11 @@ fn native_guard_empty_and_key_only_forms_need_no_scripts() {
             minicbor::decode(&[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]).unwrap();
         body.guards = guards;
         let level = Level::top(&body, [0; 32].into());
-        assert!(redeemer_scripts(&level, |_| Ok(None)).unwrap().is_empty());
+        assert!(
+            redeemer_scripts(&level, |_| unreachable!())
+                .unwrap()
+                .is_empty()
+        );
     }
 }
 
@@ -46,7 +50,7 @@ fn native_guard_indices_keep_key_positions() {
         minicbor::decode(&[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]).unwrap();
     body.guards = Some(guards);
     let level = Level::top(&body, [0; 32].into());
-    let actual: Vec<_> = redeemer_scripts(&level, |_| Ok(None))
+    let actual: Vec<_> = redeemer_scripts(&level, |_| unreachable!())
         .unwrap()
         .into_iter()
         .map(|(key, hash)| (key.tag, key.index, hash))
