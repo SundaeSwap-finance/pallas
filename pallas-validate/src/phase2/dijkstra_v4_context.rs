@@ -140,13 +140,9 @@ impl<'a> Context<'a> {
         Ok(TxInfo {
             id: level.id.to_plutus_data(),
             sub: level.sub.to_plutus_data(),
-            inputs: self.inputs.iter().map(input).collect::<Result<_, _>>()?,
-            reference_inputs: self
-                .reference_inputs
-                .iter()
-                .map(input)
-                .collect::<Result<_, _>>()?,
-            outputs: self.outputs.iter().map(output).collect::<Result<_, _>>()?,
+            inputs: self.inputs.iter().map(input).collect(),
+            reference_inputs: self.reference_inputs.iter().map(input).collect(),
+            outputs: self.outputs.iter().map(output).collect(),
             mint: MintValue {
                 mint_value: level.mint.cloned().unwrap_or_default(),
             }
@@ -447,26 +443,24 @@ fn out_ref(input: &n::TransactionInput) -> PlutusData {
 }
 
 /// An input, as its output reference and the output it resolves to.
-fn input(input: &ContextInput) -> Result<PlutusData, Error> {
-    Ok(list(vec![
-        out_ref(&input.out_ref),
-        output(&input.resolved)?,
-    ]))
+fn input(input: &ContextInput) -> PlutusData {
+    list(vec![out_ref(&input.out_ref), output(&input.resolved)])
 }
 
 /// An output, whose address holds a payment credential and an optional stake credential.
-fn output(output: &ContextOutput) -> Result<PlutusData, Error> {
+fn output(output: &ContextOutput) -> PlutusData {
     let payment = match output.address.payment() {
         ShelleyPaymentPart::Key(hash) => StakeCredential::AddrKeyhash(*hash),
         ShelleyPaymentPart::Script(hash) => StakeCredential::ScriptHash(*hash),
     };
-    let stake = v4_stake(&output.address).map_err(|x| Error::DijkstraInvalid(x.0))?;
-    Ok(list(vec![
+    let stake = v4_stake(&output.address)
+        .unwrap_or_else(|x| unreachable!("unexpected {} in a PlutusV4 script context", x.0));
+    list(vec![
         list(vec![payment.to_plutus_data(), stake.to_plutus_data()]),
         output.value.to_plutus_data(),
         output.datum.to_plutus_data(),
         output.script.to_plutus_data(),
-    ]))
+    ])
 }
 
 /// A certificate, whose registration and unregistration deposits are not optional.
