@@ -4,6 +4,64 @@ use pallas_codec::{minicbor, utils::KeepRaw};
 use pallas_traverse::OriginalHash;
 
 #[test]
+fn native_guard_empty_and_key_only_forms_need_no_scripts() {
+    // Synthetic controls for both credential representations.
+    let key = Hash::<28>::from([1; 28]);
+    for guards in [
+        None,
+        Some(n::Guards::AddrKeyhashes(vec![key].try_into().unwrap())),
+        Some(n::Guards::Credentials(
+            vec![n::StakeCredential::AddrKeyhash(key)]
+                .try_into()
+                .unwrap(),
+        )),
+    ] {
+        // Synthetic body: empty inputs/outputs and zero fee, used only for discovery.
+        let mut body: n::TransactionBody =
+            minicbor::decode(&[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]).unwrap();
+        body.guards = guards;
+        let level = Level::top(&body, [0; 32].into());
+        assert!(redeemer_scripts(&level, |_| Ok(None)).unwrap().is_empty());
+    }
+}
+
+#[test]
+fn native_guard_indices_keep_key_positions() {
+    // Synthetic credentials exercise gaps between script guards.
+    let first = Hash::<28>::from([11; 28]);
+    let second = Hash::<28>::from([22; 28]);
+    let guards = n::Guards::Credentials(
+        vec![
+            n::StakeCredential::AddrKeyhash([1; 28].into()),
+            n::StakeCredential::ScriptHash(first),
+            n::StakeCredential::AddrKeyhash([2; 28].into()),
+            n::StakeCredential::ScriptHash(second),
+        ]
+        .try_into()
+        .unwrap(),
+    );
+
+    // Exercise the shared production collector used by phase two after the rebase.
+    let mut body: n::TransactionBody =
+        minicbor::decode(&[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]).unwrap();
+    body.guards = Some(guards);
+    let level = Level::top(&body, [0; 32].into());
+    let actual: Vec<_> = redeemer_scripts(&level, |_| Ok(None))
+        .unwrap()
+        .into_iter()
+        .map(|(key, hash)| (key.tag, key.index, hash))
+        .collect();
+
+    assert_eq!(
+        actual,
+        vec![
+            (n::RedeemerTag::Guarding, 1, first),
+            (n::RedeemerTag::Guarding, 3, second),
+        ],
+    );
+}
+
+#[test]
 fn dijkstra_native_reference_hash_survives_v3_projection() {
     // Deliberately nonminimal CBOR: hashing a semantic re-encoding is wrong.
     // Include direct and all three recursive constructors, with both credentials.
