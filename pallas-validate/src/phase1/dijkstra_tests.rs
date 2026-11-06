@@ -310,17 +310,52 @@ fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold()
             transaction_id: [12; 32].into(),
             index: 0,
         };
+        let unsigned = native::TransactionInput {
+            transaction_id: [13; 32].into(),
+            index: 0,
+        };
+        let missing = native::TransactionInput {
+            transaction_id: [14; 32].into(),
+            index: 0,
+        };
+        fn at<'x>(
+            payment: ShelleyPaymentPart,
+            delegation: ShelleyDelegationPart,
+            coin: u64,
+        ) -> native::TransactionOutput<'x> {
+            native::TransactionOutput::PostAlonzo(
+                native::PostAlonzoTransactionOutput {
+                    address: ShelleyAddress::new(Network::Testnet, payment, delegation)
+                        .to_vec()
+                        .into(),
+                    value: conway::Value::Coin(coin),
+                    datum_option: None,
+                    script_ref: None,
+                }
+                .into(),
+            )
+        }
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        let other_key = at(
+            ShelleyPaymentPart::Key([0; 28].into()),
+            ShelleyDelegationPart::Null,
+            coin,
+        );
         let spent = tx.transaction_body.inputs[0].clone();
         let output = MultiEraOutput::from_dijkstra(&input);
-        let utxos = [spent, collateral.clone()]
-            .into_iter()
-            .map(|x| {
-                (
-                    MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(x))),
-                    output.clone(),
-                )
-            })
-            .collect();
+        let utxos = [
+            (spent, output.clone()),
+            (collateral.clone(), output.clone()),
+            (unsigned.clone(), MultiEraOutput::from_dijkstra(&other_key)),
+        ]
+        .into_iter()
+        .map(|(x, output)| {
+            (
+                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(x))),
+                output,
+            )
+        })
+        .collect();
         let mut e = env();
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
@@ -341,6 +376,30 @@ fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold()
         sign(&mut tx);
         let accepted = run(&tx, &e);
         assert!(accepted.is_ok(), "{accepted:?}");
+        let mut changed = tx.clone();
+        changed.transaction_body.collateral = native::NonEmptySet::from_vec(vec![missing]);
+        sign(&mut changed);
+        error(run(&changed, &e), "PostAlonzo(CollateralNotInUTxO)");
+        let mut changed = tx.clone();
+        changed.transaction_body.collateral = native::NonEmptySet::from_vec(vec![unsigned]);
+        sign(&mut changed);
+        error(run(&changed, &e), "PostAlonzo(VKWitnessMissing)");
+        let mut changed = tx.clone();
+        changed.transaction_body.collateral_return = Some(at(
+            ShelleyPaymentPart::Key([0; 28].into()),
+            ShelleyDelegationPart::Pointer(pallas_addresses::Pointer::new(1, 2, 3)),
+            coin,
+        ));
+        sign(&mut changed);
+        error(run(&changed, &e), "DijkstraPointerInCollateralReturn");
+        let mut changed = tx.clone();
+        changed.transaction_body.collateral_return = Some(at(
+            ShelleyPaymentPart::Key([0; 28].into()),
+            ShelleyDelegationPart::Null,
+            1,
+        ));
+        sign(&mut changed);
+        error(run(&changed, &e), "PostAlonzo(MinLovelaceUnreached)");
         let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
             unreachable!()
         };
