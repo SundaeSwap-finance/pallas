@@ -15,7 +15,7 @@ use pallas_addresses::{Address, StakePayload};
 use pallas_codec::minicbor;
 use pallas_crypto::hash::Hash;
 use pallas_primitives::dijkstra::*;
-use pallas_traverse::MultiEraOutput;
+use pallas_traverse::{MultiEraOutput, withdrawals::cmp_reward_accounts};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 /// The fields a top level and a sub transaction body share, with the position of a sub transaction in its batch.
@@ -99,18 +99,9 @@ impl<'a> Level<'a> {
             .flat_map(|x| x.iter())
             .map(|(a, c)| (a, *c))
             .collect();
-        ordered.sort_by(|(x, _), (y, _)| account_order(x).cmp(&account_order(y)));
+        ordered.sort_by(|(x, _), (y, _)| cmp_reward_accounts(x, y));
         ordered
     }
-}
-
-/// The key the ledger orders reward accounts by: network, then script credentials before key credentials, then hash.
-pub(crate) fn account_order(raw: &[u8]) -> (Option<u8>, Option<u8>, Option<&[u8]>) {
-    (
-        raw.first().map(|x| x & 15),
-        raw.first().map(|x| 15 - (x >> 4)),
-        raw.get(1..),
-    )
 }
 
 /// The key hashes and scripts one level's ledger fields require, by redeemer purpose.
