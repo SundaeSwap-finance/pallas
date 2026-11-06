@@ -171,7 +171,7 @@ fn native_guard_without_witness_is_rejected() {
 
         let view = MultiEraTx::from_dijkstra(&tx);
         let results = [
-            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            evaluate_multi_era_tx(&view, &guard_params(), &u, &slots()),
             estimate_tx(&view, &guard_params(), &u, &slots()),
         ];
         println!("[evaluate, estimate]: {results:?}");
@@ -204,7 +204,7 @@ fn native_guard_with_v4_witness_requires_redeemer() {
 
         let view = MultiEraTx::from_dijkstra(&tx);
         let results = [
-            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            evaluate_multi_era_tx(&view, &guard_params(), &u, &slots()),
             estimate_tx(&view, &guard_params(), &u, &slots()),
         ];
         println!("[evaluate, estimate]: {results:?}");
@@ -238,7 +238,7 @@ fn native_guard_absent_returns_empty_report() {
 
         let view = MultiEraTx::from_dijkstra(&tx);
         let results = [
-            evaluate_tx(&view, &guard_params(), &u, &slots()),
+            evaluate_multi_era_tx(&view, &guard_params(), &u, &slots()),
             estimate_tx(&view, &guard_params(), &u, &slots()),
         ];
         println!("[evaluate, estimate]: {results:?}");
@@ -286,7 +286,7 @@ fn native_guard_native_script_is_filtered_before_redeemer_checks() {
             }
             let view = MultiEraTx::from_dijkstra(&tx);
             for result in [
-                evaluate_tx(&view, &guard_params(), &u, &slots()),
+                evaluate_multi_era_tx(&view, &guard_params(), &u, &slots()),
                 estimate_tx(&view, &guard_params(), &u, &slots()),
             ] {
                 assert!(
@@ -343,7 +343,7 @@ fn native_guard_legacy_languages_remain_excluded() {
             tx.transaction_body = body.into();
             let view = MultiEraTx::from_dijkstra(&tx);
             for result in [
-                evaluate_tx(&view, &guard_params(), &u, &slots()),
+                evaluate_multi_era_tx(&view, &guard_params(), &u, &slots()),
                 estimate_tx(&view, &guard_params(), &u, &slots()),
             ] {
                 error(result, "script guards");
@@ -376,7 +376,7 @@ fn native_guard_with_redeemer_evaluates_v4() {
         });
         let view = MultiEraTx::from_dijkstra(&tx);
         for result in [
-            evaluate_tx(&view, &v4_params(), &u, &slots()),
+            evaluate_multi_era_tx(&view, &v4_params(), &u, &slots()),
             estimate_tx(&view, &v4_params(), &u, &slots()),
         ] {
             let report = result.expect("the supplied Guarding redeemer must evaluate");
