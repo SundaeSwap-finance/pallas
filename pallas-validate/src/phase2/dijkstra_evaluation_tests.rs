@@ -854,6 +854,7 @@ fn native_registration_runs_a_v4_script_on_the_v4_context() {
 #[test]
 fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
     use crate::phase1::dijkstra_ledger::Level;
+    use crate::utils::ContextFailure;
     use crate::utils::dijkstra_context::{Untranslatable, check_translatable};
     use pallas_addresses::{
         Network, Pointer, ShelleyAddress, ShelleyDelegationPart, ShelleyPaymentPart,
@@ -892,13 +893,17 @@ fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
         let (v3, held) = run(n::ScriptRef::PlutusV3Script(script(unit)));
         let v3 = v3.unwrap();
         assert!(v3[0].success, "{v3:?}");
-        assert_eq!(held, (Ok(()), Err(Untranslatable("pointer address"))));
+        assert_eq!(
+            held,
+            (Ok(()), Err(Untranslatable(ContextFailure::PointerAddress)))
+        );
         error(run(v4_script(unit)).0, "pointer address");
     });
 }
 #[test]
 fn native_registration_refuses_a_byron_or_reward_account_output_in_every_context() {
     use crate::phase1::dijkstra_ledger::Level;
+    use crate::utils::ContextFailure;
     use crate::utils::dijkstra_context::{Untranslatable, check_translatable};
     use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress};
     let byron = ByronAddress::from(AddressPayload {
@@ -910,7 +915,10 @@ fn native_registration_refuses_a_byron_or_reward_account_output_in_every_context
     let reward = [vec![0xe0], vec![0x55; 28]].concat();
     fixture(|tx, u| {
         let unit = "(program 1.1.0 (lam ctx (con unit ())))";
-        for (address, part) in [(byron, "Byron address"), (reward, "reward account address")] {
+        for (address, part) in [
+            (byron, ContextFailure::ByronAddress),
+            (reward, ContextFailure::RewardAccountAddress),
+        ] {
             for s in [n::ScriptRef::PlutusV3Script(script(unit)), v4_script(unit)] {
                 let mut tx = tx.clone();
                 let mut u = u.clone();

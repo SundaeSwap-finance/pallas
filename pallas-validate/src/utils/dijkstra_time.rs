@@ -15,10 +15,20 @@ pub enum ForecastHorizon {
     Unbounded,
 }
 
+labels! {
+    /// The rule an era time history breaks.
+    pub enum HistoryFailure {
+        DiscontinuousEraTimes => "discontinuous era times",
+        EmptyHistory => "empty history",
+        EraStartsMustIncrease => "era starts must increase",
+        ZeroSlotLength => "zero slot length",
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DijkstraTimeError {
     #[error("invalid era time history: {0}")]
-    InvalidHistory(&'static str),
+    InvalidHistory(HistoryFailure),
     #[error("slot {slot} precedes available time history starting at {first_slot}")]
     BeforeHistory { slot: u64, first_slot: u64 },
     #[error("POSIX millisecond conversion overflows at slot {0}")]
@@ -54,19 +64,25 @@ pub struct DijkstraTimeContext {
 impl DijkstraTimeContext {
     pub fn new(eras: Vec<EraTime>, horizon: ForecastHorizon) -> Result<Self, DijkstraTimeError> {
         if eras.is_empty() {
-            return Err(DijkstraTimeError::InvalidHistory("empty history"));
+            return Err(DijkstraTimeError::InvalidHistory(
+                HistoryFailure::EmptyHistory,
+            ));
         }
         if eras.iter().any(|e| e.slot_length_ms == 0) {
-            return Err(DijkstraTimeError::InvalidHistory("zero slot length"));
+            return Err(DijkstraTimeError::InvalidHistory(
+                HistoryFailure::ZeroSlotLength,
+            ));
         }
         for pair in eras.windows(2) {
             if pair[0].start_slot >= pair[1].start_slot {
                 return Err(DijkstraTimeError::InvalidHistory(
-                    "era starts must increase",
+                    HistoryFailure::EraStartsMustIncrease,
                 ));
             }
             if pair[0].translate(pair[1].start_slot)? != pair[1].start_time_ms {
-                return Err(DijkstraTimeError::InvalidHistory("discontinuous era times"));
+                return Err(DijkstraTimeError::InvalidHistory(
+                    HistoryFailure::DiscontinuousEraTimes,
+                ));
             }
         }
         Ok(Self { eras, horizon })

@@ -109,7 +109,7 @@ pub fn validate_tx(
         (MultiEraProtocolParameters::Dijkstra(pp), _) => match metx {
             MultiEraTx::Dijkstra(tx) => apply_dijkstra_tx(tx, env, pp, utxos, cert_state, None),
             MultiEraTx::DijkstraSub(..) => Err(crate::utils::ValidationError::DijkstraUnsupported(
-                "subtransactions",
+                crate::utils::UnsupportedFeature::Subtransactions,
             )),
             _ => Err(TxAndProtParamsDiffer),
         },
