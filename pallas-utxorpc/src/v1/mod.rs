@@ -1295,6 +1295,27 @@ mod tests {
     }
 
     #[test]
+    fn a_reward_redeemer_maps_to_the_withdrawal_the_ledger_indexes() {
+        let mapped = Mapper::new(NoLedger).map_tx(&conway_tx_with_key_and_script_withdrawals());
+        let redeemed = |account: [u8; 29]| {
+            common(&mapped)
+                .withdrawals
+                .iter()
+                .find(|x| x.reward_account.as_ref() == account)
+                .map(|x| x.redeemer.is_some())
+        };
+
+        assert_eq!(
+            (
+                redeemed(SCRIPT_REWARD_ACCOUNT),
+                redeemed(KEY_REWARD_ACCOUNT)
+            ),
+            (Some(true), Some(false)),
+            "Reward index 0 is the script account, which the ledger orders before a key account of its network"
+        );
+    }
+
+    #[test]
     fn conway_required_signers_map_to_key_credentials() {
         use u5c::stake_credential::StakeCredential;
 
