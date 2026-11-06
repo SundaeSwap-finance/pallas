@@ -84,13 +84,30 @@ fn native_registration_executes_with_historical_budget() {
     });
 }
 #[test]
-fn a_dijkstra_transaction_evaluates_only_into_the_multi_era_report() {
+fn the_stable_report_refuses_a_dijkstra_redeemer_at_any_level() {
     fixture(|tx, u| {
         let view = MultiEraTx::from_dijkstra(&tx);
         let report = evaluate_multi_era_tx(&view, &params(), &u, &slots()).unwrap();
         assert_eq!(report.len(), 1);
         let stable = evaluate_tx(&view, &params(), &u, &slots());
         assert!(matches!(stable, Err(Error::WrongEra())), "{stable:?}");
+        let redeemers = tx.transaction_witness_set.redeemer.clone();
+        let mut tx = tx;
+        let mut w = (*tx.transaction_witness_set).clone();
+        w.redeemer = None;
+        tx.transaction_witness_set = w.into();
+        let none = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &params(), &u, &slots());
+        assert!(matches!(none.as_deref(), Ok([])), "{none:?}");
+        let mut sub: n::SubTransaction =
+            minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
+        let mut w = (*sub.transaction_witness_set).clone();
+        w.redeemer = redeemers;
+        sub.transaction_witness_set = w.into();
+        let mut b = (*tx.transaction_body).clone();
+        b.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+        tx.transaction_body = b.into();
+        let sub = evaluate_tx(&MultiEraTx::from_dijkstra(&tx), &params(), &u, &slots());
+        assert!(matches!(sub, Err(Error::WrongEra())), "{sub:?}");
     });
 }
 
