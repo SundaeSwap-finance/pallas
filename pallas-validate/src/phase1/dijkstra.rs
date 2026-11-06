@@ -1115,17 +1115,21 @@ fn check_collateral(
         Some(output) => check_outputs(std::slice::from_ref(output), pp, &network)?,
         None => 0,
     };
-    if let Some(output) = &b.collateral_return {
-        let view = MultiEraOutput::from_dijkstra(output);
-        if let Ok(Address::Shelley(address)) = view.address()
-            && matches!(address.delegation(), ShelleyDelegationPart::Pointer(_))
-        {
-            return Err(DijkstraPointerInCollateralReturn);
-        }
-        accumulate_assets(&mut collateral_assets, &view, -1)?;
+    if let Some(output) = &b.collateral_return
+        && let Ok(Address::Shelley(address)) = MultiEraOutput::from_dijkstra(output).address()
+        && matches!(address.delegation(), ShelleyDelegationPart::Pointer(_))
+    {
+        return Err(DijkstraPointerInCollateralReturn);
     }
     if !redeemers {
         return Ok(());
+    }
+    if let Some(output) = &b.collateral_return {
+        accumulate_assets(
+            &mut collateral_assets,
+            &MultiEraOutput::from_dijkstra(output),
+            -1,
+        )?;
     }
     if collateral_assets.values().any(|x| *x != 0) {
         return Err(PostAlonzo(NonLovelaceCollateral));
