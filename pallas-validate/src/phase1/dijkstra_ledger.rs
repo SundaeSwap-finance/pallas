@@ -1,11 +1,11 @@
 //! Dijkstra rules on account, pool, DRep, committee and proposal state.
 use super::dijkstra::{Spender, spender};
 use crate::utils::{
-    DijkstraProtParams,
+    AccountFailure, CertificateFailure, DijkstraProtParams, GovernanceFailure, MalformedField,
     PostAlonzoError::*,
     ValidationError,
     ValidationError::*,
-    ValidationResult,
+    ValidationResult, WithdrawalFailure,
     dijkstra_state::{
         DijkstraAccount, DijkstraCommitteeAuth, DijkstraDRep, DijkstraLedgerOverlay,
         DijkstraLedgerState, DijkstraPool, DijkstraProposal, DijkstraProposalAction,
@@ -338,10 +338,12 @@ fn check_intervals<S: DijkstraLedgerState + ?Sized>(
             return Err(PostAlonzo(TxWrongNetworkID));
         }
         let account = state.account(&credential)?.ok_or(DijkstraInvalidAccount(
-            "balance interval names an unregistered account",
+            AccountFailure::BalanceIntervalUnregistered,
         ))?;
         if !interval_contains(account.balance, interval) {
-            return Err(DijkstraInvalidAccount("balance outside its interval"));
+            return Err(DijkstraInvalidAccount(
+                AccountFailure::BalanceOutsideInterval,
+            ));
         }
     }
     Ok(())
@@ -385,7 +387,7 @@ where
                 for ((_, credential), amount) in &withdrawals {
                     if original.account(credential)?.is_none() {
                         return Err(DijkstraInvalidWithdrawal(
-                            "account missing from the original state",
+                            WithdrawalFailure::AccountMissingFromOriginalState,
                         ));
                     }
                     *all.entry(credential.clone()).or_default() += u128::from(*amount);
@@ -396,17 +398,19 @@ where
                     && *amount > u128::from(account.balance)
                 {
                     return Err(DijkstraInvalidWithdrawal(
-                        "amount exceeds the original balance",
+                        WithdrawalFailure::AmountExceedsOriginalBalance,
                     ));
                 }
             }
             for ((_, credential), amount) in &withdrawals {
                 let account = current
                     .account(credential)?
-                    .ok_or(DijkstraInvalidWithdrawal("unregistered account"))?;
+                    .ok_or(DijkstraInvalidWithdrawal(
+                        WithdrawalFailure::UnregisteredAccount,
+                    ))?;
                 if legacy && account.balance != *amount {
                     return Err(DijkstraInvalidWithdrawal(
-                        "legacy Plutus withdrawals must drain the account",
+                        WithdrawalFailure::LegacyPlutusMustDrain,
                     ));
                 }
             }
@@ -415,11 +419,13 @@ where
             for ((_, credential), _) in &withdrawals {
                 if original.account(credential)?.is_none() {
                     return Err(DijkstraInvalidWithdrawal(
-                        "account missing from the original state",
+                        WithdrawalFailure::AccountMissingFromOriginalState,
                     ));
                 }
                 if current.account(credential)?.is_none() {
-                    return Err(DijkstraInvalidWithdrawal("unregistered account"));
+                    return Err(DijkstraInvalidWithdrawal(
+                        WithdrawalFailure::UnregisteredAccount,
+                    ));
                 }
             }
         }
@@ -435,7 +441,7 @@ where
         let (_, credential) = reward_account(raw)?;
         if current.account(&credential)?.is_none() {
             return Err(DijkstraInvalidAccount(
-                "direct deposit names an unregistered account",
+                AccountFailure::DirectDepositUnregistered,
             ));
         }
         flows.produce(*amount)?;
@@ -455,7 +461,9 @@ fn withdraw<S: DijkstraLedgerState + ?Sized>(
         account.balance = account
             .balance
             .checked_sub(amount)
-            .ok_or(DijkstraInvalidWithdrawal("amount exceeds the balance"))?;
+            .ok_or(DijkstraInvalidWithdrawal(
+                WithdrawalFailure::AmountExceedsBalance,
+            ))?;
         state
             .delta
             .accounts
@@ -490,10 +498,14 @@ fn register<S: DijkstraLedgerState + ?Sized>(
     flows: &mut Flows,
 ) -> ValidationResult {
     if amount != pp.key_deposit {
-        return Err(DijkstraInvalidCertificate("registration deposit"));
+        return Err(DijkstraInvalidCertificate(
+            CertificateFailure::RegistrationDeposit,
+        ));
     }
     if state.account(credential)?.is_some() {
-        return Err(DijkstraInvalidCertificate("already registered"));
+        return Err(DijkstraInvalidCertificate(
+            CertificateFailure::AlreadyRegistered,
+        ));
     }
     state.delta.accounts.insert(
         credential.clone(),
@@ -511,7 +523,9 @@ fn registered<S: DijkstraLedgerState + ?Sized>(
 ) -> ValidationResult {
     match state.account(credential)? {
         Some(_) => Ok(()),
-        None => Err(DijkstraInvalidAccount("stake credential not registered")),
+        None => Err(DijkstraInvalidAccount(
+            AccountFailure::StakeCredentialNotRegistered,
+        )),
     }
 }
 
@@ -521,7 +535,9 @@ fn delegate_pool<S: DijkstraLedgerState + ?Sized>(
 ) -> ValidationResult {
     match state.pool(pool)? {
         Some(_) => Ok(()),
-        None => Err(DijkstraInvalidCertificate("delegatee pool not registered")),
+        None => Err(DijkstraInvalidCertificate(
+            CertificateFailure::DelegateePoolNotRegistered,
+        )),
     }
 }
 
@@ -536,7 +552,9 @@ fn delegate_drep<S: DijkstraLedgerState + ?Sized>(
     };
     match state.drep(&credential)? {
         Some(_) => Ok(()),
-        None => Err(DijkstraInvalidCertificate("delegatee DRep not registered")),
+        None => Err(DijkstraInvalidCertificate(
+            CertificateFailure::DelegateeDRepNotRegistered,
+        )),
     }
 }
 
@@ -565,14 +583,16 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
     match cert {
         Certificate::Reg(c, amount) => register(state, c, *amount, pp, flows),
         Certificate::UnReg(c, refund) => {
-            let account = state
-                .account(c)?
-                .ok_or(DijkstraInvalidAccount("stake credential not registered"))?;
+            let account = state.account(c)?.ok_or(DijkstraInvalidAccount(
+                AccountFailure::StakeCredentialNotRegistered,
+            ))?;
             if *refund != account.deposit {
-                return Err(DijkstraInvalidCertificate("refund"));
+                return Err(DijkstraInvalidCertificate(CertificateFailure::Refund));
             }
             if account.balance != 0 {
-                return Err(DijkstraInvalidCertificate("account balance is not zero"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::AccountBalanceNotZero,
+                ));
             }
             state.delta.accounts.insert(c.clone(), None);
             flows.consume(*refund)
@@ -615,19 +635,23 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
                 return Err(PostAlonzo(TxWrongNetworkID));
             }
             if *cost < pp.min_pool_cost {
-                return Err(DijkstraInvalidCertificate("pool cost below the minimum"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::PoolCostBelowMinimum,
+                ));
             }
             if let Some(pallas_codec::utils::Nullable::Some(key)) = bls_key
                 && !valid_possession_proof(key)
             {
-                return Err(DijkstraInvalidCertificate("BLS proof of possession"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::BlsProofOfPossession,
+                ));
             }
             let count = state.vrf_count(vrf_keyhash)?;
             match state.pool(operator)? {
                 None => {
                     if count != 0 {
                         return Err(DijkstraInvalidCertificate(
-                            "VRF key hash already registered",
+                            CertificateFailure::VrfKeyHashAlreadyRegistered,
                         ));
                     }
                     state.delta.pools.insert(
@@ -644,7 +668,7 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
                     let own = *vrf_keyhash == pool.vrf || pool.future_vrf == Some(*vrf_keyhash);
                     if count != u64::from(own) {
                         return Err(DijkstraInvalidCertificate(
-                            "VRF key hash already registered",
+                            CertificateFailure::VrfKeyHashAlreadyRegistered,
                         ));
                     }
                     if pool.future_vrf != Some(*vrf_keyhash) {
@@ -670,18 +694,24 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
         }
         Certificate::PoolRetirement(operator, epoch) => {
             if state.pool(operator)?.is_none() {
-                return Err(DijkstraInvalidCertificate("pool not registered"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::PoolNotRegistered,
+                ));
             }
             let current = state.epoch();
             if *epoch <= current || *epoch > current.saturating_add(pp.maximum_epoch) {
-                return Err(DijkstraInvalidCertificate("pool retirement epoch"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::PoolRetirementEpoch,
+                ));
             }
             Ok(())
         }
         Certificate::AuthCommitteeHot(cold, _) | Certificate::ResignCommitteeCold(cold, _) => {
             let auths = state.committee_auths()?;
             if auths.get(cold) == Some(&DijkstraCommitteeAuth::Resigned) {
-                return Err(DijkstraInvalidCertificate("committee member has resigned"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::CommitteeMemberResigned,
+                ));
             }
             let member = state
                 .committee()?
@@ -690,7 +720,9 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
                 matches!(&proposal.action, DijkstraProposalAction::UpdateCommittee { added } if added.contains(cold))
             });
             if !member && !proposed {
-                return Err(DijkstraInvalidCertificate("committee member is unknown"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::CommitteeMemberUnknown,
+                ));
             }
             let auth = match cert {
                 Certificate::AuthCommitteeHot(_, hot) => DijkstraCommitteeAuth::Hot(hot.clone()),
@@ -701,10 +733,12 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
         }
         Certificate::RegDRepCert(c, amount, _) => {
             if state.drep(c)?.is_some() {
-                return Err(DijkstraInvalidCertificate("DRep already registered"));
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::DRepAlreadyRegistered,
+                ));
             }
             if *amount != pp.drep_deposit {
-                return Err(DijkstraInvalidCertificate("DRep deposit"));
+                return Err(DijkstraInvalidCertificate(CertificateFailure::DRepDeposit));
             }
             state
                 .delta
@@ -713,18 +747,20 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
             flows.produce(*amount)
         }
         Certificate::UnRegDRepCert(c, refund) => {
-            let drep = state
-                .drep(c)?
-                .ok_or(DijkstraInvalidCertificate("DRep not registered"))?;
+            let drep = state.drep(c)?.ok_or(DijkstraInvalidCertificate(
+                CertificateFailure::DRepNotRegistered,
+            ))?;
             if *refund != drep.deposit {
-                return Err(DijkstraInvalidCertificate("DRep refund"));
+                return Err(DijkstraInvalidCertificate(CertificateFailure::DRepRefund));
             }
             state.delta.dreps.insert(c.clone(), None);
             flows.consume(*refund)
         }
         Certificate::UpdateDRepCert(c, _) => match state.drep(c)? {
             Some(_) => Ok(()),
-            None => Err(DijkstraInvalidCertificate("DRep not registered")),
+            None => Err(DijkstraInvalidCertificate(
+                CertificateFailure::DRepNotRegistered,
+            )),
         },
     }
 }
@@ -739,7 +775,8 @@ const NONZERO: [u64; 13] = [2, 3, 4, 6, 7, 8, 17, 22, 23, 28, 29, 30, 31];
 fn update_fields(update: &ProtocolParamUpdate) -> Result<Vec<(u64, Option<u64>)>, ValidationError> {
     let raw = minicbor::to_vec(update).map_err(|_| PostAlonzo(UnknownTxSize))?;
     let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
-        minicbor::decode(&raw).map_err(|_| DijkstraMalformed("protocol parameter update"))?;
+        minicbor::decode(&raw)
+            .map_err(|_| DijkstraMalformed(MalformedField::ProtocolParameterUpdate))?;
     Ok(fields
         .iter()
         .map(|(key, value)| (*key, minicbor::decode::<u64>(value).ok()))
@@ -847,15 +884,21 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                         .iter()
                         .any(|(key, value)| NONZERO.contains(key) && *value == Some(0))
                 {
-                    return Err(DijkstraInvalidGovernance("malformed parameter update"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::MalformedParameterUpdate,
+                    ));
                 }
             }
             GovAction::UpdateCommittee(_, removed, added, _) => {
                 if added.keys().any(|x| removed.contains(x)) {
-                    return Err(DijkstraInvalidGovernance("conflicting committee update"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::ConflictingCommitteeUpdate,
+                    ));
                 }
                 if added.values().any(|term| *term <= epoch) {
-                    return Err(DijkstraInvalidGovernance("committee term too small"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::CommitteeTermTooSmall,
+                    ));
                 }
             }
             GovAction::TreasuryWithdrawals(withdrawals, _) => {
@@ -867,13 +910,15 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                     }
                     if current.account(&credential)?.is_none() {
                         return Err(DijkstraInvalidGovernance(
-                            "treasury withdrawal account not registered",
+                            GovernanceFailure::TreasuryWithdrawalAccountNotRegistered,
                         ));
                     }
                     total += u128::from(*amount);
                 }
                 if total == 0 {
-                    return Err(DijkstraInvalidGovernance("zero treasury withdrawals"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::ZeroTreasuryWithdrawals,
+                    ));
                 }
             }
             _ => (),
@@ -882,10 +927,14 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
             &proposal.gov_action
             && *policy != guardrail
         {
-            return Err(DijkstraInvalidGovernance("guardrails script hash"));
+            return Err(DijkstraInvalidGovernance(
+                GovernanceFailure::GuardrailsScriptHash,
+            ));
         }
         if proposal.deposit != pp.governance_action_deposit {
-            return Err(DijkstraInvalidGovernance("proposal deposit"));
+            return Err(DijkstraInvalidGovernance(
+                GovernanceFailure::ProposalDeposit,
+            ));
         }
         let (net, credential) = reward_account(&proposal.reward_account)?;
         if net != network {
@@ -893,7 +942,7 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
         }
         if current.account(&credential)?.is_none() {
             return Err(DijkstraInvalidGovernance(
-                "proposal return account not registered",
+                GovernanceFailure::ProposalReturnAccountNotRegistered,
             ));
         }
         let proposals = current.proposals()?;
@@ -909,7 +958,9 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                 .iter()
                 .find(|(id, p)| Some(id) == prev && self::purpose(&p.action) == Some(purpose));
             if prev != root.as_ref() && parent.is_none() {
-                return Err(DijkstraInvalidGovernance("previous action id"));
+                return Err(DijkstraInvalidGovernance(
+                    GovernanceFailure::PreviousActionId,
+                ));
             }
             if let DijkstraProposalAction::HardForkInitiation { version } = action {
                 let base = match parent {
@@ -923,7 +974,9 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                     _ => pp.protocol_version,
                 };
                 if !can_follow(base, version) {
-                    return Err(DijkstraInvalidGovernance("hard fork version cannot follow"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::HardForkVersionCannotFollow,
+                    ));
                 }
             }
         }
@@ -963,7 +1016,9 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                 Voter::ConstitutionalCommitteeKey(_) | Voter::ConstitutionalCommitteeScript(_) => {
                     let credential = voter_credential(voter);
                     if hot.contains(&credential) && !elected.contains(&credential) {
-                        return Err(DijkstraInvalidGovernance("unelected committee voter"));
+                        return Err(DijkstraInvalidGovernance(
+                            GovernanceFailure::UnelectedCommitteeVoter,
+                        ));
                     }
                     hot.contains(&credential)
                 }
@@ -973,7 +1028,9 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                 Voter::StakePoolKey(pool) => current.pool(pool)?.is_some(),
             };
             if !exists {
-                return Err(DijkstraInvalidGovernance("voter does not exist"));
+                return Err(DijkstraInvalidGovernance(
+                    GovernanceFailure::VoterDoesNotExist,
+                ));
             }
             for id in actions.keys() {
                 let (_, proposal) =
@@ -981,14 +1038,16 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
                         .iter()
                         .find(|(x, _)| x == id)
                         .ok_or(DijkstraInvalidGovernance(
-                            "governance action does not exist",
+                            GovernanceFailure::ActionDoesNotExist,
                         ))?;
                 if epoch > proposal.expires_after {
-                    return Err(DijkstraInvalidGovernance("vote on an expired action"));
+                    return Err(DijkstraInvalidGovernance(
+                        GovernanceFailure::VoteOnExpiredAction,
+                    ));
                 }
                 if !allowed(voter, &proposal.action) {
                     return Err(DijkstraInvalidGovernance(
-                        "voter may not vote on the action",
+                        GovernanceFailure::VoterMayNotVote,
                     ));
                 }
             }

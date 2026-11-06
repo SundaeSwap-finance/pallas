@@ -1,6 +1,6 @@
 //! Native Dijkstra evaluation with the protocol-aware backend.
 use super::{
-    error::{Error, Unsupported},
+    error::{Error, EvaluationFailure, Unsupported, UnsupportedEvaluation},
     evaluator::{MachineFailure, ScriptEvalResult},
 };
 use amaru_kernel::{PlutusVersion, ProtocolVersion};
@@ -61,9 +61,9 @@ pub(crate) fn eval_native(
     }
     let initial = ExBudget {
         mem: i64::try_from(budget.mem)
-            .map_err(|_| Error::DijkstraInvalid("memory budget overflow"))?,
+            .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::MemoryBudgetOverflow))?,
         cpu: i64::try_from(budget.steps)
-            .map_err(|_| Error::DijkstraInvalid("CPU budget overflow"))?,
+            .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::CpuBudgetOverflow))?,
     };
     let program = args.iter().fold(program, |program, arg| {
         program.apply(&arena, plutus_data_to_term(&arena, arg))
@@ -75,7 +75,7 @@ pub(crate) fn eval_native(
         Err(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))
     ) {
         return Err(Error::DijkstraUnsupported(Unsupported(
-            "integer operand outside audited registration range",
+            UnsupportedEvaluation::IntegerOutsideRegistrationRange,
         )));
     }
     let units = budget_to_ex_units(info.consumed_budget);
@@ -154,7 +154,7 @@ fn steps<'a>(
                 if let Some(fun) = machine.saturated_builtin(value) {
                     if !audited(fun) {
                         return Err(Error::DijkstraUnsupported(Unsupported(
-                            "V3 builtin outside audited protocol-12 subset",
+                            UnsupportedEvaluation::BuiltinOutsideSubset,
                         )));
                     }
                     if !calls.contains(&fun) {
@@ -312,7 +312,9 @@ pub(crate) fn check_plutus_script(language: &Language, script: &[u8]) -> Result<
     let mut decoder = minicbor::Decoder::new(script);
     let flat_bytes: minicbor::bytes::ByteVec = decoder.decode()?;
     if decoder.position() != script.len() {
-        return Err(Error::DijkstraInvalid("trailing script CBOR"));
+        return Err(Error::DijkstraInvalid(
+            EvaluationFailure::TrailingScriptCbor,
+        ));
     }
     let (_, remainder): (&Program<DeBruijn>, _) = flat::decode(
         &arena,

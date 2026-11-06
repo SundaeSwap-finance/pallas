@@ -9,7 +9,7 @@ pub enum ValidationError {
     DijkstraTime(#[from] super::DijkstraTimeError),
     #[cfg(feature = "unstable")]
     #[error("unsupported Dijkstra phase-one feature: {0}")]
-    DijkstraUnsupported(&'static str),
+    DijkstraUnsupported(UnsupportedFeature),
 
     #[cfg(feature = "unstable")]
     #[error("Dijkstra validation requires ledger state: {0}")]
@@ -17,15 +17,15 @@ pub enum ValidationError {
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra certificate: {0}")]
-    DijkstraInvalidCertificate(&'static str),
+    DijkstraInvalidCertificate(CertificateFailure),
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra account balance use: {0}")]
-    DijkstraInvalidAccount(&'static str),
+    DijkstraInvalidAccount(AccountFailure),
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra governance: {0}")]
-    DijkstraInvalidGovernance(&'static str),
+    DijkstraInvalidGovernance(GovernanceFailure),
 
     #[cfg(feature = "unstable")]
     #[error("Dijkstra treasury value does not equal the ledger treasury")]
@@ -33,7 +33,7 @@ pub enum ValidationError {
 
     #[cfg(feature = "unstable")]
     #[error("missing or invalid Dijkstra protocol parameter: {0}")]
-    DijkstraMissingParameters(&'static str),
+    DijkstraMissingParameters(ParameterFailure),
 
     #[cfg(feature = "unstable")]
     #[error("Dijkstra reference script size exceeds the protocol limit")]
@@ -63,7 +63,7 @@ pub enum ValidationError {
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra withdrawal: {0}")]
-    DijkstraInvalidWithdrawal(&'static str),
+    DijkstraInvalidWithdrawal(WithdrawalFailure),
 
     #[cfg(feature = "unstable")]
     #[error("invalid Dijkstra metadata")]
@@ -75,11 +75,11 @@ pub enum ValidationError {
 
     #[cfg(feature = "unstable")]
     #[error("malformed Dijkstra transaction field: {0}")]
-    DijkstraMalformed(&'static str),
+    DijkstraMalformed(MalformedField),
 
     #[cfg(feature = "unstable")]
     #[error("Dijkstra script context cannot be built: {0}")]
-    DijkstraScriptContext(&'static str),
+    DijkstraScriptContext(ContextFailure),
 
     #[error("transaction and protocol parameters differ")]
     TxAndProtParamsDiffer,
@@ -104,6 +104,164 @@ pub enum ValidationError {
 
     #[error("{0}")]
     PostAlonzo(PostAlonzoError),
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A Dijkstra construct the phase one validator does not implement.
+    pub enum UnsupportedFeature {
+        AuxiliaryFields => "auxiliary fields",
+        AuxiliaryScripts => "auxiliary scripts",
+        BodyFields => "body fields",
+        DuplicateCollateralInputs => "duplicate collateral inputs",
+        DuplicateInputs => "duplicate inputs",
+        DuplicateRedeemerPointers => "duplicate redeemer pointers",
+        DuplicateReferenceInputs => "duplicate reference inputs",
+        NewScriptLanguage => "new script language (requires V3)",
+        OutputFields => "output fields",
+        PlutusUpperBoundWithoutForecast => "Plutus validity upper bound requires forecast state",
+        PlutusWithoutPhase2 => "new Plutus script validation requires phase2 feature",
+        ProtocolVersion => "protocol version (requires 12.0)",
+        ReferenceScriptLanguage => "reference script language (requires V3)",
+        RequiredTopLevelGuards => "required top-level guards",
+        SubtransactionBodyFields => "subtransaction body fields",
+        Subtransactions => "subtransactions",
+        UnsuccessfulBlockTransaction => "unsuccessful block transaction",
+        WitnessFields => "witness fields",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a Dijkstra certificate breaks.
+    pub enum CertificateFailure {
+        AccountBalanceNotZero => "account balance is not zero",
+        AlreadyRegistered => "already registered",
+        BlsProofOfPossession => "BLS proof of possession",
+        CommitteeMemberResigned => "committee member has resigned",
+        CommitteeMemberUnknown => "committee member is unknown",
+        DelegateeDRepNotRegistered => "delegatee DRep not registered",
+        DelegateePoolNotRegistered => "delegatee pool not registered",
+        DRepAlreadyRegistered => "DRep already registered",
+        DRepDeposit => "DRep deposit",
+        DRepNotRegistered => "DRep not registered",
+        DRepRefund => "DRep refund",
+        PoolCostBelowMinimum => "pool cost below the minimum",
+        PoolNotRegistered => "pool not registered",
+        PoolRetirementEpoch => "pool retirement epoch",
+        Refund => "refund",
+        RegistrationDeposit => "registration deposit",
+        VrfKeyHashAlreadyRegistered => "VRF key hash already registered",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a Dijkstra account balance use breaks.
+    pub enum AccountFailure {
+        BalanceIntervalUnregistered => "balance interval names an unregistered account",
+        BalanceOutsideInterval => "balance outside its interval",
+        DirectDepositUnregistered => "direct deposit names an unregistered account",
+        StakeCredentialNotRegistered => "stake credential not registered",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a Dijkstra proposal or vote breaks.
+    pub enum GovernanceFailure {
+        ActionDoesNotExist => "governance action does not exist",
+        CommitteeTermTooSmall => "committee term too small",
+        ConflictingCommitteeUpdate => "conflicting committee update",
+        GuardrailsScriptHash => "guardrails script hash",
+        HardForkVersionCannotFollow => "hard fork version cannot follow",
+        MalformedParameterUpdate => "malformed parameter update",
+        PreviousActionId => "previous action id",
+        ProposalDeposit => "proposal deposit",
+        ProposalReturnAccountNotRegistered => "proposal return account not registered",
+        TreasuryWithdrawalAccountNotRegistered => "treasury withdrawal account not registered",
+        UnelectedCommitteeVoter => "unelected committee voter",
+        VoteOnExpiredAction => "vote on an expired action",
+        VoterDoesNotExist => "voter does not exist",
+        VoterMayNotVote => "voter may not vote on the action",
+        ZeroTreasuryWithdrawals => "zero treasury withdrawals",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A Dijkstra protocol parameter that is missing or holds a value the validator cannot use.
+    pub enum ParameterFailure {
+        NonzeroPriceDenominator => "nonzero price denominator",
+        ReferenceFeeStride => "reference fee stride",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a Dijkstra withdrawal breaks.
+    pub enum WithdrawalFailure {
+        AccountMissingFromOriginalState => "account missing from the original state",
+        AmountExceedsBalance => "amount exceeds the balance",
+        AmountExceedsOriginalBalance => "amount exceeds the original balance",
+        DuplicateAccount => "duplicate account",
+        Encoding => "encoding",
+        LegacyPlutusMustDrain => "legacy Plutus withdrawals must drain the account",
+        UnregisteredAccount => "unregistered account",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A Dijkstra transaction field whose encoding the ledger decoder refuses.
+    pub enum MalformedField {
+        BootstrapWitness => "bootstrap witness",
+        DuplicateBootstrapWitnesses => "duplicate bootstrap witnesses",
+        DuplicateDatums => "duplicate datums",
+        DuplicateGuards => "duplicate guards",
+        DuplicateKeyWitnesses => "duplicate key witnesses",
+        DuplicateRequiredTopLevelGuards => "duplicate required top-level guards",
+        EmptyAccountBalanceIntervals => "empty account balance intervals",
+        EmptyCertificates => "empty certificates",
+        EmptyCollateralInputs => "empty collateral inputs",
+        EmptyDirectDeposits => "empty direct deposits",
+        EmptyProposalProcedures => "empty proposal procedures",
+        EmptyRedeemers => "empty redeemers",
+        EmptyReferenceInputs => "empty reference inputs",
+        EmptyRequiredTopLevelGuards => "empty required top-level guards",
+        EmptyStartingAccountBalanceIntervals => "empty starting account balance intervals",
+        EmptySubtransactions => "empty subtransactions",
+        EmptyVotingProcedures => "empty voting procedures",
+        EmptyWithdrawals => "empty withdrawals",
+        ExecutionUnits => "execution units",
+        KeyWitness => "key witness",
+        MultiAssetValue => "multi-asset value",
+        ProtocolParameterUpdate => "protocol parameter update",
+        ZeroDonation => "zero donation",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A part of a Dijkstra transaction that a script context cannot hold.
+    pub enum ContextFailure {
+        AccountBalanceIntervals => "account balance intervals",
+        ByronAddress => "Byron address",
+        CertificateKind => "certificate kind",
+        CostModel => "cost model",
+        DirectDeposits => "direct deposits",
+        InlineDatum => "inline datum",
+        InputsAlsoReferenced => "inputs that are also reference inputs",
+        LegacyScriptInSubtransaction => "Plutus V1 to V3 script in a subtransaction",
+        PointerAddress => "pointer address",
+        ProposalProcedures => "proposal procedures",
+        RequiredTopLevelGuards => "required top-level guards",
+        RewardAccountAddress => "reward account address",
+        ScriptGuards => "script guards",
+        TreasuryDonation => "treasury donation",
+        TreasuryValue => "treasury value",
+        Votes => "votes",
+    }
 }
 
 #[derive(Debug, Clone, Error)]

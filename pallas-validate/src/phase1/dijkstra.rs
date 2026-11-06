@@ -2,11 +2,11 @@
 //! Rules and evidence boundaries: test_data/musashi-dijkstra-validation/README.md.
 use super::dijkstra_ledger::{self as ledger, Flows, Level, WithdrawalRule};
 use crate::utils::{
-    DijkstraProtParams, PostAlonzoError,
+    ContextFailure, DijkstraProtParams, MalformedField, ParameterFailure, PostAlonzoError,
     PostAlonzoError::*,
-    UTxOs, ValidationError,
+    UTxOs, UnsupportedFeature, ValidationError,
     ValidationError::*,
-    ValidationResult,
+    ValidationResult, WithdrawalFailure,
     dijkstra_context::check_translatable,
     dijkstra_state::{DijkstraLedgerDelta, DijkstraLedgerOverlay, DijkstraLedgerState},
     verify_signature,
@@ -30,7 +30,7 @@ use std::{
 };
 
 type Keys = HashSet<Hash<28>>;
-const MALFORMED_VALUE: ValidationError = DijkstraMalformed("multi-asset value");
+const MALFORMED_VALUE: ValidationError = DijkstraMalformed(MalformedField::MultiAssetValue);
 type Spent = HashSet<(Hash<32>, u64)>;
 
 /// Validates native phase one against `state` and returns the changes the transaction makes to it.
@@ -68,7 +68,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
     time: Option<&crate::utils::DijkstraTimeContext>,
 ) -> Result<DijkstraLedgerDelta, ValidationError> {
     if pp.protocol_version != (12, 0) {
-        return Err(DijkstraUnsupported("protocol version (requires 12.0)"));
+        return Err(DijkstraUnsupported(UnsupportedFeature::ProtocolVersion));
     }
     check_supported(tx)?;
     let b = &tx.transaction_body;
@@ -436,7 +436,7 @@ fn check_inputs(
     for input in inputs {
         let id = (input.transaction_id, input.index);
         if !local.insert(id) {
-            return Err(DijkstraUnsupported("duplicate inputs"));
+            return Err(DijkstraUnsupported(UnsupportedFeature::DuplicateInputs));
         }
         // SUBUTXO requires membership in both original and evolving UTxO.
         let output = utxos
@@ -571,17 +571,21 @@ fn check_outputs(
         let output_bytes = minicbor::to_vec(output).map_err(|_| PostAlonzo(UnknownTxSize))?;
         match output {
             TransactionOutput::PostAlonzo(_) => {
-                check_map_keys(&output_bytes, &[0, 1, 2, 3], "output fields")?;
+                check_map_keys(
+                    &output_bytes,
+                    &[0, 1, 2, 3],
+                    UnsupportedFeature::OutputFields,
+                )?;
             }
             TransactionOutput::Legacy(_) => {
                 let mut decoder = minicbor::Decoder::new(&output_bytes);
                 if !matches!(
                     decoder
                         .array()
-                        .map_err(|_| DijkstraUnsupported("output fields"))?,
+                        .map_err(|_| DijkstraUnsupported(UnsupportedFeature::OutputFields))?,
                     Some(2 | 3)
                 ) {
-                    return Err(DijkstraUnsupported("output fields"));
+                    return Err(DijkstraUnsupported(UnsupportedFeature::OutputFields));
                 }
             }
         }
@@ -605,7 +609,9 @@ fn check_outputs(
 fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     let b = &tx.transaction_body;
     if !tx.success {
-        return Err(DijkstraUnsupported("unsuccessful block transaction"));
+        return Err(DijkstraUnsupported(
+            UnsupportedFeature::UnsuccessfulBlockTransaction,
+        ));
     }
     check_auxiliary(b.auxiliary_data_hash, &tx.auxiliary_data)?;
     let raw = encode(b)?;
@@ -635,9 +641,9 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
             allowed.push(key);
         }
     }
-    check_map_keys(&raw, &allowed, "body fields")?;
+    check_map_keys(&raw, &allowed, UnsupportedFeature::BodyFields)?;
     let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
-        minicbor::decode(&raw).map_err(|_| DijkstraUnsupported("body fields"))?;
+        minicbor::decode(&raw).map_err(|_| DijkstraUnsupported(UnsupportedFeature::BodyFields))?;
     for (key, value) in fields.iter() {
         check_field_present(*key, value)?;
         if *key == 9 {
@@ -648,10 +654,13 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
         }
         if *key == 5 {
             let withdrawals: pallas_codec::utils::KeyValuePairs<Bytes, u64> =
-                minicbor::decode(value).map_err(|_| DijkstraInvalidWithdrawal("encoding"))?;
+                minicbor::decode(value)
+                    .map_err(|_| DijkstraInvalidWithdrawal(WithdrawalFailure::Encoding))?;
             let mut seen = HashSet::new();
             if withdrawals.iter().any(|(a, _)| !seen.insert(a.to_vec())) {
-                return Err(DijkstraInvalidWithdrawal("duplicate account"));
+                return Err(DijkstraInvalidWithdrawal(
+                    WithdrawalFailure::DuplicateAccount,
+                ));
             }
         }
     }
@@ -662,26 +671,28 @@ fn check_guards(guards: Option<&Guards>) -> ValidationResult {
     let guards = guard_credentials(guards);
     match guards.iter().collect::<BTreeSet<_>>().len() == guards.len() {
         true => Ok(()),
-        false => Err(DijkstraMalformed("duplicate guards")),
+        false => Err(DijkstraMalformed(MalformedField::DuplicateGuards)),
     }
 }
 fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
     let mut keys = HashSet::new();
     for x in w.vkeywitness.iter().flat_map(|x| x.iter()) {
         if x.vkey.len() != 32 || x.signature.len() != 64 {
-            return Err(DijkstraMalformed("key witness"));
+            return Err(DijkstraMalformed(MalformedField::KeyWitness));
         }
         if !keys.insert((x.vkey.to_vec(), x.signature.to_vec())) {
-            return Err(DijkstraMalformed("duplicate key witnesses"));
+            return Err(DijkstraMalformed(MalformedField::DuplicateKeyWitnesses));
         }
     }
     let mut roots = HashSet::new();
     for x in w.bootstrap_witness.iter().flat_map(|x| x.iter()) {
         if x.public_key.len() != 32 || x.signature.len() != 64 || x.chain_code.len() != 32 {
-            return Err(DijkstraMalformed("bootstrap witness"));
+            return Err(DijkstraMalformed(MalformedField::BootstrapWitness));
         }
         if !roots.insert(super::conway::bootstrap_wit_root(x)) {
-            return Err(DijkstraMalformed("duplicate bootstrap witnesses"));
+            return Err(DijkstraMalformed(
+                MalformedField::DuplicateBootstrapWitnesses,
+            ));
         }
     }
     let mut datums = HashSet::new();
@@ -690,21 +701,25 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
         .flat_map(|x| x.iter())
         .any(|x| !datums.insert(x.raw_cbor()))
     {
-        return Err(DijkstraMalformed("duplicate datums"));
+        return Err(DijkstraMalformed(MalformedField::DuplicateDatums));
     }
     if let Some(redeemers) = &w.redeemer {
         if redeemers.is_empty() {
-            return Err(DijkstraMalformed("empty redeemers"));
+            return Err(DijkstraMalformed(MalformedField::EmptyRedeemers));
         }
         let limit = i64::MAX as u64;
         if redeemers
             .iter()
             .any(|(_, x)| x.ex_units.mem > limit || x.ex_units.steps > limit)
         {
-            return Err(DijkstraMalformed("execution units"));
+            return Err(DijkstraMalformed(MalformedField::ExecutionUnits));
         }
     }
-    check_map_keys(&encode(w)?, &[0, 1, 2, 3, 4, 5, 6, 7, 8], "witness fields")
+    check_map_keys(
+        &encode(w)?,
+        &[0, 1, 2, 3, 4, 5, 6, 7, 8],
+        UnsupportedFeature::WitnessFields,
+    )
 }
 fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     let b = &tx.sub_transaction_body;
@@ -730,9 +745,10 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
             allowed.push(key);
         }
     }
-    check_map_keys(&raw, &allowed, "subtransaction body fields")?;
+    check_map_keys(&raw, &allowed, UnsupportedFeature::SubtransactionBodyFields)?;
     let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
-        minicbor::decode(&raw).map_err(|_| DijkstraUnsupported("subtransaction body fields"))?;
+        minicbor::decode(&raw)
+            .map_err(|_| DijkstraUnsupported(UnsupportedFeature::SubtransactionBodyFields))?;
     for (key, value) in fields.iter() {
         check_field_present(*key, value)?;
         match key {
@@ -744,7 +760,9 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     let mut references = Spent::new();
     for input in b.reference_inputs.iter().flatten() {
         if !references.insert((input.transaction_id, input.index)) {
-            return Err(DijkstraUnsupported("duplicate reference inputs"));
+            return Err(DijkstraUnsupported(
+                UnsupportedFeature::DuplicateReferenceInputs,
+            ));
         }
     }
     check_guards(b.guards.as_ref())?;
@@ -753,34 +771,37 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
 /// Decoding into a BTreeMap would hide duplicate guards, which the ledger rejects.
 fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
     let guards: pallas_codec::utils::KeyValuePairs<StakeCredential, pallas_codec::utils::AnyCbor> =
-        minicbor::decode(raw).map_err(|_| DijkstraUnsupported("required top-level guards"))?;
+        minicbor::decode(raw)
+            .map_err(|_| DijkstraUnsupported(UnsupportedFeature::RequiredTopLevelGuards))?;
     let mut seen = BTreeSet::new();
     if guards.iter().any(|(key, _)| !seen.insert(key)) {
-        return Err(DijkstraMalformed("duplicate required top-level guards"));
+        return Err(DijkstraMalformed(
+            MalformedField::DuplicateRequiredTopLevelGuards,
+        ));
     }
     Ok(())
 }
 /// The body fields refused when present and empty, with the error each gets.
-const NON_EMPTY_FIELDS: [(u64, &str); 11] = [
-    (4, "empty certificates"),
-    (5, "empty withdrawals"),
-    (13, "empty collateral inputs"),
-    (18, "empty reference inputs"),
-    (19, "empty voting procedures"),
-    (20, "empty proposal procedures"),
-    (23, "empty subtransactions"),
-    (24, "empty required top-level guards"),
-    (25, "empty direct deposits"),
-    (26, "empty account balance intervals"),
-    (27, "empty starting account balance intervals"),
+const NON_EMPTY_FIELDS: [(u64, MalformedField); 11] = [
+    (4, MalformedField::EmptyCertificates),
+    (5, MalformedField::EmptyWithdrawals),
+    (13, MalformedField::EmptyCollateralInputs),
+    (18, MalformedField::EmptyReferenceInputs),
+    (19, MalformedField::EmptyVotingProcedures),
+    (20, MalformedField::EmptyProposalProcedures),
+    (23, MalformedField::EmptySubtransactions),
+    (24, MalformedField::EmptyRequiredTopLevelGuards),
+    (25, MalformedField::EmptyDirectDeposits),
+    (26, MalformedField::EmptyAccountBalanceIntervals),
+    (27, MalformedField::EmptyStartingAccountBalanceIntervals),
 ];
 /// Refuses a body field the ledger decoder refuses for its value, an empty collection or a zero donation.
 fn check_field_present(key: u64, value: &[u8]) -> ValidationResult {
     if key == 22 && minicbor::decode::<u64>(value).is_ok_and(|x| x == 0) {
-        return Err(DijkstraMalformed("zero donation"));
+        return Err(DijkstraMalformed(MalformedField::ZeroDonation));
     }
     match NON_EMPTY_FIELDS.iter().find(|(k, _)| *k == key) {
-        Some((_, error)) if is_empty_collection(value) => Err(DijkstraMalformed(error)),
+        Some((_, error)) if is_empty_collection(value) => Err(DijkstraMalformed(*error)),
         _ => Ok(()),
     }
 }
@@ -811,7 +832,7 @@ fn holds_value(raw: &[u8], key: u64) -> bool {
                 .any(|(k, value)| *k == key && value.raw_bytes() != [0xf6])
         })
 }
-fn check_map_keys(raw: &[u8], allowed: &[u64], feature: &'static str) -> ValidationResult {
+fn check_map_keys(raw: &[u8], allowed: &[u64], feature: UnsupportedFeature) -> ValidationResult {
     let mut d = minicbor::Decoder::new(raw);
     let mut remaining = d.map().map_err(|_| DijkstraUnsupported(feature))?;
     let mut seen = HashSet::new();
@@ -972,7 +993,9 @@ fn check_scripts(
     let mut refs = Spent::new();
     for input in b.reference_inputs.iter().flat_map(|x| x.iter()) {
         if !refs.insert((input.transaction_id, input.index)) {
-            return Err(DijkstraUnsupported("duplicate reference inputs"));
+            return Err(DijkstraUnsupported(
+                UnsupportedFeature::DuplicateReferenceInputs,
+            ));
         }
     }
     for input in b
@@ -1094,7 +1117,9 @@ fn check_collateral(
     let mut total = 0;
     for input in collateral {
         if !collateral_ids.insert((input.transaction_id, input.index)) {
-            return Err(DijkstraUnsupported("duplicate collateral inputs"));
+            return Err(DijkstraUnsupported(
+                UnsupportedFeature::DuplicateCollateralInputs,
+            ));
         }
         let output = utxos
             .get(&MultiEraInput::from_alonzo_compatible(input))
@@ -1194,7 +1219,7 @@ fn check_level(
             }
             None if b.ttl.is_some() => {
                 return Err(DijkstraUnsupported(
-                    "Plutus validity upper bound requires forecast state",
+                    UnsupportedFeature::PlutusUpperBoundWithoutForecast,
                 ));
             }
             None => {}
@@ -1218,7 +1243,9 @@ fn check_level(
             Language::PlutusV3 => (2, &models.plutus_v3),
             Language::PlutusV4 => (3, &models.plutus_v4),
         };
-        let model = model.clone().ok_or(DijkstraScriptContext("cost model"))?;
+        let model = model
+            .clone()
+            .ok_or(DijkstraScriptContext(ContextFailure::CostModel))?;
         views.insert(key, model);
     }
     let redeemers = w.redeemer.as_ref().ok_or(PostAlonzo(RedeemerMissing))?;
@@ -1232,7 +1259,9 @@ fn check_level(
     {
         let (key, _) = entry.map_err(|_| PostAlonzo(ScriptIntegrityHash))?;
         if !pointers.insert((key.tag as u8, key.index)) {
-            return Err(DijkstraUnsupported("duplicate redeemer pointers"));
+            return Err(DijkstraUnsupported(
+                UnsupportedFeature::DuplicateRedeemerPointers,
+            ));
         }
     }
     for index in scripts.keys() {
@@ -1264,7 +1293,9 @@ fn execution_fee(mem: u64, steps: u64, pp: &DijkstraProtParams) -> Result<u64, V
 type Fraction = (u128, u128);
 fn price(x: &RationalNumber) -> Result<Fraction, ValidationError> {
     if x.denominator == 0 {
-        return Err(DijkstraMissingParameters("nonzero price denominator"));
+        return Err(DijkstraMissingParameters(
+            ParameterFailure::NonzeroPriceDenominator,
+        ));
     }
     Ok((u128::from(x.numerator), u128::from(x.denominator)))
 }
@@ -1297,7 +1328,9 @@ fn reference_fee(mut bytes: u64, p: &DijkstraProtParams) -> Result<u64, Validati
         return Ok(0);
     }
     if p.ref_script_cost_stride == 0 {
-        return Err(DijkstraMissingParameters("reference fee stride"));
+        return Err(DijkstraMissingParameters(
+            ParameterFailure::ReferenceFeeStride,
+        ));
     }
     let mut rate = price(&p.minfee_refscript_cost_per_byte)?;
     let multiplier = price(&p.ref_script_cost_multiplier)?;
@@ -1333,7 +1366,7 @@ fn check_auxiliary(
         AuxiliaryData::Shelley(m) => Some(m),
         AuxiliaryData::ShelleyMa(m) => {
             if m.auxiliary_scripts.as_ref().is_some_and(|x| !x.is_empty()) {
-                return Err(DijkstraUnsupported("auxiliary scripts"));
+                return Err(DijkstraUnsupported(UnsupportedFeature::AuxiliaryScripts));
             }
             Some(&m.transaction_metadata)
         }
@@ -1344,7 +1377,7 @@ fn check_auxiliary(
                 || m.plutus_v3_scripts.is_some()
                 || m.plutus_v4_scripts.is_some()
             {
-                return Err(DijkstraUnsupported("auxiliary scripts"));
+                return Err(DijkstraUnsupported(UnsupportedFeature::AuxiliaryScripts));
             }
             m.metadata.as_ref()
         }
@@ -1362,7 +1395,11 @@ fn check_auxiliary(
         }
         AuxiliaryData::PostAlonzo(_) => {
             decoder.tag().map_err(|_| DijkstraInvalidMetadata)?;
-            check_map_keys(&raw[decoder.position()..], &[0], "auxiliary fields")?;
+            check_map_keys(
+                &raw[decoder.position()..],
+                &[0],
+                UnsupportedFeature::AuxiliaryFields,
+            )?;
             let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
                 decoder.decode().map_err(|_| DijkstraInvalidMetadata)?;
             fields
@@ -1571,7 +1608,7 @@ fn reference<'a>(script: &'a MultiEraScriptRef<'_>) -> Result<Reference<'a>, Val
             C::PlutusV3Script(s) => Ok(Reference::Plutus(Language::PlutusV3, s.as_ref())),
         },
         _ => Err(DijkstraUnsupported(
-            "reference script language (requires V3)",
+            UnsupportedFeature::ReferenceScriptLanguage,
         )),
     }
 }
@@ -1585,7 +1622,7 @@ fn check_new_script(script: &MultiEraScriptRef<'_>) -> ValidationResult {
             ScriptRef::PlutusV3Script(s) => well_formed_plutus(&Language::PlutusV3, s.as_ref()),
             ScriptRef::PlutusV4Script(s) => well_formed_plutus(&Language::PlutusV4, s.as_ref()),
         },
-        _ => Err(DijkstraUnsupported("new script language (requires V3)")),
+        _ => Err(DijkstraUnsupported(UnsupportedFeature::NewScriptLanguage)),
     }
 }
 fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
@@ -1597,9 +1634,7 @@ fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
     #[cfg(not(feature = "phase2"))]
     {
         let _ = (language, script);
-        Err(DijkstraUnsupported(
-            "new Plutus script validation requires phase2 feature",
-        ))
+        Err(DijkstraUnsupported(UnsupportedFeature::PlutusWithoutPhase2))
     }
 }
 

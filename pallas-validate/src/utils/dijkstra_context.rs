@@ -1,12 +1,12 @@
 //! The Dijkstra transactions the script context of each Plutus language can hold.
-use crate::phase1::dijkstra_ledger::Level;
+use crate::{phase1::dijkstra_ledger::Level, utils::ContextFailure};
 use pallas_addresses::{Address, ShelleyAddress, ShelleyDelegationPart};
 use pallas_primitives::dijkstra::{Certificate, DatumOption, Guards, Language, StakeCredential};
 use pallas_traverse::MultiEraOutput;
 
 /// The part of a transaction that a script context cannot hold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Untranslatable(pub &'static str);
+pub(crate) struct Untranslatable(pub ContextFailure);
 
 /// The transaction parts a language's script context can hold.
 struct Holds {
@@ -18,14 +18,14 @@ struct Holds {
 
 /// The sub transaction a PlutusV1 to V3 script context cannot hold.
 pub(crate) const LEGACY_IN_SUB: Untranslatable =
-    Untranslatable("Plutus V1 to V3 script in a subtransaction");
+    Untranslatable(ContextFailure::LegacyScriptInSubtransaction);
 
 /// The Shelley address a script context holds for an output at `address`.
 pub(crate) fn context_address(address: Address) -> Result<ShelleyAddress, Untranslatable> {
     match address {
         Address::Shelley(x) => Ok(x),
-        Address::Byron(_) => Err(Untranslatable("Byron address")),
-        Address::Stake(_) => Err(Untranslatable("reward account address")),
+        Address::Byron(_) => Err(Untranslatable(ContextFailure::ByronAddress)),
+        Address::Stake(_) => Err(Untranslatable(ContextFailure::RewardAccountAddress)),
     }
 }
 
@@ -37,7 +37,7 @@ pub(crate) fn v4_stake(
         ShelleyDelegationPart::Key(hash) => Ok(Some(StakeCredential::AddrKeyhash(*hash))),
         ShelleyDelegationPart::Script(hash) => Ok(Some(StakeCredential::ScriptHash(*hash))),
         ShelleyDelegationPart::Null => Ok(None),
-        ShelleyDelegationPart::Pointer(_) => Err(Untranslatable("pointer address")),
+        ShelleyDelegationPart::Pointer(_) => Err(Untranslatable(ContextFailure::PointerAddress)),
     }
 }
 
@@ -80,16 +80,16 @@ pub(crate) fn check_translatable(
     let refuse = |part| Err(Untranslatable(part));
     if !holds.governance {
         if b.votes.is_some_and(|x| !x.is_empty()) {
-            return refuse("votes");
+            return refuse(ContextFailure::Votes);
         }
         if b.proposals.is_some() {
-            return refuse("proposal procedures");
+            return refuse(ContextFailure::ProposalProcedures);
         }
         if b.treasury_value.is_some() {
-            return refuse("treasury value");
+            return refuse(ContextFailure::TreasuryValue);
         }
         if b.donation.is_some() {
-            return refuse("treasury donation");
+            return refuse(ContextFailure::TreasuryDonation);
         }
         if b.certificates.into_iter().flatten().any(|x| {
             !matches!(
@@ -101,25 +101,25 @@ pub(crate) fn check_translatable(
                     | Certificate::PoolRetirement(..)
             )
         }) {
-            return refuse("certificate kind");
+            return refuse(ContextFailure::CertificateKind);
         }
     }
     if !holds.dijkstra_fields {
         if b.direct_deposits.is_some_and(|x| !x.is_empty()) {
-            return refuse("direct deposits");
+            return refuse(ContextFailure::DirectDeposits);
         }
         if b.intervals.is_some_and(|x| !x.is_empty()) {
-            return refuse("account balance intervals");
+            return refuse(ContextFailure::AccountBalanceIntervals);
         }
         if b.required_top_level_guards.is_some_and(|x| !x.is_empty()) {
-            return refuse("required top-level guards");
+            return refuse(ContextFailure::RequiredTopLevelGuards);
         }
         if let Some(Guards::Credentials(xs)) = b.guards
             && xs
                 .iter()
                 .any(|x| matches!(x, StakeCredential::ScriptHash(_)))
         {
-            return refuse("script guards");
+            return refuse(ContextFailure::ScriptGuards);
         }
     }
     let outputs: Vec<_> = b
@@ -144,7 +144,7 @@ pub(crate) fn check_translatable(
         }
     }
     if !holds.inline_datums && any(&|x| matches!(x.datum(), Some(DatumOption::Data(_)))) {
-        return refuse("inline datum");
+        return refuse(ContextFailure::InlineDatum);
     }
     if !holds.shared_inputs
         && b.reference_inputs
@@ -152,7 +152,7 @@ pub(crate) fn check_translatable(
             .flatten()
             .any(|x| b.inputs.contains(x))
     {
-        return refuse("inputs that are also reference inputs");
+        return refuse(ContextFailure::InputsAlsoReferenced);
     }
     Ok(())
 }
