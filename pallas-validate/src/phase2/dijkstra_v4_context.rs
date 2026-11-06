@@ -6,7 +6,7 @@ use crate::phase2::{
     script_context::{ScriptInfo, TimeRange, get_votes_info},
     to_plutus_data::{MintValue, ToPlutusData, WithRegistrationDeposit, wrap_multiple_with_constr},
 };
-use crate::utils::dijkstra_context::{PlutusV4, v4_stake};
+use crate::utils::dijkstra_context::v4_stake;
 use pallas_addresses::ShelleyPaymentPart;
 use pallas_codec::utils::{Int, KeyValuePairs, MaybeIndefArray, Nullable};
 use pallas_crypto::hash::Hash;
@@ -21,14 +21,6 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) struct Batch<'a> {
     pub(super) subs: Vec<Context<'a>>,
     pub(super) valid_range: TimeRange,
-}
-
-/// The level a PlutusV4 script context is built for, with what that level's scripts read beyond the level.
-pub(super) enum Reach<'b, 'a> {
-    /// The top level, whose guards read the batch.
-    Top(&'b dyn Fn() -> Result<Batch<'a>, Error>),
-    /// A sub transaction, whose scripts run in a PlutusV4 context alone.
-    Sub(PlutusV4),
 }
 
 /// The fields of a PlutusV4 transaction info, encoded, with the items of its lists apart so the levels of a batch can join them.
@@ -82,14 +74,14 @@ impl TxInfo {
 }
 
 impl<'a> Context<'a> {
-    /// The script context of the redeemer at `key`, with the datum it spends, for a level of `reach`.
+    /// The script context of the redeemer at `key`, with the datum it spends, and for a top level guard the view of `batch`.
     pub(super) fn script_context(
         &self,
         key: &n::RedeemersKey,
         purpose: &Purpose,
         redeemer: &PlutusData,
         datum: Option<&PlutusData>,
-        reach: Reach<'_, 'a>,
+        batch: &dyn Fn() -> Result<Batch<'a>, Error>,
     ) -> Result<PlutusData, Error> {
         let hash = &self.scripts[key];
         let tx_info = self.tx_info()?;
@@ -100,9 +92,9 @@ impl<'a> Context<'a> {
             }
             Purpose::Conway(..) => {}
             Purpose::Guarding(_) => {
-                let top = match reach {
-                    Reach::Top(batch) => Some(self.top_tx_info(hash, &tx_info, &batch()?)?),
-                    Reach::Sub(_) => None,
+                let top = match self.level.sub {
+                    None => Some(self.top_tx_info(hash, &tx_info, &batch()?)?),
+                    Some(_) => None,
                 };
                 fields.push(top.to_plutus_data())
             }

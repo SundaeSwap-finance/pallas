@@ -20,18 +20,6 @@ struct Holds {
 pub(crate) const LEGACY_IN_SUB: Untranslatable =
     Untranslatable("Plutus V1 to V3 script in a subtransaction");
 
-/// The proof that a script runs in a PlutusV4 context, the one context a sub transaction holds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PlutusV4(());
-
-/// Checks that the `language` script context can hold a sub transaction, which only PlutusV4 holds.
-pub(crate) fn check_sub_transaction(language: &Language) -> Result<PlutusV4, Untranslatable> {
-    match language {
-        Language::PlutusV4 => Ok(PlutusV4(())),
-        _ => Err(LEGACY_IN_SUB),
-    }
-}
-
 /// The Shelley address a script context holds for an output at `address`.
 pub(crate) fn context_address(address: Address) -> Result<ShelleyAddress, Untranslatable> {
     match address {
@@ -60,8 +48,8 @@ pub(crate) fn check_translatable(
     inputs: &[&MultiEraOutput<'_>],
     references: &[&MultiEraOutput<'_>],
 ) -> Result<(), Untranslatable> {
-    if b.sub.is_some() {
-        check_sub_transaction(language)?;
+    if b.sub.is_some() && *language != Language::PlutusV4 {
+        return Err(LEGACY_IN_SUB);
     }
     let holds = match language {
         Language::PlutusV1 => Holds {

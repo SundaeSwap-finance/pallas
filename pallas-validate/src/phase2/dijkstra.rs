@@ -19,7 +19,7 @@ use crate::utils::{
     PostAlonzoError::{InputDecoding, InputNotInUTxO},
     TxoRef, UtxoMap,
     ValidationError::PostAlonzo,
-    dijkstra_context::{check_sub_transaction, check_translatable, context_address},
+    dijkstra_context::{check_translatable, context_address},
 };
 use pallas_addresses::{Address, ShelleyAddress};
 use pallas_codec::{minicbor, utils::CborWrap};
@@ -30,7 +30,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "dijkstra_v4_context.rs"]
 mod v4_context;
-use v4_context::Reach;
 
 fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
@@ -808,10 +807,8 @@ pub(super) fn runs(
                     .collect()
             };
             let args = match (language, part) {
-                (_, Part::Sub(..)) => {
-                    let v4 =
-                        check_sub_transaction(language).map_err(|x| Error::DijkstraInvalid(x.0))?;
-                    vec![context.script_context(key, purpose, &r.data, datum, Reach::Sub(v4))?]
+                (_, Part::Sub(..)) | (n::Language::PlutusV4, Part::Top(_)) => {
+                    vec![context.script_context(key, purpose, &r.data, datum, &batch)?]
                 }
                 (n::Language::PlutusV1, Part::Top(tx)) => {
                     let b = &tx.transaction_body;
@@ -883,15 +880,6 @@ pub(super) fn runs(
                         &purpose.conway()?.1.clone().into_script_info(datum.cloned()),
                         12,
                     )]
-                }
-                (n::Language::PlutusV4, Part::Top(_)) => {
-                    vec![context.script_context(
-                        key,
-                        purpose,
-                        &r.data,
-                        datum,
-                        Reach::Top(&batch),
-                    )?]
                 }
             };
             let model = match language {
