@@ -1073,7 +1073,7 @@ fn check_scripts(
     })
 }
 
-/// Checks the collateral of a batch, with the balance rules only where some level has `redeemers`, adding the key of each key locked collateral input to `keys`.
+/// Checks the collateral of a batch, with the rules that need redeemers only where some level has `redeemers`, adding the key of each key locked collateral input to `keys`.
 fn check_collateral(
     b: &TransactionBody<'_>,
     utxos: &UTxOs<'_>,
