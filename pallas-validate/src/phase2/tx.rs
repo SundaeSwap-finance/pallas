@@ -81,11 +81,6 @@ pub fn eval_tx(
     utxos: &UtxoMap,
     slot_config: &SlotConfig,
 ) -> Result<Vec<TxEvalResult>, Error> {
-    #[cfg(feature = "unstable")]
-    if tx.era() == pallas_traverse::Era::Dijkstra {
-        return Err(Error::WrongEra());
-    }
-
     let utxos = utxos
         .iter()
         .map(|(txoref, eracbor)| {
@@ -104,6 +99,22 @@ pub fn eval_tx(
     let protocol_version_major = pparams.protocol_version() as u32;
 
     let redeemers = tx.redeemers();
+
+    #[cfg(feature = "unstable")]
+    if tx.as_dijkstra().is_some_and(|x| {
+        x.transaction_body
+            .sub_transactions
+            .iter()
+            .flatten()
+            .any(|sub| {
+                sub.transaction_witness_set
+                    .redeemer
+                    .as_ref()
+                    .is_some_and(|x| !x.is_empty())
+            })
+    }) {
+        return Err(Error::WrongEra());
+    }
 
     let redeemers = redeemers
         .iter()
