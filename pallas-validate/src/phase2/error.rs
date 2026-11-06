@@ -8,7 +8,38 @@ use pallas_primitives::{
 #[cfg(feature = "unstable")]
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 #[error("unsupported native Dijkstra evaluation: {0}")]
-pub struct Unsupported(pub &'static str);
+pub struct Unsupported(pub UnsupportedEvaluation);
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// A construct the native Dijkstra evaluation does not implement.
+    pub enum UnsupportedEvaluation {
+        BuiltinOutsideSubset => "V3 builtin outside audited protocol-12 subset",
+        IntegerOutsideRegistrationRange => "integer operand outside audited registration range",
+        ParameterUpdateOutsideConway => "protocol parameter update outside Conway in a script context",
+        ParametersRequireDijkstra => "protocol parameters require Dijkstra",
+        ProtocolVersion => "protocol version (requires 12.0)",
+        ReferenceScriptLanguage => "reference script language (requires V3)",
+    }
+}
+
+#[cfg(feature = "unstable")]
+labels! {
+    /// The rule a native Dijkstra evaluation breaks.
+    pub enum EvaluationFailure {
+        CpuBudgetOverflow => "CPU budget overflow",
+        DuplicateInput => "duplicate input",
+        ExecutionLimitOverflow => "transaction execution limit overflow",
+        InputAddress => "input address",
+        InputDecodingForOriginalEra => "input decoding for original era",
+        InputIndex => "input index",
+        MemoryBudgetOverflow => "memory budget overflow",
+        ProposalProcedureEncoding => "proposal procedure encoding",
+        ScriptGuards => "script guards",
+        TrailingScriptCbor => "trailing script CBOR",
+        @nested Context(crate::utils::ContextFailure),
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 #[cfg_attr(feature = "unstable", non_exhaustive)]
@@ -21,7 +52,7 @@ pub enum Error {
     DijkstraUnsupported(Unsupported),
     #[cfg(feature = "unstable")]
     #[error("invalid native Dijkstra evaluation: {0}")]
-    DijkstraInvalid(&'static str),
+    DijkstraInvalid(EvaluationFailure),
     #[cfg(feature = "unstable")]
     #[error("cost model not found for language\n{:>13} {:?}", "Language", .0)]
     DijkstraCostModelNotFound(pallas_primitives::dijkstra::Language),

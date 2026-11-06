@@ -1,7 +1,7 @@
 //! Native protocol-12 evaluation of the Plutus scripts the top level and the sub transactions of a Dijkstra transaction run.
 //! Ledger rules and exclusions: test_data/musashi-dijkstra-validation/README.md.
 use super::{
-    error::{Error, Unsupported},
+    error::{Error, EvaluationFailure, Unsupported, UnsupportedEvaluation},
     evaluator,
     native_evaluator::Builtin,
     script_context::{
@@ -31,7 +31,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[path = "dijkstra_v4_context.rs"]
 mod v4_context;
 
-fn unsupported<T>(feature: &'static str) -> Result<T, Error> {
+fn unsupported<T>(feature: UnsupportedEvaluation) -> Result<T, Error> {
     Err(Error::DijkstraUnsupported(Unsupported(feature)))
 }
 
@@ -135,7 +135,8 @@ impl LegacyContextData for ContextInput {
 
 /// The fields of an output a script context holds, with any reference script reduced to the hash of its original bytes.
 fn context_output(output: &MultiEraOutput<'_>, _reference: bool) -> Result<ContextOutput, Error> {
-    let address = context_address(output.address()?).map_err(|x| Error::DijkstraInvalid(x.0))?;
+    let address = context_address(output.address()?)
+        .map_err(|x| Error::DijkstraInvalid(EvaluationFailure::Context(x.0)))?;
     let script = output.multi_era_script_ref().map(|s| s.hash());
     Ok(ContextOutput {
         address,
@@ -153,12 +154,13 @@ fn decode<'a>(
     input: &n::TransactionInput,
     utxos: &'a UtxoMap,
 ) -> Result<MultiEraOutput<'a>, Error> {
-    let index = u32::try_from(input.index).map_err(|_| Error::DijkstraInvalid("input index"))?;
+    let index = u32::try_from(input.index)
+        .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::InputIndex))?;
     let raw = utxos
         .get(&TxoRef(input.transaction_id, index))
         .ok_or_else(|| Error::ResolvedInputNotFound(input.clone()))?;
     MultiEraOutput::decode(raw.0, &raw.1)
-        .map_err(|_| Error::DijkstraInvalid("input decoding for original era"))
+        .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::InputDecodingForOriginalEra))
 }
 
 /// The inputs in the order the ledger indexes their redeemers.
@@ -166,7 +168,7 @@ fn ordered(inputs: &[n::TransactionInput]) -> Result<Vec<&n::TransactionInput>, 
     let mut ordered: Vec<_> = inputs.iter().collect();
     ordered.sort();
     if ordered.windows(2).any(|x| x[0] == x[1]) {
-        return Err(Error::DijkstraInvalid("duplicate input"));
+        return Err(Error::DijkstraInvalid(EvaluationFailure::DuplicateInput));
     }
     Ok(ordered)
 }
@@ -213,7 +215,7 @@ fn reference_script(output: &MultiEraOutput<'_>) -> Result<Option<(Hash<28>, Pro
             c::ScriptRef::PlutusV2Script(x) => plutus(n::Language::PlutusV2, x.as_ref()),
             c::ScriptRef::PlutusV3Script(x) => plutus(n::Language::PlutusV3, x.as_ref()),
         },
-        _ => return unsupported("reference script language (requires V3)"),
+        _ => return unsupported(UnsupportedEvaluation::ReferenceScriptLanguage),
     };
     Ok(Some((script.hash(), provided)))
 }
@@ -319,9 +321,9 @@ fn conway_certificate(cert: &n::Certificate) -> c::Certificate {
 /// The Conway form of a Dijkstra proposal, which exists when its protocol parameter update has a Conway encoding.
 fn conway_proposal(proposal: &n::ProposalProcedure) -> Result<c::ProposalProcedure, Error> {
     let raw = minicbor::to_vec(proposal)
-        .map_err(|_| Error::DijkstraInvalid("proposal procedure encoding"))?;
+        .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::ProposalProcedureEncoding))?;
     minicbor::decode(&raw)
-        .or_else(|_| unsupported("protocol parameter update outside Conway in a script context"))
+        .or_else(|_| unsupported(UnsupportedEvaluation::ParameterUpdateOutsideConway))
 }
 
 pub(super) fn eval_tx(
@@ -394,7 +396,7 @@ impl Purpose {
     fn conway(&self) -> Result<(c::RedeemerTag, &ScriptPurpose), Error> {
         match self {
             Purpose::Conway(tag, purpose) => Ok((*tag, purpose)),
-            Purpose::Guarding(_) => Err(Error::DijkstraInvalid("script guards")),
+            Purpose::Guarding(_) => Err(Error::DijkstraInvalid(EvaluationFailure::ScriptGuards)),
         }
     }
 }
@@ -483,7 +485,7 @@ fn scope<'a>(
     }
     let mut expected = redeemer_scripts(&level, |x| spent.get(x).ok_or(PostAlonzo(InputNotInUTxO)))
         .map_err(|x| match x {
-            PostAlonzo(InputDecoding) => Error::DijkstraInvalid("input address"),
+            PostAlonzo(InputDecoding) => Error::DijkstraInvalid(EvaluationFailure::InputAddress),
             _ => Error::BadWithdrawalAddress,
         })?;
     expected.retain(|_, hash| !matches!(scripts.get(hash), Some(Provided::Native)));
@@ -560,7 +562,7 @@ fn level_context<'a>(
             &spent.iter().collect::<Vec<_>>(),
             &referenced.iter().collect::<Vec<_>>(),
         )
-        .map_err(|x| Error::DijkstraInvalid(x.0))?;
+        .map_err(|x| Error::DijkstraInvalid(EvaluationFailure::Context(x.0)))?;
     }
     let certificates: Vec<_> = level
         .certificates
@@ -759,10 +761,10 @@ pub(super) fn runs(
 ) -> Result<Vec<Run>, Error> {
     let native = tx.as_dijkstra().ok_or(Error::WrongEra())?;
     let MultiEraProtocolParameters::Dijkstra(pp) = pparams else {
-        return unsupported("protocol parameters require Dijkstra");
+        return unsupported(UnsupportedEvaluation::ParametersRequireDijkstra);
     };
     if pp.protocol_version != (12, 0) {
-        return unsupported("protocol version (requires 12.0)");
+        return unsupported(UnsupportedEvaluation::ProtocolVersion);
     }
     let scripts = provided_scripts(native, utxos)?;
     let parts: Vec<_> = (0..)
@@ -787,7 +789,7 @@ pub(super) fn runs(
             && (execution_limit.mem > i64::MAX as u64 || execution_limit.steps > i64::MAX as u64)
         {
             return Err(Error::DijkstraInvalid(
-                "transaction execution limit overflow",
+                EvaluationFailure::ExecutionLimitOverflow,
             ));
         }
         for (key, purpose, r) in &context.redeemers {

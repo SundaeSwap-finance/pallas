@@ -1,6 +1,6 @@
 //! Synthetic evaluator semantics, separate from the unchanged network capture.
 use super::{
-    error::{Error, Unsupported},
+    error::{Error, Unsupported, UnsupportedEvaluation},
     evaluator::eval_native,
 };
 use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
@@ -196,7 +196,7 @@ fn registration_integer_bounds_are_explicit_subset_errors() {
         match evaluate(&body) {
             Ok(result) => assert!(supported && result.success, "unexpected acceptance"),
             Err(Error::DijkstraUnsupported(Unsupported(
-                "integer operand outside audited registration range",
+                UnsupportedEvaluation::IntegerOutsideRegistrationRange,
             ))) => assert!(!supported),
             other => panic!("unexpected range result: {other:?}"),
         }
@@ -259,7 +259,7 @@ fn unaudited_builtins_are_refused_only_when_called() {
     ] {
         match evaluate(&ignore(body)) {
             Err(Error::DijkstraUnsupported(Unsupported(
-                "V3 builtin outside audited protocol-12 subset",
+                UnsupportedEvaluation::BuiltinOutsideSubset,
             ))) => {}
             other => panic!("{body}: {other:?}"),
         }
