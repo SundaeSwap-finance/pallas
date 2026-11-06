@@ -15,7 +15,6 @@ use crate::utils::{MultiEraProtocolParameters, UtxoMap};
 
 pub type EvalReport = Vec<tx::TxEvalResult>;
 
-/// The evaluation of each redeemer of a transaction of any era.
 #[cfg(feature = "unstable")]
 pub type MultiEraEvalReport = Vec<tx::MultiEraTxEvalResult>;
 
@@ -28,7 +27,6 @@ pub fn evaluate_tx(
     tx::eval_tx(tx, pparams, utxos, slot_config)
 }
 
-/// Evaluates the redeemers of a transaction of any era, Dijkstra included.
 #[cfg(feature = "unstable")]
 pub fn evaluate_multi_era_tx(
     tx: &MultiEraTx,
@@ -86,12 +84,13 @@ pub fn estimate_tx_calls_with_time(
 ///
 /// Successful estimates may sum to more than the transaction maximum. Callers
 /// must check the aggregate before building a valid transaction; estimation does
-/// not certify admission. [`evaluate_multi_era_tx`] enforces each redeemer's declared
-/// allowance, and phase one checks the aggregate of the declared budgets.
+/// not certify admission. [`evaluate_multi_era_tx`] enforces each redeemer's
+/// declared allowance, and phase one checks the aggregate of the declared budgets.
 ///
 /// The transaction, script context, redeemer data and cost model are unchanged.
 /// This is phase two only, not admission validation. Existing native feature and
-/// protocol restrictions apply. Use [`evaluate_multi_era_tx`] to enforce declared budgets.
+/// protocol restrictions apply. Use [`evaluate_multi_era_tx`] to enforce declared
+/// budgets.
 #[cfg(feature = "unstable")]
 pub fn estimate_tx(
     tx: &MultiEraTx,
