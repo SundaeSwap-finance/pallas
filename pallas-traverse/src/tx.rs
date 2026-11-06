@@ -15,7 +15,7 @@ use pallas_primitives::dijkstra;
 use crate::{
     Era, Error, MultiEraCert, MultiEraInput, MultiEraMeta, MultiEraOutput, MultiEraPolicyAssets,
     MultiEraProposal, MultiEraSigners, MultiEraTx, MultiEraUpdate, MultiEraWithdrawals,
-    OriginalHash,
+    OriginalHash, withdrawals::cmp_reward_accounts,
 };
 
 #[cfg(feature = "unstable")]
@@ -328,12 +328,12 @@ impl<'b> MultiEraTx<'b> {
             MultiEraWithdrawals::AlonzoCompatible(x) => x
                 .iter()
                 .map(|(k, v)| (k.as_slice(), *v))
-                .sorted_by_key(|(k, _)| *k)
+                .sorted_by(|(a, _), (b, _)| cmp_reward_accounts(a, b))
                 .collect(),
             MultiEraWithdrawals::Conway(x) => x
                 .iter()
                 .map(|(k, v)| (k.as_slice(), *v))
-                .sorted_by_key(|(k, _)| *k)
+                .sorted_by(|(a, _), (b, _)| cmp_reward_accounts(a, b))
                 .collect(),
         }
     }
