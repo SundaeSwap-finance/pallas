@@ -1,6 +1,6 @@
 //! The PlutusV4 script context of a redeemer of a level of a batch.
 use super::{Context, ContextInput, ContextOutput, Purpose, conway_certificate};
-use crate::phase1::dijkstra_ledger::{account_order, reward_account};
+use crate::phase1::dijkstra_ledger::reward_account;
 use crate::phase2::{
     error::Error,
     script_context::{ScriptInfo, TimeRange, get_votes_info},
@@ -15,6 +15,7 @@ use pallas_primitives::{
     conway::{self as c, PlutusData, StakeCredential},
     dijkstra as n,
 };
+use pallas_traverse::withdrawals::cmp_reward_accounts;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The sub transaction levels of a batch and the validity interval of all its levels, which the script info of a top level guard holds.
@@ -413,7 +414,7 @@ fn by_account<'a, V: 'a>(
     value: impl Fn(&V) -> PlutusData,
 ) -> Result<Vec<(PlutusData, PlutusData)>, Error> {
     let mut entries: Vec<_> = entries.collect();
-    entries.sort_by(|(x, _), (y, _)| account_order(x).cmp(&account_order(y)));
+    entries.sort_by(|(x, _), (y, _)| cmp_reward_accounts(x, y));
     entries
         .into_iter()
         .map(|(raw, v)| {
