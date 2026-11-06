@@ -102,6 +102,37 @@ fn plutus_v4_contexts_equal_the_ledger_contexts() {
 }
 
 #[test]
+fn redeemer_arguments_give_a_sub_transaction_redeemer_the_ledger_context() {
+    let fixture = read(890);
+    let raw = bytes(&fixture["tx"]);
+    let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &raw).unwrap();
+    let time = dijkstra::linear_time(&slots()).unwrap();
+    let (pparams, utxos) = (params(&fixture), utxos(&fixture));
+    let arguments = redeemer_arguments(&tx, &pparams, &utxos, &time).unwrap();
+    let estimates = estimate_tx_calls_with_time(&tx, &pparams, &utxos, &time).unwrap();
+    let keys: Vec<_> = estimates
+        .iter()
+        .map(|(r, _)| (r.sub_transaction, r.tag, r.index))
+        .collect();
+    let named: Vec<_> = arguments
+        .iter()
+        .map(|a| (a.sub_transaction, a.tag, a.index))
+        .collect();
+    assert_eq!(named, keys);
+    let want = &fixture["redeemers"][0];
+    let key = purpose(want);
+    assert_eq!(key, (Some(0), MultiEraRedeemerTag::Spend, 0));
+    let got = arguments
+        .iter()
+        .find(|a| (a.sub_transaction, a.tag, a.index) == key)
+        .unwrap();
+    let context: n::PlutusData = minicbor::decode(&bytes(&want["context"])).unwrap();
+    assert_eq!(got.language, n::Language::PlutusV4);
+    assert_eq!(got.args.len(), 1);
+    assert_eq!(shape(&got.args[0]), shape(&context));
+}
+
+#[test]
 fn plutus_v4_redeemers_spend_the_ledger_budget() {
     for record in RECORDS {
         let fixture = read(record);
