@@ -42,6 +42,18 @@ pub struct MultiEraTxEvalResult {
     pub failure_message: Option<String>,
 }
 
+/// A redeemer with the language of its script and the arguments the script is applied to.
+#[cfg(feature = "unstable")]
+#[derive(Debug)]
+pub struct RedeemerArguments {
+    /// The index in its batch of the sub transaction whose redeemer this is, none for a top level redeemer.
+    pub sub_transaction: Option<u32>,
+    pub tag: MultiEraRedeemerTag,
+    pub index: u32,
+    pub language: pallas_primitives::dijkstra::Language,
+    pub args: Vec<PlutusData>,
+}
+
 #[cfg(feature = "unstable")]
 impl From<TxEvalResult> for MultiEraTxEvalResult {
     fn from(result: TxEvalResult) -> Self {

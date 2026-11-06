@@ -74,6 +74,25 @@ pub fn estimate_tx_calls_with_time(
     dijkstra::eval_tx_with_mode(tx, pparams, utxos, time, true)
 }
 
+/// The arguments each redeemer's script is applied to in [`estimate_tx_calls_with_time`], in its order.
+#[cfg(feature = "unstable")]
+pub fn redeemer_arguments(
+    tx: &MultiEraTx,
+    pparams: &MultiEraProtocolParameters,
+    utxos: &UtxoMap,
+    time: &crate::utils::DijkstraTimeContext,
+) -> Result<Vec<tx::RedeemerArguments>, Error> {
+    let runs = dijkstra::runs(tx, pparams, utxos, time, true)?;
+    let arguments = runs.into_iter().map(|run| tx::RedeemerArguments {
+        sub_transaction: run.sub,
+        tag: run.tag.into(),
+        index: run.index,
+        language: run.language,
+        args: run.args,
+    });
+    Ok(arguments.collect())
+}
+
 /// Estimate native Dijkstra execution units without checking key witnesses or
 /// enforcing declared redeemer budgets. Earlier eras return [`Error::WrongEra`].
 ///
