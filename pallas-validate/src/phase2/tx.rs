@@ -29,7 +29,6 @@ pub struct TxEvalResult {
     pub failure_message: Option<String>,
 }
 
-/// The evaluation of one redeemer of a transaction of any era, with the level of its batch the redeemer belongs to.
 #[cfg(feature = "unstable")]
 #[derive(Debug)]
 pub struct MultiEraTxEvalResult {
@@ -58,7 +57,6 @@ impl From<TxEvalResult> for MultiEraTxEvalResult {
     }
 }
 
-/// Evaluates the redeemers of a transaction of any era, Dijkstra included.
 #[cfg(feature = "unstable")]
 pub fn eval_multi_era_tx(
     tx: &MultiEraTx,
