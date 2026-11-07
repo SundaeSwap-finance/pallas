@@ -2,7 +2,8 @@
 
 Three records of a Dijkstra ledger supplement corpus written by Imp tests at protocol
 12, each spending an output locked at a PlutusV3 script. 211 calls `sha2_256`, 214
-calls `mkNilData`, and 217 compares two to the 262144 with `lessThanInteger`. Each
+calls `mkNilData`, and 217 calls `lessThanInteger` on 1 and 2^262144, which it builds
+by squaring 2 eighteen times with `multiplyInteger`. Each
 fixture holds the transaction, the UTxO entries it reads, the PlutusV3 cost model, and
 per redeemer the ex units the Haskell ledger spent and the script context it built. The
 ledger accepts all three.
