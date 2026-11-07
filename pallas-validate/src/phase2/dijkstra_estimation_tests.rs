@@ -367,6 +367,7 @@ fn estimation_script_failures_and_unsupported() {
         for source in [
             "(program 1.1.0 (lam ctx (error)))",
             "(program 1.1.0 (lam ctx (con integer 1)))",
+            "(program 1.1.0 (lam ctx [(builtin complementByteString) (con bytestring #00)]))",
         ] {
             let mut tx = tx.clone();
             let mut u = u.clone();
@@ -382,17 +383,6 @@ fn estimation_script_failures_and_unsupported() {
             assert!(r[0].units.mem > 0 && r[0].units.steps > 0);
             assert!(r[0].logs.is_empty());
         }
-        let mut tx = tx.clone();
-        let mut u = u.clone();
-        replace_script(
-            &mut tx,
-            &mut u,
-            Some(n::ScriptRef::PlutusV3Script(script(
-                "(program 1.1.0 (lam ctx [(builtin complementByteString) (con bytestring #00)]))",
-            ))),
-            true,
-        );
-        error(estimate(&tx, &u), "outside audited protocol-12 subset");
         let mut pp = params();
         let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
             unreachable!()

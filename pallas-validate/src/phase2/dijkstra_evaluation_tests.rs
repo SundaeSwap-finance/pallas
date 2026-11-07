@@ -808,10 +808,7 @@ fn native_registration_script_presence_language_and_machine_failures() {
             ))),
             true,
         );
-        error(
-            run(&tx, &u),
-            "V3 builtin outside audited protocol-12 subset",
-        );
+        assert!(run(&tx, &u).unwrap()[0].success);
     });
 }
 fn v4_script(source: &str) -> n::ScriptRef<'static> {
