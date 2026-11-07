@@ -22,7 +22,7 @@ use crate::utils::{
     dijkstra_context::{check_translatable, context_address},
 };
 use pallas_addresses::{Address, ShelleyAddress};
-use pallas_codec::{minicbor, utils::CborWrap};
+use pallas_codec::utils::CborWrap;
 use pallas_crypto::hash::{Hash, Hasher};
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{ComputeHash, MultiEraOutput, MultiEraScriptRef, MultiEraTx, OriginalHash};
@@ -318,14 +318,6 @@ fn conway_certificate(cert: &n::Certificate) -> c::Certificate {
     }
 }
 
-/// The Conway form of a Dijkstra proposal, which exists when its protocol parameter update has a Conway encoding.
-fn conway_proposal(proposal: &n::ProposalProcedure) -> Result<c::ProposalProcedure, Error> {
-    let raw = minicbor::to_vec(proposal)
-        .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::ProposalProcedureEncoding))?;
-    minicbor::decode(&raw)
-        .or_else(|_| unsupported(UnsupportedEvaluation::ParameterUpdateOutsideConway))
-}
-
 pub(super) fn eval_tx(
     tx: &MultiEraTx,
     pparams: &MultiEraProtocolParameters,
@@ -387,13 +379,13 @@ pub(super) fn eval_tx_with_mode(
 /// The script purpose of a redeemer.
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Purpose {
-    Conway(c::RedeemerTag, ScriptPurpose),
+    Conway(c::RedeemerTag, ScriptPurpose<n::ProposalProcedure>),
     Guarding(u32),
 }
 
 impl Purpose {
     /// The Conway tag and script purpose, which a PlutusV1 to V3 script context requires.
-    fn conway(&self) -> Result<(c::RedeemerTag, &ScriptPurpose), Error> {
+    fn conway(&self) -> Result<(c::RedeemerTag, &ScriptPurpose<n::ProposalProcedure>), Error> {
         match self {
             Purpose::Conway(tag, purpose) => Ok((*tag, purpose)),
             Purpose::Guarding(_) => Err(Error::DijkstraInvalid(EvaluationFailure::ScriptGuards)),
@@ -404,7 +396,7 @@ impl Purpose {
 /// The redeemers of a PlutusV1 to V3 transaction info, by script purpose.
 fn conway_redeemers(
     purposes: &[(n::RedeemersKey, Purpose, n::RedeemersValue)],
-) -> Result<Vec<(ScriptPurpose, c::Redeemer)>, Error> {
+) -> Result<Vec<(ScriptPurpose<n::ProposalProcedure>, c::Redeemer)>, Error> {
     purposes
         .iter()
         .map(|(key, purpose, value)| {
@@ -525,7 +517,7 @@ struct Context<'a> {
     datums: BTreeMap<Hash<32>, c::PlutusData>,
     spending_datums: BTreeMap<n::RedeemersKey, c::PlutusData>,
     certificates: Vec<c::Certificate>,
-    proposals: Vec<c::ProposalProcedure>,
+    proposals: Vec<n::ProposalProcedure>,
     redeemers: Vec<(n::RedeemersKey, Purpose, n::RedeemersValue)>,
     scripts: BTreeMap<n::RedeemersKey, Hash<28>>,
 }
@@ -570,12 +562,7 @@ fn level_context<'a>(
         .flatten()
         .map(conway_certificate)
         .collect();
-    let proposals = level
-        .proposals
-        .into_iter()
-        .flatten()
-        .map(conway_proposal)
-        .collect::<Result<Vec<_>, _>>()?;
+    let proposals: Vec<_> = level.proposals.into_iter().flatten().cloned().collect();
     let policies: Vec<_> = level.mint.into_iter().flat_map(|x| x.keys()).collect();
     let voters: Vec<_> = level.votes.into_iter().flat_map(|x| x.keys()).collect();
     let mut purposes = Vec::new();
@@ -681,7 +668,7 @@ struct Legacy {
     withdrawals: Vec<(Address, u64)>,
     signatories: Vec<Hash<28>>,
     data: Vec<(Hash<32>, c::PlutusData)>,
-    redeemers: Vec<(ScriptPurpose, c::Redeemer)>,
+    redeemers: Vec<(ScriptPurpose<n::ProposalProcedure>, c::Redeemer)>,
 }
 
 impl Legacy {
