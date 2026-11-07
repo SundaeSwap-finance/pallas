@@ -16,7 +16,6 @@ labels! {
     pub enum UnsupportedEvaluation {
         BuiltinOutsideSubset => "V3 builtin outside audited protocol-12 subset",
         IntegerOutsideRegistrationRange => "integer operand outside audited registration range",
-        ParameterUpdateOutsideConway => "protocol parameter update outside Conway in a script context",
         ParametersRequireDijkstra => "protocol parameters require Dijkstra",
         ProtocolVersion => "protocol version (requires 12.0)",
         ReferenceScriptLanguage => "reference script language (requires V3)",
@@ -34,7 +33,6 @@ labels! {
         InputDecodingForOriginalEra => "input decoding for original era",
         InputIndex => "input index",
         MemoryBudgetOverflow => "memory budget overflow",
-        ProposalProcedureEncoding => "proposal procedure encoding",
         ScriptGuards => "script guards",
         TrailingScriptCbor => "trailing script CBOR",
         @nested Context(crate::utils::ContextFailure),

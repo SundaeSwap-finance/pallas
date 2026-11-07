@@ -1679,3 +1679,56 @@ fn native_builtin_reports_preserve_historical_time() {
         }
     });
 }
+#[test]
+fn a_v3_context_holds_every_key_of_a_dijkstra_parameter_update() {
+    use c::PlutusData;
+    use data::Data;
+    use pallas_codec::utils::Nullable;
+    let proposed = |update: n::ProtocolParamUpdate| {
+        let mut entries = None;
+        fixture(|mut tx, u| {
+            let mut b = (*tx.transaction_body).clone();
+            b.proposal_procedures = n::NonEmptySet::from_vec(vec![n::ProposalProcedure {
+                deposit: 0,
+                reward_account: [vec![0xe0], vec![1; 28]].concat().into(),
+                gov_action: n::GovAction::ParameterChange(None, Box::new(update), None),
+                anchor: c::Anchor {
+                    url: String::new(),
+                    content_hash: [0; 32].into(),
+                },
+            }]);
+            tx.transaction_body = b.into();
+            let time = dijkstra::linear_time(&slots()).unwrap();
+            let tx = MultiEraTx::from_dijkstra(&tx);
+            let runs = dijkstra::runs(&tx, &params(), &u, &time, false).unwrap();
+            let field = |data: &PlutusData, index: usize| {
+                let PlutusData::Constr(x) = data else {
+                    panic!("{data:?}")
+                };
+                x.fields[index].clone()
+            };
+            let PlutusData::Array(proposals) = field(&field(&runs[0].args[0], 0), 13) else {
+                panic!("{:?}", runs[0].args[0])
+            };
+            entries = Some(field(&field(&proposals[0], 2), 1));
+        });
+        entries.unwrap()
+    };
+    let key = |key: u64, value: PlutusData| (key.to_plutus_data(), value);
+    let mut update: n::ProtocolParamUpdate = minicbor::decode(&[0xa0]).unwrap();
+    update.minfee_a = Some(44);
+    assert_eq!(
+        proposed(update.clone()),
+        Data::map(vec![key(0, 44u64.to_plutus_data())])
+    );
+    update.peras_cert_boost = Some(7);
+    update.peras_bootstrap_round = Some(Nullable::Null);
+    assert_eq!(
+        proposed(update),
+        Data::map(vec![
+            key(0, 44u64.to_plutus_data()),
+            key(51, 7u64.to_plutus_data()),
+            key(53, wrap_multiple_with_constr(1, vec![])),
+        ])
+    );
+}

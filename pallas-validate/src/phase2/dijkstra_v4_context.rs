@@ -488,7 +488,7 @@ fn gov_action_id(id: &c::GovActionId) -> PlutusData {
 }
 
 /// A proposal procedure, whose return account is a credential.
-fn proposal(proposal: &c::ProposalProcedure) -> Result<PlutusData, Error> {
+fn proposal(proposal: &n::ProposalProcedure) -> Result<PlutusData, Error> {
     let (_, credential) =
         reward_account(&proposal.reward_account).map_err(|_| Error::BadWithdrawalAddress)?;
     Ok(list(vec![
@@ -499,10 +499,10 @@ fn proposal(proposal: &c::ProposalProcedure) -> Result<PlutusData, Error> {
 }
 
 /// A governance action, whose ids, protocol versions, constitutions and quorums are lists.
-fn gov_action(action: &c::GovAction) -> Result<PlutusData, Error> {
+fn gov_action(action: &n::GovAction) -> Result<PlutusData, Error> {
     let previous = |id: &Option<c::GovActionId>| id.as_ref().map(gov_action_id).to_plutus_data();
     Ok(match action {
-        c::GovAction::ParameterChange(id, update, guardrail) => wrap_multiple_with_constr(
+        n::GovAction::ParameterChange(id, update, guardrail) => wrap_multiple_with_constr(
             0,
             vec![
                 previous(id),
@@ -510,22 +510,22 @@ fn gov_action(action: &c::GovAction) -> Result<PlutusData, Error> {
                 guardrail.to_plutus_data(),
             ],
         ),
-        c::GovAction::HardForkInitiation(id, (major, minor)) => wrap_multiple_with_constr(
+        n::GovAction::HardForkInitiation(id, (major, minor)) => wrap_multiple_with_constr(
             1,
             vec![
                 previous(id),
                 list(vec![major.to_plutus_data(), minor.to_plutus_data()]),
             ],
         ),
-        c::GovAction::TreasuryWithdrawals(withdrawals, guardrail) => wrap_multiple_with_constr(
+        n::GovAction::TreasuryWithdrawals(withdrawals, guardrail) => wrap_multiple_with_constr(
             2,
             vec![
                 map(by_account(withdrawals.iter(), |x| x.to_plutus_data())?),
                 guardrail.to_plutus_data(),
             ],
         ),
-        c::GovAction::NoConfidence(id) => wrap_multiple_with_constr(3, vec![previous(id)]),
-        c::GovAction::UpdateCommittee(id, removed, added, quorum) => {
+        n::GovAction::NoConfidence(id) => wrap_multiple_with_constr(3, vec![previous(id)]),
+        n::GovAction::UpdateCommittee(id, removed, added, quorum) => {
             let mut removed: Vec<_> = removed.iter().collect();
             removed.sort_by_key(|x| credential_order(x));
             let mut added: Vec<_> = added.iter().collect();
@@ -546,13 +546,13 @@ fn gov_action(action: &c::GovAction) -> Result<PlutusData, Error> {
                 ],
             )
         }
-        c::GovAction::NewConstitution(id, constitution) => wrap_multiple_with_constr(
+        n::GovAction::NewConstitution(id, constitution) => wrap_multiple_with_constr(
             5,
             vec![
                 previous(id),
                 list(vec![constitution.guardrail_script.to_plutus_data()]),
             ],
         ),
-        c::GovAction::Information => wrap_multiple_with_constr(6, vec![]),
+        n::GovAction::Information => wrap_multiple_with_constr(6, vec![]),
     })
 }
