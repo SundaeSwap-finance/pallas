@@ -12,8 +12,14 @@ use pallas_traverse::{Era, MultiEraInput, MultiEraOutput, MultiEraTx};
 const SLOT: u64 = 5179681;
 
 pub(crate) fn read(record: u32) -> serde_json::Value {
+    read_in("dijkstra-plutus-v4", record)
+}
+
+/// The fixture of `record` in the test data directory `dir`.
+pub(crate) fn read_in(dir: &str, record: u32) -> serde_json::Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../test_data/dijkstra-plutus-v4")
+        .join("../test_data")
+        .join(dir)
         .join(format!("{record}.json"));
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
