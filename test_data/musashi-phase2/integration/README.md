@@ -63,8 +63,8 @@ cargo +1.97.0 clippy -p pallas-validate --all-targets --features phase2,unstable
 ## Evidence and boundaries
 
 All supported/unsupported boundaries from [the evaluator report](../dual-evaluator/README.md)
-remain in force: protocol 12.0, top-level V3 `Reg` reference scripts, the audited
-35-builtin list, checked key/ADA input/output shapes, declared reference inputs and
+remain in force: protocol 12.0, top-level V3 `Reg` reference scripts, every builtin
+valid at protocol 12, checked key/ADA input/output shapes, declared reference inputs and
 no datum or upper validity bound. Other languages, purposes and transaction features
 are rejected explicitly, including V4, witness scripts, scripted subtransactions,
 mint, withdrawals and governance. General V3 `UnReg` refund encoding does not imply
