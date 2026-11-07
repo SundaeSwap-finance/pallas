@@ -7,7 +7,6 @@ use amaru_kernel::{PlutusVersion, ProtocolVersion};
 use amaru_uplc_native::{
     arena::Arena,
     binder::DeBruijn,
-    builtin::DefaultFunction,
     bumpalo::Bump,
     constant::Constant,
     data::PlutusData as PragmaPlutusData,
@@ -28,15 +27,7 @@ use pallas_primitives::{
 /// A builtin function of the native evaluation.
 pub use amaru_uplc_native::builtin::DefaultFunction as Builtin;
 
-/// The builtins the native evaluation runs, in tag order.
-pub fn audited_builtins() -> Vec<Builtin> {
-    (0..=u8::MAX)
-        .filter_map(|tag| Builtin::try_from(tag).ok())
-        .filter(|fun| audited(*fun))
-        .collect()
-}
-
-/// Evaluate a protocol 12 Plutus script applied to `args`, with the builtins it called in order of first call, refusing a call to a builtin outside the audited set.
+/// Evaluate a protocol 12 Plutus script applied to `args`, with the builtins it called in order of first call.
 pub(crate) fn eval_native(
     language: Language,
     script_bytes: &[u8],
@@ -69,7 +60,7 @@ pub(crate) fn eval_native(
         program.apply(&arena, plutus_data_to_term(&arena, arg))
     });
     let mut calls = Vec::new();
-    let (value, info) = run(&arena, program, cost_model, initial, &mut calls)?;
+    let (value, info) = run(&arena, program, cost_model, initial, &mut calls);
     if matches!(
         value,
         Err(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))
@@ -115,14 +106,14 @@ pub(crate) fn eval_native(
 /// The value a program returns, or the machine error that stops it.
 type Evaluated<'a> = Result<&'a Value<'a, DeBruijn>, MachineError<'a, DeBruijn>>;
 
-/// Evaluate a program to its result and spent budget, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
+/// Evaluate a program to its result and spent budget, adding each builtin it calls to `calls`.
 fn run<'a>(
     arena: &'a Arena,
     program: &'a Program<'a, DeBruijn>,
     costs: CostModel,
     initial: ExBudget,
     calls: &mut Vec<Builtin>,
-) -> Result<(Evaluated<'a>, MachineInfo), Error> {
+) -> (Evaluated<'a>, MachineInfo) {
     let startup = costs.machine_costs.startup;
     let started = ExBudget {
         mem: initial.mem.saturating_sub(startup.mem),
@@ -132,151 +123,35 @@ fn run<'a>(
     let value = if started.mem < 0 || started.cpu < 0 {
         Err(MachineError::OutOfExError(started))
     } else {
-        steps(arena, &mut machine, program.term, calls)?
+        steps(arena, &mut machine, program.term, calls)
     };
     let mut info = machine.info();
     info.consumed_budget = initial - info.remaining_budget;
-    Ok((value, info))
+    (value, info)
 }
 
-/// Step the machine from `term` to its result, adding each builtin it calls to `calls`, refusing a call to a builtin outside the audited set.
+/// Step the machine from `term` to its result, adding each builtin it calls to `calls`.
 fn steps<'a>(
     arena: &'a Arena,
     machine: &mut Machine<'a, DeBruijn>,
     term: &'a Term<'a, DeBruijn>,
     calls: &mut Vec<Builtin>,
-) -> Result<Evaluated<'a>, Error> {
+) -> Evaluated<'a> {
     let mut state = MachineState::compute(0, Env::new_in(arena), term);
     loop {
         let next = match state {
             MachineState::Compute(context, env, term) => machine.compute(context, env, term),
             MachineState::Return(context, value) => {
-                if let Some(fun) = machine.saturated_builtin(value) {
-                    if !audited(fun) {
-                        return Err(Error::DijkstraUnsupported(Unsupported(
-                            UnsupportedEvaluation::BuiltinOutsideSubset,
-                        )));
-                    }
-                    if !calls.contains(&fun) {
-                        calls.push(fun);
-                    }
+                if let Some(fun) = machine.saturated_builtin(value)
+                    && !calls.contains(&fun)
+                {
+                    calls.push(fun);
                 }
                 machine.return_compute(context, value)
             }
-            MachineState::Done(value) => return Ok(Ok(value)),
+            MachineState::Done(value) => return Ok(value),
         };
-        match next {
-            Ok(next) => state = next,
-            Err(error) => return Ok(Err(error)),
-        }
-    }
-}
-
-/// Whether the native evaluation runs a builtin.
-fn audited(fun: DefaultFunction) -> bool {
-    use DefaultFunction as F;
-    match fun {
-        F::AddInteger
-        | F::SubtractInteger
-        | F::MultiplyInteger
-        | F::DivideInteger
-        | F::QuotientInteger
-        | F::ModInteger
-        | F::EqualsInteger
-        | F::LessThanInteger
-        | F::LessThanEqualsInteger
-        | F::AppendByteString
-        | F::ConsByteString
-        | F::SliceByteString
-        | F::LengthOfByteString
-        | F::IndexByteString
-        | F::EqualsByteString
-        | F::LessThanByteString
-        | F::LessThanEqualsByteString
-        | F::Blake2b_256
-        | F::Blake2b_224
-        | F::VerifyEd25519Signature
-        | F::IfThenElse
-        | F::ChooseUnit
-        | F::Trace
-        | F::FstPair
-        | F::SndPair
-        | F::ChooseList
-        | F::MkCons
-        | F::HeadList
-        | F::TailList
-        | F::NullList
-        | F::DropList
-        | F::ChooseData
-        | F::ConstrData
-        | F::MapData
-        | F::ListData
-        | F::IData
-        | F::BData
-        | F::UnConstrData
-        | F::UnMapData
-        | F::UnListData
-        | F::UnIData
-        | F::UnBData
-        | F::EqualsData
-        | F::SerialiseData
-        | F::MkPairData => true,
-        F::RemainderInteger
-        | F::Sha2_256
-        | F::Sha3_256
-        | F::Keccak_256
-        | F::VerifyEcdsaSecp256k1Signature
-        | F::VerifySchnorrSecp256k1Signature
-        | F::AppendString
-        | F::EqualsString
-        | F::EncodeUtf8
-        | F::DecodeUtf8
-        | F::MkNilData
-        | F::MkNilPairData
-        | F::Bls12_381_G1_Add
-        | F::Bls12_381_G1_Neg
-        | F::Bls12_381_G1_ScalarMul
-        | F::Bls12_381_G1_Equal
-        | F::Bls12_381_G1_Compress
-        | F::Bls12_381_G1_Uncompress
-        | F::Bls12_381_G1_HashToGroup
-        | F::Bls12_381_G2_Add
-        | F::Bls12_381_G2_Neg
-        | F::Bls12_381_G2_ScalarMul
-        | F::Bls12_381_G2_Equal
-        | F::Bls12_381_G2_Compress
-        | F::Bls12_381_G2_Uncompress
-        | F::Bls12_381_G2_HashToGroup
-        | F::Bls12_381_MillerLoop
-        | F::Bls12_381_MulMlResult
-        | F::Bls12_381_FinalVerify
-        | F::IntegerToByteString
-        | F::ByteStringToInteger
-        | F::AndByteString
-        | F::OrByteString
-        | F::XorByteString
-        | F::ComplementByteString
-        | F::ReadBit
-        | F::WriteBits
-        | F::ReplicateByte
-        | F::ShiftByteString
-        | F::RotateByteString
-        | F::CountSetBits
-        | F::FindFirstSetBit
-        | F::Ripemd_160
-        | F::ExpModInteger
-        | F::LengthOfArray
-        | F::ListToArray
-        | F::IndexArray
-        | F::Bls12_381_G1_MultiScalarMul
-        | F::Bls12_381_G2_MultiScalarMul
-        | F::InsertCoin
-        | F::LookupCoin
-        | F::UnionValue
-        | F::ValueContains
-        | F::ValueData
-        | F::UnValueData
-        | F::ScaleValue => false,
+        state = next?;
     }
 }
 

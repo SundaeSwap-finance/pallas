@@ -133,7 +133,7 @@ pub fn estimate_tx_calls(
 }
 
 #[cfg(feature = "unstable")]
-pub use native_evaluator::{Builtin, audited_builtins};
+pub use native_evaluator::Builtin;
 
 #[cfg(all(test, feature = "unstable"))]
 mod dijkstra_evaluation_tests;

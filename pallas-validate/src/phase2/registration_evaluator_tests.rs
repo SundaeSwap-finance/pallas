@@ -238,35 +238,6 @@ fn case_on_constr_data_runs_from_program_1_2_0() {
 }
 
 #[test]
-fn unaudited_builtins_are_refused_only_when_called() {
-    for body in [
-        "(builtin complementByteString)",
-        "(lam bytes [(builtin complementByteString) bytes])",
-        "[(builtin appendString) (con string \"a\")]",
-        "(force (builtin listToArray))",
-        "(delay [(force (builtin listToArray)) (con (list integer) [1])])",
-    ] {
-        let result = evaluate(&ignore(body));
-        assert!(
-            result.as_ref().is_ok_and(|r| r.success),
-            "{body}: {result:?}"
-        );
-    }
-    for body in [
-        "[(builtin complementByteString) (con bytestring #00)]",
-        "[[(builtin appendString) (con string \"a\")] (con string \"b\")]",
-        "[(force (builtin listToArray)) (con (list integer) [1])]",
-    ] {
-        match evaluate(&ignore(body)) {
-            Err(Error::DijkstraUnsupported(Unsupported(
-                UnsupportedEvaluation::BuiltinOutsideSubset,
-            ))) => {}
-            other => panic!("{body}: {other:?}"),
-        }
-    }
-}
-
-#[test]
 fn evaluation_reports_the_builtins_called_on_the_taken_branch() {
     use super::Builtin as B;
     let body = "(force [[[(force (builtin ifThenElse)) (con bool True)] \
@@ -275,9 +246,6 @@ fn evaluation_reports_the_builtins_called_on_the_taken_branch() {
     let (result, calls) = evaluate_calls(body).unwrap();
     assert!(result.success, "{result:?}");
     assert_eq!(calls, vec![B::IfThenElse, B::ChooseUnit]);
-    let audited = super::audited_builtins();
-    assert!(audited.contains(&B::ChooseUnit) && audited.contains(&B::Trace));
-    assert!(!audited.contains(&B::Sha2_256));
 }
 
 #[test]

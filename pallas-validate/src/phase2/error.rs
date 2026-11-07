@@ -14,7 +14,6 @@ pub struct Unsupported(pub UnsupportedEvaluation);
 labels! {
     /// A construct the native Dijkstra evaluation does not implement.
     pub enum UnsupportedEvaluation {
-        BuiltinOutsideSubset => "V3 builtin outside audited protocol-12 subset",
         IntegerOutsideRegistrationRange => "integer operand outside audited registration range",
         ParametersRequireDijkstra => "protocol parameters require Dijkstra",
         ProtocolVersion => "protocol version (requires 12.0)",

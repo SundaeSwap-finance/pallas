@@ -68,11 +68,10 @@ two are not yet checked against it.
 
 Use `unstable,phase2` for newly carried/published V3 script well-formedness checks.
 Without `phase2`, those new scripts reject explicitly. Phase-two evaluation alone
-is not admission validation. The audited protocol-12 backend adds
-`SubtractInteger`, `MultiplyInteger` and `LessThanByteString`. A script is refused
-only when it calls a builtin outside the audited set, and the integer-operand
-restriction remains. The retained transaction matches the
-independent CLI for all five purposes (`cli-comparison.json`).
+is not admission validation. The protocol-12 backend runs every builtin its
+decoder admits at protocol 12, and the integer-operand restriction remains. The
+retained transaction matches the independent CLI for all five purposes
+(`cli-comparison.json`).
 
 PlutusV4 scripts run at the top level for every purpose except Guarding, on the
 V4 script context. A V4 Guarding redeemer and a V4 script in a subtransaction
