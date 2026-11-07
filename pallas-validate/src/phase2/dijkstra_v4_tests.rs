@@ -8,7 +8,7 @@ use pallas_traverse::{Era, MultiEraRedeemerTag, MultiEraTx};
 
 const RECORDS: [u32; 10] = [890, 900, 1344, 1896, 2109, 2113, 2165, 2302, 9820, 9846];
 
-fn utxos(fixture: &serde_json::Value) -> UtxoMap {
+pub(super) fn utxos(fixture: &serde_json::Value) -> UtxoMap {
     fixture["utxos"]
         .as_array()
         .unwrap()
@@ -23,7 +23,7 @@ fn utxos(fixture: &serde_json::Value) -> UtxoMap {
         .collect()
 }
 
-fn slots() -> SlotConfig {
+pub(super) fn slots() -> SlotConfig {
     SlotConfig {
         zero_slot: 0,
         zero_time: 1506203091000,
@@ -32,7 +32,7 @@ fn slots() -> SlotConfig {
 }
 
 /// The sub transaction index, redeemer tag and index a fixture redeemer names.
-fn purpose(redeemer: &serde_json::Value) -> (Option<u32>, MultiEraRedeemerTag, u32) {
+pub(super) fn purpose(redeemer: &serde_json::Value) -> (Option<u32>, MultiEraRedeemerTag, u32) {
     let sub = redeemer.get("sub").map(|x| x.as_u64().unwrap() as u32);
     let (tag, index): (u8, u32) = minicbor::decode(&bytes(&redeemer["purpose"])).unwrap();
     let tag = match tag {
