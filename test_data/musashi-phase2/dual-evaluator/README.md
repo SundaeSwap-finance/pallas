@@ -62,8 +62,8 @@ payload or historical parameter file changed in this experiment.
 
 The supported native subset remains protocol 12.0, top-level `Reg` certificates
 with V3 reference scripts, ADA/key spending inputs and outputs, declared reference
-inputs (including script addresses), no datum or upper validity bound, and the
-35 builtins listed explicitly in `native_evaluator.rs`. Certificate indices count
+inputs (including script addresses), no datum or upper validity bound, and every
+builtin valid at protocol 12. Certificate indices count
 the full certificate list. Only spending/reference inputs supply scripts, with
 each output decoded under its original era. Checked shared V3 fields are projected
 into the existing context representation. Integer operands outside the audited
