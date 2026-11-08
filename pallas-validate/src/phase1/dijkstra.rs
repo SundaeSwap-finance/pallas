@@ -666,15 +666,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
             check_required_guard_keys(value)?;
         }
         if *key == 5 {
-            let withdrawals: pallas_codec::utils::KeyValuePairs<Bytes, u64> =
-                minicbor::decode(value)
-                    .map_err(|_| DijkstraInvalidWithdrawal(WithdrawalFailure::Encoding))?;
-            let mut seen = HashSet::new();
-            if withdrawals.iter().any(|(a, _)| !seen.insert(a.to_vec())) {
-                return Err(DijkstraInvalidWithdrawal(
-                    WithdrawalFailure::DuplicateAccount,
-                ));
-            }
+            check_withdrawal_accounts(value)?;
         }
     }
     check_output_addresses(b.outputs.iter().chain(b.collateral_return.iter()))?;
@@ -766,6 +758,7 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     for (key, value) in fields.iter() {
         check_field_present(*key, value)?;
         match key {
+            5 => check_withdrawal_accounts(value)?,
             9 => check_asset_encoding(value, true)?,
             24 => check_required_guard_keys(value)?,
             _ => (),
@@ -782,6 +775,21 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
     check_output_addresses(b.outputs.iter())?;
     check_guards(b.guards.as_ref())?;
     check_witness_fields(&tx.transaction_witness_set)
+}
+/// Refuses a withdrawals map that names an account twice, which the ledger decoder refuses.
+fn check_withdrawal_accounts(raw: &[u8]) -> ValidationResult {
+    let withdrawals: pallas_codec::utils::KeyValuePairs<Bytes, u64> = minicbor::decode(raw)
+        .map_err(|_| DijkstraInvalidWithdrawal(WithdrawalFailure::Encoding))?;
+    let mut seen = HashSet::new();
+    match withdrawals
+        .iter()
+        .all(|(account, _)| seen.insert(account.to_vec()))
+    {
+        true => Ok(()),
+        false => Err(DijkstraMalformed(
+            MalformedField::DuplicateWithdrawalAccounts,
+        )),
+    }
 }
 /// Decoding into a BTreeMap would hide duplicate guards, which the ledger rejects.
 fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
