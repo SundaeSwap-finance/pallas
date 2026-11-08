@@ -945,10 +945,19 @@ mod scripts {
                 run(&tx, &inputs, &env, &state),
                 "PostAlonzo(NonLovelaceCollateral)",
             );
-            tx = valid;
+            tx = valid.clone();
             output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).value =
                 value(1_500_001, Hash::from([10; 28]), 3);
             tx.transaction_body.total_collateral = Some(1_499_999);
+            seal(&mut tx, &env);
+            dijkstra_tests::error(
+                run(&tx, &inputs, &env, &state),
+                "PostAlonzo(CollateralMinLovelace)",
+            );
+            tx = valid;
+            output_mut(tx.transaction_body.collateral_return.as_mut().unwrap()).value =
+                value(3_000_001, Hash::from([10; 28]), 3);
+            tx.transaction_body.total_collateral = None;
             seal(&mut tx, &env);
             dijkstra_tests::error(
                 run(&tx, &inputs, &env, &state),

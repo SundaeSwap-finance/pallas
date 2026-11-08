@@ -1182,13 +1182,11 @@ fn check_collateral(
     if collateral_assets.values().any(|x| *x != 0) {
         return Err(PostAlonzo(NonLovelaceCollateral));
     }
-    let paid = total
-        .checked_sub(returned)
-        .ok_or(PostAlonzo(NegativeValue))?;
-    if b.total_collateral.is_some_and(|x| x != paid) {
+    let paid = i128::from(total) - i128::from(returned);
+    if b.total_collateral.is_some_and(|x| i128::from(x) != paid) {
         return Err(PostAlonzo(CollateralAnnotation));
     }
-    if u128::from(paid) * 100 < u128::from(b.fee) * u128::from(pp.collateral_percentage) {
+    if paid * 100 < i128::from(b.fee) * i128::from(pp.collateral_percentage) {
         return Err(PostAlonzo(CollateralMinLovelace));
     }
     Ok(())
