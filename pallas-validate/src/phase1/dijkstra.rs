@@ -1249,21 +1249,6 @@ fn check_level(
         views.insert(key, model);
     }
     let redeemers = w.redeemer.as_ref().ok_or(PostAlonzo(RedeemerMissing))?;
-    // BTreeMap decoding could hide duplicate pointers. Inspect original map first.
-    let raw = encode(redeemers)?;
-    let mut decoder = minicbor::Decoder::new(&raw);
-    let mut pointers = HashSet::new();
-    for entry in decoder
-        .map_iter::<RedeemersKey, RedeemersValue>()
-        .map_err(|_| PostAlonzo(ScriptIntegrityHash))?
-    {
-        let (key, _) = entry.map_err(|_| PostAlonzo(ScriptIntegrityHash))?;
-        if !pointers.insert((key.tag as u8, key.index)) {
-            return Err(DijkstraUnsupported(
-                UnsupportedFeature::DuplicateRedeemerPointers,
-            ));
-        }
-    }
     for index in scripts.keys() {
         if !redeemers.contains_key(index) {
             return Err(PostAlonzo(RedeemerMissing));
