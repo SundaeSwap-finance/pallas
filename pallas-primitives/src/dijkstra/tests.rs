@@ -1783,6 +1783,37 @@ fn an_empty_array_is_not_a_nonempty_set() {
 }
 
 #[test]
+fn a_body_field_typed_nonempty_refuses_an_empty_array() {
+    let top: &[u8] = &[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00];
+    let sub: &[u8] = &[0xa2, 0x00, 0x80, 0x01, 0x80];
+    minicbor::decode::<TransactionBody>(top).expect("a body without the field must decode");
+    minicbor::decode::<SubTransactionBody>(sub).expect("a sub body without the field must decode");
+
+    let with_empty = |body: &[u8], key: u8| {
+        let mut bytes = vec![body[0] + 1];
+        bytes.extend_from_slice(&body[1..]);
+        bytes.extend_from_slice(&[key, 0x80]);
+        bytes
+    };
+    for key in [4, 13, 18, 20, 23] {
+        let err = minicbor::decode::<TransactionBody>(&with_empty(top, key))
+            .expect_err("an empty nonempty field must not decode");
+        assert!(
+            err.to_string().contains("a nonempty set"),
+            "body key {key} was refused for some other reason: {err}"
+        );
+    }
+    for key in [4, 18, 20] {
+        let err = minicbor::decode::<SubTransactionBody>(&with_empty(sub, key))
+            .expect_err("an empty nonempty field must not decode");
+        assert!(
+            err.to_string().contains("a nonempty set"),
+            "sub body key {key} was refused for some other reason: {err}"
+        );
+    }
+}
+
+#[test]
 fn cost_models_keeps_a_key_the_named_fields_do_not_cover() {
     // a2                      map of two keys
     //   00  82 01 02          key 0, the PlutusV1 model [1, 2]

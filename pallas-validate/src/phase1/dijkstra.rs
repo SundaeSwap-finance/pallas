@@ -805,14 +805,9 @@ fn check_required_guard_keys(raw: &[u8]) -> ValidationResult {
     Ok(())
 }
 /// The body fields refused when present and empty, with the error each gets.
-const NON_EMPTY_FIELDS: [(u64, MalformedField); 11] = [
-    (4, MalformedField::EmptyCertificates),
+const NON_EMPTY_FIELDS: [(u64, MalformedField); 6] = [
     (5, MalformedField::EmptyWithdrawals),
-    (13, MalformedField::EmptyCollateralInputs),
-    (18, MalformedField::EmptyReferenceInputs),
     (19, MalformedField::EmptyVotingProcedures),
-    (20, MalformedField::EmptyProposalProcedures),
-    (23, MalformedField::EmptySubtransactions),
     (24, MalformedField::EmptyRequiredTopLevelGuards),
     (25, MalformedField::EmptyDirectDeposits),
     (26, MalformedField::EmptyAccountBalanceIntervals),
