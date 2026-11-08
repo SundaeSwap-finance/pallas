@@ -115,7 +115,6 @@ labels! {
         BodyFields => "body fields",
         DuplicateCollateralInputs => "duplicate collateral inputs",
         DuplicateInputs => "duplicate inputs",
-        DuplicateRedeemerPointers => "duplicate redeemer pointers",
         DuplicateReferenceInputs => "duplicate reference inputs",
         NewScriptLanguage => "new script language (requires V3)",
         OutputFields => "output fields",

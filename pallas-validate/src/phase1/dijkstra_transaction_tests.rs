@@ -528,6 +528,26 @@ mod scripts {
         });
     }
     #[test]
+    fn dijkstra_redeemer_pointer_given_twice_is_accepted() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let redeemers = tx.transaction_witness_set.redeemer.as_ref().unwrap();
+            let mut pairs: Vec<_> = redeemers
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            pairs.push(pairs[0].clone());
+            let raw = minicbor::to_vec(pallas_codec::utils::KeyValuePairs::from(pairs)).unwrap();
+            let twice = minicbor::decode::<KeepRaw<'_, n::Redeemers>>(&raw)
+                .unwrap()
+                .to_owned();
+            assert_eq!(twice.len(), 3);
+            tx.transaction_witness_set.redeemer = Some(twice);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+        });
+    }
+    #[test]
     fn dijkstra_plutus_upper_bound_without_time_is_unsupported() {
         case(false, PASS, |mut tx, inputs, env, state| {
             let slot = env.block_slot;
