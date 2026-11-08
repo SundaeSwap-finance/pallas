@@ -541,6 +541,26 @@ fn witness_keys(w: &WitnessSet<'_>) -> Keys {
         .map(|w| Hasher::<224>::hash(&w.vkey))
         .collect()
 }
+/// The network of the address of `output` and the size of its Byron attributes, zero for a Shelley address.
+fn output_address(output: &MultiEraOutput<'_>) -> Result<(u8, usize), ValidationError> {
+    match output.address().map_err(|_| PostAlonzo(AddressDecoding))? {
+        Address::Shelley(address) => Ok((address.network().value(), 0)),
+        Address::Byron(address) => {
+            let payload = byron_payload(&address).map_err(|_| PostAlonzo(AddressDecoding))?;
+            Ok((payload.network, payload.attributes_size))
+        }
+        Address::Stake(_) => Err(PostAlonzo(AddressDecoding)),
+    }
+}
+/// Refuses the first of `outputs` whose address the ledger decoder refuses.
+fn check_output_addresses<'a, 'b: 'a>(
+    outputs: impl Iterator<Item = &'a TransactionOutput<'b>>,
+) -> ValidationResult {
+    for output in outputs {
+        output_address(&MultiEraOutput::from_dijkstra(output))?;
+    }
+    Ok(())
+}
 fn check_outputs(
     outputs: &[TransactionOutput<'_>],
     pp: &DijkstraProtParams,
@@ -553,17 +573,10 @@ fn check_outputs(
         if let Some(script) = view.multi_era_script_ref() {
             check_new_script(&script)?;
         }
-        let network = match view.address().map_err(|_| PostAlonzo(AddressDecoding))? {
-            Address::Shelley(address) => address.network().value(),
-            Address::Byron(address) => {
-                let payload = byron_payload(&address).map_err(|_| PostAlonzo(AddressDecoding))?;
-                if payload.attributes_size > 64 {
-                    return Err(DijkstraBootstrapAttributesTooLarge);
-                }
-                payload.network
-            }
-            Address::Stake(_) => return Err(PostAlonzo(AddressDecoding)),
-        };
+        let (network, attributes_size) = output_address(&view)?;
+        if attributes_size > 64 {
+            return Err(DijkstraBootstrapAttributesTooLarge);
+        }
         if network != *network_id {
             return Err(PostAlonzo(OutputWrongNetworkID));
         }
@@ -664,6 +677,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
             }
         }
     }
+    check_output_addresses(b.outputs.iter().chain(b.collateral_return.iter()))?;
     check_guards(b.guards.as_ref())?;
     check_witness_fields(&tx.transaction_witness_set)
 }
@@ -765,6 +779,7 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
             ));
         }
     }
+    check_output_addresses(b.outputs.iter())?;
     check_guards(b.guards.as_ref())?;
     check_witness_fields(&tx.transaction_witness_set)
 }
