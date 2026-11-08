@@ -146,6 +146,7 @@ labels! {
         DRepNotRegistered => "DRep not registered",
         DRepRefund => "DRep refund",
         PoolCostBelowMinimum => "pool cost below the minimum",
+        PoolMetadataHashTooBig => "pool metadata hash too big",
         PoolNotRegistered => "pool not registered",
         PoolRetirementEpoch => "pool retirement epoch",
         Refund => "refund",

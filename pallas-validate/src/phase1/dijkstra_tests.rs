@@ -304,6 +304,55 @@ fn dijkstra_validity_is_half_open() {
     });
 }
 #[test]
+fn dijkstra_pool_metadata_hash_is_at_most_32_bytes() {
+    synthetic(|mut tx, input| {
+        let operator = Hasher::<224>::hash(SecretKey::from([71; 32]).public_key().as_ref());
+        let mut account = vec![0xe0];
+        account.extend(operator.as_ref());
+        let mut e = env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = e.prot_params else {
+            unreachable!()
+        };
+        pp.pool_deposit = 0;
+        let cost = pp.min_pool_cost;
+        let output = MultiEraOutput::from_dijkstra(&input);
+        for (size, expected) in [
+            (32, None),
+            (
+                33,
+                Some("DijkstraInvalidCertificate(\"pool metadata hash too big\")"),
+            ),
+        ] {
+            let metadata = native::PoolMetadata {
+                url: "https://pool.example".into(),
+                hash: vec![7; size].into(),
+            };
+            tx.transaction_body.certificates =
+                native::NonEmptySet::from_vec(vec![native::Certificate::PoolRegistration {
+                    operator,
+                    vrf_keyhash: [9; 32].into(),
+                    bls_key: None,
+                    pledge: 0,
+                    cost,
+                    margin: native::RationalNumber {
+                        numerator: 0,
+                        denominator: 1,
+                    },
+                    reward_account: account.clone().into(),
+                    pool_owners: vec![].into(),
+                    relays: vec![],
+                    pool_metadata: Some(metadata),
+                }]);
+            sign(&mut tx);
+            let result = dispatch(&tx, &output, &e);
+            match expected {
+                None => assert!(result.is_ok(), "{result:?}"),
+                Some(expected) => error(result, expected),
+            }
+        }
+    });
+}
+#[test]
 fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold() {
     synthetic(|mut tx, input| {
         let collateral = native::TransactionInput {
