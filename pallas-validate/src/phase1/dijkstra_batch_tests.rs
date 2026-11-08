@@ -1633,6 +1633,53 @@ fn dijkstra_batch_rejects_duplicate_required_top_level_guards() {
 }
 
 #[test]
+fn dijkstra_batch_withdrawal_account_given_twice_is_malformed() {
+    let mut account = vec![0xe0];
+    account.extend(guard_key().as_ref());
+    let entry = [&[0x58, 0x1d][..], &account, &[0x00]].concat();
+    let single = [&[0x05, 0xa1][..], &entry].concat();
+    let double = [&[0x05, 0xa2][..], &entry, &entry].concat();
+    for level in ["top", "sub"] {
+        batch(|mut tx, input| {
+            let withdrawals = Some(std::collections::BTreeMap::from([(
+                account.clone().into(),
+                0,
+            )]));
+            match level {
+                "top" => {
+                    tx.transaction_body.withdrawals = withdrawals;
+                    sign(&mut tx);
+                }
+                _ => resign(&mut tx, |sub| {
+                    sub.sub_transaction_body.withdrawals = withdrawals
+                }),
+            }
+            let run = |tx: &n::BlockTransaction<'_>| {
+                let mut state = CertState::default();
+                state.dijkstra.accounts.insert(
+                    n::StakeCredential::AddrKeyhash(guard_key()),
+                    Some(DijkstraAccount {
+                        balance: 0,
+                        deposit: 2_000_000,
+                    }),
+                );
+                run_full(tx, &input, &input, &[], &env(), &mut state)
+            };
+            let result = run(&tx);
+            assert!(result.is_ok(), "{result:?}");
+            let mut raw = minicbor::to_vec(&tx).unwrap();
+            let at = raw.windows(single.len()).position(|w| w == single).unwrap();
+            raw.splice(at..at + single.len(), double.clone());
+            let patched: n::BlockTransaction = minicbor::decode(&raw).unwrap();
+            error(
+                run(&patched),
+                "DijkstraMalformed(\"duplicate withdrawal accounts\")",
+            );
+        });
+    }
+}
+
+#[test]
 fn dijkstra_batch_required_native_guard_has_no_datum() {
     batch(|mut tx, input| {
         let script = native(n::NativeScript::ScriptAll(vec![]));
