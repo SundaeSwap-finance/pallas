@@ -629,10 +629,16 @@ fn certificate<S: DijkstraLedgerState + ?Sized>(
             bls_key,
             cost,
             reward_account: account,
+            pool_metadata,
             ..
         } => {
             if reward_account(account)?.0 != network {
                 return Err(PostAlonzo(TxWrongNetworkID));
+            }
+            if pool_metadata.as_ref().is_some_and(|m| m.hash.len() > 32) {
+                return Err(DijkstraInvalidCertificate(
+                    CertificateFailure::PoolMetadataHashTooBig,
+                ));
             }
             if *cost < pp.min_pool_cost {
                 return Err(DijkstraInvalidCertificate(
