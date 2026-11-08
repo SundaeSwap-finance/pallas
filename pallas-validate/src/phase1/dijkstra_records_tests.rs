@@ -329,3 +329,84 @@ fn sub_transaction_integrity_hash_covers_the_views_of_its_languages() {
         );
     });
 }
+
+/// A testnet reward address, which no output may hold.
+const REWARD: [u8; 29] = {
+    let mut address = [5; 29];
+    address[0] = 0xe0;
+    address
+};
+
+/// `output` sent to `address`.
+fn sent_to<'b>(output: &n::TransactionOutput<'b>, address: &[u8]) -> n::TransactionOutput<'b> {
+    match output {
+        n::TransactionOutput::PostAlonzo(o) => {
+            let mut o = (**o).clone();
+            o.address = address.to_vec().into();
+            n::TransactionOutput::PostAlonzo(o.into())
+        }
+        n::TransactionOutput::Legacy(o) => {
+            let mut o = (**o).clone();
+            o.address = address.to_vec().into();
+            n::TransactionOutput::Legacy(o.into())
+        }
+    }
+}
+
+/// The verdict on `record` with no fee, after `f` changes its body.
+fn feeless(
+    record: u32,
+    f: impl for<'b> FnOnce(&mut n::TransactionBody<'b>, &n::TransactionOutput<'b>),
+) -> ValidationResult {
+    let mut result = None;
+    self::record(record, |tx, pairs, pp| {
+        let mut tx = tx.clone();
+        let mut body = (*tx.transaction_body).clone();
+        body.fee = 0;
+        let first = body.outputs[0].clone();
+        f(&mut body, &first);
+        tx.transaction_body = body.into();
+        result = Some(check(&tx, &pairs, pp, &time(ForecastHorizon::Unbounded)));
+    });
+    result.unwrap()
+}
+
+#[test]
+fn decodable_output_addresses_reach_the_fee_rule() {
+    let result = feeless(890, |_, _| ());
+    assert!(
+        matches!(
+            result,
+            Err(ValidationError::PostAlonzo(PostAlonzoError::FeeBelowMin))
+        ),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn an_output_to_a_reward_address_is_refused_before_every_rule() {
+    let top = feeless(890, |body, first| {
+        body.outputs = pallas_codec::utils::MaybeIndefArray::Def(vec![sent_to(first, &REWARD)]);
+    });
+    let collateral = feeless(890, |body, first| {
+        body.collateral_return = Some(sent_to(first, &REWARD));
+    });
+    let sub = feeless(890, |body, first| {
+        let mut subs = body.sub_transactions.clone().unwrap().to_vec();
+        let mut sub_body = (*subs[0].sub_transaction_body).clone();
+        sub_body.outputs = pallas_codec::utils::MaybeIndefArray::Def(vec![sent_to(first, &REWARD)]);
+        subs[0].sub_transaction_body = sub_body.into();
+        body.sub_transactions = n::NonEmptySet::from_vec(subs);
+    });
+    for (placement, result) in [("top", top), ("collateral", collateral), ("sub", sub)] {
+        assert!(
+            matches!(
+                result,
+                Err(ValidationError::PostAlonzo(
+                    PostAlonzoError::AddressDecoding
+                ))
+            ),
+            "{placement}: {result:?}"
+        );
+    }
+}
