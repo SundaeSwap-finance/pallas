@@ -1,6 +1,6 @@
 //! Native Dijkstra evaluation with the protocol-aware backend.
 use super::{
-    error::{Error, EvaluationFailure, Unsupported, UnsupportedEvaluation},
+    error::{Error, EvaluationFailure},
     evaluator::{MachineFailure, ScriptEvalResult},
 };
 use amaru_kernel::{PlutusVersion, ProtocolVersion};
@@ -12,8 +12,8 @@ use amaru_uplc_native::{
     data::PlutusData as PragmaPlutusData,
     flat,
     machine::{
-        CostModel, ExBudget, Machine, MachineError, MachineInfo, RuntimeError, env::Env,
-        state::MachineState, value::Value,
+        CostModel, ExBudget, Machine, MachineError, MachineInfo, env::Env, state::MachineState,
+        value::Value,
     },
     program::Program,
     term::Term,
@@ -61,14 +61,6 @@ pub(crate) fn eval_native(
     });
     let mut calls = Vec::new();
     let (value, info) = run(&arena, program, cost_model, initial, &mut calls);
-    if matches!(
-        value,
-        Err(MachineError::Runtime(RuntimeError::IntegerOutOfBounds(_)))
-    ) {
-        return Err(Error::DijkstraUnsupported(Unsupported(
-            UnsupportedEvaluation::IntegerOutsideRegistrationRange,
-        )));
-    }
     let units = budget_to_ex_units(info.consumed_budget);
     let logs = info.logs;
     let mut failure = value.as_ref().err().map(|err| MachineFailure {
