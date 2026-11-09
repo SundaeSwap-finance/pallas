@@ -1077,6 +1077,48 @@ fn dijkstra_fields_the_node_does_not_decode_are_malformed() {
 }
 
 #[test]
+fn dijkstra_a_script_given_twice_in_one_field_is_malformed() {
+    batch(|tx, input| {
+        let outcome =
+            |changed: &n::BlockTransaction<'_>| format!("{:?}", run(changed, &input, &env()));
+        let duplicate = "Err(DijkstraMalformed(\"duplicate scripts\"))";
+        fn plutus<const V: usize>(seeds: &[u8]) -> Option<n::NonEmptySet<n::PlutusScript<V>>> {
+            let scripts = seeds.iter().map(|s| n::PlutusScript(vec![0x41, *s].into()));
+            n::NonEmptySet::from_vec(scripts.collect())
+        }
+        let by_key = |seed: u8| native(n::NativeScript::ScriptPubkey(key(seed)));
+        let give = |w: &mut n::WitnessSet<'_>, field: &str, second: u8| match field {
+            "native" => w.native_script = n::NonEmptySet::from_vec(vec![by_key(1), by_key(second)]),
+            "v1" => w.plutus_v1_script = plutus(&[1, second]),
+            "v2" => w.plutus_v2_script = plutus(&[1, second]),
+            "v3" => w.plutus_v3_script = plutus(&[1, second]),
+            _ => w.plutus_v4_script = plutus(&[1, second]),
+        };
+        for field in ["native", "v1", "v2", "v3", "v4"] {
+            for second in [1, 2] {
+                let mut top = tx.clone();
+                give(&mut top.transaction_witness_set, field, second);
+                let mut sub = tx.clone();
+                change_sub(&mut sub, |s| {
+                    give(&mut s.transaction_witness_set, field, second)
+                });
+                sign(&mut sub);
+                for (level, changed) in [("top", &top), ("sub", &sub)] {
+                    let found = outcome(changed);
+                    let case = format!("{level} {field} second={second} {found}");
+                    assert_eq!(found == duplicate, second == 1, "{case}");
+                }
+            }
+        }
+        // The same bytes in two fields are two scripts, hashed under two languages.
+        let mut both = tx.clone();
+        both.transaction_witness_set.plutus_v1_script = plutus(&[1]);
+        both.transaction_witness_set.plutus_v2_script = plutus(&[1]);
+        assert_ne!(outcome(&both), duplicate);
+    });
+}
+
+#[test]
 fn dijkstra_batch_top_level_mints_under_a_native_policy() {
     batch(|mut tx, input| {
         let policy = native(n::NativeScript::ScriptPubkey(guard_key()));
