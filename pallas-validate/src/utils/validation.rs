@@ -220,6 +220,7 @@ labels! {
         DuplicateGuards => "duplicate guards",
         DuplicateKeyWitnesses => "duplicate key witnesses",
         DuplicateRequiredTopLevelGuards => "duplicate required top-level guards",
+        DuplicateScripts => "duplicate scripts",
         DuplicateWithdrawalAccounts => "duplicate withdrawal accounts",
         EmptyAccountBalanceIntervals => "empty account balance intervals",
         EmptyDirectDeposits => "empty direct deposits",
