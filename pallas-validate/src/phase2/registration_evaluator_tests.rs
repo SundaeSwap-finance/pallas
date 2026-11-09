@@ -1,8 +1,5 @@
 //! Synthetic evaluator semantics, separate from the unchanged network capture.
-use super::{
-    error::{Error, Unsupported, UnsupportedEvaluation},
-    evaluator::eval_native,
-};
+use super::{error::Error, evaluator::eval_native};
 use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
 use pallas_codec::minicbor;
 use pallas_primitives::{PlutusData, conway::ExUnits};
@@ -180,32 +177,22 @@ fn registration_cons_byte_string_keeps_v3_byte_range() {
 }
 
 #[test]
-fn registration_integer_bounds_are_explicit_subset_errors() {
+fn registration_integer_operands_are_unbounded() {
     use amaru_uplc_native::constant::Integer;
     let bound = Integer::from(1) << 262_143usize;
     let one = Integer::from(1);
-    for (value, supported) in [
-        (&bound - &one, true),
-        (-bound.clone(), true),
-        (bound.clone(), false),
-        (-bound.clone() - &one, false),
+    for value in [
+        &bound - &one,
+        -bound.clone(),
+        bound.clone(),
+        -bound.clone() - &one,
     ] {
         let body = ignore(&format!(
             "[[(builtin addInteger) (con integer {value})] (con integer 0)]"
         ));
-        match evaluate(&body) {
-            Ok(result) => assert!(supported && result.success, "unexpected acceptance"),
-            Err(Error::DijkstraUnsupported(Unsupported(
-                UnsupportedEvaluation::IntegerOutsideRegistrationRange,
-            ))) => assert!(!supported),
-            other => panic!("unexpected range result: {other:?}"),
-        }
+        let result = evaluate(&body).unwrap();
+        assert!(result.success, "{value}: {result:?}");
     }
-    assert!(
-        evaluate(&ignore(&format!("[(builtin iData) (con integer {bound})]")))
-            .unwrap()
-            .success
-    );
 }
 
 #[test]

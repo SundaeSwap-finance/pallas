@@ -1,6 +1,5 @@
 //! PlutusV3 redeemers of ledger supplement records that call builtins, against the budgets the ledger spent.
 use super::dijkstra_v4_tests::{purpose, slots, utxos};
-use super::error::{Unsupported, UnsupportedEvaluation};
 use super::*;
 use crate::phase1::dijkstra_records_tests::{bytes, read_in};
 use pallas_traverse::Era;
@@ -62,15 +61,6 @@ fn a_plutus_v3_redeemer_calling_mk_nil_data_spends_the_ledger_budget() {
 }
 
 #[test]
-fn a_plutus_v3_integer_operand_above_the_registration_range_is_unsupported() {
-    let (_, report) = evaluate(217);
-    assert!(
-        matches!(
-            report,
-            Err(Error::DijkstraUnsupported(Unsupported(
-                UnsupportedEvaluation::IntegerOutsideRegistrationRange
-            )))
-        ),
-        "{report:?}"
-    );
+fn a_plutus_v3_integer_operand_of_2_to_the_262144_spends_the_ledger_budget() {
+    spends_the_ledger_budget(217);
 }
