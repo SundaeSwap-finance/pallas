@@ -8,7 +8,7 @@ use pallas_primitives::{alonzo, babbage, byron};
 #[cfg(feature = "unstable")]
 use pallas_primitives::dijkstra;
 
-use crate::{Era, Error, MultiEraHeader, OriginalHash, wellknown::GenesisValues};
+use crate::{Era, Error, MultiEraHeader, OriginalHash, probe, wellknown::GenesisValues};
 
 impl<'b> MultiEraHeader<'b> {
     /// Decode a header given the era tag of the chainsync header envelope.
@@ -49,6 +49,27 @@ impl<'b> MultiEraHeader<'b> {
                 Ok(MultiEraHeader::BabbageCompatible(Cow::Owned(header)))
             }
         }
+    }
+
+    /// Decode the header of a block from the bytes of the whole block.
+    pub fn decode_from_block(cbor: &'b [u8]) -> Result<Self, Error> {
+        let header = match probe::block_era(cbor) {
+            probe::Outcome::EpochBoundary => MultiEraHeader::EpochBoundary(block_header(cbor)?),
+            probe::Outcome::Matched(era) => match era {
+                Era::Byron => MultiEraHeader::Byron(block_header(cbor)?),
+                Era::Shelley | Era::Allegra | Era::Mary | Era::Alonzo => {
+                    MultiEraHeader::ShelleyCompatible(block_header(cbor)?)
+                }
+                Era::Babbage | Era::Conway => {
+                    MultiEraHeader::BabbageCompatible(block_header(cbor)?)
+                }
+                #[cfg(feature = "unstable")]
+                Era::Dijkstra => MultiEraHeader::Dijkstra(block_header(cbor)?),
+            },
+            probe::Outcome::Inconclusive => return Err(Error::unknown_cbor(cbor)),
+        };
+
+        Ok(header)
     }
 
     /// The era whose header rule carries this value. The two shared shapes
@@ -232,6 +253,20 @@ impl<'b> MultiEraHeader<'b> {
             _ => None,
         }
     }
+}
+
+/// The header of a wrapped block, decoded without reading the block's body.
+fn block_header<'b, T>(cbor: &'b [u8]) -> Result<Cow<'b, T>, Error>
+where
+    T: Clone + minicbor::Decode<'b, ()>,
+{
+    let mut decoder = minicbor::Decoder::new(cbor);
+    decoder.array().map_err(Error::invalid_cbor)?;
+    decoder.u16().map_err(Error::invalid_cbor)?;
+    decoder.array().map_err(Error::invalid_cbor)?;
+    let header = decoder.decode().map_err(Error::invalid_cbor)?;
+
+    Ok(Cow::Owned(header))
 }
 
 #[cfg(test)]
@@ -453,6 +488,74 @@ mod tests {
                 MultiEraHeader::decode(tag, None, &raw).unwrap().era(),
                 era,
                 "envelope tag {tag}"
+            );
+        }
+    }
+
+    /// The wrapper of a block whose array holds only the given header.
+    fn header_only_block(wrapper_tag: u8, header: &[u8]) -> Vec<u8> {
+        [&[0x82, wrapper_tag, 0x81][..], header].concat()
+    }
+
+    #[test]
+    fn a_block_whose_body_will_not_decode_still_gives_its_header() {
+        let header = header_of(include_str!("../../test_data/conway1.block"));
+        let block = header_only_block(7, &header);
+        assert!(
+            MultiEraBlock::decode(&block).is_err(),
+            "the body must be one the block decoder refuses, or the header decode may have read it"
+        );
+
+        let decoded = MultiEraHeader::decode_from_block(&block).unwrap();
+
+        assert_eq!(decoded.cbor(), header.as_slice());
+        assert_eq!(decoded.era(), Era::Babbage);
+    }
+
+    #[test]
+    fn bytes_with_no_known_block_wrapper_give_no_header() {
+        let header = header_of(include_str!("../../test_data/conway1.block"));
+
+        for bytes in [b"not a block".to_vec(), header_only_block(9, &header)] {
+            let err = MultiEraHeader::decode_from_block(&bytes)
+                .expect_err("bytes the block decoder cannot place must give no header");
+            assert!(matches!(err, Error::UnknownCbor(_)), "{err:?}");
+        }
+    }
+
+    #[test]
+    fn the_header_decoded_from_a_block_is_the_header_of_that_block() {
+        #[allow(unused_mut)]
+        let mut blocks = vec![
+            include_str!("../../test_data/genesis.block"),
+            include_str!("../../test_data/byron1.block"),
+            include_str!("../../test_data/shelley1.block"),
+            include_str!("../../test_data/allegra1.block"),
+            include_str!("../../test_data/mary1.block"),
+            include_str!("../../test_data/alonzo1.block"),
+            include_str!("../../test_data/babbage1.block"),
+            include_str!("../../test_data/conway1.block"),
+        ];
+        #[cfg(feature = "unstable")]
+        blocks.push(include_str!("../../test_data/dijkstra8.block"));
+
+        for text in blocks {
+            let cbor = hex::decode(text.trim()).unwrap();
+            let block = MultiEraBlock::decode(&cbor).unwrap();
+            let expected = block.header();
+
+            let header = MultiEraHeader::decode_from_block(&cbor).unwrap();
+
+            assert_eq!(
+                (header.era(), header.cbor(), header.slot(), header.hash()),
+                (
+                    expected.era(),
+                    expected.cbor(),
+                    expected.slot(),
+                    expected.hash()
+                ),
+                "{:?}",
+                block.era()
             );
         }
     }
