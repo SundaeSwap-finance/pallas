@@ -7,7 +7,8 @@
 //!
 //! Wire format and state machine follow the authoritative `leios-fetch` CDDL of
 //! cardano-blueprint (protocol id 19), which is the network spec of record while
-//! CIP-0164's network chapter stabilises.
+//! CIP-0164's network chapter stabilises. An endorser block is the exception: it
+//! is written in tag 24, the form the node writes.
 
 use std::collections::BTreeMap;
 
@@ -574,20 +575,20 @@ mod tests {
     // with our `Encode` impl and validates the bytes against the vendored
     // cardano-blueprint leios-fetch CDDL (via the shared `cddl` helper),
     // so a spec change (tag, arity, the bitmaps shape) fails the matching test.
-    // The EB body / txs are opaque raw CBOR here, so they are validated as `any`.
+    // The txs are opaque raw CBOR here, so they are validated as `any`.
 
     /// Turns the vendored leios-fetch CDDL into a schema cddl-rs can parse. On top
-    /// of the shared preprocessing this relaxes the opaque sub-structures (the EB
-    /// body and the included Dijkstra `block_transaction`) to `any`, since the
-    /// codec holds them as raw CBOR.
+    /// of the shared preprocessing this wraps the endorser block in tag 24, the
+    /// form the node writes, and relaxes the included Dijkstra `block_transaction`
+    /// to `any`, since the codec holds it as raw CBOR.
     #[cfg(feature = "blueprint")]
     fn self_contained() -> String {
         let body = cddl::preprocess(include_str!(
             "../../../cardano-blueprint/src/network/node-to-node/leios-fetch/messages.cddl"
         ))
         .replace(
-            "endorser_block = { + hash => word32 }",
-            "endorser_block = any",
+            "msgLeiosBlock                  = [2, endorser_block]",
+            "msgLeiosBlock = [2, #6.24(bytes .cbor endorser_block)]",
         )
         .replace("dijkstra.block_transaction", "block_transaction");
         format!("{body}\n{}block_transaction = any\n", cddl::BASE_PRELUDE)
@@ -603,7 +604,7 @@ mod tests {
         block_conforms,
         self_contained,
         "msgLeiosBlock",
-        Message::Block(raw([1, 2, 3]))
+        Message::Block(AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec()))
     );
     conforms!(
         block_txs_request_conforms,
@@ -620,4 +621,10 @@ mod tests {
         }
     );
     conforms!(done_conforms, self_contained, "msgDone", Message::Done);
+
+    #[cfg(feature = "blueprint")]
+    #[test]
+    fn a_bare_block_does_not_conform() {
+        cddl::assert_does_not_conform(&self_contained(), "msgLeiosBlock", CAPTURED_BLOCK);
+    }
 }
