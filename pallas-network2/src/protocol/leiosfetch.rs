@@ -7,12 +7,14 @@
 //!
 //! Wire format and state machine follow the authoritative `leios-fetch` CDDL of
 //! cardano-blueprint (protocol id 19), which is the network spec of record while
-//! CIP-0164's network chapter stabilises.
+//! CIP-0164's network chapter stabilises. An endorser block is the exception: it
+//! is written in tag 24, the form the node writes.
 
 use std::collections::BTreeMap;
 
+use pallas_codec::minicbor::data::Type;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
-use pallas_codec::utils::CborWrap;
+use pallas_codec::utils::{Bytes, TagWrap};
 
 use super::{AnyCbor, EbId, Error};
 
@@ -24,6 +26,17 @@ pub type EndorserBlockCbor = AnyCbor;
 
 /// Raw CBOR of a single transaction.
 pub type TxCbor = AnyCbor;
+
+/// The byte string a tag 24 payload is written in, held whole.
+type Wrapped = TagWrap<Bytes, 24>;
+
+fn wrap(payload: &AnyCbor) -> Wrapped {
+    TagWrap(Bytes::from(payload.raw_bytes().to_vec()))
+}
+
+fn unwrap(wrapped: Wrapped) -> AnyCbor {
+    AnyCbor::from_raw_bytes(wrapped.0.into())
+}
 
 /// A transaction-subset selector for leios-fetch block-txs requests.
 ///
@@ -207,7 +220,7 @@ impl Encode<()> for Message {
             }
             Message::Block(block) => {
                 e.array(2)?.u16(2)?;
-                e.encode(block)?;
+                e.encode(wrap(block))?;
             }
             Message::BlockTxsRequest(point, bitmaps) => {
                 e.array(3)?.u16(3)?;
@@ -218,7 +231,7 @@ impl Encode<()> for Message {
                 e.array(2)?.u16(4)?;
                 e.array(txs.len() as u64)?;
                 for tx in txs {
-                    e.encode(CborWrap(tx))?;
+                    e.encode(wrap(tx))?;
                 }
             }
         }
@@ -235,15 +248,22 @@ impl<'b> Decode<'b, ()> for Message {
         match label {
             0 => Ok(Message::Done),
             1 => Ok(Message::BlockRequest(d.decode()?)),
-            2 => Ok(Message::Block(d.decode()?)),
+            2 => {
+                // Peers send the endorser block bare or wrapped in tag 24.
+                let block = match d.datatype()? {
+                    Type::Tag => unwrap(d.decode()?),
+                    _ => d.decode()?,
+                };
+                Ok(Message::Block(block))
+            }
             3 => {
                 let point = d.decode()?;
                 let bitmaps = d.decode()?;
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
             4 => {
-                let txs: Vec<CborWrap<TxCbor>> = d.decode()?;
-                let txs = txs.into_iter().map(CborWrap::unwrap).collect();
+                let txs: Vec<Wrapped> = d.decode()?;
+                let txs = txs.into_iter().map(unwrap).collect();
                 Ok(Message::BlockTxs { txs })
             }
             _ => Err(decode::Error::message(
@@ -261,6 +281,7 @@ mod tests {
     use crate::protocol::cddl;
     use crate::protocol::cddl::conforms;
     use pallas_codec::minicbor;
+    use pallas_crypto::hash::Hasher;
     use std::collections::BTreeMap;
 
     fn point() -> EbId {
@@ -315,6 +336,53 @@ mod tests {
         )
     }
 
+    const CAPTURED_BLOCK: &[u8] =
+        include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
+
+    fn wrapped_block() -> Vec<u8> {
+        let body = &CAPTURED_BLOCK[2..];
+        assert_eq!(body.len(), 0x09b1, "fixture precondition");
+        [&[0x82, 0x02, 0xd8, 0x18, 0x59, 0x09, 0xb1][..], body].concat()
+    }
+
+    #[test]
+    fn a_block_bare_or_cbor_in_cbor_holds_the_announced_endorser_block() {
+        let Point::Specific(_, announced) = captured_point() else {
+            panic!("fixture precondition");
+        };
+
+        for bytes in [CAPTURED_BLOCK.to_vec(), wrapped_block()] {
+            match minicbor::decode(&bytes).expect("the block decodes") {
+                Message::Block(eb) => {
+                    assert_eq!(Hasher::<256>::hash(eb.raw_bytes()).as_ref(), announced)
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_block_is_written_cbor_in_cbor() {
+        let eb = AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec());
+        assert_eq!(reencode(&Message::Block(eb)), wrapped_block());
+    }
+
+    #[test]
+    fn a_wrapped_payload_is_held_whole() {
+        // Each tag 24 byte string holds two CBOR items, 0x01 and 0x02.
+        let block = [0x82, 0x02, 0xd8, 0x18, 0x42, 0x01, 0x02];
+        let block_txs = [0x82, 0x04, 0x81, 0xd8, 0x18, 0x42, 0x01, 0x02];
+
+        match minicbor::decode(&block).expect("the block decodes") {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
+        match minicbor::decode(&block_txs).expect("the transactions decode") {
+            Message::BlockTxs { txs } => assert_eq!(txs[0].raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
+    }
+
     #[test]
     fn captured_messages_decode_by_their_numbers() {
         match decode_captured(include_bytes!(
@@ -324,9 +392,8 @@ mod tests {
             other => panic!("{other:?}"),
         }
 
-        let block = include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
-        match decode_captured(block) {
-            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &block[2..]),
+        match decode_captured(&wrapped_block()) {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &CAPTURED_BLOCK[2..]),
             other => panic!("{other:?}"),
         }
 
@@ -508,20 +575,20 @@ mod tests {
     // with our `Encode` impl and validates the bytes against the vendored
     // cardano-blueprint leios-fetch CDDL (via the shared `cddl` helper),
     // so a spec change (tag, arity, the bitmaps shape) fails the matching test.
-    // The EB body / txs are opaque raw CBOR here, so they are validated as `any`.
+    // The txs are opaque raw CBOR here, so they are validated as `any`.
 
     /// Turns the vendored leios-fetch CDDL into a schema cddl-rs can parse. On top
-    /// of the shared preprocessing this relaxes the opaque sub-structures (the EB
-    /// body and the included Dijkstra `block_transaction`) to `any`, since the
-    /// codec holds them as raw CBOR.
+    /// of the shared preprocessing this wraps the endorser block in tag 24, the
+    /// form the node writes, and relaxes the included Dijkstra `block_transaction`
+    /// to `any`, since the codec holds it as raw CBOR.
     #[cfg(feature = "blueprint")]
     fn self_contained() -> String {
         let body = cddl::preprocess(include_str!(
             "../../../cardano-blueprint/src/network/node-to-node/leios-fetch/messages.cddl"
         ))
         .replace(
-            "endorser_block = { + hash => word32 }",
-            "endorser_block = any",
+            "msgLeiosBlock                  = [2, endorser_block]",
+            "msgLeiosBlock = [2, #6.24(bytes .cbor endorser_block)]",
         )
         .replace("dijkstra.block_transaction", "block_transaction");
         format!("{body}\n{}block_transaction = any\n", cddl::BASE_PRELUDE)
@@ -537,7 +604,7 @@ mod tests {
         block_conforms,
         self_contained,
         "msgLeiosBlock",
-        Message::Block(raw([1, 2, 3]))
+        Message::Block(AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec()))
     );
     conforms!(
         block_txs_request_conforms,
@@ -554,4 +621,10 @@ mod tests {
         }
     );
     conforms!(done_conforms, self_contained, "msgDone", Message::Done);
+
+    #[cfg(feature = "blueprint")]
+    #[test]
+    fn a_bare_block_does_not_conform() {
+        cddl::assert_does_not_conform(&self_contained(), "msgLeiosBlock", CAPTURED_BLOCK);
+    }
 }

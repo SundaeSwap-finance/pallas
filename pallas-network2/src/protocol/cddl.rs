@@ -67,3 +67,14 @@ pub(crate) fn assert_conforms(schema: &str, rule: &str, cbor: &[u8]) {
     ::cddl::validate_cbor_from_slice(&doc, cbor, None)
         .unwrap_or_else(|e| panic!("`{rule}` does not conform to CDDL: {e}"));
 }
+
+/// Validates `cbor` against rule `rule` of `schema`, panicking unless the schema
+/// parses and the bytes fail validation.
+#[cfg(feature = "blueprint")]
+pub(crate) fn assert_does_not_conform(schema: &str, rule: &str, cbor: &[u8]) {
+    let doc = format!("start = {rule}\n{schema}");
+    match ::cddl::validate_cbor_from_slice(&doc, cbor, None) {
+        Err(::cddl::validator::cbor::Error::Validation(_)) => {}
+        other => panic!("`{rule}` is not refused by CDDL: {other:?}"),
+    }
+}
