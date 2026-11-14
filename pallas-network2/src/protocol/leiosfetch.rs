@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 
+use pallas_codec::minicbor::data::Type;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
 use pallas_codec::utils::CborWrap;
 
@@ -207,7 +208,7 @@ impl Encode<()> for Message {
             }
             Message::Block(block) => {
                 e.array(2)?.u16(2)?;
-                e.encode(block)?;
+                e.encode(CborWrap(block))?;
             }
             Message::BlockTxsRequest(point, bitmaps) => {
                 e.array(3)?.u16(3)?;
@@ -235,7 +236,14 @@ impl<'b> Decode<'b, ()> for Message {
         match label {
             0 => Ok(Message::Done),
             1 => Ok(Message::BlockRequest(d.decode()?)),
-            2 => Ok(Message::Block(d.decode()?)),
+            2 => {
+                // Peers send the endorser block bare or wrapped in tag 24.
+                let block = match d.datatype()? {
+                    Type::Tag => d.decode::<CborWrap<EndorserBlockCbor>>()?.unwrap(),
+                    _ => d.decode()?,
+                };
+                Ok(Message::Block(block))
+            }
             3 => {
                 let point = d.decode()?;
                 let bitmaps = d.decode()?;
@@ -261,6 +269,7 @@ mod tests {
     use crate::protocol::cddl;
     use crate::protocol::cddl::conforms;
     use pallas_codec::minicbor;
+    use pallas_crypto::hash::Hasher;
     use std::collections::BTreeMap;
 
     fn point() -> EbId {
@@ -315,6 +324,37 @@ mod tests {
         )
     }
 
+    const CAPTURED_BLOCK: &[u8] =
+        include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
+
+    fn wrapped_block() -> Vec<u8> {
+        let body = &CAPTURED_BLOCK[2..];
+        assert_eq!(body.len(), 0x09b1, "fixture precondition");
+        [&[0x82, 0x02, 0xd8, 0x18, 0x59, 0x09, 0xb1][..], body].concat()
+    }
+
+    #[test]
+    fn a_block_bare_or_cbor_in_cbor_holds_the_announced_endorser_block() {
+        let Point::Specific(_, announced) = captured_point() else {
+            panic!("fixture precondition");
+        };
+
+        for bytes in [CAPTURED_BLOCK.to_vec(), wrapped_block()] {
+            match minicbor::decode(&bytes).expect("the block decodes") {
+                Message::Block(eb) => {
+                    assert_eq!(Hasher::<256>::hash(eb.raw_bytes()).as_ref(), announced)
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_block_is_written_cbor_in_cbor() {
+        let eb = AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec());
+        assert_eq!(reencode(&Message::Block(eb)), wrapped_block());
+    }
+
     #[test]
     fn captured_messages_decode_by_their_numbers() {
         match decode_captured(include_bytes!(
@@ -324,9 +364,8 @@ mod tests {
             other => panic!("{other:?}"),
         }
 
-        let block = include_bytes!("../../../test_data/leios-rc-2026w42/fetch-block.cbor");
-        match decode_captured(block) {
-            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &block[2..]),
+        match decode_captured(&wrapped_block()) {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), &CAPTURED_BLOCK[2..]),
             other => panic!("{other:?}"),
         }
 
