@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use pallas_codec::minicbor::data::Type;
 use pallas_codec::minicbor::{Decode, Decoder, Encode, Encoder, decode, encode};
-use pallas_codec::utils::CborWrap;
+use pallas_codec::utils::{Bytes, TagWrap};
 
 use super::{AnyCbor, EbId, Error};
 
@@ -25,6 +25,17 @@ pub type EndorserBlockCbor = AnyCbor;
 
 /// Raw CBOR of a single transaction.
 pub type TxCbor = AnyCbor;
+
+/// The byte string a tag 24 payload is written in, held whole.
+type Wrapped = TagWrap<Bytes, 24>;
+
+fn wrap(payload: &AnyCbor) -> Wrapped {
+    TagWrap(Bytes::from(payload.raw_bytes().to_vec()))
+}
+
+fn unwrap(wrapped: Wrapped) -> AnyCbor {
+    AnyCbor::from_raw_bytes(wrapped.0.into())
+}
 
 /// A transaction-subset selector for leios-fetch block-txs requests.
 ///
@@ -208,7 +219,7 @@ impl Encode<()> for Message {
             }
             Message::Block(block) => {
                 e.array(2)?.u16(2)?;
-                e.encode(CborWrap(block))?;
+                e.encode(wrap(block))?;
             }
             Message::BlockTxsRequest(point, bitmaps) => {
                 e.array(3)?.u16(3)?;
@@ -219,7 +230,7 @@ impl Encode<()> for Message {
                 e.array(2)?.u16(4)?;
                 e.array(txs.len() as u64)?;
                 for tx in txs {
-                    e.encode(CborWrap(tx))?;
+                    e.encode(wrap(tx))?;
                 }
             }
         }
@@ -239,7 +250,7 @@ impl<'b> Decode<'b, ()> for Message {
             2 => {
                 // Peers send the endorser block bare or wrapped in tag 24.
                 let block = match d.datatype()? {
-                    Type::Tag => d.decode::<CborWrap<EndorserBlockCbor>>()?.unwrap(),
+                    Type::Tag => unwrap(d.decode()?),
                     _ => d.decode()?,
                 };
                 Ok(Message::Block(block))
@@ -250,8 +261,8 @@ impl<'b> Decode<'b, ()> for Message {
                 Ok(Message::BlockTxsRequest(point, bitmaps))
             }
             4 => {
-                let txs: Vec<CborWrap<TxCbor>> = d.decode()?;
-                let txs = txs.into_iter().map(CborWrap::unwrap).collect();
+                let txs: Vec<Wrapped> = d.decode()?;
+                let txs = txs.into_iter().map(unwrap).collect();
                 Ok(Message::BlockTxs { txs })
             }
             _ => Err(decode::Error::message(
@@ -353,6 +364,22 @@ mod tests {
     fn a_block_is_written_cbor_in_cbor() {
         let eb = AnyCbor::from_raw_bytes(CAPTURED_BLOCK[2..].to_vec());
         assert_eq!(reencode(&Message::Block(eb)), wrapped_block());
+    }
+
+    #[test]
+    fn a_wrapped_payload_is_held_whole() {
+        // Each tag 24 byte string holds two CBOR items, 0x01 and 0x02.
+        let block = [0x82, 0x02, 0xd8, 0x18, 0x42, 0x01, 0x02];
+        let block_txs = [0x82, 0x04, 0x81, 0xd8, 0x18, 0x42, 0x01, 0x02];
+
+        match minicbor::decode(&block).expect("the block decodes") {
+            Message::Block(eb) => assert_eq!(eb.raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
+        match minicbor::decode(&block_txs).expect("the transactions decode") {
+            Message::BlockTxs { txs } => assert_eq!(txs[0].raw_bytes(), [0x01, 0x02]),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
