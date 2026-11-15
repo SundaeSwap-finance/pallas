@@ -57,7 +57,7 @@ fn batch(test: impl FnOnce(n::BlockTransaction<'_>, n::TransactionOutput<'_>)) {
         test(tx, input);
     });
 }
-fn sign_sub(sub: &mut n::SubTransaction<'_>) {
+pub(super) fn sign_sub(sub: &mut n::SubTransaction<'_>) {
     let key = SecretKey::from([71; 32]);
     let hash = Hasher::<256>::hash(&minicbor::to_vec(&sub.sub_transaction_body).unwrap());
     sub.transaction_witness_set.vkeywitness = n::NonEmptySet::from_vec(vec![n::VKeyWitness {
@@ -376,6 +376,83 @@ fn dijkstra_batch_sub_key_inputs_may_carry_datums_and_reference_scripts() {
             native(n::NativeScript::ScriptAll(vec![])),
         )));
         let result = run_sub(&tx, &input, &with_script);
+        assert!(result.is_ok(), "{result:?}");
+    });
+}
+
+/// An output of `coin` at the address of `paying` under the hash of `datum`.
+pub(super) fn datum_hash_output(
+    paying: &n::TransactionOutput<'_>,
+    coin: u64,
+    datum: &n::PlutusData,
+) -> n::TransactionOutput<'static> {
+    n::TransactionOutput::PostAlonzo(
+        n::PostAlonzoTransactionOutput {
+            address: MultiEraOutput::from_dijkstra(paying)
+                .address()
+                .unwrap()
+                .to_vec()
+                .into(),
+            value: n::Value::Coin(coin),
+            datum_option: Some(
+                pallas_primitives::conway::DatumOption::Hash(Hasher::<256>::hash(
+                    &minicbor::to_vec(datum).unwrap(),
+                ))
+                .into(),
+            ),
+            script_ref: None,
+        }
+        .into(),
+    )
+}
+
+/// A batch whose sub transaction pays the sub input's coin under the hash of `named`, with `witnessed` in the top level witnesses.
+fn sub_output_datum_batch(
+    named: &n::PlutusData,
+    witnessed: n::PlutusData,
+    test: impl FnOnce(n::BlockTransaction<'_>, n::TransactionOutput<'_>),
+) {
+    batch(|mut tx, input| {
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        let paid = datum_hash_output(&input, coin, named);
+        change_sub(&mut tx, |sub| {
+            sub.sub_transaction_body.outputs = MaybeIndefArray::Def(vec![paid]);
+            sign_sub(sub);
+        });
+        let mut outputs = tx.transaction_body.outputs.clone().to_vec();
+        let n::Value::Coin(ref mut top) = post_alonzo(&mut outputs[0]).value else {
+            unreachable!()
+        };
+        *top -= coin;
+        tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+        let data: KeepRaw<'_, n::NonEmptySet<KeepRaw<'_, n::PlutusData>>> =
+            n::NonEmptySet::from_vec(vec![witnessed.into()])
+                .unwrap()
+                .into();
+        let mut integrity = vec![0xa0];
+        integrity.extend(minicbor::to_vec(&data).unwrap());
+        integrity.push(0xa0);
+        tx.transaction_body.script_data_hash = Some(Hasher::<256>::hash(&integrity));
+        tx.transaction_witness_set.plutus_data = Some(data);
+        sign(&mut tx);
+        test(tx, input);
+    });
+}
+
+#[test]
+fn dijkstra_batch_top_level_refuses_a_datum_no_body_names() {
+    let named = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+    let other = n::PlutusData::BigInt(n::BigInt::Int(44.into()));
+    sub_output_datum_batch(&named, other, |tx, input| {
+        error(run(&tx, &input, &env()), "PostAlonzo(UnneededDatum)");
+    });
+}
+
+#[test]
+fn dijkstra_batch_top_level_may_witness_a_sub_output_datum() {
+    let named = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+    sub_output_datum_batch(&named, named.clone(), |tx, input| {
+        let result = run(&tx, &input, &env());
         assert!(result.is_ok(), "{result:?}");
     });
 }

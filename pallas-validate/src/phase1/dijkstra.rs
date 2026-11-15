@@ -129,6 +129,7 @@ pub(super) fn validate_dijkstra_tx_inner<S: DijkstraLedgerState + ?Sized>(
             sb.script_data_hash,
             scripts,
             &provided,
+            HashSet::new(),
             utxos,
             pp,
             time,
@@ -987,14 +988,18 @@ fn plutus_witnesses<'a>(
         .chain(v4.map(|x| (x.compute_hash(), Language::PlutusV4, x.as_ref())))
 }
 
-/// The rule the top level withdrawals of a batch whose top level runs Plutus scripts of `languages` are judged by.
-pub(super) fn withdrawal_rule(languages: &BTreeSet<Language>) -> WithdrawalRule {
+/// Whether a batch whose top level runs Plutus scripts of `languages` is in legacy mode.
+fn legacy_mode(languages: &BTreeSet<Language>) -> bool {
     // A top level Plutus script up to V3 puts the batch in legacy mode, native and V4 scripts do not.
-    let legacy = languages.iter().any(|x| match x {
+    languages.iter().any(|x| match x {
         Language::PlutusV1 | Language::PlutusV2 | Language::PlutusV3 => true,
         Language::PlutusV4 => false,
-    });
-    match legacy {
+    })
+}
+
+/// The rule the top level withdrawals of a batch whose top level runs Plutus scripts of `languages` are judged by.
+pub(super) fn withdrawal_rule(languages: &BTreeSet<Language>) -> WithdrawalRule {
+    match legacy_mode(languages) {
         true => WithdrawalRule::Legacy,
         false => WithdrawalRule::Partial,
     }
@@ -1105,6 +1110,7 @@ fn check_scripts(
         b.script_data_hash,
         scripts,
         &provided,
+        sub_supplemental_datums(b, utxos)?,
         utxos,
         pp,
         time,
@@ -1210,6 +1216,7 @@ fn check_level(
     declared: Option<Hash<32>>,
     scripts: &BTreeMap<RedeemersKey, Hash<28>>,
     provided: &Provided,
+    sub_datums: HashSet<Hash<32>>,
     utxos: &UTxOs<'_>,
     pp: &DijkstraProtParams,
     time: Option<&crate::utils::DijkstraTimeContext>,
@@ -1256,7 +1263,12 @@ fn check_level(
             None => {}
         }
     }
-    check_datums(b, w, utxos, &scripts, &provided.plutus)?;
+    let mut allowed = supplemental_datums(b, utxos)?;
+    // In legacy mode the top level may witness only the datums its own body names.
+    if !legacy_mode(&languages) {
+        allowed.extend(sub_datums);
+    }
+    check_datums(b, w, utxos, &scripts, &provided.plutus, allowed)?;
     if scripts.is_empty() {
         if w.redeemer.as_ref().is_some_and(|x| !x.is_empty()) {
             return Err(PostAlonzo(UnneededRedeemer));
@@ -1501,15 +1513,56 @@ fn check_assets<'a, 'b: 'a>(
     Ok(())
 }
 
-/// Checks that the level `b` carries in `w` each datum its Plutus spent inputs require, and only datums those inputs, its outputs and its reference inputs name.
+/// The datum hashes the outputs, collateral return and reference inputs of the level `b` name.
+fn supplemental_datums(
+    b: &Level<'_>,
+    utxos: &UTxOs<'_>,
+) -> Result<HashSet<Hash<32>>, ValidationError> {
+    let mut hashes = HashSet::new();
+    for output in b
+        .outputs
+        .iter()
+        .chain(b.collateral_return)
+        .map(MultiEraOutput::from_dijkstra)
+    {
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            hashes.insert(hash);
+        }
+    }
+    for input in b.reference_inputs.into_iter().flatten() {
+        let output = utxos
+            .get(&MultiEraInput::from_alonzo_compatible(input))
+            .ok_or(PostAlonzo(ReferenceInputNotInUTxO))?;
+        if let Some(DatumOption::Hash(hash)) = output.datum() {
+            hashes.insert(hash);
+        }
+    }
+    Ok(hashes)
+}
+
+/// The supplemental datum hashes of every sub transaction of the batch `b`.
+fn sub_supplemental_datums(
+    b: &TransactionBody<'_>,
+    utxos: &UTxOs<'_>,
+) -> Result<HashSet<Hash<32>>, ValidationError> {
+    let mut hashes = HashSet::new();
+    for (index, sub) in (0..).zip(b.sub_transactions.iter().flatten()) {
+        let sb = &sub.sub_transaction_body;
+        let level = Level::sub(sb, Hasher::<256>::hash(sb.raw_cbor()), index);
+        hashes.extend(supplemental_datums(&level, utxos)?);
+    }
+    Ok(hashes)
+}
+
+/// Checks that the level `b` carries in `w` each datum its Plutus spent inputs require, and only datums those inputs or `allowed` name.
 fn check_datums(
     b: &Level<'_>,
     w: &WitnessSet<'_>,
     utxos: &UTxOs<'_>,
     scripts: &BTreeMap<RedeemersKey, Hash<28>>,
     plutus: &Plutus,
+    mut allowed: HashSet<Hash<32>>,
 ) -> ValidationResult {
-    let mut allowed = HashSet::new();
     let mut required = HashSet::new();
     for (index, input) in b
         .inputs
@@ -1542,19 +1595,6 @@ fn check_datums(
                     }
                 }
             }
-        }
-    }
-    for output in b.outputs.iter().map(MultiEraOutput::from_dijkstra) {
-        if let Some(DatumOption::Hash(hash)) = output.datum() {
-            allowed.insert(hash);
-        }
-    }
-    for input in b.reference_inputs.into_iter().flatten() {
-        let output = utxos
-            .get(&MultiEraInput::from_alonzo_compatible(input))
-            .ok_or(PostAlonzo(ReferenceInputNotInUTxO))?;
-        if let Some(DatumOption::Hash(hash)) = output.datum() {
-            allowed.insert(hash);
         }
     }
     for datum in w.plutus_data.iter().flat_map(|x| x.iter()) {

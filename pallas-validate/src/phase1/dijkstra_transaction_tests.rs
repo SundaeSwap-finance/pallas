@@ -834,6 +834,59 @@ mod scripts {
             dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
         });
     }
+    use crate::phase1::dijkstra_batch_tests as batches;
+    /// A witness set datum list holding only `datum`.
+    fn datums(
+        datum: n::PlutusData,
+    ) -> KeepRaw<'static, n::NonEmptySet<KeepRaw<'static, n::PlutusData>>> {
+        n::NonEmptySet::from_vec(vec![datum.into()]).unwrap().into()
+    }
+    #[test]
+    fn dijkstra_top_level_may_witness_its_collateral_return_datum() {
+        case(false, PASS, |mut tx, inputs, env, state| {
+            let datum = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+            let coin = MultiEraOutput::from_dijkstra(&inputs[0].1).value().coin();
+            tx.transaction_body.collateral_return = Some(batches::datum_hash_output(
+                &inputs[0].1,
+                coin - 2_000_000,
+                &datum,
+            ));
+            tx.transaction_witness_set.plutus_data = Some(datums(datum));
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_witness_set.plutus_data =
+                Some(datums(n::PlutusData::BigInt(n::BigInt::Int(44.into()))));
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
+        });
+    }
+    #[test]
+    fn dijkstra_legacy_top_level_refuses_a_sub_output_datum() {
+        case(false, PASS, |mut tx, mut inputs, env, state| {
+            let datum = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
+            let source = n::TransactionInput {
+                transaction_id: Hash::from([254; 32]),
+                index: 0,
+            };
+            let coin = MultiEraOutput::from_dijkstra(&inputs[0].1).value().coin();
+            let paid = batches::datum_hash_output(&inputs[0].1, coin, &datum);
+            inputs.push((source.clone(), inputs[0].1.clone()));
+            let mut sub: n::SubTransaction =
+                minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
+            sub.sub_transaction_body.inputs = vec![source].into();
+            sub.sub_transaction_body.outputs =
+                pallas_codec::utils::MaybeIndefArray::Def(vec![paid]);
+            batches::sign_sub(&mut sub);
+            tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
+            seal(&mut tx, &env);
+            let result = run(&tx, &inputs, &env, &state);
+            assert!(result.is_ok(), "{result:?}");
+            tx.transaction_witness_set.plutus_data = Some(datums(datum));
+            seal(&mut tx, &env);
+            dijkstra_tests::error(run(&tx, &inputs, &env, &state), "PostAlonzo(UnneededDatum)");
+        });
+    }
     #[test]
     fn dijkstra_reward_order_and_explicit_account_balance() {
         case(false, PASS, |mut tx, inputs, env, mut state| {
