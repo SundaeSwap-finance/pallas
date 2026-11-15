@@ -351,7 +351,11 @@ mod tests {
             "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
         );
         assert!(resolved.payload.is_some());
-        assert_eq!(resolved.original_cbor, None);
+        let witnessed = resolved.original_cbor.as_deref().unwrap();
+        assert_eq!(
+            pallas_crypto::hash::Hasher::<256>::hash(witnessed).to_vec(),
+            resolved.hash.to_vec()
+        );
 
         assert_eq!(unresolved.hash, resolved.hash);
         assert_eq!(unresolved.payload, None);
