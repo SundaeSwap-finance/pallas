@@ -79,6 +79,15 @@ impl<C: LedgerContext> Mapper<C> {
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
     ) -> Option<u5c::Datum> {
+        self.map_tx_datum_from(x, tx.as_slice())
+    }
+
+    /// Maps the datum of an output, looking a datum hash up in the witnesses of `txs`.
+    fn map_tx_datum_from(
+        &self,
+        x: &trv::MultiEraOutput,
+        txs: &[&trv::MultiEraTx],
+    ) -> Option<u5c::Datum> {
         Some(match x.datum()? {
             babbage::DatumOption::Data(x) => u5c::Datum {
                 hash: x.original_hash().to_vec().into(),
@@ -86,7 +95,7 @@ impl<C: LedgerContext> Mapper<C> {
                 original_cbor: x.raw_cbor().to_vec().into(),
             },
             babbage::DatumOption::Hash(x) => {
-                let witnessed = tx.and_then(|tx| tx.find_plutus_data(&x));
+                let witnessed = txs.iter().find_map(|tx| tx.find_plutus_data(&x));
 
                 u5c::Datum {
                     hash: x.to_vec().into(),
@@ -105,6 +114,17 @@ impl<C: LedgerContext> Mapper<C> {
         x: &trv::MultiEraOutput,
         tx: Option<&trv::MultiEraTx>,
     ) -> u5c::TxOutput {
+        self.map_tx_output_from(x, tx.as_slice())
+    }
+
+    /// Maps an output, looking its datum hash up in the witnesses of `txs`.
+    fn map_tx_output_from(
+        &self,
+        x: &trv::MultiEraOutput,
+        txs: &[&trv::MultiEraTx],
+    ) -> u5c::TxOutput {
+        let datum = self.map_tx_datum_from(x, txs);
+
         u5c::TxOutput {
             address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
             coin: u64_to_bigint(x.value().coin()),
@@ -118,9 +138,9 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_policy_assets(x))
                 .collect(),
             datum: if self.omit_absent_datums {
-                self.map_tx_datum_opt(x, tx)
+                datum
             } else {
-                Some(self.map_tx_datum(x, tx))
+                Some(datum.unwrap_or_default())
             },
             script: self.map_output_script(x),
         }
@@ -149,10 +169,27 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
+        self.map_tx_with_top(tx, None)
+    }
+
+    /// Maps the sub transaction `sub` of the top level transaction `top`.
+    #[cfg(feature = "unstable")]
+    pub fn map_sub_tx<'b>(&self, sub: &trv::MultiEraTx<'b>, top: &trv::MultiEraTx<'b>) -> u5c::Tx {
+        self.map_tx_with_top(sub, Some(top))
+    }
+
+    /// Maps a transaction, given its top level transaction when it is a sub transaction.
+    fn map_tx_with_top<'b>(
+        &self,
+        tx: &trv::MultiEraTx<'b>,
+        top: Option<&trv::MultiEraTx<'b>>,
+    ) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
             ctx.get_utxos(to_resolve.as_slice())
         });
+        // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
+        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
 
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
@@ -165,7 +202,7 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx
                 .outputs()
                 .iter()
-                .map(|x| self.map_tx_output(x, Some(tx)))
+                .map(|x| self.map_tx_output_from(x, &datums))
                 .collect(),
             certificates: tx
                 .certs()
@@ -754,5 +791,54 @@ mod tests {
             any.items[1].native_script,
             Some(u5c::native_script::NativeScript::InvalidHereafter(200))
         ));
+    }
+
+    /// The datum hash and the datum bytes mapped on the first output of a transaction's first sub transaction.
+    #[cfg(feature = "unstable")]
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<Vec<u8>>) {
+        let tx = crate::testing::dijkstra_tx(cbor);
+        let sub = &tx.sub_transactions()[0];
+        let mapped = Mapper::new(NoLedger).map_sub_tx(sub, &tx);
+        let datum = mapped.outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+        let bytes = datum.original_cbor.to_vec();
+
+        (datum.hash.to_vec(), Some(bytes).filter(|x| !x.is_empty()))
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+
+        assert_eq!(
+            sub_output_datum(cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                Some(vec![0x18, 0x2b]),
+            ),
+            "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "unstable")]
+    fn a_sub_transaction_output_hash_the_batch_holds_no_datum_for_maps_the_hash_alone() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx")
+            .trim()
+            .replacen("04d9010281182b", "04d9010281182a", 1);
+
+        assert_eq!(
+            sub_output_datum(&cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                None,
+            ),
+            "with the top level datum changed from 43 to 42, no datum in the batch hashes to the output's hash"
+        );
     }
 }
