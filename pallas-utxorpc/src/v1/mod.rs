@@ -304,14 +304,14 @@ impl<C: LedgerContext> Mapper<C> {
         let resolved = self.resolve(tx);
 
         u5c::Tx {
-            common: Some(self.map_tx_common(tx, &resolved)),
+            common: Some(self.map_tx_common(tx, &resolved, None)),
             collateral: self.map_collateral(tx, &resolved),
             fee: tx.fee().and_then(u64_to_bigint),
             successful: tx.is_valid(),
             sub_transactions: tx
                 .sub_transactions()
                 .iter()
-                .map(|x| self.map_tx_common(x, &self.resolve(x)))
+                .map(|x| self.map_tx_common(x, &self.resolve(x), Some(tx)))
                 .collect(),
             starting_account_balance_intervals: tx
                 .starting_account_balance_intervals()
@@ -330,14 +330,17 @@ impl<C: LedgerContext> Mapper<C> {
         })
     }
 
-    /// Maps the fields a transaction shares with a sub transaction.
-    fn map_tx_common(
+    /// Maps the fields a transaction shares with a sub transaction, given its top level transaction when it is a sub transaction.
+    fn map_tx_common<'b>(
         &self,
-        tx: &trv::MultiEraTx,
+        tx: &trv::MultiEraTx<'b>,
         resolved: &Option<crate::UtxoMap>,
+        top: Option<&trv::MultiEraTx<'b>>,
     ) -> u5c::TxCommon {
         let start = tx.validity_start();
         let ttl = tx.ttl();
+        // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
+        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
 
         u5c::TxCommon {
             hash: tx.hash().to_vec().into(),
@@ -350,7 +353,7 @@ impl<C: LedgerContext> Mapper<C> {
             outputs: tx
                 .outputs()
                 .iter()
-                .map(|x| self.map_tx_output(x, Some(tx)))
+                .map(|x| self.map_tx_output_from(x, &datums))
                 .collect(),
             certificates: tx
                 .certs()
@@ -1164,6 +1167,50 @@ mod tests {
                 vec![u64_to_bigint(2_000_000)]
             ),
             "each input maps the output the ledger holds for it, the sub transaction's input included"
+        );
+    }
+
+    /// The datum hash and the datum bytes mapped on a sub transaction's first output.
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<Vec<u8>>) {
+        let tx = dijkstra_tx(cbor);
+        let mapped = Mapper::new(NoLedger).map_tx(&tx);
+        let datum = mapped.sub_transactions[0].outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        (datum.hash.to_vec(), datum.original_cbor.map(|x| x.to_vec()))
+    }
+
+    #[test]
+    fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+
+        assert_eq!(
+            sub_output_datum(cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                Some(vec![0x18, 0x2b]),
+            ),
+            "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
+        );
+    }
+
+    #[test]
+    fn a_sub_transaction_output_hash_the_batch_holds_no_datum_for_maps_the_hash_alone() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx")
+            .trim()
+            .replacen("04d9010281182b", "04d9010281182a", 1);
+
+        assert_eq!(
+            sub_output_datum(&cbor),
+            (
+                hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
+                    .unwrap(),
+                None,
+            ),
+            "with the top level datum changed from 43 to 42, no datum in the batch hashes to the output's hash"
         );
     }
 

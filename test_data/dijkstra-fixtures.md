@@ -237,3 +237,21 @@ and reads two redeemers from witness key 5.
 The purposes, indexes and units are the ledger's own print of the decoded
 witness set, and the tags were read from the bytes with a standalone CBOR
 walker rather than with pallas.
+
+## A sub transaction output whose datum is in the top witnesses
+
+`dijkstra-sub-output-top-datum.tx` is a transaction the Haskell ledger at
+cardano-ledger `9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c` accepted at slot
+5179681 in its Dijkstra test harness, which then serialised it, written as
+lowercase hex with no trailing newline. Its one sub transaction pays an output
+locked by a datum hash, and the datum is in the top level witness set only.
+The ledger accepts that because, when the batch runs no PlutusV3 or older
+script, the datums a transaction may supply include the output datum hashes
+of its sub transactions.
+
+| transaction | bytes | body keys | witness keys | what it carries |
+| --- | --- | --- | --- | --- |
+| `73d919b0eaa7e106454451d8cafe6c494cf835f717004d7170d112d71aa43e17` | 496 | 0, 1, 2, 11, 23 | 0, 4 | the datum `182b` (the integer 43) at witness key 4, and sub transaction `1d249f2fe86ccf907db1ef5d1ff1b1b125e16d5a3ccd36a12a0c4406cd6fd255`, with witness key 0 only, whose output 0 carries datum hash `45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6` |
+
+The keys and hashes were read with Python's `cbor2` and `hashlib` rather than
+with pallas.

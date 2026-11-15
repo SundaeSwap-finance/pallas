@@ -26,6 +26,15 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                 x: &pallas_traverse::MultiEraOutput,
                 tx: Option<&pallas_traverse::MultiEraTx>,
             ) -> Option<u5c::Datum> {
+                self.map_tx_datum_from(x, tx.as_slice())
+            }
+
+            /// Maps the datum of an output, looking a datum hash up in the witnesses of `txs`.
+            fn map_tx_datum_from(
+                &self,
+                x: &pallas_traverse::MultiEraOutput,
+                txs: &[&pallas_traverse::MultiEraTx],
+            ) -> Option<u5c::Datum> {
                 use pallas_primitives::babbage;
                 use pallas_traverse::OriginalHash;
 
@@ -36,7 +45,7 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                         original_cbor: Some(x.raw_cbor().to_vec().into()),
                     },
                     babbage::DatumOption::Hash(x) => {
-                        let witnessed = tx.and_then(|tx| tx.find_plutus_data(&x));
+                        let witnessed = txs.iter().find_map(|tx| tx.find_plutus_data(&x));
 
                         u5c::Datum {
                             hash: x.to_vec().into(),
@@ -52,6 +61,17 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                 x: &pallas_traverse::MultiEraOutput,
                 tx: Option<&pallas_traverse::MultiEraTx>,
             ) -> u5c::TxOutput {
+                self.map_tx_output_from(x, tx.as_slice())
+            }
+
+            /// Maps an output, looking its datum hash up in the witnesses of `txs`.
+            fn map_tx_output_from(
+                &self,
+                x: &pallas_traverse::MultiEraOutput,
+                txs: &[&pallas_traverse::MultiEraTx],
+            ) -> u5c::TxOutput {
+                let datum = self.map_tx_datum_from(x, txs);
+
                 u5c::TxOutput {
                     address: x.address().map(|a| a.to_vec()).unwrap_or_default().into(),
                     coin: u64_to_bigint(x.value().coin()),
@@ -65,9 +85,9 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                         .map(|x| self.map_policy_assets(x))
                         .collect(),
                     datum: if self.omit_absent_datums {
-                        self.map_tx_datum_opt(x, tx)
+                        datum
                     } else {
-                        Some(self.map_tx_datum(x, tx))
+                        Some(datum.unwrap_or_default())
                     },
                     script: self.map_output_script(x),
                     original_cbor: Some(x.encode().into()),
