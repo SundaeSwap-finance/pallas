@@ -1,5 +1,5 @@
 # Each test belongs to one size group, and CI fails on a test in no size group.
-# small: one process with no sockets, which CI runs on Linux with no route off the machine.
+# small: one process with no sockets, which CI runs with no route off the machine.
 # medium: local sockets or sleeps on one machine.
 # large: a public network peer.
 
