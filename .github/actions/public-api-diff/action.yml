@@ -20,7 +20,7 @@ runs:
         toolchain: nightly-2026-05-25
     - uses: Swatinem/rust-cache@v2
       with:
-        shared-key: public-api-diff
+        shared-key: public-api-diff-${{ hashFiles('Cargo.toml') }}
     - uses: taiki-e/install-action@v2
       with:
         tool: cargo-public-api@0.52.0

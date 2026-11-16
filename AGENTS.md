@@ -66,21 +66,30 @@ cargo clippy --workspace --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
-Build and test:
+Build and test. CI runs tests with `cargo-nextest`, which skips doctests, so each `cargo nextest run`
+below is followed in CI by `cargo test --doc` with the same arguments:
 
 ```sh
-cargo build --workspace --all-targets
-cargo test --workspace
+cargo build --workspace --all-targets --profile test
+cargo nextest run --workspace
+cargo test --doc --workspace
 ```
 
 Feature runs:
 
 ```sh
-cargo test -p pallas-network -p pallas-network2 --features blueprint
-cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 --features unstable
-cargo test -p pallas-primitives --features unstable,blueprint
+cargo nextest run -p pallas-network -p pallas-network2 --features blueprint
+cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 --features unstable
+cargo nextest run -p pallas-primitives --features unstable,blueprint
 cargo check --workspace --all-targets --no-default-features
 cargo check --workspace --all-targets --all-features
+```
+
+The tests in the `large` group of `.config/nextest.toml` dial public peers, and CI runs them only
+in a run started by hand:
+
+```sh
+cargo nextest run --workspace --run-ignored all -E 'group(large)'
 ```
 
 A workspace-wide `--no-default-features` build unifies features across members, so CI also checks
