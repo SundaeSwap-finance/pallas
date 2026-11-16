@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use pallas_codec::minicbor::Decoder;
@@ -594,8 +595,8 @@ pub fn agrees(
     block: &u5c::Block,
     tx: Option<MappedTx>,
 ) -> Option<bool> {
-    let header = block.header.clone().unwrap_or_default();
-    let body = block.body.clone().unwrap_or_default();
+    let header = block.header.as_ref().map(Cow::Borrowed).unwrap_or_default();
+    let body = block.body.as_ref().map(Cow::Borrowed).unwrap_or_default();
     match location {
         Location::HeaderBody(0) => Some(held == Held::Uint(header.height)),
         Location::HeaderBody(1) => Some(held == Held::Uint(header.slot)),
@@ -623,9 +624,12 @@ fn tx_agrees(location: Location, held: Held, mapped: MappedTx) -> Option<bool> {
         MappedTx::Sub(s) => (s, None),
     };
     let scripts = |pick: &dyn Fn(&S) -> bool| scripts_of(tx, pick);
-    let wits = tx.witnesses.clone().unwrap_or_default();
-    let validity = tx.validity.clone().unwrap_or_default();
-    let collateral = top.and_then(|t| t.collateral.clone()).unwrap_or_default();
+    let wits = tx.witnesses.as_ref().map(Cow::Borrowed).unwrap_or_default();
+    let validity = tx.validity.as_ref().map(Cow::Borrowed).unwrap_or_default();
+    let collateral = top
+        .and_then(|t| t.collateral.as_ref())
+        .map(Cow::Borrowed)
+        .unwrap_or_default();
     let count = |n: u64| Some(held == Held::Count(n));
     let uint = |v: u64| Some(held == Held::Uint(v));
     let top_only = |read: &dyn Fn(&u5c::Tx) -> Option<bool>| top.and_then(read);
