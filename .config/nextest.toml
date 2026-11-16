@@ -1,0 +1,17 @@
+# A test in the large group dials a public network peer, and every other test is medium.
+
+[test-groups]
+large = { max-threads = "num-cpus" }
+
+# Medium: at most 300 s.
+[profile.default]
+slow-timeout = { period = "300s", terminate-after = 1 }
+
+# Large: at most 900 s.
+[[profile.default.overrides]]
+filter = '''
+binary_id(pallas-network::protocols)
+  & test(/^(blockfetch_happy_path|chainsync_history_happy_path|chainsync_tip_happy_path|txsubmission_submit_to_mainnet_peer_n2n)$/)
+'''
+test-group = "large"
+slow-timeout = { period = "900s", terminate-after = 1 }

@@ -65,6 +65,9 @@ pallas-hardano = { version = "=1.5.0", path = "pallas-hardano" }
 pallas-math = { version = "=1.5.0", path = "pallas-math" }
 pallas-validate = { version = "=1.5.0", path = "pallas-validate" }
 
+[profile.test.package."*"]
+opt-level = 1
+
 [workspace.metadata.release]
 push = false
 publish = false
