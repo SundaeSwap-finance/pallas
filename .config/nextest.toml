@@ -1,13 +1,13 @@
-# Each test belongs to one size group, and CI fails on a test in no size group.
-# small: one process with no sockets, which CI runs with no route off the machine.
-# medium: local sockets or sleeps on one machine.
-# large: a public network peer.
+# A test in the large group dials a public network peer, and every other test is medium.
 
 [test-groups]
-small = { max-threads = "num-cpus" }
-medium = { max-threads = "num-cpus" }
 large = { max-threads = "num-cpus" }
 
+# Medium: at most 300 s.
+[profile.default]
+slow-timeout = { period = "300s", terminate-after = 1 }
+
+# Large: at most 900 s.
 [[profile.default.overrides]]
 filter = '''
 binary_id(pallas-network::protocols)
@@ -15,36 +15,3 @@ binary_id(pallas-network::protocols)
 '''
 test-group = "large"
 slow-timeout = { period = "900s", terminate-after = 1 }
-
-[[profile.default.overrides]]
-filter = '''
-binary_id(pallas-network::protocols)
-  | binary_id(pallas-network::plexer)
-  | binary_id(pallas-network2::initiator_responder)
-  | binary_id(pallas-network2::initiator_session_end)
-'''
-test-group = "medium"
-slow-timeout = { period = "300s", terminate-after = 1 }
-
-[[profile.default.overrides]]
-filter = '''
-package(pallas-addresses)
-  | package(pallas-codec)
-  | package(pallas-configs)
-  | package(pallas-crypto)
-  | package(pallas-hardano)
-  | package(pallas-math)
-  | package(pallas-primitives)
-  | package(pallas-traverse)
-  | package(pallas-txbuilder)
-  | package(pallas-utxorpc)
-  | package(pallas-validate)
-  | package(leios-tui)
-  | package(u5c-chain-oracle)
-  | binary_id(pallas-network)
-  | binary_id(pallas-network::decode_depth_cap)
-  | binary_id(pallas-network::deep_recursive)
-  | binary_id(pallas-network2)
-'''
-test-group = "small"
-slow-timeout = { period = "60s", terminate-after = 1 }

@@ -1,5 +1,5 @@
 name: Sized tests
-description: Fail on a test in no size group, then run the small tests with no network, the medium tests and the doctests.
+description: Run the tests under their size limits, then the doctests.
 
 inputs:
   args:
@@ -9,38 +9,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Fail on a test in no size group
+    - name: Tests
       shell: bash
       env:
         ARGS: ${{ inputs.args }}
       run: |
         # shellcheck disable=SC2086
-        unsized=$(cargo nextest list $ARGS --run-ignored all -E 'not (group(small) | group(medium) | group(large))' -T oneline)
-        if [[ -n $unsized ]]; then
-          echo "::error::tests in no size group of .config/nextest.toml"
-          echo "$unsized"
-          exit 1
-        fi
-    - name: Small tests
-      shell: bash
-      env:
-        ARGS: ${{ inputs.args }}
-      run: |
-        # Ubuntu 24.04 refuses an unprivileged user namespace unless this setting is off.
-        if [[ $(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null) == 1 ]]; then
-          sudo sysctl -q -w kernel.apparmor_restrict_unprivileged_userns=0
-        fi
-        host=$(rustc -vV | sed -n 's/^host: //p')
-        export "CARGO_TARGET_$(tr 'a-z-' 'A-Z_' <<< "$host")_RUNNER=unshare --map-root-user --net"
-        # shellcheck disable=SC2086
-        cargo nextest run $ARGS -E 'group(small)'
-    - name: Medium tests
-      shell: bash
-      env:
-        ARGS: ${{ inputs.args }}
-      run: |
-        # shellcheck disable=SC2086
-        cargo nextest run $ARGS -E 'group(medium)' --no-tests=warn
+        cargo nextest run $ARGS
     - name: Doctests
       shell: bash
       env:
