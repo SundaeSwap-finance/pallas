@@ -13,7 +13,7 @@ use pallas_network::miniprotocols::localtxsubmission::SMaybe;
 use pallas_network::{
     facades::{DmqClient, NodeClient, PeerClient, PeerServer},
     miniprotocols::{
-        MAINNET_MAGIC, Point, blockfetch,
+        MAINNET_MAGIC, PREVIEW_MAGIC, Point, blockfetch,
         blockfetch::BlockRequest,
         chainsync::{self, NextResponse},
         chainsync::{ClientRequest, HeaderContent, Tip},
@@ -43,12 +43,39 @@ use tokio::net::TcpListener;
 #[cfg(unix)]
 use tokio::net::UnixListener;
 
+/// A public relay and the magic of its network.
+struct PublicRelay {
+    address: &'static str,
+    magic: u64,
+}
+
+const PREVIEW_RELAY: PublicRelay = PublicRelay {
+    address: "preview-node.play.dev.cardano.org:3001",
+    magic: PREVIEW_MAGIC,
+};
+
+const MAINNET_RELAY: PublicRelay = PublicRelay {
+    address: "backbone.cardano.iog.io:3001",
+    magic: MAINNET_MAGIC,
+};
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Connect and complete the handshake with `relay`.
+async fn connect_to(relay: &PublicRelay) -> PeerClient {
+    tokio::time::timeout(
+        CONNECT_TIMEOUT,
+        PeerClient::connect(relay.address, relay.magic),
+    )
+    .await
+    .expect("relay connect timed out")
+    .unwrap()
+}
+
 #[tokio::test]
 #[ignore]
 pub async fn chainsync_history_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let mut peer = connect_to(&PREVIEW_RELAY).await;
 
     let client = peer.chainsync();
 
@@ -99,9 +126,7 @@ pub async fn chainsync_history_happy_path() {
 #[tokio::test]
 #[ignore]
 pub async fn chainsync_tip_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let mut peer = connect_to(&PREVIEW_RELAY).await;
 
     let client = peer.chainsync();
 
@@ -140,9 +165,7 @@ pub async fn chainsync_tip_happy_path() {
 #[tokio::test]
 #[ignore]
 pub async fn blockfetch_happy_path() {
-    let mut peer = PeerClient::connect("preview-node.world.dev.cardano.org:30002", 2)
-        .await
-        .unwrap();
+    let mut peer = connect_to(&PREVIEW_RELAY).await;
 
     let client = peer.blockfetch();
 
@@ -1669,10 +1692,7 @@ pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
     let mempool = vec![(tx_hash, tx_bytes)];
 
     // client setup
-    let mut client_to_server_conn =
-        PeerClient::connect("relays-new.cardano-mainnet.iohk.io:3001", MAINNET_MAGIC)
-            .await
-            .unwrap();
+    let mut client_to_server_conn = connect_to(&MAINNET_RELAY).await;
 
     let client_txsub = client_to_server_conn.txsubmission();
 
