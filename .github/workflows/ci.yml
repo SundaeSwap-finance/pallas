@@ -41,6 +41,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   docs:
@@ -54,6 +56,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo doc --workspace --no-deps
 
   test:
@@ -65,6 +69,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest@0.9.152
@@ -106,6 +112,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest@0.9.152
@@ -126,6 +134,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo check --workspace --all-targets ${{ matrix.flags }}
 
   isolated-features:
@@ -137,6 +147,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       # A workspace-wide --no-default-features build unifies features across
       # members, so it always pulls pallas-primitives in with `json` enabled.
       # Check the crate in isolation to catch missing serde feature gating.
@@ -174,6 +186,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: amaru
+          key: ${{ hashFiles('amaru/Cargo.toml') }}
       - name: Run the amaru-uplc conformance suite
         working-directory: amaru
         run: |

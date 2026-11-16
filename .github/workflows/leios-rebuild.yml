@@ -58,6 +58,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - if: env.BEHIND != '0'
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - if: env.BEHIND != '0'
         uses: taiki-e/install-action@v2
         with:
