@@ -1,0 +1,25 @@
+name: Sized tests
+description: Run the tests under their size limits, then the doctests.
+
+inputs:
+  args:
+    description: The cargo package and feature arguments that select the tests.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Tests
+      shell: bash
+      env:
+        ARGS: ${{ inputs.args }}
+      run: |
+        # shellcheck disable=SC2086
+        cargo nextest run $ARGS
+    - name: Doctests
+      shell: bash
+      env:
+        ARGS: ${{ inputs.args }}
+      run: |
+        # shellcheck disable=SC2086
+        cargo test --doc $ARGS

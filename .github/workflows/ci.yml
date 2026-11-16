@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -40,6 +41,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   docs:
@@ -53,6 +56,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo doc --workspace --no-deps
 
   test:
@@ -68,16 +73,47 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
       - name: Build
-        run: cargo build --workspace --all-targets
+        run: cargo build --workspace --all-targets --profile test
       - name: Test
-        run: cargo test --workspace
+        uses: ./.github/actions/sized-tests
+        with:
+          args: --workspace
       - name: Test blueprint feature
-        run: cargo test -p pallas-network -p pallas-network2 --features blueprint
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-network -p pallas-network2 --features blueprint
       - name: Test unstable feature
-        run: cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
       - name: Test unstable blueprint feature
-        run: cargo test -p pallas-primitives --features unstable,blueprint
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives --features unstable,blueprint
+
+  # Large tests dial public peers, so they run only when a run is started by hand.
+  large:
+    name: Large tests
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
+      - run: cargo nextest run --workspace --run-ignored all -E 'group(large)'
 
   features:
     name: Features (${{ matrix.flags }})
@@ -94,6 +130,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo check --workspace --all-targets ${{ matrix.flags }}
 
   isolated-features:
@@ -105,6 +143,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       # A workspace-wide --no-default-features build unifies features across
       # members, so it always pulls pallas-primitives in with `json` enabled.
       # Check the crate in isolation to catch missing serde feature gating.
@@ -119,6 +159,8 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo check --workspace --all-targets
 
   # main is the v1 lineage, where public API changes must be additive; see
