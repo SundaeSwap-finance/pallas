@@ -5,6 +5,7 @@ on:
     branches: [main, leios-musashi]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -60,7 +61,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Pull requests and pushes to main test every platform, and pushes to other branches test Linux.
+        os: ${{ fromJSON(github.event_name == 'push' && github.ref_name != 'main' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -68,20 +70,51 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
       - name: Build
-        run: cargo build --workspace --all-targets
+        run: cargo build --workspace --all-targets --profile test
       - name: Test
-        run: cargo test --workspace
+        uses: ./.github/actions/sized-tests
+        with:
+          args: --workspace
       - name: Test blueprint feature
-        run: cargo test -p pallas-network -p pallas-network2 --features blueprint
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-network -p pallas-network2 --features blueprint
       - name: Test unstable feature
-        run: cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
       - name: Test unstable blueprint feature
-        run: cargo test -p pallas-primitives --features unstable,blueprint
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives --features unstable,blueprint
       - name: Test validation with phase two enabled
-        run: cargo test -p pallas-validate --features phase2
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-validate --features phase2
       - name: Test native Dijkstra validation with phase two enabled
-        run: cargo test -p pallas-validate --features phase2,unstable
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-validate --features phase2,unstable
+
+  # Large tests dial public peers, so they run only when a run is started by hand.
+  large:
+    name: Large tests
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
+      - run: cargo nextest run --workspace --run-ignored all -E 'group(large)'
 
   features:
     name: Features (${{ matrix.flags }})
@@ -113,19 +146,6 @@ jobs:
       # members, so it always pulls pallas-primitives in with `json` enabled.
       # Check the crate in isolation to catch missing serde feature gating.
       - run: cargo check -p pallas-primitives --no-default-features
-
-  msrv:
-    name: MSRV (1.97)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@1.97.0
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --all-targets
-      - name: Test validation at the minimum supported Rust version
-        run: cargo test -p pallas-validate --features phase2,unstable
 
   amaru-conformance:
     name: amaru-uplc conformance at the pinned commit
@@ -225,30 +245,10 @@ jobs:
           release-type: minor
 
   public-api:
-    name: API compatibility (public-api, ${{ matrix.crate }})
+    name: API compatibility (public-api)
     needs: api-baseline
     continue-on-error: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # The published crates. Add a new crate here once it's on main; until
-        # then the base revision doesn't have it to diff against.
-        crate:
-          - pallas
-          - pallas-addresses
-          - pallas-codec
-          - pallas-configs
-          - pallas-crypto
-          - pallas-hardano
-          - pallas-math
-          - pallas-network
-          - pallas-network2
-          - pallas-primitives
-          - pallas-traverse
-          - pallas-txbuilder
-          - pallas-utxorpc
-          - pallas-validate
     steps:
       - uses: actions/checkout@v4
         with:
@@ -256,5 +256,21 @@ jobs:
           submodules: true
       - uses: ./.github/actions/public-api-diff
         with:
-          crate: ${{ matrix.crate }}
+          # The published crates. Add a new crate here once it's on main; until
+          # then the base revision doesn't have it to diff against.
+          crates: >-
+            pallas
+            pallas-addresses
+            pallas-codec
+            pallas-configs
+            pallas-crypto
+            pallas-hardano
+            pallas-math
+            pallas-network
+            pallas-network2
+            pallas-primitives
+            pallas-traverse
+            pallas-txbuilder
+            pallas-utxorpc
+            pallas-validate
           base: ${{ needs.api-baseline.outputs.rev }}

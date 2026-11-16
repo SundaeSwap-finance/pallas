@@ -53,16 +53,33 @@ jobs:
           fi
           git submodule update --init --recursive
           echo "upstream commits merged $behind"
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      # With no new upstream commits the merge is the pushed tree, which the CI workflow tests.
+      - if: env.BEHIND != '0'
+        uses: dtolnay/rust-toolchain@stable
+      - if: env.BEHIND != '0'
+        uses: Swatinem/rust-cache@v2
+      - if: env.BEHIND != '0'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
       - name: Build
-        run: cargo build --workspace --all-targets
+        if: env.BEHIND != '0'
+        run: cargo build --workspace --all-targets --profile test
       - name: Test
-        run: cargo test --workspace
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: --workspace
       - name: Test blueprint feature
-        run: cargo test -p pallas-network -p pallas-network2 --features blueprint
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-network -p pallas-network2 --features blueprint
       - name: Test unstable feature
-        run: cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
+        if: env.BEHIND != '0'
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
       - name: Summary
         if: always()
         run: |
