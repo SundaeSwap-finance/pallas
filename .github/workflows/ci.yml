@@ -127,6 +127,51 @@ jobs:
       - name: Test validation at the minimum supported Rust version
         run: cargo test -p pallas-validate --features phase2,unstable
 
+  amaru-conformance:
+    name: amaru-uplc conformance at the pinned commit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the amaru commit pallas-validate builds
+        run: |
+          source=$(cargo metadata --format-version 1 --all-features | jq -r '. as $m
+            | ($m.packages[] | select(.name == "pallas-validate") | .id) as $validate
+            | ($m.resolve.nodes[] | select(.id == $validate) | .deps[] | select(.name == "amaru_uplc_native") | .pkg) as $pkg
+            | $m.packages[] | select(.id == $pkg) | .source')
+          if [[ ! $source =~ ^git\+([^?#]+)(\?[^#]*)?#([0-9a-f]{40})$ ]]; then
+            echo "::error::amaru_uplc_native resolves to '$source', not one git commit"
+            exit 1
+          fi
+          echo "AMARU_URL=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "AMARU_COMMIT=${BASH_REMATCH[3]}" >> "$GITHUB_ENV"
+          echo "amaru-uplc ${BASH_REMATCH[1]} ${BASH_REMATCH[3]}"
+      - name: Fetch amaru at that commit
+        run: |
+          git init -q amaru
+          git -C amaru fetch -q --depth 1 "$AMARU_URL" "$AMARU_COMMIT"
+          git -C amaru checkout -q --detach FETCH_HEAD
+      - name: Install the amaru toolchain
+        working-directory: amaru
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: amaru
+      - name: Run the amaru-uplc conformance suite
+        working-directory: amaru
+        run: |
+          cargo test --locked -p amaru-uplc --test conformance 2>&1 | tee "$RUNNER_TEMP/conformance.log"
+          programs=$(find crates/amaru-uplc/tests/conformance -name '*.uplc' | wc -l)
+          result=$(grep '^test result: ' "$RUNNER_TEMP/conformance.log" || true)
+          pattern='^test result: ok\. ([0-9]+) passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in [0-9.]+s$'
+          if [[ ! $result =~ $pattern ]] || (( programs == 0 || BASH_REMATCH[1] < programs )); then
+            echo "::error::'$result' does not pass every one of the $programs conformance programs"
+            exit 1
+          fi
+          echo "$programs programs, ${BASH_REMATCH[1]} tests passed at amaru $AMARU_COMMIT"
+
   # main is the v1 lineage, where public API changes must be additive; see
   # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
   #
