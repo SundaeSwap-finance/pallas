@@ -1069,10 +1069,12 @@ fn get_script_kind_from_reference_input(
     ref_input: &TransactionInput,
     utxos: &UTxOs,
 ) -> Result<Option<ScriptKind>, ValidationError> {
-    Ok(reference_script(ref_input, utxos)?.map(|script| match script {
-        ScriptRef::NativeScript(_) => ScriptKind::Native,
-        script => ScriptKind::Plutus(MultiEraScriptRef::from_conway(&script).hash()),
-    }))
+    Ok(
+        reference_script(ref_input, utxos)?.map(|script| match script {
+            ScriptRef::NativeScript(_) => ScriptKind::Native,
+            script => ScriptKind::Plutus(MultiEraScriptRef::from_conway(&script).hash()),
+        }),
+    )
 }
 
 fn get_script_hash_from_reference_input(
