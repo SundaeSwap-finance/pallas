@@ -175,13 +175,43 @@ jobs:
   # main is the v1 lineage, where public API changes must be additive; see
   # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break.
   #
-  # Both jobs compare the PR's merge commit with the target branch tip, so a
-  # stale PR branch doesn't read as removing newer items. Neither tool is enough
-  # alone: cargo-semver-checks catches breaks that look like additions but not
-  # type changes, and cargo-public-api is the reverse.
+  # Both jobs compare the PR's merge commit with the target branch tip, or a
+  # pushed branch with its merge base with txpipe main, so a stale branch
+  # doesn't read as removing newer items. Neither tool is enough alone:
+  # cargo-semver-checks catches breaks that look like additions but not type
+  # changes, and cargo-public-api is the reverse. On a push both jobs report
+  # without failing the run, since a pull request into main is where a break
+  # blocks.
+  api-baseline:
+    name: API compatibility (baseline)
+    if: >-
+      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name != 'main')
+    runs-on: ubuntu-latest
+    outputs:
+      rev: ${{ steps.baseline.outputs.rev }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: baseline
+        shell: bash
+        env:
+          PULL_REQUEST_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ -n $PULL_REQUEST_BASE ]]; then
+            rev=$PULL_REQUEST_BASE
+          else
+            git fetch --no-tags https://github.com/txpipe/pallas.git main
+            rev=$(git merge-base HEAD FETCH_HEAD)
+          fi
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "baseline $rev"
+
   semver-checks:
     name: API compatibility (semver-checks)
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    needs: api-baseline
+    continue-on-error: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -190,13 +220,14 @@ jobs:
           submodules: true
       - uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
-          baseline-rev: ${{ github.event.pull_request.base.sha }}
+          baseline-rev: ${{ needs.api-baseline.outputs.rev }}
           # The version alone won't do: main can sit on a prerelease.
           release-type: minor
 
   public-api:
     name: API compatibility (public-api, ${{ matrix.crate }})
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    needs: api-baseline
+    continue-on-error: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -226,4 +257,4 @@ jobs:
       - uses: ./.github/actions/public-api-diff
         with:
           crate: ${{ matrix.crate }}
-          base: ${{ github.event.pull_request.base.sha }}
+          base: ${{ needs.api-baseline.outputs.rev }}
