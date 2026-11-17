@@ -790,16 +790,209 @@ fn dijkstra_outputs_may_pay_byron_addresses() {
     let path = |n: usize| minicbor::to_vec(minicbor::bytes::ByteVec::from(vec![0; n])).unwrap();
     let too_large = Some("DijkstraBootstrapAttributesTooLarge");
     let cases = [
-        (vec![(2, magic.clone())], None),
-        (vec![], Some("PostAlonzo(OutputWrongNetworkID)")),
-        (vec![(1, path(64)), (2, magic.clone())], None),
-        (vec![(1, path(65)), (2, magic.clone())], too_large),
-        (vec![(2, magic.clone()), (7, vec![0; 64])], None),
-        (vec![(2, magic.clone()), (7, vec![0; 65])], too_large),
+        ("magic", vec![(2, magic.clone())], None),
+        ("mainnet", vec![], Some("PostAlonzo(OutputWrongNetworkID)")),
+        ("path_64", vec![(1, path(64)), (2, magic.clone())], None),
+        (
+            "path_65",
+            vec![(1, path(65)), (2, magic.clone())],
+            too_large,
+        ),
+        (
+            "unknown_64",
+            vec![(2, magic.clone()), (7, vec![0; 64])],
+            None,
+        ),
+        (
+            "unknown_65",
+            vec![(2, magic.clone()), (7, vec![0; 65])],
+            too_large,
+        ),
     ];
+    let cases: Vec<ByronCase> = cases
+        .into_iter()
+        .map(|(name, entries, expected)| (name, byron_address_attributed(&entries), expected))
+        .collect();
+    pay_byron_addresses(&cases);
+}
+
+/// A Byron address payload of a zero root followed by `rest`, given in hex.
+fn byron_body(rest: &str) -> Vec<u8> {
+    [
+        &[0x83, 0x58, 0x1c][..],
+        &[0; 28],
+        &hex::decode(rest).unwrap(),
+    ]
+    .concat()
+}
+/// The Byron address of `body`, with the checksum of `body`.
+fn byron_wrapped(body: &[u8]) -> Vec<u8> {
+    pallas_addresses::byron::ByronAddress::new(body, crc32(body)).to_vec()
+}
+
+#[test]
+fn dijkstra_byron_output_addresses_decode_as_the_ledger_does() {
+    let standard = |rest: &str| byron_wrapped(&byron_body(rest));
+    let body = byron_body("a10242182a00");
+    let crc = crc32(&body).to_be_bytes();
+    let len = [0x58, body.len() as u8];
+    let raw = |parts: &[&[u8]]| parts.concat();
+    let refused = Some("PostAlonzo(AddressDecoding)");
+    let root = [&[0x58, 0x1c][..], &[0; 28]].concat();
+    let cases = [
+        ("control_magic", standard("a10242182a00"), None),
+        (
+            "control_path_and_magic",
+            standard("a2014342abcd0242182a00"),
+            None,
+        ),
+        ("redeem_type", standard("a10242182a02"), None),
+        ("unknown_key", standard("a20242182a07410000"), None),
+        ("key_long_head", standard("a1180242182a00"), None),
+        ("key_three_byte_head", standard("a119000242182a00"), None),
+        ("value_long_head", standard("a1025802182a00"), None),
+        (
+            "triple_long_head",
+            byron_wrapped(&raw(&[
+                &[0x98, 0x03],
+                &root,
+                &hex::decode("a10242182a00").unwrap(),
+            ])),
+            None,
+        ),
+        (
+            "payload_long_head",
+            raw(&[
+                &[0x82, 0xd8, 0x18, 0x59, 0x00, len[1]],
+                &body,
+                &[0x1a],
+                &crc,
+            ]),
+            None,
+        ),
+        (
+            "crc_long_head",
+            raw(&[&[0x82, 0xd8, 0x18], &len, &body, &[0x1b, 0, 0, 0, 0], &crc]),
+            None,
+        ),
+        (
+            "tag_long_head",
+            raw(&[&[0x82, 0xd9, 0x00, 0x18], &len, &body, &[0x1a], &crc]),
+            None,
+        ),
+        ("indefinite_map", standard("bf0242182aff00"), refused),
+        (
+            "magic_value_indefinite_bytes",
+            standard("a1025f42182aff00"),
+            refused,
+        ),
+        (
+            "magic_noncanonical_word32",
+            standard("a1024319002a00"),
+            refused,
+        ),
+        ("magic_not_a_uint", standard("a102414000"), refused),
+        ("magic_trailing_byte", standard("a10243182a0000"), refused),
+        (
+            "path_indefinite_bytes",
+            standard("a201455f42abcdff0242182a00"),
+            refused,
+        ),
+        (
+            "path_long_head",
+            standard("a201445802abcd0242182a00"),
+            refused,
+        ),
+        (
+            "path_trailing_byte",
+            standard("a2014442abcd000242182a00"),
+            refused,
+        ),
+        (
+            "keys_out_of_order",
+            standard("a20242182a014342abcd00"),
+            refused,
+        ),
+        ("key_repeated", standard("a20242182a0242182a00"), refused),
+        ("script_type", standard("a10242182a01"), refused),
+        ("addr_type_5", standard("a10242182a05"), refused),
+        ("type_long_head", standard("a10242182a1800"), refused),
+        ("trailing_after_triple", standard("a10242182a0000"), refused),
+        (
+            "indefinite_triple",
+            byron_wrapped(&raw(&[
+                &[0x9f],
+                &root,
+                &hex::decode("a10242182a00ff").unwrap(),
+            ])),
+            refused,
+        ),
+        (
+            "root_indefinite_bytes",
+            byron_wrapped(&raw(&[
+                &[0x83, 0x5f],
+                &root,
+                &hex::decode("ffa10242182a00").unwrap(),
+            ])),
+            refused,
+        ),
+        (
+            "root_27_bytes",
+            byron_wrapped(&raw(&[
+                &[0x83, 0x58, 0x1b],
+                &[0; 27],
+                &hex::decode("a10242182a00").unwrap(),
+            ])),
+            refused,
+        ),
+        (
+            "wrong_crc",
+            pallas_addresses::byron::ByronAddress::new(&body, !crc32(&body)).to_vec(),
+            refused,
+        ),
+        (
+            "tag_25",
+            raw(&[&[0x82, 0xd8, 0x19], &len, &body, &[0x1a], &crc]),
+            refused,
+        ),
+        (
+            "payload_indefinite_bytes",
+            raw(&[&[0x82, 0xd8, 0x18, 0x5f], &len, &body, &[0xff, 0x1a], &crc]),
+            refused,
+        ),
+        (
+            "array_long_head",
+            raw(&[&[0x98, 0x02, 0xd8, 0x18], &len, &body, &[0x1a], &crc]),
+            refused,
+        ),
+        (
+            "three_element_address",
+            raw(&[&[0x83, 0xd8, 0x18], &len, &body, &[0x1a], &crc, &[0x00]]),
+            refused,
+        ),
+        (
+            "trailing_after_address",
+            raw(&[&standard("a10242182a00"), &[0x00]]),
+            refused,
+        ),
+    ];
+    let cases: Vec<ByronCase> = cases
+        .into_iter()
+        .map(|(name, address, expected)| (name, address.into(), expected))
+        .collect();
+    pay_byron_addresses(&cases);
+}
+
+type ByronCase = (
+    &'static str,
+    pallas_codec::utils::Bytes,
+    Option<&'static str>,
+);
+
+/// Pays the first top level output, then the first sub transaction output, to the Byron address of each case, expecting the case's error or none.
+fn pay_byron_addresses(cases: &[ByronCase]) {
     token_order_batch(|tx, input, sub_input| {
-        for (entries, expected) in cases {
-            let address = byron_address_attributed(&entries);
+        for (name, address, expected) in cases {
             let mut top = tx.clone();
             let mut outputs = top.transaction_body.outputs.clone().to_vec();
             post_alonzo(&mut outputs[0]).address = address.clone();
@@ -816,8 +1009,12 @@ fn dijkstra_outputs_may_pay_byron_addresses() {
             for (level, changed) in [("top", top), ("sub", sub)] {
                 let result = run_sub(&changed, &input, &sub_input);
                 match expected {
-                    None => assert!(result.is_ok(), "{level} {entries:?} {result:?}"),
-                    Some(e) => error(result, e),
+                    None => assert!(result.is_ok(), "{level} {name} {result:?}"),
+                    Some(e) => assert_eq!(
+                        result.map_err(|e| format!("{e:?}")),
+                        Err(e.to_string()),
+                        "{level} {name}"
+                    ),
                 }
             }
         }
@@ -825,30 +1022,30 @@ fn dijkstra_outputs_may_pay_byron_addresses() {
 }
 
 #[test]
-fn dijkstra_byron_address_attributes_are_a_definite_length_map() {
-    let magic = minicbor::to_vec(42u32).unwrap();
-    let mut e = minicbor::Encoder::new(vec![]);
-    e.array(3).unwrap().bytes(&[0; 28]).unwrap();
-    e.begin_map().unwrap().u8(2).unwrap().bytes(&magic).unwrap();
-    e.end().unwrap().u8(0).unwrap();
-    let payload = e.into_writer();
-    let indefinite: pallas_codec::utils::Bytes =
-        pallas_addresses::byron::ByronAddress::new(&payload, crc32(&payload))
-            .to_vec()
-            .into();
-    let definite = byron_address_attributed(&[(2, magic)]);
+fn dijkstra_spent_byron_addresses_are_not_decoded() {
     token_order_batch(|tx, input, sub_input| {
-        let paying = |address: &pallas_codec::utils::Bytes| {
-            let mut top = tx.clone();
-            let mut outputs = top.transaction_body.outputs.clone().to_vec();
-            post_alonzo(&mut outputs[0]).address = address.clone();
-            top.transaction_body.outputs = MaybeIndefArray::Def(outputs);
-            sign(&mut top);
-            run_sub(&top, &input, &sub_input)
-        };
-        let result = paying(&definite);
-        assert!(result.is_ok(), "{result:?}");
-        error(paying(&indefinite), "PostAlonzo(AddressDecoding)");
+        let root = bootstrap_root(&[9; 32], &[0xa0]);
+        let body = [&[0x83, 0x58, 0x1c][..], root.as_ref(), &[0xbf, 0xff, 0x05]].concat();
+        let mut spent = sub_input.clone();
+        post_alonzo(&mut spent).address = byron_wrapped(&body).into();
+        let signed = body_hash(
+            &tx.transaction_body.sub_transactions.as_ref().unwrap()[0].sub_transaction_body,
+        );
+        for (witnesses, expected) in [
+            (vec![bootstrap(signed.as_ref())], None),
+            (vec![], Some("PostAlonzo(VKWitnessMissing)")),
+        ] {
+            let mut changed = tx.clone();
+            change_sub(&mut changed, |sub| {
+                sub.transaction_witness_set.bootstrap_witness = n::NonEmptySet::from_vec(witnesses);
+            });
+            sign(&mut changed);
+            let result = run_sub(&changed, &input, &spent);
+            match expected {
+                None => assert!(result.is_ok(), "{result:?}"),
+                Some(e) => error(result, e),
+            }
+        }
     });
 }
 

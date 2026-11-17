@@ -15,7 +15,7 @@ use pallas_addresses::{
 };
 use pallas_codec::{
     minicbor,
-    utils::{KeepRaw, Nullable, decode_bytes_def_or_indef},
+    utils::{KeepRaw, Nullable},
 };
 use pallas_crypto::{
     hash::{Hash, Hasher},
@@ -468,46 +468,133 @@ pub(crate) fn spender(output: &MultiEraOutput<'_>) -> Result<Spender, Validation
             ShelleyPaymentPart::Script(hash) => Spender::Script(*hash),
         }),
         Address::Byron(address) => Ok(Spender::Key(
-            byron_payload(&address)
-                .map_err(|_| PostAlonzo(InputDecoding))?
-                .root,
+            byron_root(&address).map_err(|_| PostAlonzo(InputDecoding))?,
         )),
         Address::Stake(_) => Err(PostAlonzo(InputDecoding)),
     }
 }
-/// What the ledger reads from a Byron address payload.
-struct ByronPayload {
-    root: Hash<28>,
-    network: u8,
-    attributes_size: usize,
-}
-/// Reads the root, the network and the attribute size of a Byron address, keeping attributes of any key.
-fn byron_payload(address: &ByronAddress) -> Result<ByronPayload, minicbor::decode::Error> {
+/// Reads the root of a Byron address.
+fn byron_root(address: &ByronAddress) -> Result<Hash<28>, minicbor::decode::Error> {
     let mut d = minicbor::Decoder::new(&address.payload.0);
     d.array()?;
-    let root = d.decode()?;
-    let mut network = Network::Mainnet.value();
-    let mut attributes_size = 0;
-    let entries = d
-        .map()?
-        .ok_or_else(|| minicbor::decode::Error::message("indefinite attributes map"))?;
-    for _ in 0..entries {
-        let key = d.u8()?;
-        let value = decode_bytes_def_or_indef(&mut d, &mut ())?;
-        match key {
-            1 => {
-                let path = decode_bytes_def_or_indef(&mut minicbor::Decoder::new(&value), &mut ())?;
-                attributes_size += path.len();
+    d.decode()
+}
+/// The CRC-32 a Byron address checks its payload with.
+const BYRON_CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+/// The attributes of a Byron output address, as the ledger decodes them.
+struct ByronAttributes {
+    network_magic: Option<u32>,
+    size: usize,
+}
+impl ByronAttributes {
+    /// Decodes the bytes of a Byron output address by the ledger's rules, giving its attributes.
+    fn of_address(bytes: &[u8]) -> Result<Self, minicbor::decode::Error> {
+        if bytes.first() != Some(&0x82) {
+            return Err(minicbor::decode::Error::message("not a Byron address"));
+        }
+        whole(bytes, |d| {
+            d.array()?;
+            if d.tag()? != minicbor::data::Tag::new(24) {
+                return Err(minicbor::decode::Error::message("payload tag is not 24"));
             }
-            2 => network = Network::Testnet.value(),
-            _ => attributes_size += value.len(),
+            let payload = d.bytes()?;
+            if d.u32()? != BYRON_CRC.checksum(payload) {
+                return Err(minicbor::decode::Error::message("checksum mismatch"));
+            }
+            whole(payload, |d| {
+                if d.array()? != Some(3) {
+                    return Err(minicbor::decode::Error::message("payload is not a triple"));
+                }
+                if d.bytes()?.len() != 28 {
+                    return Err(minicbor::decode::Error::message("root is not 28 bytes"));
+                }
+                let attributes = d.decode()?;
+                if !matches!(canonical_u32(d)?, 0 | 2) {
+                    return Err(minicbor::decode::Error::message("unknown address type"));
+                }
+                Ok(attributes)
+            })
+        })
+    }
+    /// The network the attributes name.
+    fn network(&self) -> u8 {
+        match self.network_magic {
+            Some(_) => Network::Testnet.value(),
+            None => Network::Mainnet.value(),
         }
     }
-    Ok(ByronPayload {
-        root,
-        network,
-        attributes_size,
-    })
+}
+impl<'b, C> minicbor::Decode<'b, C> for ByronAttributes {
+    fn decode(d: &mut minicbor::Decoder<'b>, _: &mut C) -> Result<Self, minicbor::decode::Error> {
+        let entries = d
+            .map()?
+            .ok_or_else(|| minicbor::decode::Error::message("indefinite attributes map"))?;
+        let mut attributes = Self {
+            network_magic: None,
+            size: 0,
+        };
+        let mut last = None;
+        for _ in 0..entries {
+            let key = d.u8()?;
+            if last.is_some_and(|last| last >= key) {
+                return Err(minicbor::decode::Error::message(
+                    "attribute keys do not increase",
+                ));
+            }
+            last = Some(key);
+            let value = d.bytes()?;
+            match key {
+                1 => attributes.size += whole(value, canonical_bytes)?.len(),
+                2 => attributes.network_magic = Some(whole(value, canonical_u32)?),
+                _ => attributes.size += value.len(),
+            }
+        }
+        Ok(attributes)
+    }
+}
+/// Decodes all of `bytes` with `decode`.
+fn whole<'b, T>(
+    bytes: &'b [u8],
+    decode: impl FnOnce(&mut minicbor::Decoder<'b>) -> Result<T, minicbor::decode::Error>,
+) -> Result<T, minicbor::decode::Error> {
+    let mut d = minicbor::Decoder::new(bytes);
+    let value = decode(&mut d)?;
+    if d.position() != bytes.len() {
+        return Err(minicbor::decode::Error::message("trailing bytes"));
+    }
+    Ok(value)
+}
+/// The length of the shortest CBOR head for the argument `n`.
+fn head_len(n: u64) -> usize {
+    match n {
+        0..=23 => 1,
+        24..=0xff => 2,
+        0x100..=0xffff => 3,
+        0x1_0000..=0xffff_ffff => 5,
+        _ => 9,
+    }
+}
+/// Decodes an unsigned integer written with its shortest head.
+fn canonical_u32(d: &mut minicbor::Decoder<'_>) -> Result<u32, minicbor::decode::Error> {
+    let start = d.position();
+    let value = d.u32()?;
+    if d.position() - start != head_len(value.into()) {
+        return Err(minicbor::decode::Error::message(
+            "integer head is not shortest",
+        ));
+    }
+    Ok(value)
+}
+/// Decodes a definite byte string written with its shortest head.
+fn canonical_bytes<'b>(d: &mut minicbor::Decoder<'b>) -> Result<&'b [u8], minicbor::decode::Error> {
+    let start = d.position();
+    let value = d.bytes()?;
+    if d.position() - start - value.len() != head_len(value.len() as u64) {
+        return Err(minicbor::decode::Error::message(
+            "byte string head is not shortest",
+        ));
+    }
+    Ok(value)
 }
 /// Whether `signature` is an Ed25519 signature of `message` by the key `vkey`.
 fn verifies(vkey: &[u8], signature: &[u8], message: &[u8]) -> bool {
@@ -543,12 +630,17 @@ fn witness_keys(w: &WitnessSet<'_>) -> Keys {
         .collect()
 }
 /// The network of the address of `output` and the size of its Byron attributes, zero for a Shelley address.
-fn output_address(output: &MultiEraOutput<'_>) -> Result<(u8, usize), ValidationError> {
-    match output.address().map_err(|_| PostAlonzo(AddressDecoding))? {
+fn output_address(output: &TransactionOutput<'_>) -> Result<(u8, usize), ValidationError> {
+    let bytes = match output {
+        TransactionOutput::Legacy(x) => &x.address,
+        TransactionOutput::PostAlonzo(x) => &x.address,
+    };
+    match Address::from_bytes(bytes).map_err(|_| PostAlonzo(AddressDecoding))? {
         Address::Shelley(address) => Ok((address.network().value(), 0)),
-        Address::Byron(address) => {
-            let payload = byron_payload(&address).map_err(|_| PostAlonzo(AddressDecoding))?;
-            Ok((payload.network, payload.attributes_size))
+        Address::Byron(_) => {
+            let attributes =
+                ByronAttributes::of_address(bytes).map_err(|_| PostAlonzo(AddressDecoding))?;
+            Ok((attributes.network(), attributes.size))
         }
         Address::Stake(_) => Err(PostAlonzo(AddressDecoding)),
     }
@@ -558,7 +650,7 @@ fn check_output_addresses<'a, 'b: 'a>(
     outputs: impl Iterator<Item = &'a TransactionOutput<'b>>,
 ) -> ValidationResult {
     for output in outputs {
-        output_address(&MultiEraOutput::from_dijkstra(output))?;
+        output_address(output)?;
     }
     Ok(())
 }
@@ -574,7 +666,7 @@ fn check_outputs(
         if let Some(script) = view.multi_era_script_ref() {
             check_new_script(&script)?;
         }
-        let (network, attributes_size) = output_address(&view)?;
+        let (network, attributes_size) = output_address(output)?;
         if attributes_size > 64 {
             return Err(DijkstraBootstrapAttributesTooLarge);
         }

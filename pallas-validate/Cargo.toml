@@ -23,6 +23,7 @@ thiserror.workspace = true
 serde.workspace = true
 itertools.workspace = true
 tracing.workspace = true
+crc = "3.0.1"
 
 # phase2 dependencies
 # Earlier eras use the registry release, and native Dijkstra under unstable uses the protocol aware fork.
