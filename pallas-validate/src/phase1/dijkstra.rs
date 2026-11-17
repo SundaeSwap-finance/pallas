@@ -9,7 +9,6 @@ use crate::utils::{
     ValidationResult, WithdrawalFailure,
     dijkstra_context::check_translatable,
     dijkstra_state::{DijkstraLedgerDelta, DijkstraLedgerOverlay, DijkstraLedgerState},
-    verify_signature,
 };
 use pallas_addresses::{
     Address, Network, ShelleyDelegationPart, ShelleyPaymentPart, byron::ByronAddress,
@@ -18,7 +17,10 @@ use pallas_codec::{
     minicbor,
     utils::{KeepRaw, Nullable, decode_bytes_def_or_indef},
 };
-use pallas_crypto::hash::{Hash, Hasher};
+use pallas_crypto::{
+    hash::{Hash, Hasher},
+    key::ed25519::{PublicKey, Signature},
+};
 use pallas_primitives::{conway::LanguageViews, dijkstra::*};
 use pallas_traverse::{
     ComputeHash, MultiEraInput, MultiEraNativeScript, MultiEraOutput, MultiEraScriptRef,
@@ -486,9 +488,10 @@ fn byron_payload(address: &ByronAddress) -> Result<ByronPayload, minicbor::decod
     let root = d.decode()?;
     let mut network = Network::Mainnet.value();
     let mut attributes_size = 0;
-    let entries = d.map()?;
-    let mut read = 0;
-    while entries.map_or(d.datatype()? != minicbor::data::Type::Break, |n| read < n) {
+    let entries = d
+        .map()?
+        .ok_or_else(|| minicbor::decode::Error::message("indefinite attributes map"))?;
+    for _ in 0..entries {
         let key = d.u8()?;
         let value = decode_bytes_def_or_indef(&mut d, &mut ())?;
         match key {
@@ -499,7 +502,6 @@ fn byron_payload(address: &ByronAddress) -> Result<ByronPayload, minicbor::decod
             2 => network = Network::Testnet.value(),
             _ => attributes_size += value.len(),
         }
-        read += 1;
     }
     Ok(ByronPayload {
         root,
@@ -507,26 +509,23 @@ fn byron_payload(address: &ByronAddress) -> Result<ByronPayload, minicbor::decod
         attributes_size,
     })
 }
+/// Whether `signature` is an Ed25519 signature of `message` by the key `vkey`.
+fn verifies(vkey: &[u8], signature: &[u8], message: &[u8]) -> bool {
+    match (PublicKey::try_from(vkey), Signature::try_from(signature)) {
+        (Ok(key), Ok(signature)) => key.verify(message, &signature),
+        _ => false,
+    }
+}
 fn check_signatures(w: &WitnessSet<'_>, body: &[u8], mut required: Keys) -> ValidationResult {
     let hash = Hasher::<256>::hash(body);
     for witness in w.vkeywitness.iter().flat_map(|x| x.iter()) {
-        if witness.vkey.len() != 32
-            || witness.signature.len() != 64
-            || !verify_signature(witness, hash.as_ref())
-        {
+        if !verifies(&witness.vkey, &witness.signature, hash.as_ref()) {
             return Err(PostAlonzo(VKWrongSignature));
         }
         required.remove(&Hasher::<224>::hash(&witness.vkey));
     }
     for witness in w.bootstrap_witness.iter().flat_map(|x| x.iter()) {
-        let signed = VKeyWitness {
-            vkey: witness.public_key.clone(),
-            signature: witness.signature.clone(),
-        };
-        if signed.vkey.len() != 32
-            || signed.signature.len() != 64
-            || !verify_signature(&signed, hash.as_ref())
-        {
+        if !verifies(&witness.public_key, &witness.signature, hash.as_ref()) {
             return Err(PostAlonzo(VKWrongSignature));
         }
         required.remove(&super::conway::bootstrap_wit_root(witness));
@@ -662,7 +661,7 @@ fn check_supported(tx: &BlockTransaction<'_>) -> ValidationResult {
     for (key, value) in fields.iter() {
         check_field_present(*key, value)?;
         if *key == 9 {
-            check_asset_encoding(value, true)?;
+            check_asset_encoding(value)?;
         }
         if *key == 24 {
             check_required_guard_keys(value)?;
@@ -776,7 +775,7 @@ fn check_sub_supported(tx: &SubTransaction<'_>) -> ValidationResult {
         check_field_present(*key, value)?;
         match key {
             5 => check_withdrawal_accounts(value)?,
-            9 => check_asset_encoding(value, true)?,
+            9 => check_asset_encoding(value)?,
             24 => check_required_guard_keys(value)?,
             _ => (),
         }
@@ -836,25 +835,16 @@ fn check_field_present(key: u64, value: &[u8]) -> ValidationResult {
         return Err(DijkstraMalformed(MalformedField::ZeroDonation));
     }
     match NON_EMPTY_FIELDS.iter().find(|(k, _)| *k == key) {
-        Some((_, error)) if is_empty_collection(value) => Err(DijkstraMalformed(*error)),
+        Some((_, error)) if is_empty_map(value) => Err(DijkstraMalformed(*error)),
         _ => Ok(()),
     }
 }
-/// Whether a CBOR value, past any tag, is an array or map with no entries.
-fn is_empty_collection(raw: &[u8]) -> bool {
-    use minicbor::data::Type;
+/// Whether a CBOR value is a map with no entries.
+fn is_empty_map(raw: &[u8]) -> bool {
     let mut d = minicbor::Decoder::new(raw);
-    if matches!(d.datatype(), Ok(Type::Tag)) && d.tag().is_err() {
-        return false;
-    }
-    let length = match d.datatype() {
-        Ok(Type::Map | Type::MapIndef) => d.map(),
-        Ok(Type::Array | Type::ArrayIndef) => d.array(),
-        _ => return false,
-    };
-    match length {
+    match d.map() {
         Ok(Some(n)) => n == 0,
-        Ok(None) => matches!(d.datatype(), Ok(Type::Break)),
+        Ok(None) => matches!(d.datatype(), Ok(minicbor::data::Type::Break)),
         Err(_) => false,
     }
 }
@@ -1710,9 +1700,8 @@ fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
     }
 }
 
-// Ledger v12 Mary.Value requires nonempty policy/name maps, nonzero quantities,
-// <=32-byte names and duplicate-free maps even in the legacy TxOut representation.
-fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
+/// Refuses a multi-asset map the ledger decoder refuses, one that is empty, repeats a key, holds a zero or names an asset in over 32 bytes.
+fn check_asset_encoding(raw: &[u8]) -> ValidationResult {
     use pallas_codec::utils::KeyValuePairs;
     let assets: KeyValuePairs<Hash<28>, KeyValuePairs<Bytes, minicbor::data::Int>> =
         minicbor::decode(raw).map_err(|_| MALFORMED_VALUE)?;
@@ -1726,13 +1715,7 @@ fn check_asset_encoding(raw: &[u8], mint: bool) -> ValidationResult {
         }
         let mut seen = HashSet::new();
         for (name, quantity) in names.iter() {
-            let quantity = i128::from(*quantity);
-            if name.len() > 32
-                || !seen.insert(name.to_vec())
-                || quantity == 0
-                || (mint && i64::try_from(quantity).is_err())
-                || (!mint && u64::try_from(quantity).is_err())
-            {
+            if name.len() > 32 || !seen.insert(name.to_vec()) || i128::from(*quantity) == 0 {
                 return Err(MALFORMED_VALUE);
             }
         }
@@ -1767,7 +1750,7 @@ fn check_output_value_encoding(raw: &[u8]) -> ValidationResult {
         if values.len() != 2 {
             return Err(MALFORMED_VALUE);
         }
-        check_asset_encoding(&values[1], false)?;
+        check_asset_encoding(&values[1])?;
     }
     Ok(())
 }

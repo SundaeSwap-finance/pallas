@@ -852,8 +852,12 @@ fn previous(action: &GovAction) -> Option<&GovActionId> {
     }
 }
 
+/// The highest protocol major version the ledger decodes.
+const MAX_MAJOR_VERSION: u64 = 13;
+
 fn can_follow(current: (u64, u64), next: (u64, u64)) -> bool {
-    next == (current.0.saturating_add(1), 0) || next == (current.0, current.1.saturating_add(1))
+    (current.0 < MAX_MAJOR_VERSION && next == (current.0 + 1, 0))
+        || next == (current.0, current.1.saturating_add(1))
 }
 
 /// Whether a voter role may vote on an action.

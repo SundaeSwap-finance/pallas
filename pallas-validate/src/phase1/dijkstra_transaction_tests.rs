@@ -66,11 +66,18 @@ fn dijkstra_observed_order_valid_context() {
     assert!(result.is_ok(), "{result:?}");
 }
 
+use crate::utils::dijkstra_state::{
+    DijkstraAccount, DijkstraLedgerOverlay, DijkstraLedgerSnapshot, DijkstraPool, DijkstraProposal,
+    DijkstraProposalAction,
+};
 use pallas_codec::{
     minicbor,
-    utils::{CborWrap, KeepRaw, Nullable},
+    utils::{CborWrap, KeepRaw, KeyValuePairs, Nullable},
 };
-use pallas_crypto::hash::{Hash, Hasher};
+use pallas_crypto::{
+    hash::{Hash, Hasher},
+    key::ed25519::SecretKey,
+};
 use pallas_primitives::{conway as c, dijkstra as n};
 use pallas_traverse::{MultiEraInput, MultiEraOutput};
 use std::collections::BTreeMap;
@@ -1602,6 +1609,402 @@ fn dijkstra_invalid_multiasset_encodings() {
                 run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()),
                 "DijkstraMalformed(\"multi-asset value\")",
             );
+        }
+    });
+}
+
+/// The key hash of the key that signs every synthetic transaction.
+fn test_key() -> Hash<28> {
+    Hasher::<224>::hash(SecretKey::from([71; 32]).public_key().as_ref())
+}
+/// The testnet reward account of the test key.
+fn test_account() -> n::RewardAccount {
+    let mut account = vec![0xe0];
+    account.extend(test_key().as_ref());
+    account.into()
+}
+/// The Dijkstra environment with no fee and no proposal deposit.
+fn free_env() -> Environment {
+    let mut env = dijkstra_tests::env();
+    let MultiEraProtocolParameters::Dijkstra(ref mut pp) = env.prot_params else {
+        unreachable!()
+    };
+    pp.minfee_a = 0;
+    pp.minfee_b = 0;
+    pp.governance_action_deposit = 0;
+    env
+}
+/// A ledger state where the test key has a registered account holding `balance` and a registered pool.
+fn registered(balance: u64) -> CertState {
+    let mut state = CertState::default();
+    state.dijkstra.accounts.insert(
+        n::StakeCredential::AddrKeyhash(test_key()),
+        Some(DijkstraAccount {
+            balance,
+            deposit: 0,
+        }),
+    );
+    state.dijkstra.pools.insert(
+        test_key(),
+        DijkstraPool {
+            vrf: [9; 32].into(),
+            future_vrf: None,
+        },
+    );
+    state
+}
+/// `tx` proposing `action` with its return account at the test key, signed again.
+fn with_proposal<'a>(
+    tx: &n::BlockTransaction<'a>,
+    action: n::GovAction,
+) -> n::BlockTransaction<'a> {
+    let mut tx = tx.clone();
+    tx.transaction_body.proposal_procedures =
+        n::NonEmptySet::from_vec(vec![n::ProposalProcedure {
+            deposit: 0,
+            reward_account: test_account(),
+            gov_action: action,
+            anchor: n::Anchor {
+                url: "https://proposal.example".into(),
+                content_hash: [0; 32].into(),
+            },
+        }]);
+    dijkstra_tests::sign(&mut tx);
+    tx
+}
+
+#[test]
+fn dijkstra_a_stated_treasury_equals_the_ledger_treasury() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let utxos = utxos(&inputs);
+        let state = DijkstraLedgerSnapshot {
+            treasury: 7_000_000,
+            ..Default::default()
+        };
+        let MultiEraProtocolParameters::Dijkstra(pp) = free_env().prot_params else {
+            unreachable!()
+        };
+        let stating = |treasury| {
+            let mut tx = tx.clone();
+            tx.transaction_body.treasury_value = Some(treasury);
+            dijkstra_tests::sign(&mut tx);
+            dijkstra::validate_dijkstra_tx(
+                &tx,
+                &utxos,
+                &pp,
+                &1400007,
+                &0,
+                &DijkstraLedgerOverlay::new(&state),
+            )
+            .map(|_| ())
+        };
+        let result = stating(7_000_000);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(stating(7_000_001), "DijkstraTreasuryValueMismatch");
+    });
+}
+
+#[test]
+fn dijkstra_stake_pools_vote_only_on_security_relevant_parameter_changes() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let mut second = tx.transaction_body.inputs[0].clone();
+        second.index = 99;
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input.clone()),
+            (second.clone(), input),
+        ];
+        let pool_votes_on = |update: &str| {
+            let update = minicbor::decode(&hex::decode(update).unwrap()).unwrap();
+            let proposal = with_proposal(
+                &tx,
+                n::GovAction::ParameterChange(None, Box::new(update), None),
+            );
+            // Decoding keeps the body bytes that the proposal id hashes.
+            let bytes: &'static [u8] =
+                Box::leak(minicbor::to_vec(&proposal).unwrap().into_boxed_slice());
+            let proposal: n::BlockTransaction = minicbor::decode(bytes).unwrap();
+            let id = n::GovActionId {
+                transaction_id: Hasher::<256>::hash(proposal.transaction_body.raw_cbor()),
+                action_index: 0,
+            };
+            let mut vote = tx.clone();
+            vote.transaction_body.inputs = vec![second.clone()].into();
+            vote.transaction_body.voting_procedures = Some(BTreeMap::from([(
+                n::Voter::StakePoolKey(test_key()),
+                BTreeMap::from([(
+                    id,
+                    n::VotingProcedure {
+                        vote: n::Vote::Yes,
+                        anchor: None,
+                    },
+                )]),
+            )]));
+            dijkstra_tests::sign(&mut vote);
+            validate_txs(
+                &[
+                    MultiEraTx::from_dijkstra(&proposal),
+                    MultiEraTx::from_dijkstra(&vote),
+                ],
+                &free_env(),
+                &utxos(&inputs),
+                &mut registered(0),
+            )
+        };
+        // Key 0, the fee per byte, is security relevant and key 5, the key deposit, is not.
+        let result = pool_votes_on("a100182c");
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            pool_votes_on("a1051a001e8480"),
+            "DijkstraInvalidGovernance(\"voter may not vote on the action\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_hard_fork_follows_its_predecessor_up_to_the_highest_major_version() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let pending = n::GovActionId {
+            transaction_id: [3; 32].into(),
+            action_index: 0,
+        };
+        let mut state = registered(0);
+        state.dijkstra.proposals.push((
+            pending.clone(),
+            DijkstraProposal {
+                action: DijkstraProposalAction::HardForkInitiation { version: (13, 0) },
+                expires_after: 100,
+            },
+        ));
+        let proposing = |prev: Option<&n::GovActionId>, version| {
+            let tx = with_proposal(
+                &tx,
+                n::GovAction::HardForkInitiation(prev.cloned(), version),
+            );
+            run(&tx, &inputs, &free_env(), &state)
+        };
+        for (prev, version) in [(None, (13, 0)), (Some(&pending), (13, 1))] {
+            let result = proposing(prev, version);
+            assert!(result.is_ok(), "{version:?} {result:?}");
+        }
+        dijkstra_tests::error(
+            proposing(Some(&pending), (14, 0)),
+            "DijkstraInvalidGovernance(\"hard fork version cannot follow\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_pool_retires_at_most_the_maximum_epoch_ahead() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let mut state = registered(0);
+        state.dijkstra.epoch = 64;
+        let env = free_env();
+        let MultiEraProtocolParameters::Dijkstra(pp) = &env.prot_params else {
+            unreachable!()
+        };
+        let latest = 64 + pp.maximum_epoch;
+        let retiring = |epoch| {
+            let mut tx = tx.clone();
+            tx.transaction_body.certificates =
+                n::NonEmptySet::from_vec(vec![n::Certificate::PoolRetirement(test_key(), epoch)]);
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &env, &state)
+        };
+        let result = retiring(latest);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            retiring(latest + 1),
+            "DijkstraInvalidCertificate(\"pool retirement epoch\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_a_balance_interval_excludes_its_upper_bound() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let bounded_by = |upper| {
+            let mut tx = tx.clone();
+            tx.transaction_body.account_balance_intervals = Some(BTreeMap::from([(
+                test_account(),
+                n::AccountBalanceInterval::Bounded(0, upper),
+            )]));
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &free_env(), &registered(10))
+        };
+        let result = bounded_by(11);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            bounded_by(10),
+            "DijkstraInvalidAccount(\"balance outside its interval\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_collateral_inputs_are_at_most_the_maximum() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let collateral = |index| n::TransactionInput {
+            transaction_id: [12; 32].into(),
+            index,
+        };
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input.clone()),
+            (collateral(0), input.clone()),
+            (collateral(1), input),
+        ];
+        let mut env = free_env();
+        let MultiEraProtocolParameters::Dijkstra(ref mut pp) = env.prot_params else {
+            unreachable!()
+        };
+        pp.max_collateral_inputs = 1;
+        let with_collateral = |count| {
+            let mut tx = tx.clone();
+            tx.transaction_body.collateral =
+                n::NonEmptySet::from_vec((0..count).map(collateral).collect());
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &env, &CertState::default())
+        };
+        let result = with_collateral(1);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(with_collateral(2), "PostAlonzo(TooManyCollaterals)");
+    });
+}
+
+#[test]
+fn dijkstra_script_locked_collateral_is_allowed_without_redeemers() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let collateral = n::TransactionInput {
+            transaction_id: [12; 32].into(),
+            index: 0,
+        };
+        let mut locked = input.clone();
+        output_mut(&mut locked).address = pallas_addresses::ShelleyAddress::new(
+            pallas_addresses::Network::Testnet,
+            pallas_addresses::ShelleyPaymentPart::Script(Hash::from([5; 28])),
+            pallas_addresses::ShelleyDelegationPart::Null,
+        )
+        .to_vec()
+        .into();
+        let inputs = vec![
+            (tx.transaction_body.inputs[0].clone(), input),
+            (collateral.clone(), locked),
+        ];
+        tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![collateral]);
+        dijkstra_tests::sign(&mut tx);
+        let result = run(&tx, &inputs, &free_env(), &CertState::default());
+        assert!(result.is_ok(), "{result:?}");
+    });
+}
+
+#[test]
+fn dijkstra_min_fee_prices_memory_and_steps_separately() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let MultiEraProtocolParameters::Dijkstra(pp) = free_env().prot_params else {
+            unreachable!()
+        };
+        let fee = |mem, steps| {
+            let mut tx = tx.clone();
+            tx.transaction_witness_set.redeemer =
+                Some(KeepRaw::from(n::Redeemers(BTreeMap::from([(
+                    n::RedeemersKey {
+                        tag: n::RedeemerTag::Spend,
+                        index: 0,
+                    },
+                    n::RedeemersValue {
+                        data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
+                        ex_units: n::ExUnits { mem, steps },
+                    },
+                )]))));
+            dijkstra::dijkstra_min_fee(&tx, &utxos(&inputs), &pp).unwrap()
+        };
+        // The fixture prices memory at 577/10000 and steps at 721/10000000.
+        assert_eq!(
+            [fee(0, 0), fee(10_000, 0), fee(0, 10_000_000)],
+            [0, 577, 721]
+        );
+    });
+}
+
+#[test]
+fn dijkstra_metadata_text_inside_arrays_and_maps_is_at_most_64_bytes() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        for (size, expected) in [(64, None), (65, Some("DijkstraMalformed(\"metadata\")"))] {
+            let text = || n::Metadatum::Text("x".repeat(size));
+            let nested = [
+                n::Metadatum::Array(vec![text()]),
+                n::Metadatum::Map(KeyValuePairs::Def(vec![(
+                    n::Metadatum::Text("key".into()),
+                    text(),
+                )])),
+            ];
+            for item in nested {
+                set_auxiliary(
+                    &mut tx,
+                    n::AuxiliaryData::Shelley(BTreeMap::from([(674, item)])),
+                );
+                let result = run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default());
+                match expected {
+                    None => assert!(result.is_ok(), "{result:?}"),
+                    Some(expected) => dijkstra_tests::error(result, expected),
+                }
+            }
+        }
+    });
+}
+
+#[test]
+fn dijkstra_output_asset_names_are_at_most_32_bytes() {
+    dijkstra_tests::synthetic(|tx, mut input| {
+        let named = |coin, name: Vec<u8>| {
+            c::Value::Multiasset(
+                coin,
+                BTreeMap::from([(
+                    Hash::from([8; 28]),
+                    BTreeMap::from([(name.into(), 1u64.try_into().unwrap())]),
+                )]),
+            )
+        };
+        let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
+        output_mut(&mut input).value = named(coin, vec![1; 32]);
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let paying = |name| {
+            let mut tx = tx.clone();
+            let paid = coin - tx.transaction_body.fee;
+            output_mut(first_output(&mut tx)).value = named(paid, name);
+            dijkstra_tests::sign(&mut tx);
+            run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        let result = paying(vec![1; 32]);
+        assert!(result.is_ok(), "{result:?}");
+        dijkstra_tests::error(
+            paying(vec![1; 33]),
+            "DijkstraMalformed(\"multi-asset value\")",
+        );
+    });
+}
+
+#[test]
+fn dijkstra_an_indefinite_length_body_map_is_accepted() {
+    dijkstra_tests::synthetic(|tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let definite = minicbor::to_vec(&tx.transaction_body).unwrap();
+        assert!((0xa1..=0xb7).contains(&definite[0]));
+        let mut indefinite = vec![0xbf];
+        indefinite.extend(&definite[1..]);
+        indefinite.push(0xff);
+        for raw in [definite, indefinite] {
+            let raw: &'static [u8] = Box::leak(raw.into_boxed_slice());
+            let mut tx = tx.clone();
+            tx.transaction_body = minicbor::decode(raw).unwrap();
+            dijkstra_tests::sign(&mut tx);
+            let result = run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default());
+            assert!(result.is_ok(), "{:02x} {result:?}", raw[0]);
         }
     });
 }

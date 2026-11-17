@@ -825,6 +825,34 @@ fn dijkstra_outputs_may_pay_byron_addresses() {
 }
 
 #[test]
+fn dijkstra_byron_address_attributes_are_a_definite_length_map() {
+    let magic = minicbor::to_vec(42u32).unwrap();
+    let mut e = minicbor::Encoder::new(vec![]);
+    e.array(3).unwrap().bytes(&[0; 28]).unwrap();
+    e.begin_map().unwrap().u8(2).unwrap().bytes(&magic).unwrap();
+    e.end().unwrap().u8(0).unwrap();
+    let payload = e.into_writer();
+    let indefinite: pallas_codec::utils::Bytes =
+        pallas_addresses::byron::ByronAddress::new(&payload, crc32(&payload))
+            .to_vec()
+            .into();
+    let definite = byron_address_attributed(&[(2, magic)]);
+    token_order_batch(|tx, input, sub_input| {
+        let paying = |address: &pallas_codec::utils::Bytes| {
+            let mut top = tx.clone();
+            let mut outputs = top.transaction_body.outputs.clone().to_vec();
+            post_alonzo(&mut outputs[0]).address = address.clone();
+            top.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+            sign(&mut top);
+            run_sub(&top, &input, &sub_input)
+        };
+        let result = paying(&definite);
+        assert!(result.is_ok(), "{result:?}");
+        error(paying(&indefinite), "PostAlonzo(AddressDecoding)");
+    });
+}
+
+#[test]
 fn dijkstra_key_guards_are_met_by_bootstrap_keys() {
     batch(|tx, input| {
         let root = bootstrap_root(&[9; 32], &[0xa0]);
@@ -1316,6 +1344,65 @@ fn dijkstra_batch_sub_mints_under_a_native_policy() {
         error(minting(&policy, 6, true), "PostAlonzo(PreservationOfValue)");
         let other = native(n::NativeScript::ScriptPubkey([9; 28].into()));
         error(minting(&other, 5, true), "PostAlonzo(NativeScriptDenial)");
+    });
+}
+
+#[test]
+fn dijkstra_batch_sub_mint_names_each_asset_once() {
+    batch(|tx, input| {
+        let policy = native(n::NativeScript::ScriptPubkey(guard_key()));
+        let hash = policy.original_hash();
+        let minting = |duplicated: bool| {
+            let mut changed = tx.clone();
+            let mut outputs = changed.transaction_body.outputs.clone().to_vec();
+            let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
+            post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
+                coin,
+                [(
+                    hash,
+                    [(b"token".to_vec().into(), 5.try_into().unwrap())]
+                        .into_iter()
+                        .collect(),
+                )]
+                .into_iter()
+                .collect(),
+            );
+            changed.transaction_body.outputs = MaybeIndefArray::Def(outputs);
+            resign(&mut changed, |sub| {
+                let mint: n::Multiasset<n::NonZeroInt> = [(
+                    hash,
+                    [(b"token".to_vec().into(), 5i64.try_into().unwrap())]
+                        .into_iter()
+                        .collect(),
+                )]
+                .into_iter()
+                .collect();
+                sub.sub_transaction_body.mint = Some(mint);
+                sub.transaction_witness_set.native_script =
+                    n::NonEmptySet::from_vec(vec![policy.clone()]);
+                if duplicated {
+                    // The token map `{"token": 5}` becomes `{"token": 5, "token": 5}`.
+                    let once = [&[0xa1, 0x45][..], b"token", &[0x05]].concat();
+                    let twice = [
+                        &[0xa2, 0x45][..],
+                        b"token",
+                        &[0x05, 0x45],
+                        b"token",
+                        &[0x05],
+                    ]
+                    .concat();
+                    let body = minicbor::to_vec(&sub.sub_transaction_body).unwrap();
+                    let at = body.windows(once.len()).position(|w| w == once).unwrap();
+                    let spliced = [&body[..at], &twice, &body[at + once.len()..]].concat();
+                    let raw: &'static [u8] = Box::leak(spliced.into_boxed_slice());
+                    sub.sub_transaction_body = minicbor::decode(raw).unwrap();
+                }
+            });
+            run(&changed, &input, &env())
+        };
+        let result = minting(false);
+        assert!(result.is_ok(), "{result:?}");
+        error(minting(true), "DijkstraMalformed(\"multi-asset value\")");
     });
 }
 
