@@ -1206,6 +1206,32 @@ mod tests {
         left.cmp(&right)
     }
 
+    #[test_case(&[0xd8, 0x79, 0x80] => 0; "tag 121")]
+    #[test_case(&[0xd8, 0x7f, 0x80] => 6; "tag 127")]
+    #[test_case(&[0xd9, 0x05, 0x00, 0x80] => 7; "tag 1280")]
+    #[test_case(&[0xd9, 0x05, 0x78, 0x80] => 127; "tag 1400")]
+    fn a_constructor_tag_in_range_decodes_to_its_index(bytes: &[u8]) -> u64 {
+        match minicbor::decode::<PlutusData>(bytes) {
+            Ok(PlutusData::Constr(c)) => c.constr_index(),
+            other => panic!("expected a constructor, found {other:?}"),
+        }
+    }
+
+    #[test_case(&[0xd8, 0x78, 0x80]; "tag 120")]
+    #[test_case(&[0xd8, 0x80, 0x80]; "tag 128")]
+    #[test_case(&[0xd9, 0x04, 0xff, 0x80]; "tag 1279")]
+    #[test_case(&[0xd9, 0x05, 0x79, 0x80]; "tag 1401")]
+    fn a_constructor_tag_out_of_range_is_refused(bytes: &[u8]) {
+        let error =
+            minicbor::decode::<PlutusData>(bytes).expect_err("the tag names no constructor");
+        assert!(
+            error
+                .to_string()
+                .contains("unknown tag for plutus data tag"),
+            "{error}"
+        );
+    }
+
     fn nested(level: &[u8], depth: usize, leaf: &[u8], close: &[u8]) -> Vec<u8> {
         let mut bytes = level.repeat(depth);
         bytes.extend_from_slice(leaf);
