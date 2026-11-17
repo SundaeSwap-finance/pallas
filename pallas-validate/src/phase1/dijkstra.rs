@@ -989,7 +989,7 @@ fn plutus_witnesses<'a>(
         .chain(v4.map(|x| (x.compute_hash(), Language::PlutusV4, x.as_ref())))
 }
 
-/// The Plutus scripts auxiliary data carries, with their language and bytes.
+/// The Plutus scripts in auxiliary data, with their language and bytes.
 fn auxiliary_plutus(data: &PostAlonzoAuxiliaryData) -> impl Iterator<Item = (Language, &[u8])> {
     let v1 = data.plutus_v1_scripts.iter().flatten();
     let v2 = data.plutus_v2_scripts.iter().flatten();
@@ -1422,9 +1422,19 @@ fn check_auxiliary(
     let metadata_bytes = match &**data {
         AuxiliaryData::Shelley(_) => Some(raw.clone()),
         AuxiliaryData::ShelleyMa(_) => {
-            decoder.array().map_err(|_| MALFORMED_METADATA)?;
+            let length = decoder.array().map_err(|_| MALFORMED_METADATA)?;
             let value: pallas_codec::utils::AnyCbor =
                 decoder.decode().map_err(|_| MALFORMED_METADATA)?;
+            decoder.skip().map_err(|_| MALFORMED_METADATA)?;
+            let two_elements = match length {
+                Some(n) => n == 2,
+                None => decoder
+                    .datatype()
+                    .is_ok_and(|t| t == minicbor::data::Type::Break),
+            };
+            if !two_elements {
+                return Err(MALFORMED_METADATA);
+            }
             Some(value.to_vec())
         }
         AuxiliaryData::PostAlonzo(_) => {

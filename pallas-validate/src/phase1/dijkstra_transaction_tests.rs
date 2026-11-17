@@ -148,6 +148,12 @@ fn set_auxiliary(tx: &mut n::BlockTransaction<'_>, data: n::AuxiliaryData) {
         Some(Hasher::<256>::hash(&minicbor::to_vec(aux).unwrap()));
     dijkstra_tests::sign(tx);
 }
+fn set_raw_auxiliary(tx: &mut n::BlockTransaction<'_>, aux: &str) {
+    let raw: &'static [u8] = Box::leak(hex::decode(aux).unwrap().into_boxed_slice());
+    tx.auxiliary_data = Nullable::Some(minicbor::decode(raw).unwrap());
+    tx.transaction_body.auxiliary_data_hash = Some(Hasher::<256>::hash(raw));
+    dijkstra_tests::sign(tx);
+}
 #[test]
 fn dijkstra_metadata_commitment_and_limits() {
     dijkstra_tests::synthetic(|mut tx, input| {
@@ -219,6 +225,28 @@ fn dijkstra_auxiliary_scripts_are_refused_only_when_malformed() {
             }
             set_auxiliary(&mut tx, dijkstra_tests::plutus_auxiliary(version, &[1]));
             dijkstra_tests::error(check(&tx), malformed);
+        }
+    });
+}
+#[test]
+fn dijkstra_auxiliary_array_holds_exactly_two_elements() {
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let check = |tx: &n::BlockTransaction<'_>| {
+            run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        for aux in ["82a080", "9fa080ff", "82a081820400"] {
+            set_raw_auxiliary(&mut tx, aux);
+            let result = check(&tx);
+            assert!(result.is_ok(), "{aux}: {result:?}");
+        }
+        for aux in ["81a0", "83a08000", "83a08182040000", "9fa0ff", "9fa08000ff"] {
+            set_raw_auxiliary(&mut tx, aux);
+            assert_eq!(
+                check(&tx).err().map(|e| format!("{e:?}")).as_deref(),
+                Some("DijkstraMalformed(\"metadata\")"),
+                "{aux}"
+            );
         }
     });
 }
