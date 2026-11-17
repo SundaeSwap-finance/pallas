@@ -31,6 +31,7 @@ use std::{
 
 type Keys = HashSet<Hash<28>>;
 const MALFORMED_VALUE: ValidationError = DijkstraMalformed(MalformedField::MultiAssetValue);
+const MALFORMED_METADATA: ValidationError = DijkstraMalformed(MalformedField::Metadata);
 type Spent = HashSet<(Hash<32>, u64)>;
 
 /// Validates native phase one against `state` and returns the changes the transaction makes to it.
@@ -988,6 +989,18 @@ fn plutus_witnesses<'a>(
         .chain(v4.map(|x| (x.compute_hash(), Language::PlutusV4, x.as_ref())))
 }
 
+/// The Plutus scripts auxiliary data carries, with their language and bytes.
+fn auxiliary_plutus(data: &PostAlonzoAuxiliaryData) -> impl Iterator<Item = (Language, &[u8])> {
+    let v1 = data.plutus_v1_scripts.iter().flatten();
+    let v2 = data.plutus_v2_scripts.iter().flatten();
+    let v3 = data.plutus_v3_scripts.iter().flatten();
+    let v4 = data.plutus_v4_scripts.iter().flatten();
+    v1.map(|x| (Language::PlutusV1, x.as_ref()))
+        .chain(v2.map(|x| (Language::PlutusV2, x.as_ref())))
+        .chain(v3.map(|x| (Language::PlutusV3, x.as_ref())))
+        .chain(v4.map(|x| (Language::PlutusV4, x.as_ref())))
+}
+
 /// Whether a batch whose top level runs Plutus scripts of `languages` is in legacy mode.
 fn legacy_mode(languages: &BTreeSet<Language>) -> bool {
     // A top level Plutus script up to V3 puts the batch in legacy mode, native and V4 scripts do not.
@@ -1392,20 +1405,13 @@ fn check_auxiliary(
     };
     let metadata = match &**data {
         AuxiliaryData::Shelley(m) => Some(m),
-        AuxiliaryData::ShelleyMa(m) => {
-            if m.auxiliary_scripts.as_ref().is_some_and(|x| !x.is_empty()) {
-                return Err(DijkstraUnsupported(UnsupportedFeature::AuxiliaryScripts));
-            }
-            Some(&m.transaction_metadata)
-        }
+        AuxiliaryData::ShelleyMa(m) => Some(&m.transaction_metadata),
         AuxiliaryData::PostAlonzo(m) => {
-            if m.native_scripts.is_some()
-                || m.plutus_v1_scripts.is_some()
-                || m.plutus_v2_scripts.is_some()
-                || m.plutus_v3_scripts.is_some()
-                || m.plutus_v4_scripts.is_some()
-            {
-                return Err(DijkstraUnsupported(UnsupportedFeature::AuxiliaryScripts));
+            for (language, script) in auxiliary_plutus(m) {
+                match well_formed_plutus(&language, script) {
+                    Err(DijkstraMalformedScript) => return Err(DijkstraInvalidMetadata),
+                    result => result?,
+                }
             }
             m.metadata.as_ref()
         }
@@ -1416,20 +1422,20 @@ fn check_auxiliary(
     let metadata_bytes = match &**data {
         AuxiliaryData::Shelley(_) => Some(raw.clone()),
         AuxiliaryData::ShelleyMa(_) => {
-            decoder.array().map_err(|_| DijkstraInvalidMetadata)?;
+            decoder.array().map_err(|_| MALFORMED_METADATA)?;
             let value: pallas_codec::utils::AnyCbor =
-                decoder.decode().map_err(|_| DijkstraInvalidMetadata)?;
+                decoder.decode().map_err(|_| MALFORMED_METADATA)?;
             Some(value.to_vec())
         }
         AuxiliaryData::PostAlonzo(_) => {
-            decoder.tag().map_err(|_| DijkstraInvalidMetadata)?;
+            decoder.tag().map_err(|_| MALFORMED_METADATA)?;
             check_map_keys(
                 &raw[decoder.position()..],
-                &[0],
+                &[0, 1, 2, 3, 4, 5],
                 UnsupportedFeature::AuxiliaryFields,
             )?;
             let fields: pallas_codec::utils::KeyValuePairs<u64, pallas_codec::utils::AnyCbor> =
-                decoder.decode().map_err(|_| DijkstraInvalidMetadata)?;
+                decoder.decode().map_err(|_| MALFORMED_METADATA)?;
             fields
                 .iter()
                 .find(|(key, _)| *key == 0)
@@ -1438,17 +1444,17 @@ fn check_auxiliary(
     };
     if let Some(bytes) = metadata_bytes {
         let entries: pallas_codec::utils::KeyValuePairs<u64, Metadatum> =
-            minicbor::decode(&bytes).map_err(|_| DijkstraInvalidMetadata)?;
+            minicbor::decode(&bytes).map_err(|_| MALFORMED_METADATA)?;
         let mut labels = HashSet::new();
         if entries.iter().any(|(label, _)| !labels.insert(*label)) {
-            return Err(DijkstraInvalidMetadata);
+            return Err(MALFORMED_METADATA);
         }
     }
     let mut pending: Vec<_> = metadata.into_iter().flat_map(|m| m.values()).collect();
     while let Some(item) = pending.pop() {
         match item {
-            Metadatum::Text(x) if x.len() > 64 => return Err(DijkstraInvalidMetadata),
-            Metadatum::Bytes(x) if x.len() > 64 => return Err(DijkstraInvalidMetadata),
+            Metadatum::Text(x) if x.len() > 64 => return Err(MALFORMED_METADATA),
+            Metadatum::Bytes(x) if x.len() > 64 => return Err(MALFORMED_METADATA),
             Metadatum::Array(xs) => pending.extend(xs),
             Metadatum::Map(xs) => {
                 for (k, v) in xs.iter() {

@@ -91,8 +91,8 @@ withdraw under native scripts.
 Explicit exclusions remain: Plutus anywhere in a batch,
 script guards, governance, direct deposits/account intervals, non-Reg
 certificates, certificates alongside subtransactions, mint/withdrawals/
-certificates inside subtransactions, bootstrap output addresses,
-auxiliary scripts and Plutus upper validity bounds without forecast state. This
+certificates inside subtransactions, bootstrap output addresses
+and Plutus upper validity bounds without forecast state. This
 is not full Dijkstra conformance.
 
 ## Evidence reproduction

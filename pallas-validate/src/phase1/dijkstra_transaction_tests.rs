@@ -134,9 +134,13 @@ fn output_mut<'a, 'b>(
     o
 }
 fn auxiliary(tx: &mut n::BlockTransaction<'_>, text: &str) {
-    tx.auxiliary_data = Nullable::Some(
-        n::AuxiliaryData::Shelley(BTreeMap::from([(674, n::Metadatum::Text(text.into()))])).into(),
+    set_auxiliary(
+        tx,
+        n::AuxiliaryData::Shelley(BTreeMap::from([(674, n::Metadatum::Text(text.into()))])),
     );
+}
+fn set_auxiliary(tx: &mut n::BlockTransaction<'_>, data: n::AuxiliaryData) {
+    tx.auxiliary_data = Nullable::Some(data.into());
     let Nullable::Some(aux) = &tx.auxiliary_data else {
         panic!()
     };
@@ -168,7 +172,54 @@ fn dijkstra_metadata_commitment_and_limits() {
         auxiliary(&mut tx, &"x".repeat(64));
         assert!(check(&tx).is_ok());
         auxiliary(&mut tx, &"x".repeat(65));
-        dijkstra_tests::error(check(&tx), "DijkstraInvalidMetadata");
+        dijkstra_tests::error(check(&tx), "DijkstraMalformed(\"metadata\")");
+    });
+}
+#[test]
+fn dijkstra_auxiliary_scripts_are_refused_only_when_malformed() {
+    #[cfg(feature = "phase2")]
+    let (well_formed, malformed) = (
+        Some(dijkstra_tests::well_formed_script()),
+        "DijkstraInvalidMetadata",
+    );
+    #[cfg(not(feature = "phase2"))]
+    let (well_formed, malformed) = (
+        None::<Vec<u8>>,
+        "DijkstraUnsupported(\"new Plutus script validation requires phase2 feature\")",
+    );
+    dijkstra_tests::synthetic(|mut tx, input| {
+        let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
+        let check = |tx: &n::BlockTransaction<'_>| {
+            run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
+        };
+        let native = || Some(vec![n::NativeScript::InvalidBefore(0)]);
+        set_auxiliary(
+            &mut tx,
+            n::AuxiliaryData::ShelleyMa(n::ShelleyMaAuxiliaryData {
+                transaction_metadata: BTreeMap::new(),
+                auxiliary_scripts: native(),
+            }),
+        );
+        let result = check(&tx);
+        assert!(result.is_ok(), "{result:?}");
+        let n::AuxiliaryData::PostAlonzo(mut data) = dijkstra_tests::plutus_auxiliary(1, &[1])
+        else {
+            unreachable!()
+        };
+        data.plutus_v1_scripts = Some(vec![]);
+        data.native_scripts = native();
+        set_auxiliary(&mut tx, n::AuxiliaryData::PostAlonzo(data));
+        let result = check(&tx);
+        assert!(result.is_ok(), "{result:?}");
+        for version in 1..=4 {
+            if let Some(bytes) = &well_formed {
+                set_auxiliary(&mut tx, dijkstra_tests::plutus_auxiliary(version, bytes));
+                let result = check(&tx);
+                assert!(result.is_ok(), "PlutusV{version}: {result:?}");
+            }
+            set_auxiliary(&mut tx, dijkstra_tests::plutus_auxiliary(version, &[1]));
+            dijkstra_tests::error(check(&tx), malformed);
+        }
     });
 }
 fn value(coin: u64, policy: Hash<28>, quantity: u64) -> c::Value {

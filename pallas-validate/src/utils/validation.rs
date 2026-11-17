@@ -111,7 +111,6 @@ labels! {
     /// A Dijkstra construct the phase one validator does not implement.
     pub enum UnsupportedFeature {
         AuxiliaryFields => "auxiliary fields",
-        AuxiliaryScripts => "auxiliary scripts",
         BodyFields => "body fields",
         DuplicateCollateralInputs => "duplicate collateral inputs",
         DuplicateInputs => "duplicate inputs",
@@ -231,6 +230,7 @@ labels! {
         EmptyWithdrawals => "empty withdrawals",
         ExecutionUnits => "execution units",
         KeyWitness => "key witness",
+        Metadata => "metadata",
         MultiAssetValue => "multi-asset value",
         ProtocolParameterUpdate => "protocol parameter update",
         ZeroDonation => "zero donation",

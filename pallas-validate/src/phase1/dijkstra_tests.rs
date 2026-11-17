@@ -980,8 +980,30 @@ fn dijkstra_new_v1_v2_and_v4_scripts_are_checked() {
     });
 }
 
+pub(super) fn plutus_auxiliary(version: u8, bytes: &[u8]) -> native::AuxiliaryData {
+    fn script<const V: usize>(bytes: &[u8]) -> Option<Vec<pallas_primitives::PlutusScript<V>>> {
+        Some(vec![pallas_primitives::PlutusScript(bytes.to_vec().into())])
+    }
+    let mut data = native::PostAlonzoAuxiliaryData {
+        metadata: None,
+        native_scripts: None,
+        plutus_v1_scripts: None,
+        plutus_v2_scripts: None,
+        plutus_v3_scripts: None,
+        plutus_v4_scripts: None,
+    };
+    match version {
+        1 => data.plutus_v1_scripts = script(bytes),
+        2 => data.plutus_v2_scripts = script(bytes),
+        3 => data.plutus_v3_scripts = script(bytes),
+        4 => data.plutus_v4_scripts = script(bytes),
+        _ => unreachable!(),
+    }
+    native::AuxiliaryData::PostAlonzo(data)
+}
+
 #[cfg(feature = "phase2")]
-fn well_formed_script() -> Vec<u8> {
+pub(super) fn well_formed_script() -> Vec<u8> {
     use amaru_uplc_native::{arena::Arena, flat, syn::parse_program};
     let arena = Arena::new();
     let version = amaru_kernel::ProtocolVersion::new(12, 0);

@@ -596,6 +596,38 @@ fn dijkstra_batch_sub_metadata_must_match_its_hash() {
     });
 }
 
+#[test]
+fn dijkstra_batch_sub_auxiliary_scripts_are_refused_only_when_malformed() {
+    #[cfg(feature = "phase2")]
+    let (well_formed, malformed) = (
+        Some(super::dijkstra_tests::well_formed_script()),
+        "DijkstraInvalidMetadata",
+    );
+    #[cfg(not(feature = "phase2"))]
+    let (well_formed, malformed) = (
+        None::<Vec<u8>>,
+        "DijkstraUnsupported(\"new Plutus script validation requires phase2 feature\")",
+    );
+    token_order_batch(|tx, input, sub_input| {
+        let with_script = |bytes: &[u8]| {
+            let data: KeepRaw<'static, n::AuxiliaryData> =
+                super::dijkstra_tests::plutus_auxiliary(3, bytes).into();
+            let mut changed = tx.clone();
+            resign(&mut changed, |sub| {
+                sub.sub_transaction_body.auxiliary_data_hash =
+                    Some(Hasher::<256>::hash(&minicbor::to_vec(&data).unwrap()));
+                sub.auxiliary_data = Nullable::Some(data);
+            });
+            run_sub(&changed, &input, &sub_input)
+        };
+        if let Some(bytes) = &well_formed {
+            let result = with_script(bytes);
+            assert!(result.is_ok(), "{result:?}");
+        }
+        error(with_script(&[1]), malformed);
+    });
+}
+
 /// An address locked by the Byron key that `bootstrap` signs with.
 pub(super) fn byron_address() -> pallas_codec::utils::Bytes {
     use pallas_addresses::byron::{AddrType, AddressPayload, ByronAddress, SpendingData};
