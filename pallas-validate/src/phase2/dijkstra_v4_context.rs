@@ -556,3 +556,26 @@ fn gov_action(action: &n::GovAction) -> Result<PlutusData, Error> {
         n::GovAction::Information => wrap_multiple_with_constr(6, vec![]),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pallas_codec::minicbor;
+
+    #[test]
+    fn an_integer_outside_the_cbor_integer_range_is_a_bignum_of_its_magnitude() {
+        let two_64 = 1i128 << 64;
+        let cbor = |x: i128| minicbor::to_vec(integer(x)).unwrap();
+        let magnitude = [0x49, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(cbor(two_64), [&[0xc2][..], &magnitude].concat());
+        assert_eq!(cbor(-two_64 - 1), [&[0xc3][..], &magnitude].concat());
+        assert_eq!(
+            cbor(two_64 - 1),
+            [0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+        assert_eq!(
+            cbor(-two_64),
+            [0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+    }
+}

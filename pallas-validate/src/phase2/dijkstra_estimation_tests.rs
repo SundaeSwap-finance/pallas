@@ -182,6 +182,37 @@ fn estimation_execution_limits() {
         );
     });
 }
+#[test]
+fn estimation_admits_an_execution_limit_up_to_i64_max() {
+    fixture(|mut tx, u| {
+        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        let max = i64::MAX as u64;
+        for limit in [
+            n::ExUnits {
+                mem: max,
+                steps: 4_805_428,
+            },
+            n::ExUnits {
+                mem: 18_485,
+                steps: max,
+            },
+        ] {
+            exact(&with_limit(&tx, &u, limit).unwrap());
+        }
+        for limit in [
+            n::ExUnits {
+                mem: max + 1,
+                steps: 4_805_428,
+            },
+            n::ExUnits {
+                mem: 18_485,
+                steps: max + 1,
+            },
+        ] {
+            error(with_limit(&tx, &u, limit), "execution limit overflow");
+        }
+    });
+}
 // Synthetic key certificate followed by two copies of the script registration.
 fn duplicate_script_certificates(tx: &mut n::BlockTransaction<'_>) {
     let mut b = (*tx.transaction_body).clone();

@@ -156,3 +156,59 @@ pub(crate) fn check_translatable(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pallas_codec::minicbor;
+    use pallas_codec::utils::{CborWrap, MaybeIndefArray};
+    use pallas_primitives::dijkstra as n;
+
+    fn output(datum: DatumOption<'static>) -> n::TransactionOutput<'static> {
+        n::TransactionOutput::PostAlonzo(
+            n::PostAlonzoTransactionOutput {
+                address: [vec![0x60], vec![1; 28]].concat().into(),
+                value: n::Value::Coin(2_000_000),
+                datum_option: Some(datum.into()),
+                script_ref: None,
+            }
+            .into(),
+        )
+    }
+
+    fn inline() -> n::TransactionOutput<'static> {
+        output(DatumOption::Data(CborWrap(
+            n::PlutusData::BigInt(n::BigInt::Int(0.into())).into(),
+        )))
+    }
+
+    fn hashed() -> n::TransactionOutput<'static> {
+        output(DatumOption::Hash([3; 32].into()))
+    }
+
+    fn held(
+        language: Language,
+        input: &n::TransactionOutput<'_>,
+        reference: &n::TransactionOutput<'_>,
+        output: n::TransactionOutput<'static>,
+    ) -> Result<(), Untranslatable> {
+        let mut body: n::TransactionBody =
+            minicbor::decode(&[0xa3, 0x00, 0x80, 0x01, 0x80, 0x02, 0x00]).unwrap();
+        body.outputs = MaybeIndefArray::Def(vec![output]);
+        let level = Level::top(&body, [0; 32].into());
+        let input = MultiEraOutput::from_dijkstra(input);
+        let reference = MultiEraOutput::from_dijkstra(reference);
+        check_translatable(&language, &level, &[&input], &[&reference])
+    }
+
+    #[test]
+    fn plutus_v1_refuses_an_inline_datum_in_an_input_a_reference_input_or_an_output() {
+        let refused = Err(Untranslatable(ContextFailure::InlineDatum));
+        let (data, hash) = (inline(), hashed());
+        assert_eq!(held(Language::PlutusV1, &data, &hash, hashed()), refused);
+        assert_eq!(held(Language::PlutusV1, &hash, &data, hashed()), refused);
+        assert_eq!(held(Language::PlutusV1, &hash, &hash, inline()), refused);
+        assert_eq!(held(Language::PlutusV1, &hash, &hash, hashed()), Ok(()));
+        assert_eq!(held(Language::PlutusV2, &data, &data, inline()), Ok(()));
+    }
+}

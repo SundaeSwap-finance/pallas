@@ -163,6 +163,38 @@ fn dijkstra_plutus_reference_hash_carries_its_language_tag() {
 }
 
 #[test]
+fn a_conway_output_keeps_its_plutus_reference_script() {
+    let bytes = [0x4d, 0x01, 0x00];
+    let output = |script_ref| {
+        c::TransactionOutput::PostAlonzo(
+            c::PostAlonzoTransactionOutput {
+                address: [vec![0x60], vec![1; 28]].concat().into(),
+                value: c::Value::Coin(5_000_000),
+                datum_option: None,
+                script_ref,
+            }
+            .into(),
+        )
+    };
+    let with = output(Some(CborWrap(c::ScriptRef::PlutusV3Script(
+        c::PlutusScript(bytes.to_vec().into()),
+    ))));
+    match reference_script(&MultiEraOutput::from_conway(&with)).unwrap() {
+        Some((hash, Provided::Plutus(n::Language::PlutusV3, script))) => {
+            assert_eq!(hash, Hasher::<224>::hash_tagged(&bytes, 3));
+            assert_eq!(script, bytes);
+        }
+        _ => panic!("no PlutusV3 reference script"),
+    }
+    let without = output(None);
+    assert!(
+        reference_script(&MultiEraOutput::from_conway(&without))
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
 fn dijkstra_pointer_output_keeps_its_pointer_in_a_context() {
     use super::super::to_plutus_data::ToPlutusData;
     let output = |delegation| {

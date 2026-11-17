@@ -160,3 +160,105 @@ fn plutus_v4_redeemers_spend_the_ledger_budget() {
         }
     }
 }
+
+/// The field `index` of a data list or constructor.
+fn at(data: &n::PlutusData, index: usize) -> &n::PlutusData {
+    match data {
+        n::PlutusData::Array(x) => &x[index],
+        n::PlutusData::Constr(x) => &x.fields[index],
+        other => panic!("{other:?}"),
+    }
+}
+
+/// The values of a data map, in its order.
+fn values(data: &n::PlutusData) -> Vec<n::PlutusData> {
+    match data {
+        n::PlutusData::Map(x) => x.iter().map(|(_, v)| v.clone()).collect(),
+        other => panic!("{other:?}"),
+    }
+}
+
+/// A reward account of a key credential of 28 `byte`s.
+fn account(byte: u8) -> n::RewardAccount {
+    [vec![0xe0], vec![byte; 28]].concat().into()
+}
+
+/// A lovelace amount as script data.
+fn lovelace(amount: i128) -> n::PlutusData {
+    n::PlutusData::BigInt(n::BigInt::Int(amount.try_into().unwrap()))
+}
+
+/// The batch fields the top level guard of record 1344 sees after `change` edits its top level body and its sub transaction body.
+fn batch_view(
+    change: impl FnOnce(&mut n::TransactionBody<'_>, &mut n::SubTransactionBody<'_>),
+) -> n::PlutusData {
+    let fixture = read(1344);
+    let raw = bytes(&fixture["tx"]);
+    let tx: n::MempoolTransaction = minicbor::decode(&raw).unwrap();
+    let mut tx: n::BlockTransaction = tx.into();
+    let mut body = (*tx.transaction_body).clone();
+    let mut subs = body.sub_transactions.clone().unwrap().to_vec();
+    let mut sub = (*subs[0].sub_transaction_body).clone();
+    change(&mut body, &mut sub);
+    subs[0].sub_transaction_body = sub.into();
+    body.sub_transactions = n::NonEmptySet::from_vec(subs);
+    tx.transaction_body = body.into();
+    let time = dijkstra::linear_time(&slots()).unwrap();
+    let runs = dijkstra::runs(
+        &MultiEraTx::from_dijkstra(&tx),
+        &params(&fixture),
+        &utxos(&fixture),
+        &time,
+        false,
+    )
+    .unwrap();
+    let run = runs
+        .iter()
+        .find(|r| {
+            r.sub.is_none() && MultiEraRedeemerTag::from(r.tag) == MultiEraRedeemerTag::Guarding
+        })
+        .unwrap();
+    let top = at(at(at(&run.args[0], 2), 1), 0);
+    at(top, 3).clone()
+}
+
+#[test]
+fn a_top_guard_sees_each_account_withdrawal_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.withdrawals = Some(std::collections::BTreeMap::from([(account(1), 4_000_000)]));
+        sub.withdrawals = Some(std::collections::BTreeMap::from([
+            (account(1), 3_000_000),
+            (account(2), 5_000_000),
+        ]));
+    });
+    assert_eq!(
+        values(at(&view, 7)),
+        [lovelace(7_000_000), lovelace(5_000_000)]
+    );
+}
+
+#[test]
+fn a_top_guard_sees_each_account_direct_deposit_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.direct_deposits = Some(std::collections::BTreeMap::from([(account(1), 4_000_000)]));
+        sub.direct_deposits = Some(std::collections::BTreeMap::from([
+            (account(1), 3_000_000),
+            (account(2), 5_000_000),
+        ]));
+    });
+    assert_eq!(
+        values(at(&view, 8)),
+        [lovelace(7_000_000), lovelace(5_000_000)]
+    );
+}
+
+#[test]
+fn a_top_guard_sees_the_donations_summed_over_the_batch() {
+    let view = batch_view(|top, sub| {
+        top.donation = Some(4_000_000.try_into().unwrap());
+        sub.donation = Some(3_000_000.try_into().unwrap());
+    });
+    assert_eq!(at(&view, 17), &lovelace(7_000_000));
+    let view = batch_view(|top, _| top.donation = Some(4_000_000.try_into().unwrap()));
+    assert_eq!(at(&view, 17), &lovelace(4_000_000));
+}
