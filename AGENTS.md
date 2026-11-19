@@ -199,6 +199,8 @@ Where to start for common jobs:
   `TxValidationError::DijkstraTxValidationError` and the `localtxsubmission::dijkstra` module.
   Without it, a Dijkstra rejection fails to decode.
 - `pallas-hardano/unstable` renders those rejections in the submit-api JSON.
+- `pallas-network/unstable` also decodes a PlutusV4 reference script, and
+  `pallas-hardano/unstable` displays its hash.
 - `pallas/unstable` turns on every crate's `unstable` feature and the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
