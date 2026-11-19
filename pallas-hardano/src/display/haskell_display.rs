@@ -1763,6 +1763,8 @@ impl HaskellDisplay for PseudoScript<NativeScript> {
                 "PlutusScript PlutusV4 {}",
                 Hasher::<224>::hash_tagged(ps.0.as_slice(), 4).as_script_hash()
             ),
+            #[allow(unreachable_patterns)]
+            other => format!("{other:?}"),
         }
     }
 }

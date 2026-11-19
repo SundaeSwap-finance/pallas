@@ -158,6 +158,7 @@ pub enum Language {
 
 /// Generic on-chain script: a native script or a Plutus script of any version.
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "unstable", non_exhaustive)]
 pub enum PseudoScript<T1> {
     /// Cardano native script (timelock and signature combinators).
     NativeScript(T1),
