@@ -167,6 +167,9 @@ pub enum PseudoScript<T1> {
     PlutusV2Script(PlutusScript<2>),
     /// Plutus V3 script bytes.
     PlutusV3Script(PlutusScript<3>),
+    /// Plutus V4 script bytes.
+    #[cfg(feature = "unstable")]
+    PlutusV4Script(PlutusScript<4>),
 }
 
 /// Raw bytes of a Plutus script of language version `VERSION`.

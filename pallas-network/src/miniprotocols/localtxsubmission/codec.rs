@@ -948,6 +948,8 @@ where
             1 => Ok(Self::PlutusV1Script(d.decode()?)),
             2 => Ok(Self::PlutusV2Script(d.decode()?)),
             3 => Ok(Self::PlutusV3Script(d.decode()?)),
+            #[cfg(feature = "unstable")]
+            4 => Ok(Self::PlutusV4Script(d.decode()?)),
             x => Err(decode::Error::message(format!(
                 "invalid variant for script enum: {x}"
             ))),
@@ -969,6 +971,8 @@ where
             Self::PlutusV1Script(x) => e.encode_with((1, x), ctx)?,
             Self::PlutusV2Script(x) => e.encode_with((2, x), ctx)?,
             Self::PlutusV3Script(x) => e.encode_with((3, x), ctx)?,
+            #[cfg(feature = "unstable")]
+            Self::PlutusV4Script(x) => e.encode_with((4, x), ctx)?,
         };
 
         Ok(())

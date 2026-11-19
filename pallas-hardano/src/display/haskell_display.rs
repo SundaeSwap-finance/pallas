@@ -1758,6 +1758,11 @@ impl HaskellDisplay for PseudoScript<NativeScript> {
                 "PlutusScript PlutusV3 {}",
                 Hasher::<224>::hash_tagged(ps.0.as_slice(), 3).as_script_hash()
             ),
+            #[cfg(feature = "unstable")]
+            PlutusV4Script(ps) => format!(
+                "PlutusScript PlutusV4 {}",
+                Hasher::<224>::hash_tagged(ps.0.as_slice(), 4).as_script_hash()
+            ),
         }
     }
 }
@@ -2731,5 +2736,24 @@ mod native_script_tests {
         // argument: `MOfN -1 (...)` isn't valid Haskell constructor syntax.
         let str = NativeScript::ScriptNOfK(-1, vec![]).to_haskell_str();
         assert!(str.contains("MOfN (-1) ("), "{str}");
+    }
+}
+
+#[cfg(all(test, feature = "unstable"))]
+mod script_tests {
+    use super::*;
+    use pallas_network::miniprotocols::localtxsubmission::primitives::PlutusScript;
+
+    #[test]
+    fn a_plutus_v4_script_displays_its_ledger_script_hash() {
+        let script = PseudoScript::<NativeScript>::PlutusV4Script(PlutusScript(
+            hex::decode("450101002499").unwrap().into(),
+        ));
+        let str = script.to_haskell_str();
+        assert!(str.starts_with("PlutusScript PlutusV4 "), "{str}");
+        assert!(
+            str.contains("31a78786b5989dc6fd2d4ab15b297069e94106ecacceb8eb29e1b681"),
+            "{str}"
+        );
     }
 }

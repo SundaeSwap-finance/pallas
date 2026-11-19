@@ -1644,6 +1644,51 @@ pub mod tests {
         );
     }
 
+    fn utxo_reply_with_script_ref(script_ref: &str) -> Vec<u8> {
+        let key = format!("825820{}01", "00".repeat(32));
+        let address = format!("581d61{}", "00".repeat(28));
+        let output = format!("a300{address}011a000f424003d81849{script_ref}");
+        hex::decode(format!("a1{key}{output}")).unwrap()
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_utxo_reply_with_a_plutus_v4_reference_script_reencodes_as_the_node_wrote_it() {
+        use crate::miniprotocols::localstate::queries_v16::{TransactionOutput, UTxOByAddress};
+        use crate::miniprotocols::localtxsubmission::primitives::{PlutusScript, PseudoScript};
+
+        let bytes = utxo_reply_with_script_ref("820446450101002499");
+        let reply: UTxOByAddress = minicbor::decode(&bytes).unwrap();
+
+        assert_eq!(reply.len(), 1);
+        let TransactionOutput::Current(output) = &reply[0].1 else {
+            panic!("the reply's output is a map");
+        };
+        assert_eq!(
+            output.script_ref.as_ref().map(|x| &x.0),
+            Some(&PseudoScript::PlutusV4Script(PlutusScript(
+                hex::decode("450101002499").unwrap().into()
+            )))
+        );
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&reply).unwrap()),
+            hex::encode(&bytes)
+        );
+    }
+
+    #[test]
+    fn a_utxo_reply_with_a_reference_script_tag_no_era_defines_is_refused() {
+        use crate::miniprotocols::localstate::queries_v16::UTxOByAddress;
+
+        let bytes = utxo_reply_with_script_ref("820546450101002499");
+
+        let err = minicbor::decode::<UTxOByAddress>(&bytes).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("invalid variant for script enum: 5")
+        );
+    }
+
     // TODO: DRY with other decode/encode roundtripss
     // Decode a value of type T, transform it to U and encode that again to form a roundtrip.
     #[cfg(feature = "blueprint")]

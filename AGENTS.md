@@ -79,7 +79,7 @@ Feature runs:
 
 ```sh
 cargo nextest run -p pallas-network -p pallas-network2 --features blueprint
-cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 --features unstable
+cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
 cargo nextest run -p pallas-primitives --features unstable,blueprint
 cargo nextest run -p pallas-validate --features unstable
 cargo nextest run -p pallas-validate --features phase2
@@ -194,6 +194,8 @@ Where to start for common jobs:
 - `pallas-validate/unstable` adds the Dijkstra protocol parameters to `MultiEraProtocolParameters`.
 - `pallas-utxorpc/unstable` adds the `v1` module, which maps onto the v1 schema.
 - `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
+- `pallas-network/unstable` decodes the Dijkstra rejection reasons and a PlutusV4 script.
+  `pallas-hardano/unstable` displays them.
 - `pallas-network2/unstable` proposes node-to-node version 16, which the Leios mini-protocols need.
 - `pallas/unstable` turns on every crate's `unstable` feature, network2's only with the umbrella's
   `network2` feature, and the umbrella's `hardano` feature.
