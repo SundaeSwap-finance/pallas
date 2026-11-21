@@ -3074,3 +3074,480 @@ fn an_unknown_map_key_is_refused() {
         failed.join("\n")
     );
 }
+
+impl super::SetElement for u64 {
+    fn same_element(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+type Read = fn(&[u8]) -> Result<(), minicbor::decode::Error>;
+
+/// A map of small keys, each written in one byte or behind `0x18`.
+fn map_of(entries: &[(u8, Vec<u8>)]) -> Vec<u8> {
+    let mut bytes = vec![0xa0 | u8::try_from(entries.len()).unwrap()];
+    for (key, value) in entries {
+        if *key >= 24 {
+            bytes.push(0x18);
+        }
+        bytes.push(*key);
+        bytes.extend_from_slice(value);
+    }
+    bytes
+}
+
+/// A top or sub transaction body holding the given bytes at the given key beside its required keys.
+fn body_holding(top: bool, key: u8, value: &[u8]) -> Vec<u8> {
+    let mut entries = vec![(0u8, vec![0x80]), (1, vec![0x80])];
+    if top {
+        entries.push((2, vec![0x00]));
+    }
+    match entries.iter_mut().find(|(k, _)| *k == key) {
+        Some(entry) => entry.1 = value.to_vec(),
+        None => entries.push((key, value.to_vec())),
+    }
+    map_of(&entries)
+}
+
+fn read_body(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<TransactionBody>(bytes).map(drop)
+}
+
+fn read_sub_body(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<SubTransactionBody>(bytes).map(drop)
+}
+
+fn read_witnesses(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<WitnessSet>(bytes).map(drop)
+}
+
+fn read_certificate(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<Certificate>(bytes).map(drop)
+}
+
+fn read_gov_action(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<GovAction>(bytes).map(drop)
+}
+
+fn bytes_of(length: u8, fill: u8) -> Vec<u8> {
+    let mut bytes = if length < 24 {
+        vec![0x40 | length]
+    } else {
+        vec![0x58, length]
+    };
+    bytes.extend(std::iter::repeat_n(fill, usize::from(length)));
+    bytes
+}
+
+fn input_element(n: u8) -> Vec<u8> {
+    [vec![0x82], bytes_of(32, 0x11), vec![n]].concat()
+}
+
+fn keyhash_element(n: u8) -> Vec<u8> {
+    bytes_of(28, n)
+}
+
+fn credential_element(n: u8) -> Vec<u8> {
+    [vec![0x82, 0x00], bytes_of(28, n)].concat()
+}
+
+fn certificate_element(n: u8) -> Vec<u8> {
+    [vec![0x83, 0x02], credential_element(n), bytes_of(28, 0x22)].concat()
+}
+
+fn proposal_element(n: u8) -> Vec<u8> {
+    let mut reward_account = vec![0x58, 29, 0xe0];
+    reward_account.extend(std::iter::repeat_n(n, 28));
+    [
+        vec![0x84, 0x00],
+        reward_account,
+        vec![0x81, 0x06, 0x82, 0x60],
+        bytes_of(32, 0x00),
+    ]
+    .concat()
+}
+
+fn vkey_witness_element(n: u8) -> Vec<u8> {
+    [vec![0x82], bytes_of(32, n), bytes_of(64, 0x00)].concat()
+}
+
+fn bootstrap_witness_element(n: u8) -> Vec<u8> {
+    [
+        vec![0x84],
+        bytes_of(32, n),
+        bytes_of(64, 0x00),
+        bytes_of(32, 0x00),
+        vec![0x41, 0xa0],
+    ]
+    .concat()
+}
+
+fn native_script_element(n: u8) -> Vec<u8> {
+    [vec![0x82, 0x00], bytes_of(28, n)].concat()
+}
+
+fn plutus_script_element(n: u8) -> Vec<u8> {
+    vec![0x41, n]
+}
+
+fn plutus_data_element(n: u8) -> Vec<u8> {
+    vec![n]
+}
+
+/// A sub transaction with no witnesses whose body holds the given ttl.
+fn sub_transaction_element(n: u8) -> Vec<u8> {
+    [
+        vec![0x83],
+        map_of(&[(0, vec![0x80]), (1, vec![0x80]), (3, vec![n])]),
+        vec![0xa0, 0xf6],
+    ]
+    .concat()
+}
+
+/// A sub transaction with one key witness whose body holds the given ttl.
+fn witnessed_sub_transaction_element(n: u8) -> Vec<u8> {
+    [
+        vec![0x83],
+        map_of(&[(0, vec![0x80]), (1, vec![0x80]), (3, vec![n])]),
+        map_of(&[(0, [vec![0x81], vkey_witness_element(1)].concat())]),
+        vec![0xf6],
+    ]
+    .concat()
+}
+
+/// The element with its first head rewritten to carry its argument in eight bytes.
+fn widened(element: &[u8]) -> Vec<u8> {
+    let major = element[0] >> 5;
+    let info = element[0] & 0x1f;
+    let (argument, head) = match info {
+        0..=23 => (u64::from(info), 1),
+        24 => (u64::from(element[1]), 2),
+        _ => panic!("every element here has a head of at most two bytes"),
+    };
+    let mut wide = vec![(major << 5) | 27];
+    wide.extend_from_slice(&argument.to_be_bytes());
+    wide.extend_from_slice(&element[head..]);
+    wide
+}
+
+fn set_of(tagged: bool, elements: &[Vec<u8>]) -> Vec<u8> {
+    let mut bytes = if tagged {
+        vec![0xd9, 0x01, 0x02]
+    } else {
+        Vec::new()
+    };
+    bytes.push(0x80 | u8::try_from(elements.len()).unwrap());
+    for element in elements {
+        bytes.extend_from_slice(element);
+    }
+    bytes
+}
+
+fn pool_registration_holding(owners: &[u8], relays: &[u8]) -> Vec<u8> {
+    let mut reward_account = vec![0x58, 29, 0xe0];
+    reward_account.extend(std::iter::repeat_n(0x33, 28));
+    [
+        vec![0x8a, 0x03],
+        bytes_of(28, 0x44),
+        bytes_of(32, 0x55),
+        vec![0x00, 0x00, 0xd8, 0x1e, 0x82, 0x00, 0x01],
+        reward_account,
+        owners.to_vec(),
+        relays.to_vec(),
+        vec![0xf6],
+    ]
+    .concat()
+}
+
+/// One position that decodes a set: where it is, how its enclosing value is
+/// read, and whether the ledger keys its elements by the bytes they were read from.
+struct SetPosition {
+    name: &'static str,
+    enclose: fn(&[u8]) -> Vec<u8>,
+    read: Read,
+    element: fn(u8) -> Vec<u8>,
+    keyed_by_bytes: bool,
+}
+
+fn set_positions() -> Vec<SetPosition> {
+    macro_rules! at {
+        ($name:literal, $enclose:expr, $read:expr, $element:expr, $by_bytes:literal) => {
+            SetPosition {
+                name: $name,
+                enclose: $enclose,
+                read: $read,
+                element: $element,
+                keyed_by_bytes: $by_bytes,
+            }
+        };
+    }
+
+    vec![
+        at!(
+            "body 0",
+            |s| body_holding(true, 0, s),
+            read_body,
+            input_element,
+            false
+        ),
+        at!(
+            "body 4",
+            |s| body_holding(true, 4, s),
+            read_body,
+            certificate_element,
+            false
+        ),
+        at!(
+            "body 13",
+            |s| body_holding(true, 13, s),
+            read_body,
+            input_element,
+            false
+        ),
+        at!(
+            "body 14 key hashes",
+            |s| body_holding(true, 14, s),
+            read_body,
+            keyhash_element,
+            false
+        ),
+        at!(
+            "body 14 credentials",
+            |s| body_holding(true, 14, s),
+            read_body,
+            credential_element,
+            false
+        ),
+        at!(
+            "body 18",
+            |s| body_holding(true, 18, s),
+            read_body,
+            input_element,
+            false
+        ),
+        at!(
+            "body 20",
+            |s| body_holding(true, 20, s),
+            read_body,
+            proposal_element,
+            false
+        ),
+        at!(
+            "body 23",
+            |s| body_holding(true, 23, s),
+            read_body,
+            sub_transaction_element,
+            false
+        ),
+        at!(
+            "sub body 0",
+            |s| body_holding(false, 0, s),
+            read_sub_body,
+            input_element,
+            false
+        ),
+        at!(
+            "sub body 4",
+            |s| body_holding(false, 4, s),
+            read_sub_body,
+            certificate_element,
+            false
+        ),
+        at!(
+            "sub body 14 key hashes",
+            |s| body_holding(false, 14, s),
+            read_sub_body,
+            keyhash_element,
+            false
+        ),
+        at!(
+            "sub body 14 credentials",
+            |s| body_holding(false, 14, s),
+            read_sub_body,
+            credential_element,
+            false
+        ),
+        at!(
+            "sub body 18",
+            |s| body_holding(false, 18, s),
+            read_sub_body,
+            input_element,
+            false
+        ),
+        at!(
+            "sub body 20",
+            |s| body_holding(false, 20, s),
+            read_sub_body,
+            proposal_element,
+            false
+        ),
+        at!(
+            "witness 0",
+            |s| map_of(&[(0, s.to_vec())]),
+            read_witnesses,
+            vkey_witness_element,
+            false
+        ),
+        at!(
+            "witness 1",
+            |s| map_of(&[(1, s.to_vec())]),
+            read_witnesses,
+            native_script_element,
+            true
+        ),
+        at!(
+            "witness 2",
+            |s| map_of(&[(2, s.to_vec())]),
+            read_witnesses,
+            bootstrap_witness_element,
+            false
+        ),
+        at!(
+            "witness 3",
+            |s| map_of(&[(3, s.to_vec())]),
+            read_witnesses,
+            plutus_script_element,
+            false
+        ),
+        at!(
+            "witness 4",
+            |s| map_of(&[(4, s.to_vec())]),
+            read_witnesses,
+            plutus_data_element,
+            true
+        ),
+        at!(
+            "witness 6",
+            |s| map_of(&[(6, s.to_vec())]),
+            read_witnesses,
+            plutus_script_element,
+            false
+        ),
+        at!(
+            "witness 7",
+            |s| map_of(&[(7, s.to_vec())]),
+            read_witnesses,
+            plutus_script_element,
+            false
+        ),
+        at!(
+            "witness 8",
+            |s| map_of(&[(8, s.to_vec())]),
+            read_witnesses,
+            plutus_script_element,
+            false
+        ),
+        at!(
+            "pool owners",
+            |s| pool_registration_holding(s, &[0x80]),
+            read_certificate,
+            keyhash_element,
+            false
+        ),
+        at!(
+            "committee removed",
+            |s| [
+                vec![0x85, 0x04, 0xf6],
+                s.to_vec(),
+                vec![0xa0, 0xd8, 0x1e, 0x82, 0x00, 0x01]
+            ]
+            .concat(),
+            read_gov_action,
+            credential_element,
+            false
+        ),
+    ]
+}
+
+/// Every set position against the cardano-ledger `9df9f98c` set decoders
+/// (`Decoder.hs` `decodeSetLikeEnforceNoDuplicates`, `TxBody.hs` 467 to 469
+/// for sub transactions by id, `AlonzoTxWits.hs` 339 for witnesses keyed by
+/// their bytes), which refuse a repeated element on either arm, refuse one
+/// value written two ways unless the set keys its elements by their bytes,
+/// and accept two different elements.
+#[test]
+fn every_set_position_refuses_an_element_the_ledger_counts_twice() {
+    let mut counts = std::collections::BTreeMap::<&str, usize>::new();
+
+    for position in set_positions() {
+        let first = (position.element)(1);
+        let second = (position.element)(2);
+        let read = |elements: &[Vec<u8>], tagged: bool| {
+            (position.read)(&(position.enclose)(&set_of(tagged, elements)))
+        };
+
+        for tagged in [true, false] {
+            read(&[first.clone(), second.clone()], tagged).unwrap_or_else(|err| {
+                panic!(
+                    "{}: two different elements must decode, found {err}",
+                    position.name
+                )
+            });
+            *counts.entry("different elements accepted").or_default() += 1;
+
+            let err = read(&[first.clone(), first.clone()], tagged).expect_err(position.name);
+            assert!(
+                err.to_string().contains("a repeated element"),
+                "{}: the repeated element was refused for some other reason: {err}",
+                position.name
+            );
+            *counts.entry("repeated element refused").or_default() += 1;
+        }
+
+        let two_ways = read(&[first.clone(), widened(&first)], true);
+        if position.keyed_by_bytes {
+            two_ways.unwrap_or_else(|err| {
+                panic!(
+                    "{}: one value written two ways is two elements here, found {err}",
+                    position.name
+                )
+            });
+            *counts
+                .entry("two ways accepted where keyed by bytes")
+                .or_default() += 1;
+        } else {
+            let err = two_ways.expect_err(position.name);
+            assert!(
+                err.to_string().contains("a repeated element"),
+                "{}: the value written two ways was refused for some other reason: {err}",
+                position.name
+            );
+            *counts
+                .entry("two ways refused where keyed by value")
+                .or_default() += 1;
+        }
+    }
+
+    // The ledger keys a sub transaction by its body, so different witnesses do not make it a second one.
+    let same_body = body_holding(
+        true,
+        23,
+        &set_of(
+            true,
+            &[
+                sub_transaction_element(1),
+                witnessed_sub_transaction_element(1),
+            ],
+        ),
+    );
+    let err = read_body(&same_body).expect_err("one sub transaction body twice must not decode");
+    assert!(
+        err.to_string().contains("a repeated element"),
+        "the repeated sub transaction body was refused for some other reason: {err}"
+    );
+    *counts
+        .entry("one sub body with two witness sets refused")
+        .or_default() += 1;
+
+    assert_eq!(
+        counts,
+        std::collections::BTreeMap::from([
+            ("different elements accepted", 48),
+            ("one sub body with two witness sets refused", 1),
+            ("repeated element refused", 48),
+            ("two ways accepted where keyed by bytes", 2),
+            ("two ways refused where keyed by value", 22),
+        ]),
+        "a class ran on a different number of positions than the table lists"
+    );
+}
