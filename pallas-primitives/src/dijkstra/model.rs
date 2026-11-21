@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use pallas_codec::minicbor::{self, Decode, Encode};
-use pallas_codec::utils::decode_array;
+use pallas_codec::utils::{CborWrap, decode_array};
 
 pub use pallas_codec::codec_by_datatype;
 
@@ -1052,9 +1052,8 @@ where
     Nullable::decode(d, ctx).map(Some)
 }
 
-/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 56. A derived
-/// map decoder drops a key it has no field for, so the tail is modelled.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
+/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 56.
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
     #[n(0)]
@@ -1131,7 +1130,7 @@ pub struct ProtocolParamUpdate {
     pub ref_script_cost_multiplier: Option<PositiveInterval>,
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
-    #[cbor(n(38), decode_with = "decode_nullable_value")]
+    #[n(38)]
     pub max_pledge_leverage: Option<Nullable<NonNegativeInterval>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
@@ -1163,7 +1162,7 @@ pub struct ProtocolParamUpdate {
     pub peras_target_committee_size: Option<u64>,
 
     /// `? 53 : nil/ uint .size 4` (`defs.cddl`), so an explicit nil differs from an absent key.
-    #[cbor(n(53), decode_with = "decode_nullable_value")]
+    #[n(53)]
     pub peras_bootstrap_round: Option<Nullable<u64>>,
     #[n(54)]
     pub peras_quorum_threshold_safety_margin: Option<UnitInterval>,
@@ -1172,6 +1171,62 @@ pub struct ProtocolParamUpdate {
     #[n(56)]
     pub ref_inputs_cost_per_datum_byte: Option<Coin>,
 }
+
+crate::map_record::decode_map_record!(ProtocolParamUpdate,
+    0 => minfee_a,
+    1 => minfee_b,
+    2 => max_block_body_size,
+    3 => max_transaction_size,
+    4 => max_block_header_size,
+    5 => key_deposit,
+    6 => pool_deposit,
+    7 => maximum_epoch,
+    8 => desired_number_of_stake_pools,
+    9 => pool_pledge_influence,
+    10 => expansion_rate,
+    11 => treasury_growth_rate,
+    16 => min_pool_cost,
+    17 => ada_per_utxo_byte,
+    18 => cost_models_for_script_languages,
+    19 => execution_costs,
+    20 => max_tx_ex_units,
+    21 => max_block_ex_units,
+    22 => max_value_size,
+    23 => collateral_percentage,
+    24 => max_collateral_inputs,
+    25 => pool_voting_thresholds,
+    26 => drep_voting_thresholds,
+    27 => min_committee_size,
+    28 => committee_term_limit,
+    29 => governance_action_validity_period,
+    30 => governance_action_deposit,
+    31 => drep_deposit,
+    32 => drep_inactivity_period,
+    33 => minfee_refscript_cost_per_byte,
+    34 => max_ref_script_size_per_block,
+    35 => max_ref_script_size_per_tx,
+    36 => ref_script_cost_stride,
+    37 => ref_script_cost_multiplier,
+    38 => max_pledge_leverage: decode_nullable_value,
+    39 => min_pool_margin,
+    40 => leios_announcement_period_length,
+    41 => leios_vote_period_length,
+    42 => leios_diffusion_period_length,
+    43 => leios_committee_size,
+    44 => leios_quorum_stake_threshold,
+    45 => max_endorser_block_references_size,
+    46 => max_endorser_block_txs_size,
+    47 => max_endorser_block_execution_units,
+    48 => max_ref_script_size_per_endorser_block,
+    49 => peras_min_candidate_block_age,
+    50 => peras_healing_factor,
+    51 => peras_cert_boost,
+    52 => peras_target_committee_size,
+    53 => peras_bootstrap_round: decode_nullable_value,
+    54 => peras_quorum_threshold_safety_margin,
+    55 => ref_inputs_cost_per_multi_asset_policy,
+    56 => ref_inputs_cost_per_datum_byte,
+);
 
 /// No CDDL rule answers to this type. It mirrors [`crate::conway::Update`] over this era's `protocol_param_update`.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -1444,7 +1499,7 @@ impl<C> minicbor::Encode<C> for AccountBalanceInterval {
 
 /// `sub_transaction_body` (`defs.cddl`), Conway's body minus the keys a sub
 /// transaction cannot carry, such as the fee and the collateral.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct SubTransactionBody<'a> {
     #[n(0)]
@@ -1475,7 +1530,6 @@ pub struct SubTransactionBody<'a> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(14)]
-    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1506,6 +1560,28 @@ pub struct SubTransactionBody<'a> {
     pub account_balance_intervals: Option<AccountBalanceIntervals>,
 }
 
+crate::map_record::decode_map_record!(SubTransactionBody<'a>,
+    0 => inputs,
+    1 => outputs,
+    3 => ttl,
+    4 => certificates,
+    5 => withdrawals,
+    7 => auxiliary_data_hash,
+    8 => validity_interval_start,
+    9 => mint,
+    11 => script_data_hash,
+    14 => guards: guards_field::decode_option,
+    15 => network_id,
+    18 => reference_inputs,
+    19 => voting_procedures,
+    20 => proposal_procedures,
+    21 => treasury_value,
+    22 => donation,
+    24 => required_top_level_guards,
+    25 => direct_deposits,
+    26 => account_balance_intervals,
+);
+
 /// `sub_transaction = [sub_transaction_body, transaction_witness_set, auxiliary_data/ nil]` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
 pub struct SubTransaction<'b> {
@@ -1523,7 +1599,7 @@ pub struct SubTransaction<'b> {
 pub type SubTransactions<'b> = NonEmptySet<SubTransaction<'b>>;
 
 /// `transaction_body` (`defs.cddl`). Key 14 is `guards`, not Conway's `required_signers`.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct TransactionBody<'a> {
     #[n(0)]
@@ -1560,7 +1636,6 @@ pub struct TransactionBody<'a> {
     pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
-    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1604,8 +1679,57 @@ pub struct TransactionBody<'a> {
     pub starting_account_balance_intervals: Option<StartingAccountBalanceIntervals>,
 }
 
-pub type PostAlonzoTransactionOutput<'b> =
-    babbage::GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
+crate::map_record::decode_map_record!(TransactionBody<'a>,
+    0 => inputs,
+    1 => outputs,
+    2 => fee,
+    3 => ttl,
+    4 => certificates,
+    5 => withdrawals,
+    7 => auxiliary_data_hash,
+    8 => validity_interval_start,
+    9 => mint,
+    11 => script_data_hash,
+    13 => collateral,
+    14 => guards: guards_field::decode_option,
+    15 => network_id,
+    16 => collateral_return,
+    17 => total_collateral,
+    18 => reference_inputs,
+    19 => voting_procedures,
+    20 => proposal_procedures,
+    21 => treasury_value,
+    22 => donation,
+    23 => sub_transactions,
+    24 => required_top_level_guards,
+    25 => direct_deposits,
+    26 => account_balance_intervals,
+    27 => starting_account_balance_intervals,
+);
+
+/// `babbage_transaction_output` (`defs.cddl`), the map form of an output.
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Eq, Clone)]
+#[cbor(map)]
+pub struct PostAlonzoTransactionOutput<'b> {
+    #[n(0)]
+    pub address: Bytes,
+
+    #[n(1)]
+    pub value: Value,
+
+    #[b(2)]
+    pub datum_option: Option<KeepRaw<'b, DatumOption<'b>>>,
+
+    #[n(3)]
+    pub script_ref: Option<CborWrap<ScriptRef<'b>>>,
+}
+
+crate::map_record::decode_map_record!(PostAlonzoTransactionOutput<'b>,
+    0 => address,
+    1 => value,
+    2 => datum_option,
+    3 => script_ref: babbage::decode_script_ref,
+);
 
 pub type TransactionOutput<'b> = babbage::GenTransactionOutput<'b, PostAlonzoTransactionOutput<'b>>;
 
@@ -1702,7 +1826,7 @@ impl std::ops::Deref for Redeemers {
 /// `transaction_witness_set` (`defs.cddl`) with cardano-ledger `9df9f98c`'s
 /// `? 8 : nonempty_set<plutus_v4_script>`. Keys 0 to 7 are Conway's, but the
 /// `native_script` and `redeemers` they reach both changed.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone)]
 #[cbor(map)]
 pub struct WitnessSet<'b> {
     #[n(0)]
@@ -1734,8 +1858,20 @@ pub struct WitnessSet<'b> {
     pub plutus_v4_script: Option<NonEmptySet<PlutusScript<4>>>,
 }
 
+crate::map_record::decode_map_record!(WitnessSet<'b>,
+    0 => vkeywitness,
+    1 => native_script,
+    2 => bootstrap_witness,
+    3 => plutus_v1_script,
+    4 => plutus_data,
+    5 => redeemer,
+    6 => plutus_v2_script,
+    7 => plutus_v3_script,
+    8 => plutus_v4_script,
+);
+
 /// `auxiliary_data_map` gains `? 5 : [* plutus_v4_script]` (`defs.cddl`).
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone, Eq)]
 #[cbor(map, tag(259))]
 pub struct PostAlonzoAuxiliaryData<'b> {
     #[n(0)]
@@ -1758,15 +1894,35 @@ pub struct PostAlonzoAuxiliaryData<'b> {
     pub plutus_v4_scripts: Option<Vec<PlutusScript<4>>>,
 }
 
+crate::map_record::decode_map_record!(PostAlonzoAuxiliaryData<'b>, tag 259,
+    0 => metadata,
+    1 => native_scripts,
+    2 => plutus_v1_scripts,
+    3 => plutus_v2_scripts,
+    4 => plutus_v3_scripts,
+    5 => plutus_v4_scripts,
+);
+
 /// `auxiliary_data_array` (`defs.cddl`), whose second element is
 /// `auxiliary_scripts = [* native_script]`, this era's.
-#[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
+#[derive(Serialize, Deserialize, Encode, Debug, PartialEq, Clone, Eq)]
 pub struct ShelleyMaAuxiliaryData<'b> {
     #[n(0)]
     pub transaction_metadata: Metadata,
 
     #[b(1)]
     pub auxiliary_scripts: Option<Vec<KeepRaw<'b, NativeScript>>>,
+}
+
+impl<'b, C> minicbor::Decode<'b, C> for ShelleyMaAuxiliaryData<'b> {
+    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        decode_array(d, |a| {
+            Ok(ShelleyMaAuxiliaryData {
+                transaction_metadata: a.decode_with(ctx)?,
+                auxiliary_scripts: a.decode_with(ctx)?,
+            })
+        })
+    }
 }
 
 /// `auxiliary_data` (`defs.cddl`).

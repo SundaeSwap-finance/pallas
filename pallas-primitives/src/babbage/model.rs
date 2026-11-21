@@ -357,7 +357,7 @@ decode_joined_script_ref!(ScriptRef, PlutusV1Script, PlutusV2Script);
 
 /// Decodes an output's script reference, tagged bytes of either length form that hold the script's CBOR.
 #[cfg(feature = "unstable")]
-fn decode_script_ref<'b, Ctx, S>(
+pub(crate) fn decode_script_ref<'b, Ctx, S>(
     d: &mut minicbor::Decoder<'b>,
     ctx: &mut Ctx,
 ) -> Result<Option<CborWrap<S>>, minicbor::decode::Error>
