@@ -2413,3 +2413,244 @@ fn generated_native_scripts_in_indefinite_arrays_decode() {
         ]
     );
 }
+
+/// The interval `defs.cddl` gives a fraction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum FractionKind {
+    Unit,
+    NonNegative,
+    Positive,
+}
+
+/// The type a fraction position is read through.
+#[derive(Clone, Copy)]
+enum FractionHolder {
+    Update,
+    Certificate,
+    GovAction,
+}
+
+/// A place that holds a fraction, with `R` in its hex standing for the fraction.
+struct FractionPosition {
+    name: String,
+    kind: FractionKind,
+    holder: FractionHolder,
+    template: String,
+}
+
+const HALF: &str = "d81e820102";
+
+/// Every fraction position of this era, with the interval `defs.cddl` gives it.
+fn fraction_positions() -> Vec<FractionPosition> {
+    use FractionKind::*;
+
+    let update = |key: u64, kind: FractionKind, value: String| FractionPosition {
+        name: format!("parameter update key {key}"),
+        kind,
+        holder: FractionHolder::Update,
+        template: match key {
+            0..=23 => format!("a1{key:02x}{value}"),
+            _ => format!("a118{key:02x}{value}"),
+        },
+    };
+
+    let mut positions = vec![
+        FractionPosition {
+            name: "pool registration margin".to_string(),
+            kind: Unit,
+            holder: FractionHolder::Certificate,
+            template: format!("8a03{HASH}{HASH32}0101R{REWARD}8080f6"),
+        },
+        FractionPosition {
+            name: "committee update threshold".to_string(),
+            kind: Unit,
+            holder: FractionHolder::GovAction,
+            template: "8504f680a0R".to_string(),
+        },
+    ];
+
+    for (key, kind) in [
+        (9, NonNegative),
+        (10, Unit),
+        (11, Unit),
+        (33, NonNegative),
+        (37, Positive),
+        (38, NonNegative),
+        (39, Unit),
+        (44, Unit),
+        (50, Positive),
+        (54, Unit),
+    ] {
+        positions.push(update(key, kind, "R".to_string()));
+    }
+
+    // Keys 19, 25 and 26 hold arrays of fractions, so each element is a position.
+    for (key, kind, len) in [(19, NonNegative, 2), (25, Unit, 5), (26, Unit, 10)] {
+        for index in 0..len {
+            let elements: String = (0..len)
+                .map(|i| if i == index { "R" } else { HALF })
+                .collect();
+            let mut position = update(key, kind, format!("{:02x}{elements}", 0x80 + len));
+            position.name = format!("{} element {index}", position.name);
+            positions.push(position);
+        }
+    }
+
+    positions
+}
+
+/// Whether the holder reads the bytes to their last byte.
+fn reads_whole(holder: FractionHolder, bytes: &[u8]) -> bool {
+    fn whole<'b, T: minicbor::Decode<'b, ()>>(bytes: &'b [u8]) -> bool {
+        let mut d = minicbor::Decoder::new(bytes);
+        d.decode::<T>().is_ok() && d.position() == bytes.len()
+    }
+
+    match holder {
+        FractionHolder::Update => whole::<ProtocolParamUpdate>(bytes),
+        FractionHolder::Certificate => whole::<Certificate>(bytes),
+        FractionHolder::GovAction => whole::<GovAction>(bytes),
+    }
+}
+
+/// Asserts that every fraction position reads each fraction exactly when the ledger's interval of its kind holds it.
+fn assert_each_position_reads(fractions: &[&str], unit: bool, nonnegative: bool, positive: bool) {
+    let mut counts = std::collections::BTreeMap::new();
+    let mut wrong = Vec::new();
+
+    for position in fraction_positions() {
+        let control = hex::decode(position.template.replace('R', HALF)).unwrap();
+        assert!(
+            reads_whole(position.holder, &control),
+            "{} must read one half, so a refusal below is about the fraction",
+            position.name
+        );
+
+        let expected = match position.kind {
+            FractionKind::Unit => unit,
+            FractionKind::NonNegative => nonnegative,
+            FractionKind::Positive => positive,
+        };
+        for fraction in fractions {
+            let bytes = hex::decode(position.template.replace('R', fraction)).unwrap();
+            if reads_whole(position.holder, &bytes) != expected {
+                wrong.push(format!(
+                    "{} ({:?}) {}: {fraction}",
+                    position.name,
+                    position.kind,
+                    if expected { "refused" } else { "read" },
+                ));
+            }
+        }
+        *counts.entry(position.kind).or_insert(0) += 1;
+    }
+
+    assert_eq!(
+        counts,
+        std::collections::BTreeMap::from([
+            (FractionKind::Unit, 22),
+            (FractionKind::NonNegative, 5),
+            (FractionKind::Positive, 2),
+        ])
+    );
+    assert_eq!(wrong, Vec::<String>::new());
+}
+
+#[test]
+fn a_fraction_inside_every_interval_reads_at_each_position() {
+    assert_each_position_reads(
+        &[
+            HALF,
+            "d81e820101",
+            "d81e821bffffffffffffffff1bffffffffffffffff",
+            "d81e82011b8ac7230489e80000",
+        ],
+        true,
+        true,
+        true,
+    );
+}
+
+#[test]
+fn an_indefinite_fraction_of_two_numbers_reads_at_each_position() {
+    assert_each_position_reads(&["d81e9f0102ff"], true, true, true);
+}
+
+#[test]
+fn a_fraction_tagged_other_than_30_is_refused() {
+    assert_each_position_reads(&["d81f820102", "d81d820102"], false, false, false);
+}
+
+#[test]
+fn an_untagged_fraction_is_refused() {
+    assert_each_position_reads(&["820102"], false, false, false);
+}
+
+#[test]
+fn a_fraction_of_three_numbers_is_refused() {
+    assert_each_position_reads(&["d81e83010203"], false, false, false);
+}
+
+#[test]
+fn a_fraction_of_one_number_is_refused() {
+    assert_each_position_reads(&["d81e8101"], false, false, false);
+}
+
+#[test]
+fn an_empty_fraction_is_refused() {
+    assert_each_position_reads(&["d81e80"], false, false, false);
+}
+
+#[test]
+fn an_indefinite_fraction_of_other_than_two_numbers_is_refused() {
+    assert_each_position_reads(
+        &["d81e9f010203ff", "d81e9f01ff", "d81e9fff"],
+        false,
+        false,
+        false,
+    );
+}
+
+#[test]
+fn a_zero_denominator_is_refused() {
+    assert_each_position_reads(&["d81e820100", "d81e820000"], false, false, false);
+}
+
+#[test]
+fn a_negative_number_is_refused() {
+    assert_each_position_reads(&["d81e822002", "d81e820121"], false, false, false);
+}
+
+#[test]
+fn a_fraction_above_one_is_refused_only_as_a_unit_interval() {
+    assert_each_position_reads(
+        &[
+            "d81e820302",
+            "d81e821bffffffffffffffff01",
+            "d81e821bffffffffffffffff1bfffffffffffffffe",
+        ],
+        false,
+        true,
+        true,
+    );
+}
+
+#[test]
+fn a_zero_fraction_is_refused_only_as_a_positive_interval() {
+    assert_each_position_reads(
+        &["d81e820001", "d81e82001bffffffffffffffff"],
+        true,
+        true,
+        false,
+    );
+}
+
+#[test]
+fn a_fraction_below_the_positive_minimum_is_refused_only_as_a_positive_interval() {
+    assert_each_position_reads(
+        &["d81e82011b8ac7230489e80001", "d81e82011bffffffffffffffff"],
+        true,
+        true,
+        false,
+    );
+}

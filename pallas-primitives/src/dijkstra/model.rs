@@ -13,9 +13,9 @@ pub use crate::{
     AddrKeyhash, AssetName, Bytes, Coin, CostModel, DnsName, Epoch, ExUnits, GenesisDelegateHash,
     Genesishash, Hash, IPv4, IPv6, KeepRaw, MaybeIndefArray, Metadata, Metadatum, MetadatumLabel,
     NetworkId, NonZeroInt, Nonce, NonceVariant, Nullable, PlutusScript, PolicyId, PoolKeyhash,
-    PoolMetadata, PoolMetadataHash, Port, PositiveCoin, PositiveInterval, ProtocolVersion,
-    RationalNumber, Relay, RewardAccount, ScriptHash, StakeCredential, TransactionInput,
-    UnitInterval, VrfCert, VrfKeyhash, plutus_data::*,
+    PoolMetadata, PoolMetadataHash, Port, PositiveCoin, ProtocolVersion, RationalNumber, Relay,
+    RewardAccount, ScriptHash, StakeCredential, TransactionInput, VrfCert, VrfKeyhash,
+    plutus_data::*,
 };
 
 use crate::{BTreeMap, KeyValuePairs};
@@ -194,6 +194,119 @@ impl<T> TryFrom<Vec<T>> for NonEmptySet<T> {
 
 tag_preserving_set!(NonEmptySet, "a nonempty set", 1);
 
+/// Reads `#6.30([n, d])` in either length form.
+fn decode_fraction(
+    d: &mut minicbor::Decoder<'_>,
+) -> Result<RationalNumber, minicbor::decode::Error> {
+    let tag = d.tag()?.as_u64();
+    if tag != 30 {
+        return Err(minicbor::decode::Error::message(format!(
+            "a fraction is tagged 30, found tag {tag}"
+        )));
+    }
+
+    let mut numbers = Vec::with_capacity(2);
+    for number in d.array_iter::<u64>()? {
+        numbers.push(number?);
+        if numbers.len() > 2 {
+            break;
+        }
+    }
+
+    match numbers[..] {
+        [numerator, denominator] => Ok(RationalNumber {
+            numerator,
+            denominator,
+        }),
+        _ => Err(minicbor::decode::Error::message(
+            "a fraction holds exactly two numbers",
+        )),
+    }
+}
+
+/// Implements the conversions and codec of a fraction type whose interval holds the numerator and denominator pairs `$holds` admits.
+macro_rules! bounded_fraction {
+    ($name:ident, $holds:expr) => {
+        impl TryFrom<RationalNumber> for $name {
+            type Error = RationalNumber;
+
+            fn try_from(value: RationalNumber) -> Result<Self, Self::Error> {
+                let holds: fn(u64, u64) -> bool = $holds;
+                if value.denominator != 0 && holds(value.numerator, value.denominator) {
+                    Ok(Self(value))
+                } else {
+                    Err(value)
+                }
+            }
+        }
+
+        impl From<$name> for RationalNumber {
+            fn from(value: $name) -> Self {
+                value.0
+            }
+        }
+
+        impl std::ops::Deref for $name {
+            type Target = RationalNumber;
+
+            fn deref(&self) -> &RationalNumber {
+                &self.0
+            }
+        }
+
+        impl<'b, C> minicbor::Decode<'b, C> for $name {
+            fn decode(
+                d: &mut minicbor::Decoder<'b>,
+                _ctx: &mut C,
+            ) -> Result<Self, minicbor::decode::Error> {
+                Self::try_from(decode_fraction(d)?).map_err(|value| {
+                    minicbor::decode::Error::message(format!(
+                        "decoding {}/{} as {}",
+                        value.numerator,
+                        value.denominator,
+                        stringify!($name)
+                    ))
+                })
+            }
+        }
+
+        impl<C> minicbor::Encode<C> for $name {
+            fn encode<W: minicbor::encode::Write>(
+                &self,
+                e: &mut minicbor::Encoder<W>,
+                ctx: &mut C,
+            ) -> Result<(), minicbor::encode::Error<W::Error>> {
+                self.0.encode(e, ctx)
+            }
+        }
+    };
+}
+
+/// `unit_interval = #6.30([uint, uint])` (`defs.cddl`), a fraction from zero to one.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+pub struct UnitInterval(RationalNumber);
+
+bounded_fraction!(UnitInterval, |numerator, denominator| {
+    numerator <= denominator
+});
+
+/// `nonnegative_interval = #6.30([uint, positive_int])` (`defs.cddl`), a fraction of zero or more.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+pub struct NonNegativeInterval(RationalNumber);
+
+bounded_fraction!(NonNegativeInterval, |_, _| true);
+
+/// `positive_interval = #6.30([positive_int, positive_int])` (`defs.cddl`), a fraction of at least one in ten to the nineteenth.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+pub struct PositiveInterval(RationalNumber);
+
+bounded_fraction!(PositiveInterval, |numerator, denominator| {
+    u128::from(numerator) * 10u128.pow(19) >= u128::from(denominator)
+});
+
 pub use crate::babbage::OperationalCert;
 
 /// `header_version_info = [highest_supported_major_version : uint .size 4, self_reported_software_tag : uint .size 4]` (`defs.cddl`).
@@ -297,11 +410,92 @@ pub use crate::conway::Anchor;
 
 pub use crate::conway::GovActionId;
 
-pub use crate::conway::PoolVotingThresholds;
+/// `pool_voting_thresholds` (`defs.cddl`).
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct PoolVotingThresholds {
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(4)]
+    pub security_voting_threshold: UnitInterval,
+}
 
-pub use crate::conway::DRepVotingThresholds;
+impl From<PoolVotingThresholds> for crate::conway::PoolVotingThresholds {
+    fn from(value: PoolVotingThresholds) -> Self {
+        Self {
+            motion_no_confidence: value.motion_no_confidence.into(),
+            committee_normal: value.committee_normal.into(),
+            committee_no_confidence: value.committee_no_confidence.into(),
+            hard_fork_initiation: value.hard_fork_initiation.into(),
+            security_voting_threshold: value.security_voting_threshold.into(),
+        }
+    }
+}
 
-pub use crate::conway::ExUnitPrices;
+/// `drep_voting_thresholds` (`defs.cddl`).
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct DRepVotingThresholds {
+    #[n(0)]
+    pub motion_no_confidence: UnitInterval,
+    #[n(1)]
+    pub committee_normal: UnitInterval,
+    #[n(2)]
+    pub committee_no_confidence: UnitInterval,
+    #[n(3)]
+    pub update_constitution: UnitInterval,
+    #[n(4)]
+    pub hard_fork_initiation: UnitInterval,
+    #[n(5)]
+    pub pp_network_group: UnitInterval,
+    #[n(6)]
+    pub pp_economic_group: UnitInterval,
+    #[n(7)]
+    pub pp_technical_group: UnitInterval,
+    #[n(8)]
+    pub pp_governance_group: UnitInterval,
+    #[n(9)]
+    pub treasury_withdrawal: UnitInterval,
+}
+
+impl From<DRepVotingThresholds> for crate::conway::DRepVotingThresholds {
+    fn from(value: DRepVotingThresholds) -> Self {
+        Self {
+            motion_no_confidence: value.motion_no_confidence.into(),
+            committee_normal: value.committee_normal.into(),
+            committee_no_confidence: value.committee_no_confidence.into(),
+            update_constitution: value.update_constitution.into(),
+            hard_fork_initiation: value.hard_fork_initiation.into(),
+            pp_network_group: value.pp_network_group.into(),
+            pp_economic_group: value.pp_economic_group.into(),
+            pp_technical_group: value.pp_technical_group.into(),
+            pp_governance_group: value.pp_governance_group.into(),
+            treasury_withdrawal: value.treasury_withdrawal.into(),
+        }
+    }
+}
+
+/// `ex_unit_prices` (`defs.cddl`).
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ExUnitPrices {
+    #[n(0)]
+    pub mem_price: NonNegativeInterval,
+    #[n(1)]
+    pub step_price: NonNegativeInterval,
+}
+
+impl From<ExUnitPrices> for crate::conway::ExUnitPrices {
+    fn from(value: ExUnitPrices) -> Self {
+        Self {
+            mem_price: value.mem_price.into(),
+            step_price: value.step_price.into(),
+        }
+    }
+}
 
 pub use crate::conway::VKeyWitness;
 
@@ -765,7 +959,7 @@ pub struct ProtocolParamUpdate {
     #[n(8)]
     pub desired_number_of_stake_pools: Option<u64>,
     #[n(9)]
-    pub pool_pledge_influence: Option<RationalNumber>,
+    pub pool_pledge_influence: Option<NonNegativeInterval>,
     #[n(10)]
     pub expansion_rate: Option<UnitInterval>,
     #[n(11)]
@@ -807,7 +1001,7 @@ pub struct ProtocolParamUpdate {
     #[n(32)]
     pub drep_inactivity_period: Option<Epoch>,
     #[n(33)]
-    pub minfee_refscript_cost_per_byte: Option<UnitInterval>,
+    pub minfee_refscript_cost_per_byte: Option<NonNegativeInterval>,
 
     // -- NEW IN DIJKSTRA
     #[n(34)]
@@ -821,7 +1015,7 @@ pub struct ProtocolParamUpdate {
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
     #[cbor(n(38), decode_with = "decode_nullable_value")]
-    pub max_pledge_leverage: Option<Nullable<RationalNumber>>,
+    pub max_pledge_leverage: Option<Nullable<NonNegativeInterval>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
     #[n(40)]

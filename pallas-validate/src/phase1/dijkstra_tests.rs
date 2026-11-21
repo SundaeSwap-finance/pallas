@@ -337,7 +337,9 @@ fn dijkstra_pool_metadata_hash_is_at_most_32_bytes() {
                     margin: native::RationalNumber {
                         numerator: 0,
                         denominator: 1,
-                    },
+                    }
+                    .try_into()
+                    .unwrap(),
                     reward_account: account.clone().into(),
                     pool_owners: vec![].into(),
                     relays: vec![],

@@ -284,7 +284,7 @@ fn conway_certificate(cert: &n::Certificate) -> c::Certificate {
             vrf_keyhash,
             pledge,
             cost,
-            margin,
+            margin: margin.into(),
             reward_account,
             pool_owners: pool_owners.to_vec().into(),
             relays,

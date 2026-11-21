@@ -430,7 +430,7 @@ mod tests {
                 bls_key,
                 pledge: 500,
                 cost: 340,
-                margin: margin(),
+                margin: margin().try_into().unwrap(),
                 reward_account: vec![0xe0; 29].into(),
                 pool_owners: vec![[0x04; 28].into()].into(),
                 relays: relays(),

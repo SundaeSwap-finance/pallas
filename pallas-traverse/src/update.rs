@@ -32,7 +32,8 @@ macro_rules! param_boilerplate {
                             .proposed_protocol_parameter_updates
                             .values()
                             .next()
-                            .and_then(|x| x.$name.clone()),
+                            .and_then(|x| x.$name.clone())
+                            .map(Into::into),
                     )*
 
                     _ => None,
@@ -59,6 +60,7 @@ macro_rules! param_boilerplate {
                             .values()
                             .map(|x| x.$name.clone())
                             .flatten()
+                            .map(Into::into)
                             .collect::<Vec<_>>(),
                     )*
 
@@ -346,5 +348,5 @@ impl<'b> MultiEraUpdate<'b> {
     param_boilerplate!(ref_script_cost_stride: u64, [], unstable [Dijkstra]);
 
     #[cfg(feature = "unstable")]
-    param_boilerplate!(ref_script_cost_multiplier: RationalNumber, [], unstable [Dijkstra]);
+    param_boilerplate!(ref_script_cost_multiplier: dijkstra::PositiveInterval, [], unstable [Dijkstra]);
 }
