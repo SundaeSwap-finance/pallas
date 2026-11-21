@@ -270,14 +270,14 @@ impl<'b> MultiEraOutput<'b> {
                     MultiEraValue::Conway(Cow::Borrowed(&x.value))
                 }
             },
-            // `dijkstra::Value` is a re-export of `conway::Value`.
+            // `dijkstra::Value` dereferences to `conway::Value`.
             #[cfg(feature = "unstable")]
             MultiEraOutput::Dijkstra(x) => match x.deref().deref() {
                 dijkstra::TransactionOutput::Legacy(x) => {
                     MultiEraValue::AlonzoCompatible(Cow::Borrowed(&x.amount))
                 }
                 dijkstra::TransactionOutput::PostAlonzo(x) => {
-                    MultiEraValue::Conway(Cow::Borrowed(&x.value))
+                    MultiEraValue::Conway(Cow::Borrowed(&*x.value))
                 }
             },
         }
@@ -340,9 +340,9 @@ impl<'b> MultiEraOutput<'b> {
                         .map(|(k, v)| MultiEraPolicyAssets::AlonzoCompatibleOutput(k, v))
                         .collect(),
                 },
-                dijkstra::TransactionOutput::PostAlonzo(x) => match &x.value {
-                    dijkstra::Value::Coin(_) => vec![],
-                    dijkstra::Value::Multiasset(_, x) => x
+                dijkstra::TransactionOutput::PostAlonzo(x) => match &*x.value {
+                    conway::Value::Coin(_) => vec![],
+                    conway::Value::Multiasset(_, x) => x
                         .iter()
                         .map(|(k, v)| MultiEraPolicyAssets::ConwayOutput(k, v))
                         .collect(),

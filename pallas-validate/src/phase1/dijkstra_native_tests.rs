@@ -259,7 +259,9 @@ fn dijkstra_native_mint_registration_and_partial_withdrawal() {
                 hash,
                 BTreeMap::from([(b"token".to_vec().into(), 1.try_into().unwrap())]),
             )]),
-        );
+        )
+        .try_into()
+        .unwrap();
         // Withdrawal precedes registration; use a distinct key registration to keep state coherent.
         tx.transaction_body.certificates = n::NonEmptySet::from_vec(vec![n::Certificate::Reg(
             n::StakeCredential::AddrKeyhash(key_hash()),
@@ -293,8 +295,11 @@ fn dijkstra_native_mint_registration_and_partial_withdrawal() {
             n::StakeCredential::ScriptHash(hash),
             2_000_000,
         )]);
-        if let c::Value::Multiasset(coin, _) = &mut output(first_output(&mut tx)).value {
-            *coin -= 1_000_000;
+        let first = output(first_output(&mut tx));
+        if let c::Value::Multiasset(coin, assets) = &*first.value {
+            first.value = c::Value::Multiasset(coin - 1_000_000, assets.clone())
+                .try_into()
+                .unwrap();
         }
         let mut state = CertState::default();
         state
@@ -334,10 +339,7 @@ fn dijkstra_native_reference_sources_and_original_hash() {
                 output(&mut inputs[0].1).script_ref =
                     Some(CborWrap(n::ScriptRef::NativeScript(script.clone())));
             } else {
-                let reference = n::TransactionInput {
-                    transaction_id: Hash::from([7; 32]),
-                    index: 0,
-                };
+                let reference = n::TransactionInput::new(Hash::from([7; 32]), 0);
                 let mut o = inputs[0].1.clone();
                 output(&mut o).script_ref =
                     Some(CborWrap(n::ScriptRef::NativeScript(script.clone())));
@@ -472,10 +474,7 @@ fn dijkstra_native_reference_fee_size_and_scope() {
             panic!()
         };
         // Two UTxOs containing the same script count twice for reference fees/size.
-        let reference = n::TransactionInput {
-            transaction_id: Hash::from([9; 32]),
-            index: 0,
-        };
+        let reference = n::TransactionInput::new(Hash::from([9; 32]), 0);
         inputs.push((reference.clone(), inputs[0].1.clone()));
         tx.transaction_body.reference_inputs = n::NonEmptySet::from_vec(vec![reference.clone()]);
         pp.cost_models_for_script_languages.plutus_v3 = None; // Native reference scripts need fee parameters, not a cost model.
@@ -522,10 +521,7 @@ fn dijkstra_native_earlier_era_reference_and_new_output() {
     let script = native(n::NativeScript::ScriptPubkey(key_hash()));
     let raw = minicbor::to_vec(&script).unwrap();
     spend(script, |mut tx, mut inputs| {
-        let reference = n::TransactionInput {
-            transaction_id: Hash::from([10; 32]),
-            index: 0,
-        };
+        let reference = n::TransactionInput::new(Hash::from([10; 32]), 0);
         let earlier: KeepRaw<'_, c::NativeScript> = minicbor::decode(&raw).unwrap();
         let reference_output = c::TransactionOutput::PostAlonzo(
             c::PostAlonzoTransactionOutput {

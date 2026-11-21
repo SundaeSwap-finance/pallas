@@ -336,9 +336,27 @@ impl ToPlutusData for i64 {
     }
 }
 
+impl ToPlutusData for u8 {
+    fn to_plutus_data(&self) -> PlutusData {
+        u64::from(*self).to_plutus_data()
+    }
+}
+
+impl ToPlutusData for u16 {
+    fn to_plutus_data(&self) -> PlutusData {
+        u64::from(*self).to_plutus_data()
+    }
+}
+
 impl ToPlutusData for u32 {
     fn to_plutus_data(&self) -> PlutusData {
         PlutusData::BigInt(BigInt::Int(Int::try_from(*self as i128).unwrap()))
+    }
+}
+
+impl ToPlutusData for std::num::NonZeroU32 {
+    fn to_plutus_data(&self) -> PlutusData {
+        self.get().to_plutus_data()
     }
 }
 
@@ -1207,6 +1225,34 @@ impl ToPlutusData for ProtocolParamUpdate {
 }
 
 #[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::TransactionInput {
+    fn to_plutus_data(&self) -> PlutusData {
+        (**self).to_plutus_data()
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for WithWrappedTransactionId<'_, dijkstra::TransactionInput> {
+    fn to_plutus_data(&self) -> PlutusData {
+        WithWrappedTransactionId(&**self.0).to_plutus_data()
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::GovActionId {
+    fn to_plutus_data(&self) -> PlutusData {
+        (**self).to_plutus_data()
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl ToPlutusData for dijkstra::ExUnits {
+    fn to_plutus_data(&self) -> PlutusData {
+        (**self).to_plutus_data()
+    }
+}
+
+#[cfg(feature = "unstable")]
 impl ToPlutusData for dijkstra::CostModels {
     fn to_plutus_data(&self) -> PlutusData {
         let mut models = self.unknown.clone();
@@ -1390,17 +1436,18 @@ impl ToPlutusData for dijkstra::GovAction {
                 )
             }
             dijkstra::GovAction::HardForkInitiation(previous_action, version) => {
-                GovAction::HardForkInitiation(previous_action.clone(), *version).to_plutus_data()
+                GovAction::HardForkInitiation(previous_action.clone().map(Into::into), **version)
+                    .to_plutus_data()
             }
             dijkstra::GovAction::TreasuryWithdrawals(withdrawals, guardrail) => {
                 GovAction::TreasuryWithdrawals(withdrawals.clone(), *guardrail).to_plutus_data()
             }
             dijkstra::GovAction::NoConfidence(previous_action) => {
-                GovAction::NoConfidence(previous_action.clone()).to_plutus_data()
+                GovAction::NoConfidence(previous_action.clone().map(Into::into)).to_plutus_data()
             }
             dijkstra::GovAction::UpdateCommittee(previous_action, removed, added, quorum) => {
                 GovAction::UpdateCommittee(
-                    previous_action.clone(),
+                    previous_action.clone().map(Into::into),
                     removed.to_vec().into(),
                     added.clone(),
                     quorum.clone().into(),
@@ -1408,8 +1455,11 @@ impl ToPlutusData for dijkstra::GovAction {
                 .to_plutus_data()
             }
             dijkstra::GovAction::NewConstitution(previous_action, constitution) => {
-                GovAction::NewConstitution(previous_action.clone(), constitution.clone())
-                    .to_plutus_data()
+                GovAction::NewConstitution(
+                    previous_action.clone().map(Into::into),
+                    constitution.clone(),
+                )
+                .to_plutus_data()
             }
             dijkstra::GovAction::Information => GovAction::Information.to_plutus_data(),
         }

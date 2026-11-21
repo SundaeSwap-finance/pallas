@@ -65,7 +65,7 @@ impl<'a> Level<'a> {
             votes: b.voting_procedures.as_ref(),
             proposals: b.proposal_procedures.as_ref(),
             treasury_value: b.treasury_value,
-            donation: b.donation.as_ref().map(u64::from),
+            donation: b.donation.map(|coin| u64::from(*coin)),
         }
     }
 
@@ -90,7 +90,7 @@ impl<'a> Level<'a> {
             votes: b.voting_procedures.as_ref(),
             proposals: b.proposal_procedures.as_ref(),
             treasury_value: b.treasury_value,
-            donation: b.donation.as_ref().map(u64::from),
+            donation: b.donation.map(|coin| u64::from(*coin)),
         }
     }
 
@@ -808,7 +808,7 @@ pub(crate) fn proposal_action(
             security_relevant: security_relevant(update)?,
         },
         GovAction::HardForkInitiation(_, version) => {
-            DijkstraProposalAction::HardForkInitiation { version: *version }
+            DijkstraProposalAction::HardForkInitiation { version: **version }
         }
         GovAction::TreasuryWithdrawals(..) => DijkstraProposalAction::TreasuryWithdrawals,
         GovAction::NoConfidence(_) => DijkstraProposalAction::NoConfidence,
@@ -841,13 +841,13 @@ fn purpose(action: &DijkstraProposalAction) -> Option<Purpose> {
     }
 }
 
-fn previous(action: &GovAction) -> Option<&GovActionId> {
+fn previous(action: &GovAction) -> Option<&pallas_primitives::conway::GovActionId> {
     match action {
         GovAction::ParameterChange(prev, _, _)
         | GovAction::HardForkInitiation(prev, _)
         | GovAction::NoConfidence(prev)
         | GovAction::UpdateCommittee(prev, _, _, _)
-        | GovAction::NewConstitution(prev, _) => prev.as_ref(),
+        | GovAction::NewConstitution(prev, _) => prev.as_deref(),
         GovAction::TreasuryWithdrawals(..) | GovAction::Information => None,
     }
 }
@@ -994,7 +994,7 @@ pub(crate) fn governance<S: DijkstraLedgerState + ?Sized>(
             }
         }
         current.delta.proposals.push((
-            GovActionId {
+            pallas_primitives::conway::GovActionId {
                 transaction_id: level.id,
                 action_index: index as u32,
             },

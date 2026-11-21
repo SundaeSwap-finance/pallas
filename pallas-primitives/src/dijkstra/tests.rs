@@ -2,8 +2,8 @@ use super::{
     AccountBalanceInterval, AccountBalanceIntervals, AuxiliaryData, Block, BlockTransaction,
     Certificate, CostModels, DRep, DatumOption, EndorserBlock, GovAction, Guards, Header,
     HeaderBody, LeiosHeaderBody, MempoolTransaction, NativeScript, NonEmptySet, PlutusData,
-    ProposalProcedure, ProtocolParamUpdate, RationalNumber, Relay, ScriptRef, Set, SetArm,
-    StakeCredential, SubTransactionBody, TransactionBody, TransactionOutput, Value, Voter,
+    ProposalProcedure, ProtocolParamUpdate, ProtocolVersion, RationalNumber, Relay, ScriptRef, Set,
+    SetArm, StakeCredential, SubTransactionBody, TransactionBody, TransactionOutput, Voter,
     WitnessSet,
 };
 use crate::flat_enum::{assert_reads_either_length_form, decode_all};
@@ -1788,7 +1788,7 @@ fn a_ttl_and_both_output_forms_are_read_from_one_block() {
         "a map form output carries an address at key 0"
     );
     assert!(
-        matches!(output.value, Value::Coin(_)),
+        matches!(*output.value, crate::conway::Value::Coin(_)),
         "this output pays plain ada"
     );
     assert!(
@@ -2406,7 +2406,7 @@ fn a_generated_hard_fork_version_in_an_indefinite_array_decodes() {
     assert_eq!(proposals[0].deposit, 15225768051747963167);
     assert_eq!(
         proposals[0].gov_action,
-        GovAction::HardForkInitiation(None, (3, 2317795968))
+        GovAction::HardForkInitiation(None, ProtocolVersion::try_from((3, 2317795968)).unwrap())
     );
 }
 
@@ -2618,7 +2618,7 @@ fn a_generated_voter_in_an_indefinite_array_decodes() {
     ));
     let body: TransactionBody = decode_all(bytes);
 
-    let voters: Vec<_> = body.voting_procedures.unwrap().into_keys().collect();
+    let voters: Vec<_> = body.voting_procedures.unwrap().keys().cloned().collect();
     assert_eq!(
         voters,
         vec![Voter::ConstitutionalCommitteeKey(
@@ -3411,6 +3411,10 @@ fn read_gov_action(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
     minicbor::decode::<GovAction>(bytes).map(drop)
 }
 
+fn read_update(bytes: &[u8]) -> Result<(), minicbor::decode::Error> {
+    minicbor::decode::<ProtocolParamUpdate>(bytes).map(drop)
+}
+
 fn bytes_of(length: u8, fill: u8) -> Vec<u8> {
     let mut bytes = if length < 24 {
         vec![0x40 | length]
@@ -3829,6 +3833,413 @@ fn every_set_position_refuses_an_element_the_ledger_counts_twice() {
             ("repeated element refused", 48),
             ("two ways accepted where keyed by bytes", 2),
             ("two ways refused where keyed by value", 22),
+        ]),
+        "a class ran on a different number of positions than the table lists"
+    );
+}
+
+/// One bounded position: the value written there, the class it stands for,
+/// and the reason a refusal must give, or none where the value must decode.
+struct BoundedCase {
+    class: &'static str,
+    position: String,
+    bytes: Vec<u8>,
+    read: Read,
+    refused_for: Option<&'static str>,
+}
+
+const WORD16_AT_BOUND: &[u8] = &[0x19, 0xff, 0xff];
+const WORD16_PAST_BOUND: &[u8] = &[0x1a, 0x00, 0x01, 0x00, 0x00];
+const WORD32_AT_BOUND: &[u8] = &[0x1a, 0xff, 0xff, 0xff, 0xff];
+const WORD32_PAST_BOUND: &[u8] = &[0x1b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00];
+const INT64_AT_BOUND: &[u8] = &[0x1b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+const INT64_PAST_BOUND: &[u8] = &[0x1b, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+
+fn input_with_index(index: &[u8]) -> Vec<u8> {
+    [vec![0x82], bytes_of(32, 0x11), index.to_vec()].concat()
+}
+
+fn gov_action_id_with_index(index: &[u8]) -> Vec<u8> {
+    [vec![0x82], bytes_of(32, 0x66), index.to_vec()].concat()
+}
+
+/// A legacy or map form output holding one asset of the given quantity.
+fn output_with_quantity(legacy: bool, quantity: u8) -> Vec<u8> {
+    let value = [
+        vec![0x82, 0x01, 0xa1],
+        bytes_of(28, 0x77),
+        vec![0xa1, 0x40, quantity],
+    ]
+    .concat();
+    if legacy {
+        [vec![0x82, 0x41, 0x00], value].concat()
+    } else {
+        map_of(&[(0, vec![0x41, 0x00]), (1, value)])
+    }
+}
+
+fn bounded_cases() -> Vec<BoundedCase> {
+    let mut cases = Vec::new();
+    let mut case = |class, position: String, bytes: Vec<u8>, read: Read, refused_for| {
+        cases.push(BoundedCase {
+            class,
+            position,
+            bytes,
+            read,
+            refused_for,
+        })
+    };
+
+    // `transaction_input`, TxIn.hs 131 to 135 reads the index with "expected word16".
+    for (top, key) in [(true, 0), (true, 13), (true, 18), (false, 0), (false, 18)] {
+        let read: Read = if top { read_body } else { read_sub_body };
+        let kind = if top { "body" } else { "sub body" };
+        for (class, index, refused_for) in [
+            ("word at its bound", WORD16_AT_BOUND, None),
+            (
+                "word past its bound",
+                WORD16_PAST_BOUND,
+                Some("as TransactionInput"),
+            ),
+        ] {
+            let set = set_of(true, &[input_with_index(index)]);
+            case(
+                class,
+                format!("{kind} {key} input index"),
+                body_holding(top, key, &set),
+                read,
+                refused_for,
+            );
+        }
+    }
+
+    // `gov_action_id`, Procedures.hs 160 holds the index as a Word16.
+    for (class, index, refused_for) in [
+        ("word at its bound", WORD16_AT_BOUND, None),
+        (
+            "word past its bound",
+            WORD16_PAST_BOUND,
+            Some("as GovActionId"),
+        ),
+    ] {
+        let id = gov_action_id_with_index(index);
+        let actions = [
+            (
+                "parameter change",
+                [vec![0x84, 0x00], id.clone(), vec![0xa0, 0xf6]].concat(),
+            ),
+            (
+                "hard fork",
+                [vec![0x83, 0x01], id.clone(), vec![0x82, 0x0a, 0x00]].concat(),
+            ),
+            ("no confidence", [vec![0x82, 0x03], id.clone()].concat()),
+            (
+                "update committee",
+                [
+                    vec![0x85, 0x04],
+                    id.clone(),
+                    vec![0x80, 0xa0, 0xd8, 0x1e, 0x82, 0x00, 0x01],
+                ]
+                .concat(),
+            ),
+            (
+                "new constitution",
+                [
+                    vec![0x83, 0x05],
+                    id.clone(),
+                    vec![0x82, 0x82, 0x60],
+                    bytes_of(32, 0x00),
+                    vec![0xf6],
+                ]
+                .concat(),
+            ),
+        ];
+        for (action, bytes) in actions {
+            case(
+                class,
+                format!("{action} previous action"),
+                bytes,
+                read_gov_action,
+                refused_for,
+            );
+        }
+
+        let procedures = [
+            vec![0xa1, 0x82, 0x00],
+            bytes_of(28, 0x88),
+            vec![0xa1],
+            id.clone(),
+            vec![0x82, 0x00, 0xf6],
+        ]
+        .concat();
+        let refused_for = refused_for.map(|_| "as VotingProcedures");
+        case(
+            class,
+            "body 19 voted action".into(),
+            body_holding(true, 19, &procedures),
+            read_body,
+            refused_for,
+        );
+        case(
+            class,
+            "sub body 19 voted action".into(),
+            body_holding(false, 19, &procedures),
+            read_sub_body,
+            refused_for,
+        );
+    }
+
+    // `port`, BaseTypes.hs 700 holds it as a Word16.
+    for (class, port, refused_for) in [
+        ("word at its bound", WORD16_AT_BOUND, None),
+        ("word past its bound", WORD16_PAST_BOUND, Some("as Relays")),
+    ] {
+        let by_address = [vec![0x81, 0x84, 0x00], port.to_vec(), vec![0xf6, 0xf6]].concat();
+        let by_name = [vec![0x81, 0x83, 0x01], port.to_vec(), vec![0x60]].concat();
+        case(
+            class,
+            "address relay port".into(),
+            pool_registration_holding(&[0x80], &by_address),
+            read_certificate,
+            refused_for,
+        );
+        case(
+            class,
+            "name relay port".into(),
+            pool_registration_holding(&[0x80], &by_name),
+            read_certificate,
+            refused_for,
+        );
+    }
+
+    // `protocol_version`, Version.hs 59 to 63 and 113 to 132 bound the major
+    // version to 0 through 13, and BaseTypes.hs 212 holds the minor as a Word32.
+    for (class, version, refused_for) in [
+        (
+            "word at its bound",
+            [vec![0x82, 0x0d], WORD32_AT_BOUND.to_vec()].concat(),
+            None,
+        ),
+        (
+            "word past its bound",
+            vec![0x82, 0x0e, 0x00],
+            Some("as ProtocolVersion"),
+        ),
+        (
+            "word past its bound",
+            [vec![0x82, 0x0d], WORD32_PAST_BOUND.to_vec()].concat(),
+            Some("as ProtocolVersion"),
+        ),
+    ] {
+        case(
+            class,
+            "hard fork version".into(),
+            [vec![0x83, 0x01, 0xf6], version].concat(),
+            read_gov_action,
+            refused_for,
+        );
+    }
+
+    // `ex_units`, ExUnits.hs 208 to 225 refuses either count past maxBound :: Int64.
+    for (class, units, refused_for) in [
+        (
+            "word at its bound",
+            [vec![0x82], INT64_AT_BOUND.to_vec(), INT64_AT_BOUND.to_vec()].concat(),
+            None,
+        ),
+        (
+            "word past its bound",
+            [vec![0x82], INT64_PAST_BOUND.to_vec(), vec![0x00]].concat(),
+            Some("as ExUnits"),
+        ),
+        (
+            "word past its bound",
+            [vec![0x82, 0x00], INT64_PAST_BOUND.to_vec()].concat(),
+            Some("as ExUnits"),
+        ),
+    ] {
+        let redeemers = [vec![0xa1, 0x82, 0x00, 0x00, 0x82, 0x00], units.clone()].concat();
+        case(
+            class,
+            "witness 5 redeemer budget".into(),
+            map_of(&[(5, redeemers)]),
+            read_witnesses,
+            refused_for,
+        );
+        for key in [20, 21, 47] {
+            case(
+                class,
+                format!("update {key}"),
+                map_of(&[(key, units.clone())]),
+                read_update,
+                refused_for,
+            );
+        }
+    }
+
+    // `cost_models`, CostModels.hs 380 keys the models by Word8.
+    for (class, key, refused_for) in [
+        ("word at its bound", vec![0x18, 0xff], None),
+        ("word past its bound", vec![0x19, 0x01, 0x00], Some("u8")),
+    ] {
+        let models = [vec![0xa1], key, vec![0x80]].concat();
+        case(
+            class,
+            "update 18 cost model key".into(),
+            map_of(&[(18, models)]),
+            read_update,
+            refused_for,
+        );
+    }
+
+    // `protocol_param_update`, the Word16 and Word32 fields of the Dijkstra
+    // record in PParams.hs, with key 36 a NonZero Word32.
+    for key in [4, 8, 23, 24, 27, 43, 51, 52] {
+        case(
+            "word at its bound",
+            format!("update {key}"),
+            map_of(&[(key, WORD16_AT_BOUND.to_vec())]),
+            read_update,
+            None,
+        );
+        case(
+            "word past its bound",
+            format!("update {key}"),
+            map_of(&[(key, WORD16_PAST_BOUND.to_vec())]),
+            read_update,
+            Some("u16"),
+        );
+    }
+    for key in [
+        2, 3, 7, 22, 28, 29, 32, 34, 35, 36, 40, 41, 42, 45, 46, 48, 49, 53,
+    ] {
+        case(
+            "word at its bound",
+            format!("update {key}"),
+            map_of(&[(key, WORD32_AT_BOUND.to_vec())]),
+            read_update,
+            None,
+        );
+        case(
+            "word past its bound",
+            format!("update {key}"),
+            map_of(&[(key, WORD32_PAST_BOUND.to_vec())]),
+            read_update,
+            Some("u32"),
+        );
+    }
+    case(
+        "one where zero is refused",
+        "update 36".into(),
+        map_of(&[(36, vec![0x01])]),
+        read_update,
+        None,
+    );
+    case(
+        "zero where one is the least",
+        "update 36".into(),
+        map_of(&[(36, vec![0x00])]),
+        read_update,
+        Some("unexpected 0"),
+    );
+
+    // `positive_coin`, TxBody.hs 437 reads the donation with decodePositiveCoin.
+    for top in [true, false] {
+        let (kind, read): (&str, Read) = if top {
+            ("body", read_body)
+        } else {
+            ("sub body", read_sub_body)
+        };
+        case(
+            "one where zero is refused",
+            format!("{kind} 22 donation"),
+            body_holding(top, 22, &[0x01]),
+            read,
+            None,
+        );
+        case(
+            "zero where one is the least",
+            format!("{kind} 22 donation"),
+            body_holding(top, 22, &[0x00]),
+            read,
+            Some("as PositiveCoin"),
+        );
+    }
+
+    // `value`, MaryValue.hs 344 to 349 refuses an asset quantity of zero.
+    for (form, legacy, refused_for) in [
+        ("legacy", true, "as LegacyTransactionOutput"),
+        ("map", false, "as Value"),
+    ] {
+        for (kind, top, key) in [
+            ("body", true, 1),
+            ("body", true, 16),
+            ("sub body", false, 1),
+        ] {
+            let read: Read = if top { read_body } else { read_sub_body };
+            let enclose = |output: Vec<u8>| {
+                if key == 1 {
+                    body_holding(top, key, &[vec![0x81], output].concat())
+                } else {
+                    body_holding(top, key, &output)
+                }
+            };
+            case(
+                "one where zero is refused",
+                format!("{kind} {key} {form} output asset"),
+                enclose(output_with_quantity(legacy, 1)),
+                read,
+                None,
+            );
+            case(
+                "zero where one is the least",
+                format!("{kind} {key} {form} output asset"),
+                enclose(output_with_quantity(legacy, 0)),
+                read,
+                Some(refused_for),
+            );
+        }
+    }
+
+    cases
+}
+
+/// Every bounded position against the cardano-ledger `9df9f98c` decoder
+/// cited beside it: a value at its bound decodes, and a value past it, or a
+/// zero where the least value is one, is refused for that bound.
+#[test]
+fn every_bounded_position_refuses_a_value_the_ledger_refuses() {
+    let mut counts = std::collections::BTreeMap::<&str, usize>::new();
+
+    for case in bounded_cases() {
+        let decoded = (case.read)(&case.bytes);
+        match (case.refused_for, decoded) {
+            (None, Ok(())) => {}
+            (None, Err(err)) => panic!(
+                "{} ({}): must decode, found {err}",
+                case.position, case.class
+            ),
+            (Some(reason), Ok(())) => panic!(
+                "{} ({}): must be refused for {reason}",
+                case.position, case.class
+            ),
+            (Some(reason), Err(err)) => assert!(
+                err.to_string().contains(reason),
+                "{} ({}): refused for some other reason than {reason}: {err}",
+                case.position,
+                case.class
+            ),
+        }
+        *counts.entry(case.class).or_default() += 1;
+    }
+
+    assert_eq!(
+        counts,
+        std::collections::BTreeMap::from([
+            ("one where zero is refused", 9),
+            ("word at its bound", 46),
+            ("word past its bound", 51),
+            ("zero where one is the least", 9),
         ]),
         "a class ran on a different number of positions than the table lists"
     );

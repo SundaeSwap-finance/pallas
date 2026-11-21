@@ -18,14 +18,13 @@ use pallas_traverse::{MultiEraInput, MultiEraOutput, OriginalHash};
 use std::borrow::Cow;
 
 fn owned(input: n::TransactionInput) -> MultiEraInput<'static> {
-    MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(input)))
+    MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(input.into())))
 }
 fn batch(test: impl FnOnce(n::BlockTransaction<'_>, n::TransactionOutput<'_>)) {
     synthetic(|mut tx, input| {
         let mut sub: n::SubTransaction =
             minicbor::decode(&[0x83, 0xa2, 0x00, 0x80, 0x01, 0x80, 0xa0, 0xf6]).unwrap();
-        let mut source = tx.transaction_body.inputs[0].clone();
-        source.index = 99;
+        let source = n::TransactionInput::new(tx.transaction_body.inputs[0].transaction_id, 99);
         sub.sub_transaction_body.inputs = vec![source].into();
         // The sub consumes a full input but creates zero outputs. The top creates
         // the aggregate output. Per-level value conservation would reject this.
@@ -47,10 +46,9 @@ fn batch(test: impl FnOnce(n::BlockTransaction<'_>, n::TransactionOutput<'_>)) {
         let n::TransactionOutput::PostAlonzo(ref mut output) = outputs[0] else {
             unreachable!()
         };
-        let n::Value::Coin(ref mut coin) = output.value else {
-            unreachable!()
-        };
-        *coin += MultiEraOutput::from_dijkstra(&input).value().coin();
+        output.value = coin_value(
+            coin_of(&output.value) + MultiEraOutput::from_dijkstra(&input).value().coin(),
+        );
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
         sign(&mut tx);
@@ -71,8 +69,7 @@ fn run(
     e: &Environment,
 ) -> crate::utils::ValidationResult {
     let original = tx.transaction_body.inputs[0].clone();
-    let mut second = original.clone();
-    second.index = 99;
+    let second = n::TransactionInput::new(original.transaction_id, 99);
     let utxos = [
         (owned(original), MultiEraOutput::from_dijkstra(input)),
         (owned(second), MultiEraOutput::from_dijkstra(input)),
@@ -173,11 +170,8 @@ fn dijkstra_batch_original_inputs_and_no_double_spending() {
         error(run(&changed, &input, &env()), "DijkstraInputAlreadySpent");
         changed = tx.clone();
         change_sub(&mut changed, |sub| {
-            sub.sub_transaction_body.inputs = vec![n::TransactionInput {
-                transaction_id: [9; 32].into(),
-                index: 0,
-            }]
-            .into();
+            sub.sub_transaction_body.inputs =
+                vec![n::TransactionInput::new([9; 32].into(), 0)].into();
             sign_sub(sub);
         });
         sign(&mut changed);
@@ -221,11 +215,7 @@ fn dijkstra_batch_cannot_spend_output_created_in_same_batch() {
         sign_sub(&mut first);
         let created = Hasher::<256>::hash(&minicbor::to_vec(&first.sub_transaction_body).unwrap());
         let mut second = first.clone();
-        second.sub_transaction_body.inputs = vec![n::TransactionInput {
-            transaction_id: created,
-            index: 0,
-        }]
-        .into();
+        second.sub_transaction_body.inputs = vec![n::TransactionInput::new(created, 0)].into();
         sign_sub(&mut second);
         tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![first, second]);
         sign(&mut tx);
@@ -271,8 +261,7 @@ fn utxo_set<'b>(
     extra: &'b [(n::TransactionInput, n::TransactionOutput<'_>)],
 ) -> crate::utils::UTxOs<'b> {
     let original = tx.transaction_body.inputs[0].clone();
-    let mut second = original.clone();
-    second.index = 99;
+    let second = n::TransactionInput::new(original.transaction_id, 99);
     [
         (owned(original), MultiEraOutput::from_dijkstra(input)),
         (owned(second), MultiEraOutput::from_dijkstra(sub_input)),
@@ -295,11 +284,16 @@ fn post_alonzo<'a, 'b>(
     out
 }
 
-fn tokens(coin: u64, quantity: u64) -> pallas_primitives::conway::Value {
+fn tokens(coin: u64, quantity: u64) -> n::Value {
+    tokens_of(coin, [8; 28].into(), quantity)
+}
+
+/// A value of `coin` and `quantity` of the token under `policy`.
+fn tokens_of(coin: u64, policy: Hash<28>, quantity: u64) -> n::Value {
     pallas_primitives::conway::Value::Multiasset(
         coin,
         [(
-            [8; 28].into(),
+            policy,
             [(b"token".to_vec().into(), quantity.try_into().unwrap())]
                 .into_iter()
                 .collect(),
@@ -307,6 +301,23 @@ fn tokens(coin: u64, quantity: u64) -> pallas_primitives::conway::Value {
         .into_iter()
         .collect(),
     )
+    .try_into()
+    .unwrap()
+}
+
+/// A value of `coin` and no assets.
+fn coin_value(coin: u64) -> n::Value {
+    pallas_primitives::conway::Value::Coin(coin)
+        .try_into()
+        .unwrap()
+}
+
+/// The coin of `value`, which holds no assets.
+fn coin_of(value: &n::Value) -> u64 {
+    let pallas_primitives::conway::Value::Coin(coin) = **value else {
+        unreachable!()
+    };
+    coin
 }
 
 fn script_address() -> pallas_codec::utils::Bytes {
@@ -345,10 +356,8 @@ fn token_order_batch(
         sign_sub(&mut sub);
         tx.transaction_body.sub_transactions = n::NonEmptySet::from_vec(vec![sub]);
         let mut outputs = tx.transaction_body.outputs.clone().to_vec();
-        let n::Value::Coin(ref mut top) = post_alonzo(&mut outputs[0]).value else {
-            unreachable!()
-        };
-        *top -= order_coin;
+        let top = post_alonzo(&mut outputs[0]);
+        top.value = coin_value(coin_of(&top.value) - order_coin);
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         sign(&mut tx);
         test(tx, input, sub_input);
@@ -393,7 +402,7 @@ pub(super) fn datum_hash_output(
                 .unwrap()
                 .to_vec()
                 .into(),
-            value: n::Value::Coin(coin),
+            value: coin_value(coin),
             datum_option: Some(
                 pallas_primitives::conway::DatumOption::Hash(Hasher::<256>::hash(
                     &minicbor::to_vec(datum).unwrap(),
@@ -420,10 +429,8 @@ fn sub_output_datum_batch(
             sign_sub(sub);
         });
         let mut outputs = tx.transaction_body.outputs.clone().to_vec();
-        let n::Value::Coin(ref mut top) = post_alonzo(&mut outputs[0]).value else {
-            unreachable!()
-        };
-        *top -= coin;
+        let top = post_alonzo(&mut outputs[0]);
+        top.value = coin_value(coin_of(&top.value) - coin);
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         let data: KeepRaw<'_, n::NonEmptySet<KeepRaw<'_, n::PlutusData>>> =
             n::NonEmptySet::from_vec(vec![witnessed.into()])
@@ -536,10 +543,7 @@ fn dijkstra_batch_sub_reference_inputs_provide_scripts_within_the_size_cap() {
         let script = native(n::NativeScript::ScriptPubkey(guard_key()));
         let mut spent = sub_input.clone();
         post_alonzo(&mut spent).address = locked(script.original_hash());
-        let reference = n::TransactionInput {
-            transaction_id: [7; 32].into(),
-            index: 0,
-        };
+        let reference = n::TransactionInput::new([7; 32].into(), 0);
         let mut holder = input.clone();
         post_alonzo(&mut holder).script_ref =
             Some(CborWrap(n::ScriptRef::NativeScript(script.clone())));
@@ -1108,17 +1112,7 @@ fn dijkstra_native_signatures_are_not_met_by_bootstrap_keys() {
         )]
         .into_iter()
         .collect();
-        post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
-            coin,
-            [(
-                policy.original_hash(),
-                [(b"token".to_vec().into(), 5.try_into().unwrap())]
-                    .into_iter()
-                    .collect(),
-            )]
-            .into_iter()
-            .collect(),
-        );
+        post_alonzo(&mut outputs[0]).value = tokens_of(coin, policy.original_hash(), 5);
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         tx.transaction_body.mint = Some(minted);
         tx.transaction_witness_set.native_script = n::NonEmptySet::from_vec(vec![policy]);
@@ -1391,10 +1385,7 @@ fn dijkstra_fields_the_node_does_not_decode_are_malformed() {
             redeemed(spend_redeemer(1, 1))
         );
         for (mem, steps) in [(limit + 1, 0), (0, limit + 1)] {
-            assert_eq!(
-                redeemed(spend_redeemer(mem, steps)),
-                malformed("execution units")
-            );
+            assert!(n::ExUnits::try_from(pallas_primitives::ExUnits { mem, steps }).is_err());
         }
 
         let datums = |raw: &'static [u8]| {
@@ -1469,17 +1460,7 @@ fn dijkstra_batch_top_level_mints_under_a_native_policy() {
         };
         let mut outputs = tx.transaction_body.outputs.clone().to_vec();
         let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
-        post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
-            coin,
-            [(
-                policy.original_hash(),
-                [(b"token".to_vec().into(), 5.try_into().unwrap())]
-                    .into_iter()
-                    .collect(),
-            )]
-            .into_iter()
-            .collect(),
-        );
+        post_alonzo(&mut outputs[0]).value = tokens_of(coin, policy.original_hash(), 5);
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         tx.transaction_body.mint = Some(minted(5));
         tx.transaction_witness_set.native_script = n::NonEmptySet::from_vec(vec![policy.clone()]);
@@ -1511,17 +1492,7 @@ fn dijkstra_batch_sub_mints_under_a_native_policy() {
                 let mut changed = tx.clone();
                 let mut outputs = changed.transaction_body.outputs.clone().to_vec();
                 let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
-                post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
-                    coin,
-                    [(
-                        hash,
-                        [(b"token".to_vec().into(), 5.try_into().unwrap())]
-                            .into_iter()
-                            .collect(),
-                    )]
-                    .into_iter()
-                    .collect(),
-                );
+                post_alonzo(&mut outputs[0]).value = tokens_of(coin, hash, 5);
                 changed.transaction_body.outputs = MaybeIndefArray::Def(outputs);
                 resign(&mut changed, |sub| {
                     sub.sub_transaction_body.mint = Some(assets(quantity));
@@ -1554,17 +1525,7 @@ fn dijkstra_batch_sub_mint_names_each_asset_once() {
             let mut changed = tx.clone();
             let mut outputs = changed.transaction_body.outputs.clone().to_vec();
             let coin = MultiEraOutput::from_dijkstra(&outputs[0]).value().coin();
-            post_alonzo(&mut outputs[0]).value = pallas_primitives::conway::Value::Multiasset(
-                coin,
-                [(
-                    hash,
-                    [(b"token".to_vec().into(), 5.try_into().unwrap())]
-                        .into_iter()
-                        .collect(),
-                )]
-                .into_iter()
-                .collect(),
-            );
+            post_alonzo(&mut outputs[0]).value = tokens_of(coin, hash, 5);
             changed.transaction_body.outputs = MaybeIndefArray::Def(outputs);
             resign(&mut changed, |sub| {
                 let mint: n::Multiasset<n::NonZeroInt> = [(
@@ -1642,10 +1603,7 @@ fn reference_holder<'a>(
 ) -> (n::TransactionInput, n::TransactionOutput<'a>) {
     let mut holder = input.clone();
     post_alonzo(&mut holder).script_ref = Some(CborWrap(n::ScriptRef::NativeScript(script)));
-    let reference = n::TransactionInput {
-        transaction_id: [7; 32].into(),
-        index: 0,
-    };
+    let reference = n::TransactionInput::new([7; 32].into(), 0);
     (reference, holder)
 }
 
@@ -1715,10 +1673,8 @@ fn dijkstra_batch_top_level_withdraws_under_a_native_script() {
             1_000_000,
         )]));
         let mut outputs = tx.transaction_body.outputs.clone().to_vec();
-        let n::Value::Coin(ref mut coin) = post_alonzo(&mut outputs[0]).value else {
-            unreachable!()
-        };
-        *coin += 1_000_000;
+        let top = post_alonzo(&mut outputs[0]);
+        top.value = coin_value(coin_of(&top.value) + 1_000_000);
         tx.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         tx.transaction_witness_set.native_script = n::NonEmptySet::from_vec(vec![script]);
         sign(&mut tx);
@@ -1871,7 +1827,9 @@ fn spend_redeemer(mem: u64, steps: u64) -> KeepRaw<'static, n::Redeemers> {
         },
         n::RedeemersValue {
             data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
-            ex_units: pallas_primitives::ExUnits { mem, steps },
+            ex_units: pallas_primitives::ExUnits { mem, steps }
+                .try_into()
+                .unwrap(),
         },
     )]
     .into_iter()

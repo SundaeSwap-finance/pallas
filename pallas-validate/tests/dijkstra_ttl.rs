@@ -21,8 +21,8 @@ fn ratio(v: &Value) -> n::RationalNumber {
     }
 }
 
-fn units(v: &Value) -> n::ExUnits {
-    n::ExUnits {
+fn units(v: &Value) -> pallas_primitives::ExUnits {
+    pallas_primitives::ExUnits {
         mem: number(&v["memory"]),
         steps: number(&v["steps"]),
     }
@@ -31,11 +31,11 @@ fn units(v: &Value) -> n::ExUnits {
 struct Fixture {
     transaction: Vec<u8>,
     transaction_id: String,
-    inputs: Vec<(n::TransactionInput, Vec<u8>)>,
+    inputs: Vec<(pallas_primitives::TransactionInput, Vec<u8>)>,
     env: Environment,
     slots: phase2::script_context::SlotConfig,
     stability_window: u64,
-    expected: n::ExUnits,
+    expected: pallas_primitives::ExUnits,
 }
 
 fn fixture_root() -> PathBuf {
@@ -194,7 +194,7 @@ impl Fixture {
                 .iter()
                 .map(|x| {
                     (
-                        n::TransactionInput {
+                        pallas_primitives::TransactionInput {
                             transaction_id: x["hash"].as_str().unwrap().parse().unwrap(),
                             index: number(&x["index"]),
                         },

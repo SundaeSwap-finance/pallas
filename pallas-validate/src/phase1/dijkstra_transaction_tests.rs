@@ -257,7 +257,7 @@ fn dijkstra_auxiliary_array_holds_exactly_two_elements() {
         }
     });
 }
-fn value(coin: u64, policy: Hash<28>, quantity: u64) -> c::Value {
+fn value(coin: u64, policy: Hash<28>, quantity: u64) -> n::Value {
     c::Value::Multiasset(
         coin,
         BTreeMap::from([(
@@ -265,6 +265,8 @@ fn value(coin: u64, policy: Hash<28>, quantity: u64) -> c::Value {
             BTreeMap::from([(b"token".to_vec().into(), quantity.try_into().unwrap())]),
         )]),
     )
+    .try_into()
+    .unwrap()
 }
 #[test]
 fn dijkstra_multiasset_conservation_and_script_output() {
@@ -395,10 +397,7 @@ mod scripts {
             let hash = s.compute_hash();
             let original = tx.transaction_body.inputs[0].clone();
             let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
-            let script_input = n::TransactionInput {
-                transaction_id: Hash::from([255; 32]),
-                index: 1,
-            };
+            let script_input = n::TransactionInput::new(Hash::from([255; 32]), 1);
             let mut locked = input.clone();
             let o = output_mut(&mut locked);
             o.address = pallas_addresses::ShelleyAddress::new(
@@ -435,10 +434,7 @@ mod scripts {
             tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![original.clone()]);
             let mut inputs = vec![(original, input.clone()), (script_input, locked)];
             if reference {
-                let reference = n::TransactionInput {
-                    transaction_id: Hash::from([2; 32]),
-                    index: 0,
-                };
+                let reference = n::TransactionInput::new(Hash::from([2; 32]), 0);
                 let mut output = input.clone();
                 output_mut(&mut output).script_ref =
                     Some(CborWrap(n::ScriptRef::PlutusV3Script(s)));
@@ -457,10 +453,7 @@ mod scripts {
                         },
                         n::RedeemersValue {
                             data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
-                            ex_units: n::ExUnits {
-                                mem: 50_000,
-                                steps: 5_000_000,
-                            },
+                            ex_units: dijkstra_tests::declared(50_000, 5_000_000),
                         },
                     ),
                     (
@@ -470,10 +463,7 @@ mod scripts {
                         },
                         n::RedeemersValue {
                             data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
-                            ex_units: n::ExUnits {
-                                mem: 50_000,
-                                steps: 5_000_000,
-                            },
+                            ex_units: dijkstra_tests::declared(50_000, 5_000_000),
                         },
                     ),
                     (
@@ -483,10 +473,7 @@ mod scripts {
                         },
                         n::RedeemersValue {
                             data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
-                            ex_units: n::ExUnits {
-                                mem: 50_000,
-                                steps: 5_000_000,
-                            },
+                            ex_units: dijkstra_tests::declared(50_000, 5_000_000),
                         },
                     ),
                 ]))
@@ -512,10 +499,7 @@ mod scripts {
                     .unwrap()
                     .to_owned();
                 let hash = native.original_hash();
-                let input = n::TransactionInput {
-                    transaction_id: Hash::from([0; 32]),
-                    index: 0,
-                };
+                let input = n::TransactionInput::new(Hash::from([0; 32]), 0);
                 let mut out = inputs[0].1.clone();
                 let o = output_mut(&mut out);
                 o.address = pallas_addresses::ShelleyAddress::new(
@@ -525,7 +509,7 @@ mod scripts {
                 )
                 .to_vec()
                 .into();
-                o.value = c::Value::Coin(5_000_000);
+                o.value = dijkstra_tests::coin_value(5_000_000);
                 // Native spends require no datum, even when the output has a hash.
                 o.datum_option = Some(c::DatumOption::Hash(Hash::from([42; 32])).into());
                 if reference {
@@ -538,9 +522,11 @@ mod scripts {
                 let mut spending = tx.transaction_body.inputs.to_vec();
                 spending.push(input);
                 tx.transaction_body.inputs = spending.into();
-                if let c::Value::Multiasset(coin, _) = &mut output_mut(first_output(&mut tx)).value
-                {
-                    *coin += 5_000_000;
+                let first = output_mut(first_output(&mut tx));
+                if let c::Value::Multiasset(coin, assets) = &*first.value {
+                    first.value = c::Value::Multiasset(coin + 5_000_000, assets.clone())
+                        .try_into()
+                        .unwrap();
                 }
                 let redeemers = &mut tx.transaction_witness_set.redeemer.as_mut().unwrap().0;
                 let old = n::RedeemersKey {
@@ -679,7 +665,7 @@ mod scripts {
                     .0
                     .values_mut()
                 {
-                    value.ex_units = n::ExUnits { mem: 0, steps: 0 };
+                    value.ex_units = dijkstra_tests::declared(0, 0);
                 }
                 tx.transaction_witness_set.vkeywitness = None;
                 assert!(
@@ -856,7 +842,7 @@ mod scripts {
         case(false, PASS, |mut tx, inputs, env, state| {
             let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
             for r in rs.0.values_mut() {
-                r.ex_units = n::ExUnits { mem: 0, steps: 0 };
+                r.ex_units = dijkstra_tests::declared(0, 0);
             }
             tx.transaction_witness_set.redeemer = Some(rs.into());
             seal(&mut tx, &env);
@@ -869,15 +855,17 @@ mod scripts {
             );
             let mut rs = (**tx.transaction_witness_set.redeemer.as_ref().unwrap()).clone();
             for r in rs.0.values_mut() {
-                r.ex_units = n::ExUnits {
-                    mem: u64::MAX,
-                    steps: 0,
-                };
+                r.ex_units = dijkstra_tests::declared(i64::MAX as u64, 0);
             }
             tx.transaction_witness_set.redeemer = Some(rs.into());
             seal(&mut tx, &env);
             assert!(run(&tx, &inputs, &env, &state).is_err());
-            assert!(evaluate(&tx, &inputs, &env).is_err());
+            assert!(
+                evaluate(&tx, &inputs, &env)
+                    .unwrap()
+                    .iter()
+                    .all(|r| !r.success)
+            );
         });
     }
     #[test]
@@ -951,10 +939,7 @@ mod scripts {
     fn dijkstra_legacy_top_level_refuses_a_sub_output_datum() {
         case(false, PASS, |mut tx, mut inputs, env, state| {
             let datum = n::PlutusData::BigInt(n::BigInt::Int(43.into()));
-            let source = n::TransactionInput {
-                transaction_id: Hash::from([254; 32]),
-                index: 0,
-            };
+            let source = n::TransactionInput::new(Hash::from([254; 32]), 0);
             let coin = MultiEraOutput::from_dijkstra(&inputs[0].1).value().coin();
             let paid = batches::datum_hash_output(&inputs[0].1, coin, &datum);
             inputs.push((source.clone(), inputs[0].1.clone()));
@@ -1043,10 +1028,7 @@ mod scripts {
     #[test]
     fn dijkstra_collateral_assets_and_annotations() {
         case(false, PASS, |mut tx, mut inputs, env, state| {
-            let id = n::TransactionInput {
-                transaction_id: Hash::from([12; 32]),
-                index: 0,
-            };
+            let id = n::TransactionInput::new(Hash::from([12; 32]), 0);
             let mut collateral = inputs[0].1.clone();
             output_mut(&mut collateral).value = value(3_000_000, Hash::from([10; 28]), 3);
             let returned = n::TransactionOutput::PostAlonzo(
@@ -1107,12 +1089,9 @@ mod scripts {
     #[test]
     fn dijkstra_pointer_addresses_are_refused_only_in_collateral_returns() {
         case(false, PASS, |mut tx, mut inputs, env, state| {
-            let id = n::TransactionInput {
-                transaction_id: Hash::from([12; 32]),
-                index: 0,
-            };
+            let id = n::TransactionInput::new(Hash::from([12; 32]), 0);
             let mut collateral = inputs[0].1.clone();
-            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            output_mut(&mut collateral).value = dijkstra_tests::coin_value(3_000_000);
             let pallas_addresses::Address::Shelley(plain) =
                 MultiEraOutput::from_dijkstra(&collateral)
                     .address()
@@ -1132,7 +1111,7 @@ mod scripts {
             let returned = n::TransactionOutput::PostAlonzo(
                 n::PostAlonzoTransactionOutput {
                     address: plain.to_vec().into(),
-                    value: c::Value::Coin(1_500_000),
+                    value: dijkstra_tests::coin_value(1_500_000),
                     datum_option: None,
                     script_ref: None,
                 }
@@ -1158,10 +1137,7 @@ mod scripts {
     fn dijkstra_byron_collateral_needs_its_bootstrap_witness() {
         use crate::phase1::dijkstra_batch_tests as byron;
         case(false, PASS, |mut tx, mut inputs, env, state| {
-            let id = n::TransactionInput {
-                transaction_id: Hash::from([12; 32]),
-                index: 0,
-            };
+            let id = n::TransactionInput::new(Hash::from([12; 32]), 0);
             let mut collateral = inputs[0].1.clone();
             let returned = n::TransactionOutput::PostAlonzo(
                 n::PostAlonzoTransactionOutput {
@@ -1170,13 +1146,13 @@ mod scripts {
                         .unwrap()
                         .to_vec()
                         .into(),
-                    value: c::Value::Coin(1_500_000),
+                    value: dijkstra_tests::coin_value(1_500_000),
                     datum_option: None,
                     script_ref: None,
                 }
                 .into(),
             );
-            output_mut(&mut collateral).value = c::Value::Coin(3_000_000);
+            output_mut(&mut collateral).value = dijkstra_tests::coin_value(3_000_000);
             output_mut(&mut collateral).address = byron::byron_address();
             inputs.push((id.clone(), collateral));
             tx.transaction_body.collateral = n::NonEmptySet::from_vec(vec![id]);
@@ -1308,10 +1284,7 @@ mod scripts {
             .map(|(name, raw)| {
                 let parts: Vec<_> = name.split('.').collect();
                 (
-                    n::TransactionInput {
-                        transaction_id: parts[0].parse().unwrap(),
-                        index: parts[1].parse().unwrap(),
-                    },
+                    n::TransactionInput::new(parts[0].parse().unwrap(), parts[1].parse().unwrap()),
                     minicbor::decode::<n::TransactionOutput>(raw).unwrap(),
                 )
             })
@@ -1356,7 +1329,7 @@ mod scripts {
                     .find(|(key, _)| key.tag as u8 == r.tag as u8 && key.index == r.index)
                     .unwrap();
                 assert_eq!(
-                    r.units, declared.ex_units,
+                    r.units, *declared.ex_units,
                     "exact original builder budget for {key:?}"
                 );
             }
@@ -1595,8 +1568,12 @@ fn dijkstra_invalid_multiasset_encodings() {
                 }
             }
             let raw = e.into_writer();
-            let decoded: n::TransactionOutput = minicbor::decode(&raw).unwrap();
-            let n::TransactionOutput::Legacy(decoded) = decoded else {
+            let decoded = minicbor::decode::<n::TransactionOutput>(&raw);
+            if amount == 0 {
+                assert!(decoded.is_err());
+                continue;
+            }
+            let n::TransactionOutput::Legacy(decoded) = decoded.unwrap() else {
                 panic!()
             };
             tx.transaction_body.outputs =
@@ -1708,8 +1685,7 @@ fn dijkstra_a_stated_treasury_equals_the_ledger_treasury() {
 #[test]
 fn dijkstra_stake_pools_vote_only_on_security_relevant_parameter_changes() {
     dijkstra_tests::synthetic(|tx, input| {
-        let mut second = tx.transaction_body.inputs[0].clone();
-        second.index = 99;
+        let second = n::TransactionInput::new(tx.transaction_body.inputs[0].transaction_id, 99);
         let inputs = vec![
             (tx.transaction_body.inputs[0].clone(), input.clone()),
             (second.clone(), input),
@@ -1724,22 +1700,24 @@ fn dijkstra_stake_pools_vote_only_on_security_relevant_parameter_changes() {
             let bytes: &'static [u8] =
                 Box::leak(minicbor::to_vec(&proposal).unwrap().into_boxed_slice());
             let proposal: n::BlockTransaction = minicbor::decode(bytes).unwrap();
-            let id = n::GovActionId {
-                transaction_id: Hasher::<256>::hash(proposal.transaction_body.raw_cbor()),
-                action_index: 0,
-            };
+            let id =
+                n::GovActionId::new(Hasher::<256>::hash(proposal.transaction_body.raw_cbor()), 0);
             let mut vote = tx.clone();
             vote.transaction_body.inputs = vec![second.clone()].into();
-            vote.transaction_body.voting_procedures = Some(BTreeMap::from([(
-                n::Voter::StakePoolKey(test_key()),
+            vote.transaction_body.voting_procedures = Some(
                 BTreeMap::from([(
-                    id,
-                    n::VotingProcedure {
-                        vote: n::Vote::Yes,
-                        anchor: None,
-                    },
-                )]),
-            )]));
+                    n::Voter::StakePoolKey(test_key()),
+                    BTreeMap::from([(
+                        c::GovActionId::from(id),
+                        n::VotingProcedure {
+                            vote: n::Vote::Yes,
+                            anchor: None,
+                        },
+                    )]),
+                )])
+                .try_into()
+                .unwrap(),
+            );
             dijkstra_tests::sign(&mut vote);
             validate_txs(
                 &[
@@ -1765,22 +1743,19 @@ fn dijkstra_stake_pools_vote_only_on_security_relevant_parameter_changes() {
 fn dijkstra_a_hard_fork_follows_its_predecessor_up_to_the_highest_major_version() {
     dijkstra_tests::synthetic(|tx, input| {
         let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
-        let pending = n::GovActionId {
-            transaction_id: [3; 32].into(),
-            action_index: 0,
-        };
+        let pending = n::GovActionId::new([3; 32].into(), 0);
         let mut state = registered(0);
         state.dijkstra.proposals.push((
-            pending.clone(),
+            pending.clone().into(),
             DijkstraProposal {
                 action: DijkstraProposalAction::HardForkInitiation { version: (13, 0) },
                 expires_after: 100,
             },
         ));
-        let proposing = |prev: Option<&n::GovActionId>, version| {
+        let proposing = |prev: Option<&n::GovActionId>, version: (u64, u64)| {
             let tx = with_proposal(
                 &tx,
-                n::GovAction::HardForkInitiation(prev.cloned(), version),
+                n::GovAction::HardForkInitiation(prev.cloned(), version.try_into().unwrap()),
             );
             run(&tx, &inputs, &free_env(), &state)
         };
@@ -1788,8 +1763,9 @@ fn dijkstra_a_hard_fork_follows_its_predecessor_up_to_the_highest_major_version(
             let result = proposing(prev, version);
             assert!(result.is_ok(), "{version:?} {result:?}");
         }
+        assert!(n::ProtocolVersion::try_from((14, 0)).is_err());
         dijkstra_tests::error(
-            proposing(Some(&pending), (14, 0)),
+            proposing(Some(&pending), (13, 2)),
             "DijkstraInvalidGovernance(\"hard fork version cannot follow\")",
         );
     });
@@ -1847,10 +1823,7 @@ fn dijkstra_a_balance_interval_excludes_its_upper_bound() {
 #[test]
 fn dijkstra_collateral_inputs_are_at_most_the_maximum() {
     dijkstra_tests::synthetic(|tx, input| {
-        let collateral = |index| n::TransactionInput {
-            transaction_id: [12; 32].into(),
-            index,
-        };
+        let collateral = |index| n::TransactionInput::new([12; 32].into(), index);
         let inputs = vec![
             (tx.transaction_body.inputs[0].clone(), input.clone()),
             (collateral(0), input.clone()),
@@ -1877,10 +1850,7 @@ fn dijkstra_collateral_inputs_are_at_most_the_maximum() {
 #[test]
 fn dijkstra_script_locked_collateral_is_allowed_without_redeemers() {
     dijkstra_tests::synthetic(|mut tx, input| {
-        let collateral = n::TransactionInput {
-            transaction_id: [12; 32].into(),
-            index: 0,
-        };
+        let collateral = n::TransactionInput::new([12; 32].into(), 0);
         let mut locked = input.clone();
         output_mut(&mut locked).address = pallas_addresses::ShelleyAddress::new(
             pallas_addresses::Network::Testnet,
@@ -1917,7 +1887,7 @@ fn dijkstra_min_fee_prices_memory_and_steps_separately() {
                     },
                     n::RedeemersValue {
                         data: n::PlutusData::BigInt(n::BigInt::Int(0.into())),
-                        ex_units: n::ExUnits { mem, steps },
+                        ex_units: dijkstra_tests::declared(mem, steps),
                     },
                 )]))));
             dijkstra::dijkstra_min_fee(&tx, &utxos(&inputs), &pp).unwrap()
@@ -1969,6 +1939,8 @@ fn dijkstra_output_asset_names_are_at_most_32_bytes() {
                     BTreeMap::from([(name.into(), 1u64.try_into().unwrap())]),
                 )]),
             )
+            .try_into()
+            .unwrap()
         };
         let coin = MultiEraOutput::from_dijkstra(&input).value().coin();
         output_mut(&mut input).value = named(coin, vec![1; 32]);

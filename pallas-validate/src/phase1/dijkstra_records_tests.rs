@@ -69,7 +69,7 @@ fn check(
         .map(|(input, output)| {
             let input: n::TransactionInput = minicbor::decode(input).unwrap();
             (
-                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(input))),
+                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(input.into()))),
                 MultiEraOutput::decode(Era::Dijkstra, output).unwrap(),
             )
         })
@@ -346,9 +346,9 @@ fn sent_to<'b>(output: &n::TransactionOutput<'b>, address: &[u8]) -> n::Transact
             n::TransactionOutput::PostAlonzo(o.into())
         }
         n::TransactionOutput::Legacy(o) => {
-            let mut o = (**o).clone();
+            let mut o = pallas_primitives::alonzo::TransactionOutput::from((**o).clone());
             o.address = address.to_vec().into();
-            n::TransactionOutput::Legacy(o.into())
+            n::TransactionOutput::Legacy(n::LegacyTransactionOutput::try_from(o).unwrap().into())
         }
     }
 }

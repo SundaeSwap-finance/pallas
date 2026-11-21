@@ -339,13 +339,13 @@ impl<'b> MultiEraUpdate<'b> {
     // -- NEW IN DIJKSTRA
     // the four reference script parameters, keys 34 to 37
     #[cfg(feature = "unstable")]
-    param_boilerplate!(max_ref_script_size_per_block: u64, [], unstable [Dijkstra]);
+    param_boilerplate!(max_ref_script_size_per_block: u32, [], unstable [Dijkstra]);
 
     #[cfg(feature = "unstable")]
-    param_boilerplate!(max_ref_script_size_per_tx: u64, [], unstable [Dijkstra]);
+    param_boilerplate!(max_ref_script_size_per_tx: u32, [], unstable [Dijkstra]);
 
     #[cfg(feature = "unstable")]
-    param_boilerplate!(ref_script_cost_stride: u64, [], unstable [Dijkstra]);
+    param_boilerplate!(ref_script_cost_stride: std::num::NonZeroU32, [], unstable [Dijkstra]);
 
     #[cfg(feature = "unstable")]
     param_boilerplate!(ref_script_cost_multiplier: dijkstra::PositiveInterval, [], unstable [Dijkstra]);

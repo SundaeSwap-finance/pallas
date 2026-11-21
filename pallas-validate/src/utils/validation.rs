@@ -228,12 +228,10 @@ labels! {
         EmptyStartingAccountBalanceIntervals => "empty starting account balance intervals",
         EmptyVotingProcedures => "empty voting procedures",
         EmptyWithdrawals => "empty withdrawals",
-        ExecutionUnits => "execution units",
         KeyWitness => "key witness",
         Metadata => "metadata",
         MultiAssetValue => "multi-asset value",
         ProtocolParameterUpdate => "protocol parameter update",
-        ZeroDonation => "zero donation",
     }
 }
 

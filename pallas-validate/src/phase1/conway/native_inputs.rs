@@ -199,7 +199,7 @@ fn synthetic_output<'a>(
         TransactionOutput::PostAlonzo(
             PostAlonzoTransactionOutput {
                 address: address.into(),
-                value: Value::Coin(5_000_000),
+                value: Value::Coin(5_000_000).try_into().unwrap(),
                 datum_option: datum.map(Into::into),
                 script_ref: script.map(CborWrap),
             }
@@ -755,8 +755,10 @@ fn native_collateral_assets_and_annotations_are_checked() {
                 [(Bytes::from(vec![5]), 7u64.try_into().unwrap())].into(),
             )]
             .into(),
-        );
-        let value = inner.value.clone();
+        )
+        .try_into()
+        .unwrap();
+        let value = Value::clone(&inner.value);
         *utxos.get_mut(&owned_input(&input)).unwrap() = output;
         expect(
             check_collaterals(&tx.transaction_body, &utxos, &params),

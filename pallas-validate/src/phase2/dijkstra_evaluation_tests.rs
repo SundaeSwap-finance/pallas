@@ -123,6 +123,14 @@ fn change_redeemer(
     w.redeemer = Some(n::Redeemers(redeemers).into());
     tx.transaction_witness_set = w.into();
 }
+/// A redeemer budget of `mem` and `steps`.
+fn declared(mem: u64, steps: u64) -> n::ExUnits {
+    c::ExUnits { mem, steps }.try_into().unwrap()
+}
+/// A value of `coin` and no assets.
+fn coin_value(coin: u64) -> n::Value {
+    c::Value::Coin(coin).try_into().unwrap()
+}
 fn error(result: Result<MultiEraEvalReport, Error>, expected: &str) {
     let actual = format!("{:?}", result.expect_err(expected));
     assert!(
@@ -432,7 +440,7 @@ fn native_registration_guard_reference_context() {
                     n::TransactionOutput::PostAlonzo(
                         n::PostAlonzoTransactionOutput {
                             address: view.address().unwrap().to_vec().into(),
-                            value: view.value().into_conway(),
+                            value: view.value().into_conway().try_into().unwrap(),
                             datum_option: view.datum().map(|d| {
                                 match d {
                                     c::DatumOption::Hash(h) => c::DatumOption::Hash(h),
@@ -455,10 +463,7 @@ fn native_registration_guard_reference_context() {
                         u.insert(key, EraCbor(Era::Dijkstra, encoded));
                     }
                     "reference" => {
-                        let extra = n::TransactionInput {
-                            transaction_id: [7; 32].into(),
-                            index: 0,
-                        };
+                        let extra = n::TransactionInput::new([7; 32].into(), 0);
                         let mut body = (*tx.transaction_body).clone();
                         let mut refs = body.reference_inputs.as_ref().unwrap().to_vec();
                         refs.push(extra.clone());
@@ -483,7 +488,7 @@ fn native_registration_guard_reference_context() {
                 assert!(report[0].success, "{carrier} nested={nested}: {report:?}");
                 assert_eq!(
                     report[0].units,
-                    n::ExUnits {
+                    c::ExUnits {
                         mem: 18485,
                         steps: 4805428
                     }
@@ -572,10 +577,11 @@ fn native_registration_invalid_redeemer_and_budget() {
         for (mem, remaining) in [(true, 0), (false, 0), (true, 18484), (false, 4805427)] {
             let mut exhausted = tx.clone();
             change_redeemer(&mut exhausted, |_, v| {
-                if mem {
-                    v.ex_units.mem = remaining
+                let units = *v.ex_units;
+                v.ex_units = if mem {
+                    declared(remaining, units.steps)
                 } else {
-                    v.ex_units.steps = remaining
+                    declared(units.mem, remaining)
                 }
             });
             let result = run(&exhausted, &u).unwrap();
@@ -583,8 +589,10 @@ fn native_registration_invalid_redeemer_and_budget() {
             assert!(result[0].failure_message.is_some());
         }
         let mut excess = tx.clone();
-        change_redeemer(&mut excess, |_, v| v.ex_units.steps = u64::MAX);
-        error(run(&excess, &u), "CPU budget overflow");
+        change_redeemer(&mut excess, |_, v| {
+            v.ex_units = declared(v.ex_units.mem, i64::MAX as u64)
+        });
+        assert!(run(&excess, &u).unwrap()[0].success);
     });
 }
 #[test]
@@ -872,7 +880,7 @@ fn native_registration_refuses_a_pointer_output_in_a_v4_context_only() {
             outputs.push(n::TransactionOutput::PostAlonzo(
                 n::PostAlonzoTransactionOutput {
                     address: address.to_vec().into(),
-                    value: c::Value::Coin(1),
+                    value: coin_value(1),
                     datum_option: None,
                     script_ref: None,
                 }
@@ -925,7 +933,7 @@ fn native_registration_refuses_a_byron_or_reward_account_output_in_every_context
                 outputs.push(n::TransactionOutput::PostAlonzo(
                     n::PostAlonzoTransactionOutput {
                         address: address.clone().into(),
-                        value: c::Value::Coin(1),
+                        value: coin_value(1),
                         datum_option: None,
                         script_ref: None,
                     }
@@ -1194,7 +1202,7 @@ fn native_registration_runs_beside_a_v1_or_v2_script_it_does_not_need() {
             let o = n::TransactionOutput::PostAlonzo(
                 n::PostAlonzoTransactionOutput {
                     address: legacy.address.clone(),
-                    value: c::Value::Coin(coin),
+                    value: coin_value(coin),
                     datum_option: None,
                     script_ref: Some(pallas_codec::utils::CborWrap(s)),
                 }
@@ -1266,7 +1274,12 @@ fn native_registration_features_and_protocols() {
                     "evaluates"
                 }
                 6 => {
-                    b.donation = Some(1.try_into().unwrap());
+                    b.donation = Some(
+                        pallas_primitives::PositiveCoin::try_from(1)
+                            .unwrap()
+                            .try_into()
+                            .unwrap(),
+                    );
                     "evaluates"
                 }
                 7 => {
@@ -1299,7 +1312,7 @@ fn native_registration_features_and_protocols() {
                     "evaluates"
                 }
                 12 => {
-                    b.voting_procedures = Some(Default::default());
+                    b.voting_procedures = Some(c::VotingProcedures::default().try_into().unwrap());
                     "evaluates"
                 }
                 13 => {
@@ -1356,7 +1369,7 @@ fn native_guard_reference_hash_reaches_v3_script() {
             let carried = n::TransactionOutput::PostAlonzo(
                 n::PostAlonzoTransactionOutput {
                     address: view.address().unwrap().to_vec().into(),
-                    value: view.value().into_conway(),
+                    value: view.value().into_conway().try_into().unwrap(),
                     datum_option: None,
                     script_ref: Some(CborWrap(n::ScriptRef::NativeScript(
                         native.clone().to_owned(),
@@ -1439,12 +1452,7 @@ fn native_registration_resolves_synthetic_earlier_era_outputs() {
         );
         let key = TxoRef([0x77; 32].into(), 0);
         let mut body = (*tx.transaction_body).clone();
-        body.inputs = vec![n::TransactionInput {
-            transaction_id: key.0,
-            index: 0,
-        }]
-        .try_into()
-        .unwrap();
+        body.inputs = vec![n::TransactionInput::new(key.0, 0)].try_into().unwrap();
         tx.transaction_body = body.into();
         for output in earlier {
             let era = output.0;
@@ -1475,12 +1483,7 @@ fn native_registration_refuses_a_spent_input_at_a_reward_account() {
         );
         let key = TxoRef([0x77; 32].into(), 0);
         let mut body = (*tx.transaction_body).clone();
-        body.inputs = vec![n::TransactionInput {
-            transaction_id: key.0,
-            index: 0,
-        }]
-        .try_into()
-        .unwrap();
+        body.inputs = vec![n::TransactionInput::new(key.0, 0)].try_into().unwrap();
         tx.transaction_body = body.into();
         u.insert(
             key,
@@ -1556,12 +1559,7 @@ fn native_registration_protocol12_bytestring_operand_boundary() {
             Some(n::ScriptRef::PlutusV3Script(script(&source))),
             true,
         );
-        change_redeemer(&mut tx, |_, v| {
-            v.ex_units = n::ExUnits {
-                mem: 1000000,
-                steps: 1000000000,
-            }
-        });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(1000000, 1000000000));
         let r = run(&tx, &u).unwrap();
         assert!(
             !r[0].success,
@@ -1583,10 +1581,7 @@ fn export_registration_cli_comparison() {
                 true,
             );
             change_redeemer(&mut tx, |_, v| {
-                v.ex_units = n::ExUnits {
-                    mem: 16_500_000,
-                    steps: 10_000_000_000,
-                }
+                v.ex_units = declared(16_500_000, 10_000_000_000)
             });
         }
         let directory = root;

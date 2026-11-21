@@ -252,13 +252,21 @@ fn a_top_guard_sees_each_account_direct_deposit_summed_over_the_batch() {
     );
 }
 
+/// A donation of `coin`.
+fn donation(coin: u64) -> n::PositiveCoin {
+    pallas_primitives::PositiveCoin::try_from(coin)
+        .unwrap()
+        .try_into()
+        .unwrap()
+}
+
 #[test]
 fn a_top_guard_sees_the_donations_summed_over_the_batch() {
     let view = batch_view(|top, sub| {
-        top.donation = Some(4_000_000.try_into().unwrap());
-        sub.donation = Some(3_000_000.try_into().unwrap());
+        top.donation = Some(donation(4_000_000));
+        sub.donation = Some(donation(3_000_000));
     });
     assert_eq!(at(&view, 17), &lovelace(7_000_000));
-    let view = batch_view(|top, _| top.donation = Some(4_000_000.try_into().unwrap()));
+    let view = batch_view(|top, _| top.donation = Some(donation(4_000_000)));
     assert_eq!(at(&view, 17), &lovelace(4_000_000));
 }

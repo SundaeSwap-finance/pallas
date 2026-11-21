@@ -168,7 +168,9 @@ mod tests {
         n::TransactionOutput::PostAlonzo(
             n::PostAlonzoTransactionOutput {
                 address: [vec![0x60], vec![1; 28]].concat().into(),
-                value: n::Value::Coin(2_000_000),
+                value: pallas_primitives::conway::Value::Coin(2_000_000)
+                    .try_into()
+                    .unwrap(),
                 datum_option: Some(datum.into()),
                 script_ref: None,
             }

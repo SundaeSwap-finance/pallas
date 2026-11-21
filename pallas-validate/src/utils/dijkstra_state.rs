@@ -1,10 +1,7 @@
 //! The ledger state a Dijkstra transaction reads, and the changes a transaction makes to it.
 use super::ValidationError;
 use pallas_crypto::hash::Hash;
-use pallas_primitives::{
-    Coin, Epoch,
-    dijkstra::{GovActionId, StakeCredential},
-};
+use pallas_primitives::{Coin, Epoch, conway::GovActionId, dijkstra::StakeCredential};
 use std::collections::{BTreeMap, HashMap};
 
 /// A registered stake account.

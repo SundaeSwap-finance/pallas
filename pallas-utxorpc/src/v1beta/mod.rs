@@ -587,7 +587,7 @@ mod tests {
             .as_dijkstra()
             .expect("dijkstra3 carries a Dijkstra transaction")
             .clone();
-        dijkstra_tx.transaction_body.voting_procedures = Some(procedures);
+        dijkstra_tx.transaction_body.voting_procedures = Some(procedures.try_into().unwrap());
 
         let mapper = Mapper::new(NoLedger);
         let from_conway = mapper.map_votes(&trv::MultiEraTx::from_conway(&conway_tx));

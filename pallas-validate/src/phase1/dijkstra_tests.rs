@@ -141,7 +141,7 @@ fn dispatch(
 ) -> crate::utils::ValidationResult {
     let input = tx.transaction_body.inputs[0].clone();
     let utxos = [(
-        MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(input))),
+        MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(input.into()))),
         output.clone(),
     )]
     .into_iter()
@@ -163,6 +163,18 @@ fn captured(test: impl FnOnce(native::BlockTransaction<'_>, MultiEraOutput<'_>))
 }
 pub(super) fn error(result: crate::utils::ValidationResult, expected: &str) {
     assert_eq!(format!("{:?}", result.unwrap_err()), expected);
+}
+
+/// A value of `coin` and no assets.
+pub(super) fn coin_value(coin: u64) -> native::Value {
+    conway::Value::Coin(coin).try_into().unwrap()
+}
+
+/// A redeemer budget of `mem` and `steps`.
+pub(super) fn declared(mem: u64, steps: u64) -> native::ExUnits {
+    pallas_primitives::ExUnits { mem, steps }
+        .try_into()
+        .unwrap()
 }
 
 #[test]
@@ -251,7 +263,7 @@ pub(super) fn synthetic(
             MaybeIndefArray::Def(vec![native::TransactionOutput::PostAlonzo(
                 native::PostAlonzoTransactionOutput {
                     address: address.clone().into(),
-                    value: conway::Value::Coin(output.value().coin() - tx.transaction_body.fee),
+                    value: coin_value(output.value().coin() - tx.transaction_body.fee),
                     datum_option: None,
                     script_ref: None,
                 }
@@ -260,7 +272,7 @@ pub(super) fn synthetic(
         let input = native::TransactionOutput::PostAlonzo(
             native::PostAlonzoTransactionOutput {
                 address: address.into(),
-                value: conway::Value::Coin(output.value().coin()),
+                value: coin_value(output.value().coin()),
                 datum_option: None,
                 script_ref: None,
             }
@@ -342,7 +354,7 @@ fn dijkstra_pool_metadata_hash_is_at_most_32_bytes() {
                     .unwrap(),
                     reward_account: account.clone().into(),
                     pool_owners: vec![].into(),
-                    relays: vec![],
+                    relays: vec![].try_into().unwrap(),
                     pool_metadata: Some(metadata),
                 }]);
             sign(&mut tx);
@@ -357,18 +369,9 @@ fn dijkstra_pool_metadata_hash_is_at_most_32_bytes() {
 #[test]
 fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold() {
     synthetic(|mut tx, input| {
-        let collateral = native::TransactionInput {
-            transaction_id: [12; 32].into(),
-            index: 0,
-        };
-        let unsigned = native::TransactionInput {
-            transaction_id: [13; 32].into(),
-            index: 0,
-        };
-        let missing = native::TransactionInput {
-            transaction_id: [14; 32].into(),
-            index: 0,
-        };
+        let collateral = native::TransactionInput::new([12; 32].into(), 0);
+        let unsigned = native::TransactionInput::new([13; 32].into(), 0);
+        let missing = native::TransactionInput::new([14; 32].into(), 0);
         fn at<'x>(
             payment: ShelleyPaymentPart,
             delegation: ShelleyDelegationPart,
@@ -379,7 +382,7 @@ fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold()
                     address: ShelleyAddress::new(Network::Testnet, payment, delegation)
                         .to_vec()
                         .into(),
-                    value: conway::Value::Coin(coin),
+                    value: coin_value(coin),
                     datum_option: None,
                     script_ref: None,
                 }
@@ -402,7 +405,7 @@ fn dijkstra_collateral_without_redeemers_meets_only_the_rules_that_always_hold()
         .into_iter()
         .map(|(x, output)| {
             (
-                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(x))),
+                MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(x.into()))),
                 output,
             )
         })
@@ -1152,7 +1155,9 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
                         )]
                         .into_iter()
                         .collect(),
-                    );
+                    )
+                    .try_into()
+                    .unwrap();
                 }
                 2 => {
                     out.address = ShelleyAddress::new(
@@ -1195,7 +1200,7 @@ fn dijkstra_output_subset_and_checked_arithmetic() {
         let native::TransactionOutput::PostAlonzo(ref mut out) = outputs[0] else {
             unreachable!()
         };
-        out.value = conway::Value::Coin(u64::MAX);
+        out.value = coin_value(u64::MAX);
         changed.transaction_body.outputs = MaybeIndefArray::Def(outputs);
         error(
             dispatch(&changed, &output, &env()),

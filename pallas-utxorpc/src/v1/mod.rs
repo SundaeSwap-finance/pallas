@@ -276,9 +276,13 @@ fn with_dijkstra_update(
     use u5c::max_pledge_leverage_update::Update;
     use u5c::peras_bootstrap_round_update::Update as PerasBootstrapRound;
 
-    update.max_ref_script_size_per_block = x.max_ref_script_size_per_block().proposed();
-    update.max_ref_script_size_per_tx = x.max_ref_script_size_per_tx().proposed();
-    update.ref_script_cost_stride = x.ref_script_cost_stride().proposed();
+    update.max_ref_script_size_per_block =
+        x.max_ref_script_size_per_block().proposed().map(u64::from);
+    update.max_ref_script_size_per_tx = x.max_ref_script_size_per_tx().proposed().map(u64::from);
+    update.ref_script_cost_stride = x
+        .ref_script_cost_stride()
+        .proposed()
+        .map(|stride| u64::from(stride.get()));
     update.ref_script_cost_multiplier = x
         .ref_script_cost_multiplier()
         .proposed()
@@ -293,32 +297,41 @@ fn with_dijkstra_update(
         .min_pool_margin()
         .proposed()
         .map(|r| rational_number_to_u5c(r.into()));
-    update.leios_announcement_period_length = x.leios_announcement_period_length().proposed();
-    update.leios_vote_period_length = x.leios_vote_period_length().proposed();
-    update.leios_diffusion_period_length = x.leios_diffusion_period_length().proposed();
-    update.leios_committee_size = x.leios_committee_size().proposed().map(|x| x as u32);
+    update.leios_announcement_period_length = x
+        .leios_announcement_period_length()
+        .proposed()
+        .map(u64::from);
+    update.leios_vote_period_length = x.leios_vote_period_length().proposed().map(u64::from);
+    update.leios_diffusion_period_length =
+        x.leios_diffusion_period_length().proposed().map(u64::from);
+    update.leios_committee_size = x.leios_committee_size().proposed().map(u32::from);
     update.leios_quorum_stake_threshold = x
         .leios_quorum_stake_threshold()
         .proposed()
         .map(|r| rational_number_to_u5c(r.into()));
-    update.max_endorser_block_references_size = x.max_endorser_block_references_size().proposed();
-    update.max_endorser_block_txs_size = x.max_endorser_block_txs_size().proposed();
+    update.max_endorser_block_references_size = x
+        .max_endorser_block_references_size()
+        .proposed()
+        .map(u64::from);
+    update.max_endorser_block_txs_size = x.max_endorser_block_txs_size().proposed().map(u64::from);
     update.max_endorser_block_execution_units = x
         .max_endorser_block_execution_units()
         .proposed()
-        .map(execution_units_to_u5c);
-    update.max_ref_script_size_per_endorser_block =
-        x.max_ref_script_size_per_endorser_block().proposed();
-    update.peras_min_candidate_block_age = x.peras_min_candidate_block_age().proposed();
+        .map(|units| execution_units_to_u5c(*units));
+    update.max_ref_script_size_per_endorser_block = x
+        .max_ref_script_size_per_endorser_block()
+        .proposed()
+        .map(u64::from);
+    update.peras_min_candidate_block_age =
+        x.peras_min_candidate_block_age().proposed().map(u64::from);
     update.peras_healing_factor = x
         .peras_healing_factor()
         .proposed()
         .map(|r| rational_number_to_u5c(r.into()));
-    update.peras_cert_boost = x.peras_cert_boost().proposed().map(|x| x as u32);
-    update.peras_target_committee_size =
-        x.peras_target_committee_size().proposed().map(|x| x as u32);
+    update.peras_cert_boost = x.peras_cert_boost().proposed().map(u32::from);
+    update.peras_target_committee_size = x.peras_target_committee_size().proposed().map(u32::from);
     update.peras_bootstrap_round = match x.peras_bootstrap_round().proposed() {
-        Some(Nullable::Some(round)) => Some(PerasBootstrapRound::Round(round)),
+        Some(Nullable::Some(round)) => Some(PerasBootstrapRound::Round(u64::from(round))),
         Some(Nullable::Null) => Some(PerasBootstrapRound::Unset(true)),
         Some(Nullable::Undefined) | None => None,
     }

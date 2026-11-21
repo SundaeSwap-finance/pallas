@@ -433,7 +433,7 @@ mod tests {
                 margin: margin().try_into().unwrap(),
                 reward_account: vec![0xe0; 29].into(),
                 pool_owners: vec![[0x04; 28].into()].into(),
-                relays: relays(),
+                relays: relays().try_into().unwrap(),
                 pool_metadata: Some(metadata()),
             })
         };
