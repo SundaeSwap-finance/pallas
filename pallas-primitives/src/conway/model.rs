@@ -462,7 +462,10 @@ pub struct VotingProcedure {
     #[n(0)]
     pub vote: Vote,
     #[n(1)]
-    #[cbor(with = "pallas_codec::utils::or_nil", has_nil)]
+    #[cbor(
+        encode_with = "minicbor::Encode::encode",
+        is_nil = "pallas_codec::utils::never_nil"
+    )]
     pub anchor: Option<Anchor>,
 }
 
@@ -524,7 +527,10 @@ pub struct Constitution {
     #[n(0)]
     pub anchor: Anchor,
     #[n(1)]
-    #[cbor(with = "pallas_codec::utils::or_nil", has_nil)]
+    #[cbor(
+        encode_with = "minicbor::Encode::encode",
+        is_nil = "pallas_codec::utils::never_nil"
+    )]
     pub guardrail_script: Option<ScriptHash>,
 }
 
@@ -759,6 +765,7 @@ crate::flat_enum::decode_flat_enum!(ScriptRef<'b>,
     3 => PlutusV3Script(script),
 );
 
+#[cfg(feature = "unstable")]
 crate::babbage::decode_joined_script_ref!(
     ScriptRef,
     PlutusV1Script,
@@ -1069,6 +1076,31 @@ mod tests {
         assert_eq!(action, GovAction::HardForkInitiation(None, (3, 2317795968)));
     }
 
+    #[test]
+    fn a_hard_fork_version_of_two_numbers_decodes_in_either_length_form() {
+        for version in ["82031a8a26c280", "9f031a8a26c280ff"] {
+            let raw = hex::decode(format!("8301f6{version}")).unwrap();
+            let action: GovAction = minicbor::decode(&raw).unwrap();
+            assert_eq!(
+                action,
+                GovAction::HardForkInitiation(None, (3, 2317795968)),
+                "{version}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_hard_fork_version_of_three_numbers_is_refused_in_either_length_form() {
+        for version in ["83031a8a26c28000", "9f031a8a26c28000ff"] {
+            let raw = hex::decode(format!("8301f6{version}")).unwrap();
+            let error = minicbor::decode::<GovAction>(&raw).unwrap_err();
+            assert!(
+                error.to_string().contains("invalid 2-tuple length"),
+                "{version}: {error}"
+            );
+        }
+    }
+
     #[cfg(test)]
     mod tests_voter {
         use super::super::Voter;
@@ -1185,6 +1217,20 @@ mod tests {
     }
 
     #[test]
+    fn cost_models_of_the_three_named_languages_round_trip() {
+        // a map of three, keys 0, 1 and 2
+        let wire = hex::decode("a30082010201810302822004").expect("hex");
+
+        let models: super::CostModels = minicbor::decode(&wire).expect("decode");
+        assert!(models.unknown.is_empty());
+
+        assert_eq!(
+            hex::encode(minicbor::to_vec(&models).expect("encode")),
+            hex::encode(&wire)
+        );
+    }
+
+    #[test]
     fn governance_ending_in_an_absent_value_reencodes_as_the_ledger_wrote_it() {
         let bytes = hex::decode(include_str!(
             "../../../test_data/dijkstra-generated/body-governance-ending-in-null.hex"
@@ -1228,20 +1274,6 @@ mod tests {
         assert_eq!(
             hex::encode(minicbor::to_vec(&body).unwrap()),
             hex::encode(&bytes)
-        );
-    }
-
-    #[test]
-    fn cost_models_of_the_three_named_languages_round_trip() {
-        // a map of three, keys 0, 1 and 2
-        let wire = hex::decode("a30082010201810302822004").expect("hex");
-
-        let models: super::CostModels = minicbor::decode(&wire).expect("decode");
-        assert!(models.unknown.is_empty());
-
-        assert_eq!(
-            hex::encode(minicbor::to_vec(&models).expect("encode")),
-            hex::encode(&wire)
         );
     }
 

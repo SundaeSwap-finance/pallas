@@ -19,6 +19,7 @@ element `i` and `{k}` for map key `k`. A framed value places the cut item
 inside the fixed CBOR shown, at `{}`, so that the ledger decodes it as a
 transaction body or witness set. Every file below is a value the ledger's
 decoder for its kind accepted. The expected values in
+`pallas-primitives/src/conway/model.rs` and
 `pallas-primitives/src/dijkstra/tests.rs` are what the ledger read from these
 bytes.
 

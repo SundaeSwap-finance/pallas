@@ -1200,7 +1200,7 @@ fn the_array_form_of_auxiliary_data_carries_this_eras_native_scripts() {
         .expect("a guard clause must not make the whole auxiliary scripts field read as absent");
     assert_eq!(scripts.len(), 1);
     assert!(
-        matches!(scripts[0], NativeScript::ScriptRequireGuard(_)),
+        matches!(*scripts[0], NativeScript::ScriptRequireGuard(_)),
         "the guard clause must survive, found {:?}",
         scripts[0]
     );
@@ -1733,7 +1733,7 @@ fn the_array_form_still_carries_a_clause_every_era_has() {
     };
     let scripts = inner.auxiliary_scripts.as_ref().expect("readable");
     assert_eq!(scripts.len(), 1);
-    assert!(matches!(scripts[0], NativeScript::ScriptPubkey(_)));
+    assert!(matches!(*scripts[0], NativeScript::ScriptPubkey(_)));
 
     assert_eq!(
         hex::encode(minicbor::to_vec(&decoded).unwrap()),
@@ -1887,6 +1887,36 @@ fn the_legal_account_balance_interval_forms_still_read() {
     let decoded: AccountBalanceIntervals =
         minicbor::decode(&indefinite_in_a_map).expect("a map of indefinite intervals must decode");
     assert_eq!(decoded.len(), 2);
+}
+
+/// The bytes of a map form output with an address and a coin, ending with the given hex field.
+fn output_ending_in(field: &str) -> Vec<u8> {
+    hex::decode(format!("a300581d61{}0100{field}", "11".repeat(28))).unwrap()
+}
+
+#[test]
+fn a_script_reference_in_tag_24_bytes_in_chunks_reads_as_the_joined_chunks() {
+    let bytes = output_ending_in("03d8185f42820043820180ff");
+    let TransactionOutput::PostAlonzo(output) = decode_all(&bytes) else {
+        panic!("the output is a map");
+    };
+    let Some(CborWrap(ScriptRef::NativeScript(script))) = &output.script_ref else {
+        panic!("the output holds a native script reference");
+    };
+    assert_eq!(**script, NativeScript::ScriptAll(vec![]));
+    assert_eq!(script.raw_cbor(), [0x82, 0x01, 0x80]);
+}
+
+#[test]
+fn an_inline_datum_in_tag_24_bytes_in_chunks_reads_as_the_joined_chunks() {
+    let bytes = output_ending_in("028201d8185f41184118ff");
+    let TransactionOutput::PostAlonzo(output) = decode_all(&bytes) else {
+        panic!("the output is a map");
+    };
+    let Some(DatumOption::Data(CborWrap(data))) = output.datum_option.as_deref() else {
+        panic!("the output holds an inline datum");
+    };
+    assert_eq!(data.raw_cbor(), [0x18, 0x18]);
 }
 
 #[test]

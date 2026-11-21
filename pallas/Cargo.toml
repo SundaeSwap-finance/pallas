@@ -33,8 +33,8 @@ unstable = [
   "pallas-hardano/unstable",
   "pallas-traverse/unstable",
   "pallas-primitives/unstable",
-  "pallas-utxorpc/unstable",
   "pallas-validate/unstable",
+  "pallas-utxorpc/unstable",
   "pallas-network2?/unstable",
 ]
 

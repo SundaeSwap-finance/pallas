@@ -14,18 +14,50 @@ impl LedgerContext for NoLedger {
     }
 }
 
+fn byron_tx() -> Vec<u8> {
+    hex::decode(include_str!("../../test_data/byron1.tx")).unwrap()
+}
+
+fn conway_tx() -> Vec<u8> {
+    hex::decode(include_str!("../../test_data/conway9.tx")).unwrap()
+}
+
 #[test]
-fn a_byron_transaction_maps_no_fee() {
-    let cbor = hex::decode(include_str!("../../test_data/byron1.tx")).unwrap();
+fn a_byron_transaction_maps_a_zero_fee_before_v1() {
+    let cbor = byron_tx();
     let tx = MultiEraTx::decode_for_era(Era::Byron, &cbor).unwrap();
 
-    assert_eq!(v1alpha::Mapper::new(NoLedger).map_tx(&tx).fee, None);
-    assert_eq!(v1beta::Mapper::new(NoLedger).map_tx(&tx).fee, None);
+    assert_eq!(
+        v1alpha::Mapper::new(NoLedger)
+            .map_tx(&tx)
+            .fee
+            .and_then(|x| x.big_int),
+        Some(v1alpha::spec::cardano::big_int::BigInt::Int(0))
+    );
+    assert_eq!(
+        v1beta::Mapper::new(NoLedger)
+            .map_tx(&tx)
+            .fee
+            .and_then(|x| x.big_int),
+        Some(v1beta::spec::cardano::big_int::BigInt::Int(0))
+    );
+}
+
+#[cfg(feature = "unstable")]
+#[test]
+fn a_byron_transaction_maps_no_fee_in_v1() {
+    let cbor = byron_tx();
+    let tx = MultiEraTx::decode_for_era(Era::Byron, &cbor).unwrap();
+
+    assert_eq!(
+        pallas_utxorpc::v1::Mapper::new(NoLedger).map_tx(&tx).fee,
+        None
+    );
 }
 
 #[test]
 fn a_conway_transaction_maps_its_fee() {
-    let cbor = hex::decode(include_str!("../../test_data/conway9.tx")).unwrap();
+    let cbor = conway_tx();
     let tx = MultiEraTx::decode_for_era(Era::Conway, &cbor).unwrap();
     let fee = tx.fee().unwrap() as i64;
 
@@ -39,5 +71,14 @@ fn a_conway_transaction_maps_its_fee() {
     assert_eq!(
         beta.and_then(|x| x.big_int),
         Some(v1beta::spec::cardano::big_int::BigInt::Int(fee))
+    );
+
+    #[cfg(feature = "unstable")]
+    assert_eq!(
+        pallas_utxorpc::v1::Mapper::new(NoLedger)
+            .map_tx(&tx)
+            .fee
+            .and_then(|x| x.big_int),
+        Some(pallas_utxorpc::v1::spec::cardano::big_int::BigInt::Int(fee))
     );
 }

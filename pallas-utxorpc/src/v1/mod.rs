@@ -6,7 +6,9 @@ use pallas_traverse as trv;
 
 use crate::LedgerContext;
 
-pub use utxorpc_spec::utxorpc::v1 as spec;
+mod ratio;
+
+pub use utxorpc_spec_v1::utxorpc::v1 as spec;
 
 #[derive(Default, Clone)]
 pub struct Mapper<C: LedgerContext> {
@@ -44,7 +46,7 @@ impl<C: LedgerContext> Mapper<C> {
     }
 }
 
-crate::shared::impl_cardano_mapper_shared!(utxorpc_spec::utxorpc::v1::cardano);
+crate::shared::impl_cardano_mapper_shared!(utxorpc_spec_v1::utxorpc::v1::cardano);
 crate::since_v1beta::impl_cardano_mapper_since_v1beta!();
 
 /// The message this schema maps a protocol parameter update to.
@@ -53,6 +55,50 @@ type ParamUpdate = u5c::PParamsUpdate;
 /// The value this schema's update message holds for a scalar key, absent when the update leaves the key unset.
 fn update_scalar<T>(value: Option<T>) -> Option<T> {
     value
+}
+
+/// The schema's ratio for a ledger ratio, the nearest one that fits when either field is too wide.
+fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
+    let (numerator, denominator) = (value.numerator, value.denominator);
+    let (numerator, denominator) = match (i32::try_from(numerator), u32::try_from(denominator)) {
+        (Ok(numerator), Ok(denominator)) => (numerator, denominator),
+        // A zero denominator names no finite value, so the pair maps to its lowest terms.
+        _ if denominator == 0 => (1, 0),
+        _ => {
+            let (numerator, denominator) =
+                ratio::nearest_ratio(numerator, denominator, i32::MAX as u32, u32::MAX);
+            (numerator as i32, denominator)
+        }
+    };
+
+    u5c::RationalNumber {
+        numerator,
+        denominator,
+    }
+}
+
+/// The schema's integer for a Plutus integer, as big endian magnitude bytes when it is outside `i64`.
+fn map_plutus_int(n: i128) -> u5c::big_int::BigInt {
+    // A CBOR integer outside i64 has a magnitude of exactly eight bytes.
+    if let Ok(n) = i64::try_from(n) {
+        u5c::big_int::BigInt::Int(n)
+    } else if n > 0 {
+        u5c::big_int::BigInt::BigUInt(n.to_be_bytes()[8..].to_vec().into())
+    } else {
+        u5c::big_int::BigInt::BigNInt((-1 - n).to_be_bytes()[8..].to_vec().into())
+    }
+}
+
+/// The original CBOR this schema maps for a datum a transaction witnesses by hash.
+fn witnessed_datum_cbor(raw: &[u8]) -> Option<Vec<u8>> {
+    Some(raw.to_vec())
+}
+
+/// The withdrawals of a transaction in the order the ledger indexes their redeemers.
+fn withdrawals_in_ledger_order<'a>(tx: &'a trv::MultiEraTx) -> Vec<(&'a [u8], u64)> {
+    let mut withdrawals = tx.withdrawals_sorted_set();
+    withdrawals.sort_by(|(a, _), (b, _)| trv::withdrawals::cmp_reward_accounts(a, b));
+    withdrawals
 }
 
 /// The u5c purpose of a guarding redeemer.
@@ -304,14 +350,14 @@ impl<C: LedgerContext> Mapper<C> {
         let resolved = self.resolve(tx);
 
         u5c::Tx {
-            common: Some(self.map_tx_common(tx, &resolved, None)),
+            common: Some(self.map_tx_common(tx, &resolved)),
             collateral: self.map_collateral(tx, &resolved),
             fee: tx.fee().and_then(u64_to_bigint),
             successful: tx.is_valid(),
             sub_transactions: tx
                 .sub_transactions()
                 .iter()
-                .map(|x| self.map_tx_common(x, &self.resolve(x), Some(tx)))
+                .map(|x| self.map_tx_common(x, &self.resolve(x)))
                 .collect(),
             starting_account_balance_intervals: tx
                 .starting_account_balance_intervals()
@@ -330,17 +376,17 @@ impl<C: LedgerContext> Mapper<C> {
         })
     }
 
-    /// Maps the fields a transaction shares with a sub transaction, given its top level transaction when it is a sub transaction.
-    fn map_tx_common<'b>(
+    /// Maps the fields a transaction shares with a sub transaction.
+    fn map_tx_common(
         &self,
-        tx: &trv::MultiEraTx<'b>,
+        tx: &trv::MultiEraTx,
         resolved: &Option<crate::UtxoMap>,
-        top: Option<&trv::MultiEraTx<'b>>,
     ) -> u5c::TxCommon {
         let start = tx.validity_start();
         let ttl = tx.ttl();
         // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
-        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
+        let top = top_level_transaction(tx);
+        let datums: Vec<_> = std::iter::once(tx).chain(top.as_ref()).collect();
 
         u5c::TxCommon {
             hash: tx.hash().to_vec().into(),
@@ -367,8 +413,7 @@ impl<C: LedgerContext> Mapper<C> {
                 .map(|x| self.map_gov_proposal(x))
                 .collect(),
             votes: self.map_votes(tx),
-            withdrawals: tx
-                .withdrawals_sorted_set()
+            withdrawals: withdrawals_in_ledger_order(tx)
                 .iter()
                 .enumerate()
                 .map(|(order, x)| self.map_withdrawals(x, tx, order as u32))
@@ -1183,6 +1228,25 @@ mod tests {
     }
 
     #[test]
+    fn a_sub_transaction_mapped_alone_maps_the_datum_its_top_level_transaction_holds() {
+        let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
+        let tx = dijkstra_tx(cbor);
+        let sub = &tx.sub_transactions()[0];
+
+        let mapped = Mapper::new(NoLedger).map_tx(sub);
+        let datum = common(&mapped).outputs[0]
+            .datum
+            .clone()
+            .expect("the output carries a datum");
+
+        assert_eq!(
+            datum.original_cbor.map(|x| x.to_vec()),
+            Some(vec![0x18, 0x2b]),
+            "a sub transaction maps the same datum alone as inside its top level transaction"
+        );
+    }
+
+    #[test]
     fn a_sub_transaction_output_hash_maps_the_datum_its_top_level_transaction_holds() {
         let cbor = include_str!("../../../test_data/dijkstra-sub-output-top-datum.tx").trim();
 
@@ -1531,5 +1595,102 @@ mod tests {
             found, expected,
             "each pool registration's key and proof map to its certificate"
         );
+    }
+
+    #[test]
+    fn a_datum_hash_its_transaction_witnesses_maps_the_witnessed_cbor() {
+        let cbor = hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap();
+        let block = trv::MultiEraBlock::decode(&cbor).unwrap();
+        let tx = &block.txs()[2];
+        let output = &tx.outputs()[0];
+        let mapper = Mapper::new(NoLedger);
+
+        let resolved = mapper.map_tx_output(output, Some(tx)).datum.unwrap();
+        let unresolved = mapper.map_tx_output(output, None).datum.unwrap();
+
+        let witnessed = resolved.original_cbor.as_deref().unwrap();
+        assert_eq!(
+            pallas_crypto::hash::Hasher::<256>::hash(witnessed).to_vec(),
+            resolved.hash.to_vec()
+        );
+        assert_eq!(unresolved.original_cbor, None);
+    }
+
+    #[test]
+    fn plutus_integers_beyond_i64_map_to_big_int_bytes() {
+        use pallas_primitives::alonzo::BigInt;
+        use u5c::big_int::BigInt::{BigNInt, BigUInt, Int};
+
+        let mapper = Mapper::new(NoLedger);
+        let map = |n: i128| {
+            let x = BigInt::Int(pallas_primitives::Int::try_from(n).unwrap());
+            mapper.map_plutus_bigint(&x).big_int.unwrap()
+        };
+        let top = [0x80, 0, 0, 0, 0, 0, 0, 0];
+
+        assert_eq!(map(i64::MAX.into()), Int(i64::MAX));
+        assert_eq!(map(i64::MIN.into()), Int(i64::MIN));
+        assert_eq!(map(1 << 63), BigUInt(top.to_vec().into()));
+        assert_eq!(map((1 << 64) - 1), BigUInt(vec![0xff; 8].into()));
+        assert_eq!(map(-(1 << 63) - 1), BigNInt(top.to_vec().into()));
+        assert_eq!(map(-(1 << 64)), BigNInt(vec![0xff; 8].into()));
+    }
+
+    #[test]
+    fn rationals_wider_than_32_bits_map_to_the_nearest_value() {
+        let map = |numerator, denominator| {
+            let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
+                numerator,
+                denominator,
+            });
+            (x.numerator, x.denominator)
+        };
+        let wide = 0xffff_ffff_ffff_fc17;
+
+        assert_eq!(map(wide, wide), (1, 1));
+        assert_eq!(map(3 << 32, 4 << 32), (3, 4));
+        assert_eq!(map(2, 4), (2, 4));
+        assert_eq!(
+            map((1 << 63) + 1, 10_000_000_000_000_000_000),
+            (823_865_382, 893_236_637)
+        );
+        assert_eq!(map(5_000_000_000, 7), (2_142_857_143, 3));
+        assert_eq!(
+            map(1 << 40, 847_288_609_443),
+            (2_012_878_384, 1_551_133_143)
+        );
+        assert_eq!(map(u64::MAX, 1), (i32::MAX, 1));
+        assert_eq!(map(1, u64::MAX), (0, 1));
+        assert_eq!(map(1, 2 * u64::from(u32::MAX)), (0, 1));
+        assert_eq!(map(u64::MAX, 0), (1, 0));
+
+        let margin = format!(
+            "8a03581c{}5820{}0000d81e821bfffffffffffffc171bfffffffffffffc17581de0{}8080f6",
+            "00".repeat(28),
+            "00".repeat(32),
+            "00".repeat(28)
+        );
+        let margin = hex::decode(margin).unwrap();
+        let block = hex::decode(include_str!("../../../test_data/u5c1.block")).unwrap();
+        let block = trv::MultiEraBlock::decode(&block).unwrap();
+        let tx = &block.txs()[0];
+        let mapper = Mapper::new(NoLedger);
+        let alonzo: pallas_primitives::alonzo::Certificate =
+            pallas_codec::minicbor::decode(&margin).unwrap();
+        let conway: pallas_primitives::conway::Certificate =
+            pallas_codec::minicbor::decode(&margin).unwrap();
+
+        for cert in [
+            trv::MultiEraCert::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(alonzo))),
+            trv::MultiEraCert::Conway(Box::new(std::borrow::Cow::Owned(conway))),
+        ] {
+            let mapped = mapper.map_cert(&cert, tx, 0).unwrap();
+            let Some(u5c::certificate::Certificate::PoolRegistration(pool)) = mapped.certificate
+            else {
+                panic!("not a pool registration: {mapped:?}");
+            };
+            let margin = pool.margin.unwrap();
+            assert_eq!((margin.numerator, margin.denominator), (1, 1));
+        }
     }
 }

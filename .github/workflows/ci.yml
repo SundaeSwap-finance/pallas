@@ -87,11 +87,15 @@ jobs:
       - name: Test unstable feature
         uses: ./.github/actions/sized-tests
         with:
-          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
       - name: Test unstable blueprint feature
         uses: ./.github/actions/sized-tests
         with:
           args: -p pallas-primitives --features unstable,blueprint
+      - name: Test unstable validate feature
+        uses: ./.github/actions/sized-tests
+        with:
+          args: -p pallas-validate --features unstable
       - name: Test validation with phase two enabled
         uses: ./.github/actions/sized-tests
         with:

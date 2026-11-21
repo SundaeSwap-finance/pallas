@@ -730,44 +730,19 @@ impl<'b, C> minicbor::Decode<'b, C> for CostModels {
     }
 }
 
-/// Codec for a map value written `x/ nil`, which reads a nil as `Some(Nullable::Null)` and an absent key as `None`.
-mod nullable_value {
-    use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder, encode::Write};
-    use pallas_codec::utils::Nullable;
-
-    pub fn decode<'b, Ctx, T>(
-        d: &mut Decoder<'b>,
-        ctx: &mut Ctx,
-    ) -> Result<Option<Nullable<T>>, minicbor::decode::Error>
-    where
-        T: Decode<'b, Ctx> + Clone,
-    {
-        Nullable::decode(d, ctx).map(Some)
-    }
-
-    pub fn encode<Ctx, T, W: Write>(
-        v: &Option<Nullable<T>>,
-        e: &mut Encoder<W>,
-        ctx: &mut Ctx,
-    ) -> Result<(), minicbor::encode::Error<W::Error>>
-    where
-        T: Encode<Ctx> + Clone,
-    {
-        v.encode(e, ctx)
-    }
-
-    pub fn nil<T: Clone>() -> Option<Option<Nullable<T>>> {
-        Some(None)
-    }
-
-    pub fn is_nil<T: Clone>(v: &Option<Nullable<T>>) -> bool {
-        v.is_none()
-    }
+/// Decodes a map value written `x/ nil`, reading a nil as `Some(Nullable::Null)`.
+fn decode_nullable_value<'b, Ctx, T>(
+    d: &mut minicbor::Decoder<'b>,
+    ctx: &mut Ctx,
+) -> Result<Option<Nullable<T>>, minicbor::decode::Error>
+where
+    T: Decode<'b, Ctx> + Clone,
+{
+    Nullable::decode(d, ctx).map(Some)
 }
 
-/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 48, and
-/// cardano-ledger `9df9f98c` adds keys 49 through 56. A derived map decoder
-/// drops a key it has no field for, so the tail is modelled.
+/// `protocol_param_update` (`defs.cddl`) gains keys 34 through 56. A derived
+/// map decoder drops a key it has no field for, so the tail is modelled.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 #[cbor(map)]
 pub struct ProtocolParamUpdate {
@@ -845,7 +820,7 @@ pub struct ProtocolParamUpdate {
     pub ref_script_cost_multiplier: Option<PositiveInterval>,
 
     /// `max_pledge_leverage = nonnegative_interval/ nil` (`defs.cddl`), so an explicit nil differs from an absent key.
-    #[cbor(n(38), with = "nullable_value", has_nil)]
+    #[cbor(n(38), decode_with = "decode_nullable_value")]
     pub max_pledge_leverage: Option<Nullable<RationalNumber>>,
     #[n(39)]
     pub min_pool_margin: Option<UnitInterval>,
@@ -876,8 +851,8 @@ pub struct ProtocolParamUpdate {
     #[n(52)]
     pub peras_target_committee_size: Option<u64>,
 
-    /// `? 53 : nil/ uint .size 4` (cardano-ledger `9df9f98c`), so an explicit nil differs from an absent key.
-    #[cbor(n(53), with = "nullable_value", has_nil)]
+    /// `? 53 : nil/ uint .size 4` (`defs.cddl`), so an explicit nil differs from an absent key.
+    #[cbor(n(53), decode_with = "decode_nullable_value")]
     pub peras_bootstrap_round: Option<Nullable<u64>>,
     #[n(54)]
     pub peras_quorum_threshold_safety_margin: Option<UnitInterval>,
@@ -1048,11 +1023,6 @@ pub(crate) mod guards_field {
         }
         d.decode_with(ctx).map(Some)
     }
-
-    /// The value of a body's guards field that is absent.
-    pub fn none() -> Option<Option<Guards>> {
-        Some(None)
-    }
 }
 
 pub type DirectDeposits = BTreeMap<RewardAccount, Coin>;
@@ -1194,10 +1164,7 @@ pub struct SubTransactionBody<'a> {
     pub script_data_hash: Option<Hash<32>>,
 
     #[n(14)]
-    #[cbor(
-        decode_with = "guards_field::decode_option",
-        nil = "guards_field::none"
-    )]
+    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1238,7 +1205,7 @@ pub struct SubTransaction<'b> {
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 }
 
 /// `sub_transactions = nonempty_oset<sub_transaction>` (`defs.cddl`).
@@ -1282,10 +1249,7 @@ pub struct TransactionBody<'a> {
     pub collateral: Option<NonEmptySet<TransactionInput>>,
 
     #[n(14)]
-    #[cbor(
-        decode_with = "guards_field::decode_option",
-        nil = "guards_field::none"
-    )]
+    #[cbor(decode_with = "guards_field::decode_option")]
     pub guards: Option<Guards>,
 
     #[n(15)]
@@ -1461,12 +1425,12 @@ pub struct WitnessSet<'b> {
 /// `auxiliary_data_map` gains `? 5 : [* plutus_v4_script]` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
 #[cbor(map, tag(259))]
-pub struct PostAlonzoAuxiliaryData {
+pub struct PostAlonzoAuxiliaryData<'b> {
     #[n(0)]
     pub metadata: Option<Metadata>,
 
-    #[n(1)]
-    pub native_scripts: Option<Vec<NativeScript>>,
+    #[b(1)]
+    pub native_scripts: Option<Vec<KeepRaw<'b, NativeScript>>>,
 
     #[n(2)]
     pub plutus_v1_scripts: Option<Vec<PlutusScript<1>>>,
@@ -1485,24 +1449,24 @@ pub struct PostAlonzoAuxiliaryData {
 /// `auxiliary_data_array` (`defs.cddl`), whose second element is
 /// `auxiliary_scripts = [* native_script]`, this era's.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Clone, Eq)]
-pub struct ShelleyMaAuxiliaryData {
+pub struct ShelleyMaAuxiliaryData<'b> {
     #[n(0)]
     pub transaction_metadata: Metadata,
 
-    #[n(1)]
-    pub auxiliary_scripts: Option<Vec<NativeScript>>,
+    #[b(1)]
+    pub auxiliary_scripts: Option<Vec<KeepRaw<'b, NativeScript>>>,
 }
 
 /// `auxiliary_data` (`defs.cddl`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub enum AuxiliaryData {
+pub enum AuxiliaryData<'b> {
     Shelley(Metadata),
-    ShelleyMa(ShelleyMaAuxiliaryData),
-    PostAlonzo(PostAlonzoAuxiliaryData),
+    ShelleyMa(ShelleyMaAuxiliaryData<'b>),
+    PostAlonzo(PostAlonzoAuxiliaryData<'b>),
 }
 
 codec_by_datatype! {
-    AuxiliaryData,
+    AuxiliaryData<'b>,
     Map | MapIndef => Shelley,
     Array | ArrayIndef => ShelleyMa,
     Tag => PostAlonzo,
@@ -1581,7 +1545,7 @@ pub struct BlockTransaction<'b> {
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
 
     #[n(2)]
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 
     /// Set by the block producer, not by the transaction author.
     #[n(3)]
@@ -1608,7 +1572,7 @@ pub struct MempoolTransaction<'b> {
     pub transaction_body: KeepRaw<'b, TransactionBody<'b>>,
     pub transaction_witness_set: KeepRaw<'b, WitnessSet<'b>>,
     pub is_valid_supplied: bool,
-    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData>>,
+    pub auxiliary_data: Nullable<KeepRaw<'b, AuxiliaryData<'b>>>,
 }
 
 impl<'b> From<MempoolTransaction<'b>> for BlockTransaction<'b> {

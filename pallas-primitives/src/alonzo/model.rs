@@ -256,10 +256,7 @@ pub struct ProtocolParamUpdate {
     #[n(13)]
     pub extra_entropy: Option<Nonce>,
     #[n(14)]
-    #[cbor(
-        decode_with = "crate::protocol_version::decode_option",
-        nil = "crate::protocol_version::none"
-    )]
+    #[cbor(decode_with = "crate::protocol_version::decode_option")]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,

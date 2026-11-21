@@ -50,7 +50,9 @@ macro_rules! impl_cardano_mapper_since_v1beta {
                         u5c::Datum {
                             hash: x.to_vec().into(),
                             payload: witnessed.map(|d| self.map_plutus_datum(d)),
-                            original_cbor: witnessed.map(|d| d.raw_cbor().to_vec().into()),
+                            original_cbor: witnessed
+                                .and_then(|d| witnessed_datum_cbor(d.raw_cbor()))
+                                .map(Into::into),
                         }
                     }
                 })

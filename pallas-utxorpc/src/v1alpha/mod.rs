@@ -94,18 +94,14 @@ impl<C: LedgerContext> Mapper<C> {
                 payload: self.map_plutus_datum(&x.0).into(),
                 original_cbor: x.raw_cbor().to_vec().into(),
             },
-            babbage::DatumOption::Hash(x) => {
-                let witnessed = txs.iter().find_map(|tx| tx.find_plutus_data(&x));
-
-                u5c::Datum {
-                    hash: x.to_vec().into(),
-                    payload: witnessed.map(|d| self.map_plutus_datum(d)),
-                    original_cbor: witnessed
-                        .map(|d| d.raw_cbor().to_vec())
-                        .unwrap_or_default()
-                        .into(),
-                }
-            }
+            babbage::DatumOption::Hash(x) => u5c::Datum {
+                hash: x.to_vec().into(),
+                payload: txs
+                    .iter()
+                    .find_map(|tx| tx.find_plutus_data(&x))
+                    .map(|d| self.map_plutus_datum(d)),
+                original_cbor: vec![].into(),
+            },
         })
     }
 
@@ -169,27 +165,13 @@ impl<C: LedgerContext> Mapper<C> {
     }
 
     pub fn map_tx(&self, tx: &trv::MultiEraTx) -> u5c::Tx {
-        self.map_tx_with_top(tx, None)
-    }
-
-    /// Maps the sub transaction `sub` of the top level transaction `top`.
-    #[cfg(feature = "unstable")]
-    pub fn map_sub_tx<'b>(&self, sub: &trv::MultiEraTx<'b>, top: &trv::MultiEraTx<'b>) -> u5c::Tx {
-        self.map_tx_with_top(sub, Some(top))
-    }
-
-    /// Maps a transaction, given its top level transaction when it is a sub transaction.
-    fn map_tx_with_top<'b>(
-        &self,
-        tx: &trv::MultiEraTx<'b>,
-        top: Option<&trv::MultiEraTx<'b>>,
-    ) -> u5c::Tx {
         let resolved = self.ledger.as_ref().and_then(|ctx| {
             let to_resolve = self.find_related_inputs(tx);
             ctx.get_utxos(to_resolve.as_slice())
         });
         // The ledger accepts the datum for a sub transaction's output hash from the top level witnesses too.
-        let datums: Vec<_> = std::iter::once(tx).chain(top).collect();
+        let top = top_level_transaction(tx);
+        let datums: Vec<_> = std::iter::once(tx).chain(top.as_ref()).collect();
 
         u5c::Tx {
             hash: tx.hash().to_vec().into(),
@@ -266,7 +248,7 @@ impl<C: LedgerContext> Mapper<C> {
                 total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
             }
             .into(),
-            fee: tx.fee().and_then(u64_to_bigint),
+            fee: u64_to_bigint(tx.fee().unwrap_or_default()),
             validity: u5c::TxValidity {
                 start: tx.validity_start().unwrap_or_default(),
                 ttl: tx.ttl().unwrap_or_default(),
@@ -483,10 +465,7 @@ mod tests {
             "c0b7784ae9fd96e36ae5eae00f1ab5572b540213f1d8e3d727dec251c578ec39"
         );
         assert!(resolved.payload.is_some());
-        assert_eq!(
-            pallas_crypto::hash::Hasher::<256>::hash(&resolved.original_cbor).to_vec(),
-            resolved.hash.to_vec()
-        );
+        assert_eq!(resolved.original_cbor, prost::bytes::Bytes::new());
 
         assert_eq!(unresolved.hash, resolved.hash);
         assert_eq!(unresolved.payload, None);
@@ -793,19 +772,18 @@ mod tests {
         ));
     }
 
-    /// The datum hash and the datum bytes mapped on the first output of a transaction's first sub transaction.
+    /// The datum hash and the datum payload mapped on the first output of a transaction's first sub transaction.
     #[cfg(feature = "unstable")]
-    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<Vec<u8>>) {
+    fn sub_output_datum(cbor: &str) -> (Vec<u8>, Option<u5c::PlutusData>) {
         let tx = crate::testing::dijkstra_tx(cbor);
         let sub = &tx.sub_transactions()[0];
-        let mapped = Mapper::new(NoLedger).map_sub_tx(sub, &tx);
+        let mapped = Mapper::new(NoLedger).map_tx(sub);
         let datum = mapped.outputs[0]
             .datum
             .clone()
             .expect("the output carries a datum");
-        let bytes = datum.original_cbor.to_vec();
 
-        (datum.hash.to_vec(), Some(bytes).filter(|x| !x.is_empty()))
+        (datum.hash.to_vec(), datum.payload)
     }
 
     #[test]
@@ -818,7 +796,11 @@ mod tests {
             (
                 hex::decode("45262f40ee42b0f71855608c466ff80dec3728859a2de93ef71e56d9105510a6")
                     .unwrap(),
-                Some(vec![0x18, 0x2b]),
+                Some(u5c::PlutusData {
+                    plutus_data: Some(u5c::plutus_data::PlutusData::BigInt(u5c::BigInt {
+                        big_int: Some(u5c::big_int::BigInt::Int(43)),
+                    })),
+                }),
             ),
             "the ledger accepts the datum for a sub transaction's output hash from the top level witnesses"
         );

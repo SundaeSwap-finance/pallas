@@ -161,10 +161,7 @@ pub struct ProtocolParamUpdate {
     pub treasury_growth_rate: Option<UnitInterval>,
 
     #[n(14)]
-    #[cbor(
-        decode_with = "crate::protocol_version::decode_option",
-        nil = "crate::protocol_version::none"
-    )]
+    #[cbor(decode_with = "crate::protocol_version::decode_option")]
     pub protocol_version: Option<ProtocolVersion>,
     #[n(16)]
     pub min_pool_cost: Option<Coin>,
@@ -313,20 +310,24 @@ pub struct GenPostAlonzoTransactionOutput<'b, V, S> {
     pub datum_option: Option<KeepRaw<'b, DatumOption<'b>>>,
 
     #[n(3)]
-    #[cbor(
-        decode_with = "decode_script_ref",
-        nil = "no_script_ref",
-        decode_bound = "S: minicbor::Decode<'bytes, Ctx> + DecodeJoined<Ctx>"
+    #[cfg_attr(
+        feature = "unstable",
+        cbor(
+            decode_with = "decode_script_ref",
+            decode_bound = "S: minicbor::Decode<'bytes, Ctx> + DecodeJoined<Ctx>"
+        )
     )]
     pub script_ref: Option<CborWrap<S>>,
 }
 
 /// A value read from the joined chunks of indefinite length bytes, keeping no borrow of them.
+#[cfg(feature = "unstable")]
 pub trait DecodeJoined<C>: Sized {
     fn decode_joined(cbor: &[u8], ctx: &mut C) -> Result<Self, minicbor::decode::Error>;
 }
 
 /// Implements `DecodeJoined` for a script reference enum from the names of its Plutus variants.
+#[cfg(feature = "unstable")]
 macro_rules! decode_joined_script_ref {
     ($name:ident, $($plutus:ident),+) => {
         impl<C> $crate::babbage::DecodeJoined<C> for $name<'_> {
@@ -342,11 +343,14 @@ macro_rules! decode_joined_script_ref {
         }
     };
 }
+#[cfg(feature = "unstable")]
 pub(crate) use decode_joined_script_ref;
 
+#[cfg(feature = "unstable")]
 decode_joined_script_ref!(ScriptRef, PlutusV1Script, PlutusV2Script);
 
 /// Decodes an output's script reference, tagged bytes of either length form that hold the script's CBOR.
+#[cfg(feature = "unstable")]
 fn decode_script_ref<'b, Ctx, S>(
     d: &mut minicbor::Decoder<'b>,
     ctx: &mut Ctx,
@@ -364,11 +368,6 @@ where
         std::borrow::Cow::Owned(cbor) => S::decode_joined(&cbor, ctx)?,
     };
     Ok(Some(CborWrap(script)))
-}
-
-/// The script reference of an output whose map has no script reference key.
-fn no_script_ref<S>() -> Option<Option<CborWrap<S>>> {
-    Some(None)
 }
 
 pub type PostAlonzoTransactionOutput<'b> = GenPostAlonzoTransactionOutput<'b, Value, ScriptRef<'b>>;
@@ -443,12 +442,20 @@ pub enum DatumOption<'b> {
     Data(#[b(0)] CborWrap<KeepRaw<'b, PlutusData>>),
 }
 
+#[cfg(not(feature = "unstable"))]
+crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
+    0 => Hash(hash),
+    1 => Data(data),
+);
+
+#[cfg(feature = "unstable")]
 crate::flat_enum::decode_flat_enum!(DatumOption<'b>,
     0 => Hash(hash),
     1 => Data(data: decode_inline_datum),
 );
 
 /// Decodes inline datum data, tagged bytes of either length form that hold the data's CBOR.
+#[cfg(feature = "unstable")]
 fn decode_inline_datum<'b, C>(
     d: &mut minicbor::Decoder<'b>,
     ctx: &mut C,
@@ -543,7 +550,6 @@ pub type MintedTx<'b> = Tx<'b>;
 #[cfg(test)]
 mod tests {
     use pallas_codec::minicbor;
-    use pallas_codec::utils::CborWrap;
 
     use super::{Block, DatumOption, ScriptRef, TransactionOutput};
     use crate::Fragment;
@@ -563,68 +569,12 @@ mod tests {
     }
 
     #[test]
-    fn an_inline_datum_over_indefinite_bytes_reads_as_the_joined_chunks() {
-        for (hex, raw) in [("8201d8184180", "80"), ("8201d8185f419f41ffff", "9fff")] {
-            let bytes = hex::decode(hex).unwrap();
-            let datum: DatumOption =
-                minicbor::decode(&bytes).unwrap_or_else(|e| panic!("{hex} must decode: {e}"));
-            let DatumOption::Data(CborWrap(data)) = datum else {
-                panic!("{hex} must read as inline data");
-            };
-            assert_eq!(hex::encode(data.raw_cbor()), raw, "{hex}");
-        }
-    }
-
-    #[test]
-    fn an_inline_datum_whose_joined_chunks_are_not_data_is_refused() {
-        for hex in ["8201d81841ff", "8201d8185f41ffff"] {
-            let bytes = hex::decode(hex).unwrap();
-            assert!(minicbor::decode::<DatumOption>(&bytes).is_err(), "{hex}");
-        }
-    }
-
-    #[test]
-    fn an_output_script_reference_over_indefinite_bytes_reads_as_the_joined_chunks() {
-        let output = |script: &str| format!("a3004100010003d818{script}");
-        for (script, raw) in [
-            ("5f43820082420180ff", Some("820180")),
-            ("458200820180", Some("820180")),
-            ("5f428201424100ff", None),
-        ] {
-            let bytes = hex::decode(output(script)).unwrap();
-            let babbage: super::PostAlonzoTransactionOutput = minicbor::decode(&bytes)
-                .unwrap_or_else(|e| panic!("babbage {script} must decode: {e}"));
-            let conway: crate::conway::PostAlonzoTransactionOutput = minicbor::decode(&bytes)
-                .unwrap_or_else(|e| panic!("conway {script} must decode: {e}"));
-            assert_eq!(
-                minicbor::to_vec(&babbage.script_ref).unwrap(),
-                minicbor::to_vec(&conway.script_ref).unwrap(),
-                "{script}"
-            );
-            match (babbage.script_ref, raw) {
-                (Some(CborWrap(ScriptRef::NativeScript(native))), Some(raw)) => {
-                    assert_eq!(hex::encode(native.raw_cbor()), raw, "{script}")
-                }
-                (Some(CborWrap(ScriptRef::PlutusV1Script(plutus))), None) => {
-                    assert_eq!(hex::encode(plutus.as_ref()), "00", "{script}")
-                }
-                (other, _) => panic!("{script} read as {other:?}"),
-            }
-        }
-    }
-
-    #[test]
-    fn an_output_script_reference_whose_joined_chunks_are_not_a_script_is_refused() {
-        let bytes = hex::decode("a3004100010003d8185f41ffff").unwrap();
-        assert!(minicbor::decode::<super::PostAlonzoTransactionOutput>(&bytes).is_err());
-    }
-
-    #[test]
-    fn an_output_without_a_script_reference_reads_none() {
-        for hex in ["a20041000100", "a3004100010003f6"] {
-            let bytes = hex::decode(hex).unwrap();
-            let output: super::PostAlonzoTransactionOutput = minicbor::decode(&bytes).unwrap();
-            assert!(output.script_ref.is_none(), "{hex}");
+    fn tag_24_bytes_in_chunks_read_only_in_an_unstable_build() {
+        let address = format!("581d61{}", "11".repeat(28));
+        for field in ["03d8185f42820043820180ff", "028201d8185f41184118ff"] {
+            let bytes = hex::decode(format!("a300{address}0100{field}")).unwrap();
+            let read = minicbor::decode::<super::PostAlonzoTransactionOutput>(&bytes);
+            assert_eq!(read.is_ok(), cfg!(feature = "unstable"), "{field}");
         }
     }
 

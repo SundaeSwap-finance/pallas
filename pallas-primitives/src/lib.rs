@@ -90,7 +90,7 @@ pub use pallas_codec::utils::{
 pub use pallas_crypto::hash::Hash;
 
 use pallas_codec::minicbor::{self, Decode, Encode, data::Tag};
-use pallas_codec::utils::{decode_array, decode_text_def_or_indef, skip_array_rest};
+use pallas_codec::utils::{decode_text_def_or_indef, skip_array_rest};
 use serde::{Deserialize, Serialize};
 
 use std::collections::BTreeMap;
@@ -292,7 +292,13 @@ pub(crate) mod protocol_version {
         d: &mut minicbor::Decoder<'_>,
         ctx: &mut Ctx,
     ) -> Result<ProtocolVersion, Error> {
-        decode_array(d, |a| Ok((a.decode_with(ctx)?, a.decode_with(ctx)?)))
+        decode_array(d, |a| {
+            let version = (a.decode_with(ctx)?, a.decode_with(ctx)?);
+            if a.datatype()? != Type::Break {
+                return Err(Error::message("invalid 2-tuple length"));
+            }
+            Ok(version)
+        })
     }
 
     /// Decodes an optional [`ProtocolVersion`], reading a null as `None`.
@@ -305,11 +311,6 @@ pub(crate) mod protocol_version {
             return Ok(None);
         }
         decode(d, ctx).map(Some)
-    }
-
-    /// The value of an optional [`ProtocolVersion`] field that is absent.
-    pub fn none() -> Option<Option<ProtocolVersion>> {
-        Some(None)
     }
 }
 
@@ -326,12 +327,13 @@ impl<'b, C> minicbor::decode::Decode<'b, C> for RationalNumber {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         // TODO: Enforce tag == 30 & array of size 2
         d.tag()?;
-        decode_array(d, |a| {
-            Ok(RationalNumber {
-                numerator: a.decode_with(ctx)?,
-                denominator: a.decode_with(ctx)?,
-            })
-        })
+        let len = d.array()?;
+        let rational = RationalNumber {
+            numerator: d.decode_with(ctx)?,
+            denominator: d.decode_with(ctx)?,
+        };
+        skip_array_rest(d, len, 2)?;
+        Ok(rational)
     }
 }
 
@@ -363,7 +365,7 @@ pub enum Relay {
 impl<'b, C> minicbor::decode::Decode<'b, C> for Relay {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
         let len = d.array()?;
-        let variant: u16 = d.decode_with(ctx)?;
+        let variant = d.u16()?;
 
         let (relay, read) = match variant {
             0 => (
@@ -505,7 +507,7 @@ pub type VrfKeyhash = Hash<32>;
 
 #[cfg(test)]
 mod tests {
-    use super::{PoolMetadata, Relay};
+    use super::{PoolMetadata, RationalNumber, Relay};
     use pallas_codec::minicbor;
 
     const ABC: [&str; 2] = ["63616263", "7f6161626263ff"];
@@ -531,5 +533,13 @@ mod tests {
             let relay: Relay = minicbor::decode(&raw).unwrap();
             assert_eq!(relay, Relay::MultiHostName("abc".into()), "{name}");
         }
+    }
+
+    #[test]
+    fn a_rational_reads_its_denominator_past_the_end_of_a_short_definite_array() {
+        let mut d = minicbor::Decoder::new(&[0xd8, 0x1e, 0x81, 0x01, 0x02]);
+        let rational: RationalNumber = d.decode().unwrap();
+        assert_eq!((rational.numerator, rational.denominator), (1, 2));
+        assert_eq!(d.position(), 5);
     }
 }

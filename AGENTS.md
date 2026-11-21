@@ -22,7 +22,7 @@ Library crates:
 | `pallas-network2` | experimental P2P-first rewrite of the networking stack, intended to replace `pallas-network` once mature |
 | `pallas-configs` | parse the Haskell node's genesis files |
 | `pallas-hardano` | read artifacts of the Haskell node, such as its immutable chunks |
-| `pallas-utxorpc` | map Pallas ledger types onto the UTxO RPC schema, `v1alpha` and `v1beta` |
+| `pallas-utxorpc` | map Pallas ledger types onto the UTxO RPC schema, `v1alpha`, `v1beta`, and `v1` under `unstable` |
 
 Example crates, in the workspace too. Run one with `cargo run -p <package>`:
 
@@ -79,8 +79,9 @@ Feature runs:
 
 ```sh
 cargo nextest run -p pallas-network -p pallas-network2 --features blueprint
-cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-validate -p pallas-network2 --features unstable
+cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 --features unstable
 cargo nextest run -p pallas-primitives --features unstable,blueprint
+cargo nextest run -p pallas-validate --features unstable
 cargo nextest run -p pallas-validate --features phase2
 cargo check --workspace --all-targets --no-default-features
 cargo check --workspace --all-targets --all-features
@@ -183,17 +184,18 @@ Where to start for common jobs:
 | validate a transaction | `pallas-validate` | `phase1::validate_tx`; `phase2` needs the `phase2` feature |
 | parse an address | `pallas-addresses` | `Address` |
 | read a Haskell node's chain files | `pallas-hardano` | the `storage::immutable` module |
-| produce UTxO RPC types | `pallas-utxorpc` | `v1alpha::Mapper`, `v1beta::Mapper` |
+| produce UTxO RPC types | `pallas-utxorpc` | `v1alpha::Mapper`, `v1beta::Mapper`, and `v1::Mapper` under `unstable` |
 
 `unstable` gates the Dijkstra era, whose APIs may change between minor releases:
 
 - `pallas-primitives/unstable` adds the `dijkstra` module.
 - `pallas-traverse/unstable` adds Dijkstra to the `MultiEra*` types and makes `MultiEraHeader`
   non-exhaustive, so a match over it needs a wildcard arm.
-- `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
 - `pallas-validate/unstable` adds the Dijkstra protocol parameters to `MultiEraProtocolParameters`.
+- `pallas-utxorpc/unstable` adds the `v1` module, which maps onto the v1 schema.
+- `pallas-utxorpc/unstable` maps Dijkstra through the accessors that can hold its types.
 - `pallas-network2/unstable` proposes node-to-node version 16, which the Leios mini-protocols need.
-- `pallas/unstable` turns on all five, the last only with the umbrella's `network2` feature, and
-  also the umbrella's `hardano` feature.
+- `pallas/unstable` turns on every crate's `unstable` feature, network2's only with the umbrella's
+  `network2` feature, and the umbrella's `hardano` feature.
 
 [`llms.txt`](llms.txt) is an index of the crate docs and examples.
