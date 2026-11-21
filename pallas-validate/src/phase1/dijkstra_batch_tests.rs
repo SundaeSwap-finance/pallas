@@ -1404,7 +1404,10 @@ fn dijkstra_fields_the_node_does_not_decode_are_malformed() {
         };
         // Zero written in one byte and in two bytes are different datums.
         assert_eq!(datums(&[0x82, 0x00, 0x18, 0x00]), datums(&[0x81, 0x00]));
-        assert_eq!(datums(&[0x82, 0x00, 0x00]), malformed("duplicate datums"));
+        assert!(
+            minicbor::decode::<n::NonEmptySet<KeepRaw<n::PlutusData>>>(&[0x82, 0x00, 0x00])
+                .is_err()
+        );
     });
 }
 

@@ -43,6 +43,71 @@ fn at_least(len: usize, minimum: usize, rule: &str) -> Result<(), minicbor::deco
     Ok(())
 }
 
+/// An element type of a decoded set, compared by the identity the ledger gives it.
+pub trait SetElement {
+    /// Whether the ledger counts the two values as one element.
+    fn same_element(&self, other: &Self) -> bool;
+}
+
+/// Implements [`SetElement`] by value equality for each type listed.
+macro_rules! set_element_by_value {
+    ($($element:ty),+ $(,)?) => {
+        $(
+            impl SetElement for $element {
+                fn same_element(&self, other: &Self) -> bool {
+                    self == other
+                }
+            }
+        )+
+    };
+}
+
+set_element_by_value!(
+    TransactionInput,
+    Certificate,
+    AddrKeyhash,
+    StakeCredential,
+    ProposalProcedure,
+    VKeyWitness,
+    BootstrapWitness,
+);
+
+impl<const VERSION: usize> SetElement for PlutusScript<VERSION> {
+    fn same_element(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+/// The ledger keys a script or a datum in a witness set by the hash of the bytes it was read from.
+impl<T> SetElement for KeepRaw<'_, T> {
+    fn same_element(&self, other: &Self) -> bool {
+        self.raw_cbor() == other.raw_cbor()
+    }
+}
+
+/// The ledger keys a sub transaction by its id, the hash of the body bytes it was read from.
+impl SetElement for SubTransaction<'_> {
+    fn same_element(&self, other: &Self) -> bool {
+        self.sub_transaction_body.raw_cbor() == other.sub_transaction_body.raw_cbor()
+    }
+}
+
+/// Refuses the first element that is the same element as one before it.
+fn no_repeated_element<T: SetElement>(
+    items: &[T],
+    rule: &str,
+) -> Result<(), minicbor::decode::Error> {
+    for (position, item) in items.iter().enumerate() {
+        if items[..position].iter().any(|seen| seen.same_element(item)) {
+            return Err(minicbor::decode::Error::message(format!(
+                "a repeated element in {rule} at position {position}"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 macro_rules! tag_preserving_set {
     ($name:ident, $rule:literal, $minimum:expr) => {
         impl<T> $name<T> {
@@ -88,7 +153,7 @@ macro_rules! tag_preserving_set {
 
         impl<'b, C, T> minicbor::decode::Decode<'b, C> for $name<T>
         where
-            T: Decode<'b, C>,
+            T: Decode<'b, C> + SetElement,
         {
             fn decode(
                 d: &mut minicbor::Decoder<'b>,
@@ -109,6 +174,7 @@ macro_rules! tag_preserving_set {
 
                 let items: Vec<T> = d.decode_with(ctx)?;
                 at_least(items.len(), $minimum, $rule)?;
+                no_repeated_element(&items, $rule)?;
 
                 Ok(Self { arm, items })
             }
