@@ -242,4 +242,7 @@ macro_rules! impl_native_script {
     };
 }
 
+#[cfg(feature = "unstable")]
+pub(crate) use impl_native_script;
+
 impl_native_script!(Script);
