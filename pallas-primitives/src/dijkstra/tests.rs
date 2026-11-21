@@ -2654,3 +2654,423 @@ fn a_fraction_below_the_positive_minimum_is_refused_only_as_a_positive_interval(
         false,
     );
 }
+
+/// Decodes the bytes as one value that ends exactly where they do.
+fn read<T: minicbor::Decode<'static, ()>>(
+    bytes: &'static [u8],
+) -> Result<(), minicbor::decode::Error> {
+    let mut d = minicbor::Decoder::new(bytes);
+    d.decode::<T>()?;
+    match d.position() == bytes.len() {
+        true => Ok(()),
+        false => Err(minicbor::decode::Error::message(
+            "bytes left after the value",
+        )),
+    }
+}
+
+/// A record the ledger refuses, beside the same record with one choice or key changed to one it reads.
+struct Refusal {
+    class: &'static str,
+    read: fn(&'static [u8]) -> Result<(), minicbor::decode::Error>,
+    refused: String,
+    known: String,
+}
+
+/// The hex of a body with one input, no outputs and, at the top, a zero fee, followed by the given entries.
+fn body_with(top: bool, entries: &[&str]) -> String {
+    let input = format!("d9010281825820{}00", "03".repeat(32));
+    let (fee, count) = if top { ("0200", 3) } else { ("", 2) };
+    format!(
+        "{:02x}00{input}0180{fee}{}",
+        0xa0 + count + entries.len(),
+        entries.concat()
+    )
+}
+
+/// The hex of a map form output with an address and a zero coin, followed by the given entries.
+fn output_with(entries: &[&str]) -> String {
+    format!(
+        "{:02x}00581d61{}0100{}",
+        0xa2 + entries.len(),
+        "11".repeat(28),
+        entries.concat()
+    )
+}
+
+/// Every optional field whose value holds a choice, with the ledger refusing an unknown arm.
+fn unknown_arms() -> Vec<Refusal> {
+    let arms = |entry: String, refused: &str, known: &str| {
+        (entry.replace("ARM", refused), entry.replace("ARM", known))
+    };
+    let body_fields = [
+        (
+            "certificates",
+            arms(format!("048183098200{HASH}82ARM00"), "05", "02"),
+        ),
+        ("guards", arms(format!("0e8182ARM{HASH}"), "02", "00")),
+        ("network_id", arms("0fARM".to_string(), "05", "01")),
+        (
+            "voting_procedures",
+            arms(format!("13a18200{HASH}a182{HASH32}0082ARMf6"), "05", "01"),
+        ),
+        (
+            "proposal_procedures",
+            arms(format!("14818400{REWARD}81ARM8260{HASH32}"), "09", "06"),
+        ),
+        (
+            "required_top_level_guards",
+            arms("1818a1ARMf6".to_string(), "8102", &format!("8200{HASH}")),
+        ),
+    ];
+    let mut cases = Vec::new();
+
+    for (top, record, read) in [
+        (
+            true,
+            "transaction_body",
+            read::<TransactionBody> as fn(_) -> _,
+        ),
+        (false, "sub_transaction_body", read::<SubTransactionBody>),
+    ] {
+        for (field, (refused, known)) in &body_fields {
+            cases.push(Refusal {
+                class: Box::leak(format!("{record}.{field}").into_boxed_str()),
+                read,
+                refused: body_with(top, &[refused]),
+                known: body_with(top, &[known]),
+            });
+        }
+    }
+
+    let (refused_return, known_return) = arms(
+        format!("10{}", output_with(&[&format!("0282ARM{HASH32}")])),
+        "05",
+        "00",
+    );
+    let sub_transactions = |arm: &str| {
+        let sub_body = body_with(false, &[&format!("0e8182{arm}{HASH}")]);
+        format!("178183{sub_body}a0f6")
+    };
+    cases.extend([
+        Refusal {
+            class: "transaction_body.collateral_return",
+            read: read::<TransactionBody>,
+            refused: body_with(true, &[&refused_return]),
+            known: body_with(true, &[&known_return]),
+        },
+        Refusal {
+            class: "transaction_body.sub_transactions",
+            read: read::<TransactionBody>,
+            refused: body_with(true, &[&sub_transactions("02")]),
+            known: body_with(true, &[&sub_transactions("00")]),
+        },
+        Refusal {
+            class: "transaction_witness_set.native_script",
+            read: read::<WitnessSet>,
+            refused: "a10181820900".to_string(),
+            known: "a10181820400".to_string(),
+        },
+        Refusal {
+            class: "transaction_witness_set.redeemers",
+            read: read::<WitnessSet>,
+            refused: "a105a181098200820000".to_string(),
+            known: "a105a18200008200820000".to_string(),
+        },
+        Refusal {
+            class: "auxiliary_data_map.native_scripts",
+            read: read::<AuxiliaryData>,
+            refused: "d90103a10181820900".to_string(),
+            known: "d90103a10181820400".to_string(),
+        },
+        Refusal {
+            class: "auxiliary_data_array.auxiliary_scripts",
+            read: read::<AuxiliaryData>,
+            refused: "82a081820900".to_string(),
+            known: "82a081820400".to_string(),
+        },
+        Refusal {
+            class: "transaction_output.datum_option",
+            read: read::<TransactionOutput>,
+            refused: output_with(&[&format!("028205{HASH32}")]),
+            known: output_with(&[&format!("028200{HASH32}")]),
+        },
+        Refusal {
+            class: "transaction_output.script_ref",
+            read: read::<TransactionOutput>,
+            refused: output_with(&["03d81843820900"]),
+            known: output_with(&["03d818458200820400"]),
+        },
+    ]);
+
+    cases
+}
+
+/// Every map record, with a key its rule lacks: inside the range of its keys, past the last, below zero, and for a sub transaction body each key only the top body holds.
+fn unknown_keys() -> Vec<Refusal> {
+    let mut cases = Vec::new();
+    let mut add = |class: &'static str,
+                   read: fn(&'static [u8]) -> Result<(), minicbor::decode::Error>,
+                   record: &dyn Fn(&str) -> String,
+                   refused: &[&str],
+                   known: &str| {
+        for key in refused {
+            cases.push(Refusal {
+                class,
+                read,
+                refused: record(key),
+                known: record(known),
+            });
+        }
+    };
+
+    let top = |entry: &str| body_with(true, &[entry]);
+    add(
+        "transaction_body inside",
+        read::<TransactionBody>,
+        &top,
+        &["0600", "0a00", "0c00"],
+        "0300",
+    );
+    add(
+        "transaction_body past",
+        read::<TransactionBody>,
+        &top,
+        &["181c00"],
+        "0300",
+    );
+    add(
+        "transaction_body below",
+        read::<TransactionBody>,
+        &top,
+        &["2000"],
+        "0300",
+    );
+
+    let sub = |entry: &str| body_with(false, &[entry]);
+    add(
+        "sub_transaction_body inside",
+        read::<SubTransactionBody>,
+        &sub,
+        &["0600", "0a00", "0c00"],
+        "0300",
+    );
+    add(
+        "sub_transaction_body past",
+        read::<SubTransactionBody>,
+        &sub,
+        &["181c00"],
+        "0300",
+    );
+    add(
+        "sub_transaction_body below",
+        read::<SubTransactionBody>,
+        &sub,
+        &["2000"],
+        "0300",
+    );
+    add(
+        "sub_transaction_body top only",
+        read::<SubTransactionBody>,
+        &sub,
+        &["0200", "0d00", "1000", "1100", "1700", "181b00"],
+        "0300",
+    );
+
+    let witnesses = |key: &str| format!("a1{key}814100");
+    add(
+        "transaction_witness_set past",
+        read::<WitnessSet>,
+        &witnesses,
+        &["09"],
+        "03",
+    );
+    add(
+        "transaction_witness_set below",
+        read::<WitnessSet>,
+        &witnesses,
+        &["20"],
+        "03",
+    );
+
+    let auxiliary = |key: &str| format!("d90103a1{key}80");
+    add(
+        "auxiliary_data_map past",
+        read::<AuxiliaryData>,
+        &auxiliary,
+        &["06"],
+        "02",
+    );
+    add(
+        "auxiliary_data_map below",
+        read::<AuxiliaryData>,
+        &auxiliary,
+        &["20"],
+        "02",
+    );
+
+    let output = |key: &str| output_with(&[&format!("{key}8200{HASH32}")]);
+    add(
+        "transaction_output past",
+        read::<TransactionOutput>,
+        &output,
+        &["04"],
+        "02",
+    );
+    add(
+        "transaction_output below",
+        read::<TransactionOutput>,
+        &output,
+        &["20"],
+        "02",
+    );
+
+    let update = |entry: &str| format!("a1{entry}");
+    add(
+        "protocol_param_update inside",
+        read::<ProtocolParamUpdate>,
+        &update,
+        &["0c00", "0f00"],
+        "0000",
+    );
+    add(
+        "protocol_param_update past",
+        read::<ProtocolParamUpdate>,
+        &update,
+        &["183900"],
+        "0000",
+    );
+    add(
+        "protocol_param_update below",
+        read::<ProtocolParamUpdate>,
+        &update,
+        &["2000"],
+        "0000",
+    );
+
+    cases
+}
+
+/// Asserts that the cases hold at least one case of each expected class and of no other class.
+fn assert_classes(cases: &[Refusal], expected: &[&str]) {
+    let mut counts = std::collections::BTreeMap::new();
+    for case in cases {
+        *counts.entry(case.class).or_insert(0) += 1;
+    }
+    let found: Vec<_> = counts.keys().copied().collect();
+    let mut expected = expected.to_vec();
+    expected.sort();
+    assert_eq!(found, expected, "case counts per class: {counts:?}");
+}
+
+const UNKNOWN_ARM_CLASSES: &[&str] = &[
+    "transaction_body.certificates",
+    "transaction_body.guards",
+    "transaction_body.network_id",
+    "transaction_body.collateral_return",
+    "transaction_body.voting_procedures",
+    "transaction_body.proposal_procedures",
+    "transaction_body.sub_transactions",
+    "transaction_body.required_top_level_guards",
+    "sub_transaction_body.certificates",
+    "sub_transaction_body.guards",
+    "sub_transaction_body.network_id",
+    "sub_transaction_body.voting_procedures",
+    "sub_transaction_body.proposal_procedures",
+    "sub_transaction_body.required_top_level_guards",
+    "transaction_witness_set.native_script",
+    "transaction_witness_set.redeemers",
+    "auxiliary_data_map.native_scripts",
+    "auxiliary_data_array.auxiliary_scripts",
+    "transaction_output.datum_option",
+    "transaction_output.script_ref",
+];
+
+const UNKNOWN_KEY_CLASSES: &[&str] = &[
+    "transaction_body inside",
+    "transaction_body past",
+    "transaction_body below",
+    "sub_transaction_body inside",
+    "sub_transaction_body past",
+    "sub_transaction_body below",
+    "sub_transaction_body top only",
+    "transaction_witness_set past",
+    "transaction_witness_set below",
+    "auxiliary_data_map past",
+    "auxiliary_data_map below",
+    "transaction_output past",
+    "transaction_output below",
+    "protocol_param_update inside",
+    "protocol_param_update past",
+    "protocol_param_update below",
+];
+
+#[test]
+fn each_record_reads_with_a_known_arm_or_key_in_place_of_the_refused_one() {
+    let cases: Vec<_> = unknown_arms().into_iter().chain(unknown_keys()).collect();
+    assert_classes(&unknown_arms(), UNKNOWN_ARM_CLASSES);
+    assert_classes(&unknown_keys(), UNKNOWN_KEY_CLASSES);
+
+    let failed: Vec<_> = cases
+        .iter()
+        .filter_map(|case| {
+            (case.read)(generated(&case.known))
+                .err()
+                .map(|err| format!("{} {}: {err}", case.class, case.known))
+        })
+        .collect();
+    assert!(
+        failed.is_empty(),
+        "{} of {} refused:\n{}",
+        failed.len(),
+        cases.len(),
+        failed.join("\n")
+    );
+}
+
+#[test]
+fn an_unknown_arm_in_an_optional_field_is_refused() {
+    let cases = unknown_arms();
+    assert_classes(&cases, UNKNOWN_ARM_CLASSES);
+
+    let failed: Vec<_> = cases
+        .iter()
+        .filter_map(|case| match (case.read)(generated(&case.refused)) {
+            Err(err) if err.is_unknown_variant() => None,
+            Err(err) => Some(format!("{} refused for another reason: {err}", case.class)),
+            Ok(()) => Some(format!("{} read", case.class)),
+        })
+        .collect();
+    assert!(
+        failed.is_empty(),
+        "{} of {} not refused as an unknown arm:\n{}",
+        failed.len(),
+        cases.len(),
+        failed.join("\n")
+    );
+}
+
+#[test]
+fn an_unknown_map_key_is_refused() {
+    let cases = unknown_keys();
+    assert_classes(&cases, UNKNOWN_KEY_CLASSES);
+
+    let failed: Vec<_> = cases
+        .iter()
+        .filter_map(|case| match (case.read)(generated(&case.refused)) {
+            Err(err) if err.to_string().contains("unknown key") => None,
+            Err(err) => Some(format!(
+                "{} {} refused for another reason: {err}",
+                case.class, case.refused
+            )),
+            Ok(()) => Some(format!("{} {} read", case.class, case.refused)),
+        })
+        .collect();
+    assert!(
+        failed.is_empty(),
+        "{} of {} not refused as an unknown key:\n{}",
+        failed.len(),
+        cases.len(),
+        failed.join("\n")
+    );
+}
