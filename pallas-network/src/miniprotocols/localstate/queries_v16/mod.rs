@@ -28,6 +28,8 @@ use super::{Client, ClientError};
 
 mod block_query;
 mod codec;
+#[cfg(feature = "unstable")]
+pub mod dijkstra;
 mod plutus_data;
 
 // https://github.com/input-output-hk/ouroboros-consensus/blob/main/ouroboros-consensus-cardano/src/shelley/Ouroboros/Consensus/Shelley/Ledger/Query.hs

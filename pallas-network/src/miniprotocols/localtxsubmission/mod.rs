@@ -4,7 +4,7 @@ pub use server::*;
 
 mod client;
 mod codec;
-mod native_script;
+pub(crate) mod native_script;
 mod protocol;
 mod server;
 
