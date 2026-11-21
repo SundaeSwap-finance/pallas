@@ -587,10 +587,10 @@ fn dijkstra_an_empty_guards_set_is_no_guards() {
 #[test]
 fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
     captured(|tx, output| {
-        // Add each disallowed body key in original CBOR, including unknown future keys.
+        // Add each disallowed body key in original CBOR.
         // Most known keys use typed synthetic mutations elsewhere; null still must reject.
         for key in [
-            4, 5, 7, 9, 11, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 99,
+            4, 5, 7, 9, 11, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
         ] {
             let mut raw = tx.transaction_body.raw_cbor().to_vec();
             raw[0] += 1;
@@ -606,7 +606,14 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
                 "DijkstraUnsupported(\"body fields\")",
             );
         }
-        // A synthetic unknown map field must not disappear in typed decoding.
+        // A body or output key outside the CDDL is refused by typed decoding.
+        let mut raw = tx.transaction_body.raw_cbor().to_vec();
+        raw[0] += 1;
+        let mut enc = minicbor::Encoder::new(Vec::new());
+        enc.u64(99).unwrap().null().unwrap();
+        raw.extend(enc.into_writer());
+        let refused = minicbor::decode::<native::TransactionBody>(&raw).unwrap_err();
+        assert!(refused.to_string().contains("unknown key 99"), "{refused}");
         let view = MultiEraOutput::from_dijkstra(&tx.transaction_body.outputs[0]);
         let mut enc = minicbor::Encoder::new(Vec::new());
         enc.map(3)
@@ -624,13 +631,8 @@ fn dijkstra_unsupported_fields_do_not_disappear_in_decode() {
             .null()
             .unwrap();
         let raw_output = enc.into_writer();
-        let mut changed = tx.clone();
-        changed.transaction_body.outputs =
-            MaybeIndefArray::Def(vec![minicbor::decode(&raw_output).unwrap()]);
-        error(
-            dispatch(&changed, &output, &env()),
-            "DijkstraUnsupported(\"output fields\")",
-        );
+        let refused = minicbor::decode::<native::TransactionOutput>(&raw_output).unwrap_err();
+        assert!(refused.to_string().contains("unknown key 99"), "{refused}");
         let raw = [0xa1, 0x08, 0x81, 0x41, 0x00]; // one PlutusV4 script under witness key 8
         let mut changed = tx.clone();
         changed.transaction_witness_set = minicbor::decode(&raw).unwrap();
