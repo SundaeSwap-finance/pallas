@@ -15,7 +15,7 @@ fn exact(r: &MultiEraEvalReport) {
     assert!(r[0].success, "{r:?}");
     assert_eq!(
         r[0].units,
-        n::ExUnits {
+        c::ExUnits {
             mem: 18_485,
             steps: 4_805_428
         }
@@ -56,7 +56,7 @@ fn estimation_unsigned_capture() {
 #[test]
 fn estimation_zero_budgets() {
     fixture(|mut tx, u| {
-        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(0, 0));
         let enforced = run(&tx, &u).unwrap();
         assert!(!enforced[0].success);
         assert!(
@@ -72,16 +72,7 @@ fn estimation_zero_budgets() {
 #[test]
 fn estimation_insufficient_budgets() {
     fixture(|tx, u| {
-        for budget in [
-            n::ExUnits {
-                mem: 18_484,
-                steps: 4_805_428,
-            },
-            n::ExUnits {
-                mem: 18_485,
-                steps: 4_805_427,
-            },
-        ] {
+        for budget in [declared(18_484, 4_805_428), declared(18_485, 4_805_427)] {
             let mut tx = tx.clone();
             change_redeemer(&mut tx, |_, v| v.ex_units = budget);
             assert!(!run(&tx, &u).unwrap()[0].success);
@@ -93,27 +84,23 @@ fn estimation_insufficient_budgets() {
 fn estimation_unsigned_zero_budgets() {
     fixture(|mut tx, u| {
         unsigned(&mut tx);
-        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(0, 0));
         preserved(&tx, &u);
     });
 }
 #[test]
 fn estimation_ignores_excessive_declared_budgets() {
     fixture(|mut tx, u| {
-        change_redeemer(&mut tx, |_, v| {
-            v.ex_units = n::ExUnits {
-                mem: u64::MAX,
-                steps: u64::MAX,
-            }
-        });
-        error(run(&tx, &u), "memory budget overflow");
+        let max = i64::MAX as u64;
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(max, max));
+        assert!(run(&tx, &u).unwrap()[0].success);
         preserved(&tx, &u);
     });
 }
 fn with_limit(
     tx: &n::BlockTransaction<'_>,
     u: &UtxoMap,
-    limit: n::ExUnits,
+    limit: c::ExUnits,
 ) -> Result<MultiEraEvalReport, Error> {
     let mut pp = params();
     let MultiEraProtocolParameters::Dijkstra(p) = &mut pp else {
@@ -125,12 +112,12 @@ fn with_limit(
 #[test]
 fn estimation_execution_limits() {
     fixture(|mut tx, u| {
-        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(0, 0));
         exact(
             &with_limit(
                 &tx,
                 &u,
-                n::ExUnits {
+                c::ExUnits {
                     mem: 18_485,
                     steps: 4_805_428,
                 },
@@ -138,15 +125,15 @@ fn estimation_execution_limits() {
             .unwrap(),
         );
         for limit in [
-            n::ExUnits {
+            c::ExUnits {
                 mem: 18_484,
                 steps: 4_805_428,
             },
-            n::ExUnits {
+            c::ExUnits {
                 mem: 18_485,
                 steps: 4_805_427,
             },
-            n::ExUnits { mem: 0, steps: 0 },
+            c::ExUnits { mem: 0, steps: 0 },
         ] {
             let r = with_limit(&tx, &u, limit).unwrap();
             assert!(!r[0].success, "{r:?}");
@@ -162,7 +149,7 @@ fn estimation_execution_limits() {
             with_limit(
                 &tx,
                 &u,
-                n::ExUnits {
+                c::ExUnits {
                     mem: u64::MAX,
                     steps: 1,
                 },
@@ -173,7 +160,7 @@ fn estimation_execution_limits() {
             with_limit(
                 &tx,
                 &u,
-                n::ExUnits {
+                c::ExUnits {
                     mem: 1,
                     steps: u64::MAX,
                 },
@@ -185,14 +172,14 @@ fn estimation_execution_limits() {
 #[test]
 fn estimation_admits_an_execution_limit_up_to_i64_max() {
     fixture(|mut tx, u| {
-        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(0, 0));
         let max = i64::MAX as u64;
         for limit in [
-            n::ExUnits {
+            c::ExUnits {
                 mem: max,
                 steps: 4_805_428,
             },
-            n::ExUnits {
+            c::ExUnits {
                 mem: 18_485,
                 steps: max,
             },
@@ -200,11 +187,11 @@ fn estimation_admits_an_execution_limit_up_to_i64_max() {
             exact(&with_limit(&tx, &u, limit).unwrap());
         }
         for limit in [
-            n::ExUnits {
+            c::ExUnits {
                 mem: max + 1,
                 steps: 4_805_428,
             },
-            n::ExUnits {
+            c::ExUnits {
                 mem: 18_485,
                 steps: max + 1,
             },
@@ -267,12 +254,12 @@ fn estimation_aggregate_boundaries_and_indices() {
             ))),
             true,
         );
-        change_redeemer(&mut tx, |_, v| v.ex_units = n::ExUnits { mem: 0, steps: 0 });
+        change_redeemer(&mut tx, |_, v| v.ex_units = declared(0, 0));
         let single = estimate(&tx, &u).unwrap();
         assert!(single[0].success, "{single:?}");
         let units = single[0].units;
         duplicate_script_certificates(&mut tx);
-        let max = n::ExUnits {
+        let max = c::ExUnits {
             mem: units.mem * 2,
             steps: units.steps * 2,
         };
@@ -280,11 +267,11 @@ fn estimation_aggregate_boundaries_and_indices() {
         // transaction maximum. Exact per-script equality is allowed.
         for limit in [
             max,
-            n::ExUnits {
+            c::ExUnits {
                 mem: max.mem - 1,
                 ..max
             },
-            n::ExUnits {
+            c::ExUnits {
                 steps: max.steps - 1,
                 ..max
             },
@@ -303,11 +290,11 @@ fn estimation_aggregate_boundaries_and_indices() {
             }
         }
         for limit in [
-            n::ExUnits {
+            c::ExUnits {
                 mem: units.mem - 1,
                 ..units
             },
-            n::ExUnits {
+            c::ExUnits {
                 steps: units.steps - 1,
                 ..units
             },
@@ -333,15 +320,15 @@ fn estimation_aggregate_boundaries_and_indices() {
             .0
             .values_mut()
         {
-            value.ex_units = units;
+            value.ex_units = units.try_into().unwrap();
         }
         for limit in [
             max,
-            n::ExUnits {
+            c::ExUnits {
                 mem: max.mem - 1,
                 ..max
             },
-            n::ExUnits {
+            c::ExUnits {
                 steps: max.steps - 1,
                 ..max
             },
@@ -357,7 +344,7 @@ fn estimation_aggregate_boundaries_and_indices() {
             assert_eq!(result.len(), 2);
             assert!(result.iter().all(|r| r.success), "{result:?}");
         }
-        let r = with_limit(&tx, &u, n::ExUnits { mem: 0, steps: 0 }).unwrap();
+        let r = with_limit(&tx, &u, c::ExUnits { mem: 0, steps: 0 }).unwrap();
         assert!(r.iter().all(|x| {
             !x.success
                 && x.failure_message
@@ -448,7 +435,7 @@ fn estimation_preserves_context_hash_and_redeemer_data() {
         let hash = MultiEraTx::from_dijkstra(&tx).hash();
         change_redeemer(&mut tx, |_, v| {
             v.data = n::PlutusData::BoundedBytes(hash.to_vec().into());
-            v.ex_units = n::ExUnits { mem: 0, steps: 0 };
+            v.ex_units = declared(0, 0);
         });
         unsigned(&mut tx);
         let bytes = minicbor::to_vec(&tx).unwrap();
@@ -488,7 +475,7 @@ fn estimation_per_script_failure_does_not_reduce_later_budget() {
         );
         change_redeemer(&mut tx, |_, v| {
             v.data = crate::phase2::data::Data::integer(n::BigInt::Int(42.into()));
-            v.ex_units = n::ExUnits { mem: 0, steps: 0 };
+            v.ex_units = declared(0, 0);
         });
         duplicate_script_certificates(&mut tx);
         let successful = estimate(&tx, &u).unwrap();

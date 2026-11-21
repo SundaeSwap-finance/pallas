@@ -47,7 +47,7 @@ pub(crate) fn params() -> Environment {
             denominator: 10000000,
         },
     };
-    pp.max_tx_ex_units = n::ExUnits {
+    pp.max_tx_ex_units = pallas_primitives::ExUnits {
         mem: p["max_tx_ex_mem"].as_str().unwrap().parse().unwrap(),
         steps: p["max_tx_ex_steps"].as_str().unwrap().parse().unwrap(),
     };
@@ -343,10 +343,12 @@ fn dijkstra_registration_key_author_and_deposit_balance() {
         let n::TransactionOutput::PostAlonzo(ref mut out) = outputs[0] else {
             unreachable!()
         };
-        let n::Value::Coin(ref mut coin) = out.value else {
+        let pallas_primitives::conway::Value::Coin(coin) = *out.value else {
             unreachable!()
         };
-        *coin -= 2000000;
+        out.value = pallas_primitives::conway::Value::Coin(coin - 2000000)
+            .try_into()
+            .unwrap();
         tx.transaction_body.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
         sign(&mut tx);
         let utxos = [(
@@ -411,7 +413,7 @@ fn dijkstra_registration_fee_rounding_and_reference_accounting() {
         let mut extra = utxos.clone();
         extra.insert(
             MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(
-                n::TransactionInput {
+                pallas_primitives::TransactionInput {
                     transaction_id: [8; 32].into(),
                     index: 0,
                 },
@@ -484,15 +486,17 @@ fn dijkstra_registration_requires_distinct_certificate_author() {
         let n::TransactionOutput::PostAlonzo(ref mut out) = outputs[0] else {
             unreachable!()
         };
-        let n::Value::Coin(ref mut coin) = out.value else {
+        let pallas_primitives::conway::Value::Coin(coin) = *out.value else {
             unreachable!()
         };
-        *coin -= 2000000;
+        out.value = pallas_primitives::conway::Value::Coin(coin - 2000000)
+            .try_into()
+            .unwrap();
         tx.transaction_body.outputs = pallas_codec::utils::MaybeIndefArray::Def(outputs);
         sign(&mut tx);
         let utxos = [(
             MultiEraInput::AlonzoCompatible(Box::new(std::borrow::Cow::Owned(
-                tx.transaction_body.inputs[0].clone(),
+                tx.transaction_body.inputs[0].clone().into(),
             ))),
             MultiEraOutput::from_dijkstra(&input),
         )]

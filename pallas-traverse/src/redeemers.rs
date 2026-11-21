@@ -60,7 +60,7 @@ impl<'b> MultiEraRedeemer<'b> {
             Self::AlonzoCompatible(x) => x.ex_units,
             Self::Conway(_, x) => x.ex_units,
             #[cfg(feature = "unstable")]
-            Self::Dijkstra(_, x) => x.ex_units,
+            Self::Dijkstra(_, x) => *x.ex_units,
         }
     }
 

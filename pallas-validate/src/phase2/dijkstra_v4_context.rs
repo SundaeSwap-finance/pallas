@@ -183,7 +183,11 @@ impl<'a> Context<'a> {
                 .iter()
                 .map(|(hash, datum)| (hash.to_plutus_data(), datum.clone()))
                 .collect()),
-            votes: votes(&level.votes.cloned()),
+            votes: votes(
+                &level
+                    .votes
+                    .map(|procedures| c::VotingProcedures::clone(procedures)),
+            ),
             proposals: self
                 .proposals
                 .iter()
@@ -272,7 +276,7 @@ impl<'a> Context<'a> {
                     .map(|(key, ..)| context.scripts[key]),
             );
             data.extend(context.datums.clone());
-            for (voter, actions) in level.votes.into_iter().flatten() {
+            for (voter, actions) in level.votes.into_iter().flat_map(|votes| votes.iter()) {
                 let entry: &mut BTreeMap<_, _> = voters.entry(voter.clone()).or_default();
                 entry.extend(actions.clone());
             }
@@ -436,7 +440,7 @@ fn balance_interval(interval: &n::AccountBalanceInterval) -> PlutusData {
 }
 
 /// A transaction output reference, as its transaction id and index.
-fn out_ref(input: &n::TransactionInput) -> PlutusData {
+fn out_ref(input: &c::TransactionInput) -> PlutusData {
     list(vec![
         input.transaction_id.to_plutus_data(),
         input.index.to_plutus_data(),
@@ -500,7 +504,8 @@ fn proposal(proposal: &n::ProposalProcedure) -> Result<PlutusData, Error> {
 
 /// A governance action, whose ids, protocol versions, constitutions and quorums are lists.
 fn gov_action(action: &n::GovAction) -> Result<PlutusData, Error> {
-    let previous = |id: &Option<c::GovActionId>| id.as_ref().map(gov_action_id).to_plutus_data();
+    let previous =
+        |id: &Option<n::GovActionId>| id.as_ref().map(|id| gov_action_id(id)).to_plutus_data();
     Ok(match action {
         n::GovAction::ParameterChange(id, update, guardrail) => wrap_multiple_with_constr(
             0,
@@ -510,13 +515,16 @@ fn gov_action(action: &n::GovAction) -> Result<PlutusData, Error> {
                 guardrail.to_plutus_data(),
             ],
         ),
-        n::GovAction::HardForkInitiation(id, (major, minor)) => wrap_multiple_with_constr(
-            1,
-            vec![
-                previous(id),
-                list(vec![major.to_plutus_data(), minor.to_plutus_data()]),
-            ],
-        ),
+        n::GovAction::HardForkInitiation(id, version) => {
+            let (major, minor) = **version;
+            wrap_multiple_with_constr(
+                1,
+                vec![
+                    previous(id),
+                    list(vec![major.to_plutus_data(), minor.to_plutus_data()]),
+                ],
+            )
+        }
         n::GovAction::TreasuryWithdrawals(withdrawals, guardrail) => wrap_multiple_with_constr(
             2,
             vec![

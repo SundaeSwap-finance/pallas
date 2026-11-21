@@ -87,23 +87,36 @@ macro_rules! shared_gov_actions {
         match $action {
             $era::GovAction::ParameterChange(id, update, guardrails) => {
                 MultiEraGovActionKind::ParameterChange(
-                    id.as_ref(),
+                    id.as_ref().map(|id| -> &GovActionId { id }),
                     MultiEraParamUpdate::$update(Box::new(Cow::Borrowed(update.as_ref()))),
                     guardrails.as_ref(),
                 )
             }
             $era::GovAction::HardForkInitiation(id, version) => {
-                MultiEraGovActionKind::HardForkInitiation(id.as_ref(), version)
+                MultiEraGovActionKind::HardForkInitiation(
+                    id.as_ref().map(|id| -> &GovActionId { id }),
+                    version,
+                )
             }
             $era::GovAction::TreasuryWithdrawals(withdrawals, guardrails) => {
                 MultiEraGovActionKind::TreasuryWithdrawals(withdrawals, guardrails.as_ref())
             }
-            $era::GovAction::NoConfidence(id) => MultiEraGovActionKind::NoConfidence(id.as_ref()),
+            $era::GovAction::NoConfidence(id) => {
+                MultiEraGovActionKind::NoConfidence(id.as_ref().map(|id| -> &GovActionId { id }))
+            }
             $era::GovAction::UpdateCommittee(id, remove, add, threshold) => {
-                MultiEraGovActionKind::UpdateCommittee(id.as_ref(), remove, add, threshold)
+                MultiEraGovActionKind::UpdateCommittee(
+                    id.as_ref().map(|id| -> &GovActionId { id }),
+                    remove,
+                    add,
+                    threshold,
+                )
             }
             $era::GovAction::NewConstitution(id, constitution) => {
-                MultiEraGovActionKind::NewConstitution(id.as_ref(), constitution)
+                MultiEraGovActionKind::NewConstitution(
+                    id.as_ref().map(|id| -> &GovActionId { id }),
+                    constitution,
+                )
             }
             $era::GovAction::Information => MultiEraGovActionKind::Information,
         }
@@ -296,26 +309,26 @@ impl MultiEraParamUpdate<'_> {
     // -- NEW IN DIJKSTRA
     // keys 34 to 56
 
-    dijkstra_param!(max_ref_script_size_per_block: u64);
-    dijkstra_param!(max_ref_script_size_per_tx: u64);
-    dijkstra_param!(ref_script_cost_stride: u64);
+    dijkstra_param!(max_ref_script_size_per_block: u32);
+    dijkstra_param!(max_ref_script_size_per_tx: u32);
+    dijkstra_param!(ref_script_cost_stride: std::num::NonZeroU32);
     dijkstra_param!(ref_script_cost_multiplier: dijkstra::PositiveInterval);
     dijkstra_param!(max_pledge_leverage: Nullable<dijkstra::NonNegativeInterval>);
     dijkstra_param!(min_pool_margin: dijkstra::UnitInterval);
-    dijkstra_param!(leios_announcement_period_length: u64);
-    dijkstra_param!(leios_vote_period_length: u64);
-    dijkstra_param!(leios_diffusion_period_length: u64);
-    dijkstra_param!(leios_committee_size: u64);
+    dijkstra_param!(leios_announcement_period_length: u32);
+    dijkstra_param!(leios_vote_period_length: u32);
+    dijkstra_param!(leios_diffusion_period_length: u32);
+    dijkstra_param!(leios_committee_size: u16);
     dijkstra_param!(leios_quorum_stake_threshold: dijkstra::UnitInterval);
-    dijkstra_param!(max_endorser_block_references_size: u64);
-    dijkstra_param!(max_endorser_block_txs_size: u64);
-    dijkstra_param!(max_endorser_block_execution_units: ExUnits);
-    dijkstra_param!(max_ref_script_size_per_endorser_block: u64);
-    dijkstra_param!(peras_min_candidate_block_age: u64);
+    dijkstra_param!(max_endorser_block_references_size: u32);
+    dijkstra_param!(max_endorser_block_txs_size: u32);
+    dijkstra_param!(max_endorser_block_execution_units: dijkstra::ExUnits);
+    dijkstra_param!(max_ref_script_size_per_endorser_block: u32);
+    dijkstra_param!(peras_min_candidate_block_age: u32);
     dijkstra_param!(peras_healing_factor: dijkstra::PositiveInterval);
-    dijkstra_param!(peras_cert_boost: u64);
-    dijkstra_param!(peras_target_committee_size: u64);
-    dijkstra_param!(peras_bootstrap_round: Nullable<u64>);
+    dijkstra_param!(peras_cert_boost: u16);
+    dijkstra_param!(peras_target_committee_size: u16);
+    dijkstra_param!(peras_bootstrap_round: Nullable<u32>);
     dijkstra_param!(peras_quorum_threshold_safety_margin: dijkstra::UnitInterval);
     dijkstra_param!(ref_inputs_cost_per_multi_asset_policy: u64);
     dijkstra_param!(ref_inputs_cost_per_datum_byte: u64);
@@ -803,13 +816,17 @@ mod dijkstra_tests {
             transaction_id: [0x11; 32].into(),
             action_index: 3,
         };
+        let dijkstra_id = dijkstra::GovActionId::try_from(id.clone()).unwrap();
         let mut terms = BTreeMap::new();
         terms.insert(AddrKeyhash([0x44; 28].into()), 900);
 
         let cases: Vec<(&str, dijkstra::GovAction, Option<GovActionId>)> = vec![
             (
                 "hard fork initiation",
-                dijkstra::GovAction::HardForkInitiation(Some(id.clone()), (11, 0)),
+                dijkstra::GovAction::HardForkInitiation(
+                    Some(dijkstra_id.clone()),
+                    (11, 0).try_into().unwrap(),
+                ),
                 Some(id.clone()),
             ),
             (
@@ -819,7 +836,7 @@ mod dijkstra_tests {
             ),
             (
                 "no confidence",
-                dijkstra::GovAction::NoConfidence(Some(id.clone())),
+                dijkstra::GovAction::NoConfidence(Some(dijkstra_id.clone())),
                 Some(id.clone()),
             ),
             (
@@ -830,7 +847,7 @@ mod dijkstra_tests {
             (
                 "update committee",
                 dijkstra::GovAction::UpdateCommittee(
-                    Some(id.clone()),
+                    Some(dijkstra_id.clone()),
                     vec![ScriptHash([0x33; 28].into())].into(),
                     terms,
                     RationalNumber {

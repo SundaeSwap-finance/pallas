@@ -87,7 +87,7 @@ fn dijkstra_native_reference_hash_survives_v3_projection() {
                 )
                 .to_vec()
                 .into(),
-                value: c::Value::Coin(5_000_000),
+                value: c::Value::Coin(5_000_000).try_into().unwrap(),
                 datum_option: None,
                 script_ref: Some(CborWrap(n::ScriptRef::NativeScript(native.clone()))),
             }
@@ -148,7 +148,7 @@ fn dijkstra_plutus_reference_hash_carries_its_language_tag() {
         let output = n::TransactionOutput::PostAlonzo(
             n::PostAlonzoTransactionOutput {
                 address: [vec![0x60], vec![1; 28]].concat().into(),
-                value: c::Value::Coin(5_000_000),
+                value: c::Value::Coin(5_000_000).try_into().unwrap(),
                 datum_option: None,
                 script_ref: Some(CborWrap(script)),
             }
@@ -207,7 +207,7 @@ fn dijkstra_pointer_output_keeps_its_pointer_in_a_context() {
         n::TransactionOutput::PostAlonzo(
             n::PostAlonzoTransactionOutput {
                 address: address.into(),
-                value: c::Value::Coin(5_000_000),
+                value: c::Value::Coin(5_000_000).try_into().unwrap(),
                 datum_option: None,
                 script_ref: None,
             }
@@ -323,7 +323,7 @@ fn ttl_validator_detects_an_inclusive_upper_bound() {
             script.as_ref(),
             &[&context],
             &costs,
-            n::ExUnits {
+            c::ExUnits {
                 mem: 1_000_000,
                 steps: 100_000_000,
             },
@@ -348,7 +348,7 @@ macro_rules! reference_without_raw {
                 let output = $era::TransactionOutput::PostAlonzo(
                     $era::PostAlonzoTransactionOutput {
                         address: [vec![0x60], vec![1; 28]].concat().into(),
-                        value: c::Value::Coin(1),
+                        value: c::Value::Coin(1).try_into().unwrap(),
                         datum_option: None,
                         script_ref: Some(CborWrap($era::ScriptRef::NativeScript(native))),
                     }

@@ -158,7 +158,7 @@ fn decode<'a>(
         .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::InputIndex))?;
     let raw = utxos
         .get(&TxoRef(input.transaction_id, index))
-        .ok_or_else(|| Error::ResolvedInputNotFound(input.clone()))?;
+        .ok_or_else(|| Error::ResolvedInputNotFound((**input).clone()))?;
     MultiEraOutput::decode(raw.0, &raw.1)
         .map_err(|_| Error::DijkstraInvalid(EvaluationFailure::InputDecodingForOriginalEra))
 }
@@ -287,7 +287,7 @@ fn conway_certificate(cert: &n::Certificate) -> c::Certificate {
             margin: margin.into(),
             reward_account,
             pool_owners: pool_owners.to_vec().into(),
-            relays,
+            relays: relays.into(),
             pool_metadata,
         },
         n::Certificate::PoolRetirement(pool, epoch) => c::Certificate::PoolRetirement(pool, epoch),
@@ -405,7 +405,7 @@ fn conway_redeemers(
                 tag,
                 index: key.index,
                 data: value.data.clone(),
-                ex_units: value.ex_units,
+                ex_units: *value.ex_units,
             };
             Ok((purpose.clone(), redeemer))
         })
@@ -575,7 +575,7 @@ fn level_context<'a>(
         let purpose = match key.tag {
             n::RedeemerTag::Spend => Purpose::Conway(
                 c::RedeemerTag::Spend,
-                ScriptPurpose::Spending(inputs[index].clone(), ()),
+                ScriptPurpose::Spending((**inputs[index]).clone(), ()),
             ),
             n::RedeemerTag::Mint => Purpose::Conway(
                 c::RedeemerTag::Mint,
@@ -858,10 +858,10 @@ pub(super) fn runs(
                         redeemers: x.redeemers.into(),
                         data: x.data.into(),
                         id: context.level.id,
-                        votes: get_votes_info(&b.voting_procedures),
+                        votes: get_votes_info(&b.voting_procedures.as_deref().cloned()),
                         proposal_procedures: context.proposals.clone(),
                         current_treasury_amount: b.treasury_value,
-                        treasury_donation: b.donation,
+                        treasury_donation: b.donation.map(Into::into),
                     };
                     vec![v3_script_context_data(
                         info.to_plutus_data_with_protocol(12),
@@ -889,7 +889,7 @@ pub(super) fn runs(
                 budget: if estimate {
                     execution_limit
                 } else {
-                    r.ex_units
+                    *r.ex_units
                 },
             });
         }

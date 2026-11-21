@@ -221,7 +221,7 @@ fn spent<'a, 'b>(
 ) -> Result<&'a MultiEraOutput<'b>, ValidationError> {
     utxos
         .get(&MultiEraInput::AlonzoCompatible(Box::new(Cow::Owned(
-            input.clone(),
+            pallas_primitives::TransactionInput::clone(input),
         ))))
         .ok_or(PostAlonzo(InputNotInUTxO))
 }
@@ -813,17 +813,8 @@ fn check_witness_fields(w: &KeepRaw<'_, WitnessSet<'_>>) -> ValidationResult {
     {
         return Err(DijkstraMalformed(MalformedField::DuplicateScripts));
     }
-    if let Some(redeemers) = &w.redeemer {
-        if redeemers.is_empty() {
-            return Err(DijkstraMalformed(MalformedField::EmptyRedeemers));
-        }
-        let limit = i64::MAX as u64;
-        if redeemers
-            .iter()
-            .any(|(_, x)| x.ex_units.mem > limit || x.ex_units.steps > limit)
-        {
-            return Err(DijkstraMalformed(MalformedField::ExecutionUnits));
-        }
+    if w.redeemer.as_ref().is_some_and(|r| r.is_empty()) {
+        return Err(DijkstraMalformed(MalformedField::EmptyRedeemers));
     }
     check_map_keys(
         &encode(w)?,
@@ -921,11 +912,8 @@ const NON_EMPTY_FIELDS: [(u64, MalformedField); 6] = [
     (26, MalformedField::EmptyAccountBalanceIntervals),
     (27, MalformedField::EmptyStartingAccountBalanceIntervals),
 ];
-/// Refuses a body field the ledger decoder refuses for its value, an empty collection or a zero donation.
+/// Refuses a body field the ledger decoder refuses as an empty collection.
 fn check_field_present(key: u64, value: &[u8]) -> ValidationResult {
-    if key == 22 && minicbor::decode::<u64>(value).is_ok_and(|x| x == 0) {
-        return Err(DijkstraMalformed(MalformedField::ZeroDonation));
-    }
     match NON_EMPTY_FIELDS.iter().find(|(k, _)| *k == key) {
         Some((_, error)) if is_empty_map(value) => Err(DijkstraMalformed(*error)),
         _ => Ok(()),
@@ -1794,7 +1782,7 @@ fn well_formed_plutus(language: &Language, script: &[u8]) -> ValidationResult {
     }
 }
 
-/// Refuses a multi-asset map the ledger decoder refuses, one that is empty, repeats a key, holds a zero or names an asset in over 32 bytes.
+/// Refuses a multi-asset map the ledger decoder refuses, one that is empty, repeats a key or names an asset in over 32 bytes.
 fn check_asset_encoding(raw: &[u8]) -> ValidationResult {
     use pallas_codec::utils::KeyValuePairs;
     let assets: KeyValuePairs<Hash<28>, KeyValuePairs<Bytes, minicbor::data::Int>> =
@@ -1808,8 +1796,8 @@ fn check_asset_encoding(raw: &[u8]) -> ValidationResult {
             return Err(MALFORMED_VALUE);
         }
         let mut seen = HashSet::new();
-        for (name, quantity) in names.iter() {
-            if name.len() > 32 || !seen.insert(name.to_vec()) || i128::from(*quantity) == 0 {
+        for (name, _) in names.iter() {
+            if name.len() > 32 || !seen.insert(name.to_vec()) {
                 return Err(MALFORMED_VALUE);
             }
         }

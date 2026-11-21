@@ -290,14 +290,14 @@ impl<'b> MultiEraTx<'b> {
                 .transaction_body
                 .inputs
                 .iter()
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
             #[cfg(feature = "unstable")]
             MultiEraTx::DijkstraSub(x, _) => x
                 .sub_transaction_body
                 .inputs
                 .iter()
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
         }
     }
@@ -367,7 +367,7 @@ impl<'b> MultiEraTx<'b> {
                 .reference_inputs
                 .iter()
                 .flatten()
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
             #[cfg(feature = "unstable")]
             MultiEraTx::DijkstraSub(x, _) => x
@@ -375,7 +375,7 @@ impl<'b> MultiEraTx<'b> {
                 .reference_inputs
                 .iter()
                 .flatten()
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
             // No era before Babbage has a reference inputs field.
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) => vec![],
@@ -523,7 +523,7 @@ impl<'b> MultiEraTx<'b> {
                 .collateral
                 .iter()
                 .flat_map(|x| x.iter())
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
             // A sub transaction body has no key 13. The enclosing body puts up
             // the collateral for the whole transaction.
@@ -700,7 +700,7 @@ impl<'b> MultiEraTx<'b> {
                         .iter()
                         .chain(body.reference_inputs.iter().flatten())
                 })
-                .map(MultiEraInput::from_alonzo_compatible)
+                .map(|input| MultiEraInput::from_alonzo_compatible(input))
                 .collect(),
             #[cfg(feature = "unstable")]
             MultiEraTx::DijkstraSub(..) => vec![],
@@ -1007,10 +1007,10 @@ impl<'b> MultiEraTx<'b> {
         match self {
             MultiEraTx::Conway(x) => x.transaction_body.donation.as_ref().map(u64::from),
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(x) => x.transaction_body.donation.as_ref().map(u64::from),
+            MultiEraTx::Dijkstra(x) => x.transaction_body.donation.map(|coin| u64::from(*coin)),
             #[cfg(feature = "unstable")]
             MultiEraTx::DijkstraSub(x, _) => {
-                x.sub_transaction_body.donation.as_ref().map(u64::from)
+                x.sub_transaction_body.donation.map(|coin| u64::from(*coin))
             }
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
                 None
@@ -1033,15 +1033,15 @@ impl<'b> MultiEraTx<'b> {
         }
     }
 
-    /// Returns the voting procedures at body key 19, whose type Conway and
-    /// Dijkstra share, so one return type serves both eras.
+    /// Returns the voting procedures at body key 19 in the type Conway's
+    /// field holds and Dijkstra's dereferences to.
     pub fn voting_procedures(&self) -> Option<&conway::VotingProcedures> {
         match self {
             MultiEraTx::Conway(x) => x.transaction_body.voting_procedures.as_ref(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::Dijkstra(x) => x.transaction_body.voting_procedures.as_ref(),
+            MultiEraTx::Dijkstra(x) => x.transaction_body.voting_procedures.as_deref(),
             #[cfg(feature = "unstable")]
-            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.voting_procedures.as_ref(),
+            MultiEraTx::DijkstraSub(x, _) => x.sub_transaction_body.voting_procedures.as_deref(),
             MultiEraTx::Byron(_) | MultiEraTx::AlonzoCompatible(..) | MultiEraTx::Babbage(_) => {
                 None
             }
@@ -2238,12 +2238,16 @@ mod tests {
             .expect("the outer body carries key 23")
             .to_vec();
         let mut second = subs[0].clone();
-        second.sub_transaction_body.inputs = vec![dijkstra::TransactionInput {
-            transaction_id: "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171"
-                .parse()
-                .unwrap(),
-            index: 1,
-        }]
+        second.sub_transaction_body.inputs = vec![
+            pallas_primitives::TransactionInput {
+                transaction_id: "2ed1285cced47acb5f08502843d980d7231665af9d90ef33fe6751e0f9e0b171"
+                    .parse()
+                    .unwrap(),
+                index: 1,
+            }
+            .try_into()
+            .unwrap(),
+        ]
         .into();
         second.sub_transaction_body.reference_inputs = None;
         subs.push(second);
