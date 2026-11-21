@@ -567,12 +567,12 @@ fn metadata(m: Option<&d::Metadata>) -> Value {
 }
 
 fn aux(a: &d::AuxiliaryData) -> Value {
-    let natives = |xs: Option<&Vec<d::NativeScript>>| {
+    let natives = |xs: Option<&Vec<KeepRaw<d::NativeScript>>>| {
         Value::Array(
             xs.map(|x| &x[..])
                 .unwrap_or(&[])
                 .iter()
-                .map(native)
+                .map(|x| native(x))
                 .collect(),
         )
     };
