@@ -282,14 +282,17 @@ fn with_dijkstra_update(
     update.ref_script_cost_multiplier = x
         .ref_script_cost_multiplier()
         .proposed()
-        .map(rational_number_to_u5c);
+        .map(|r| rational_number_to_u5c(r.into()));
     update.max_pledge_leverage = match x.max_pledge_leverage().proposed() {
-        Some(Nullable::Some(r)) => Some(Update::Leverage(rational_number_to_u5c(r))),
+        Some(Nullable::Some(r)) => Some(Update::Leverage(rational_number_to_u5c(r.into()))),
         Some(Nullable::Null) => Some(Update::NoLimit(true)),
         Some(Nullable::Undefined) | None => None,
     }
     .map(|x| u5c::MaxPledgeLeverageUpdate { update: Some(x) });
-    update.min_pool_margin = x.min_pool_margin().proposed().map(rational_number_to_u5c);
+    update.min_pool_margin = x
+        .min_pool_margin()
+        .proposed()
+        .map(|r| rational_number_to_u5c(r.into()));
     update.leios_announcement_period_length = x.leios_announcement_period_length().proposed();
     update.leios_vote_period_length = x.leios_vote_period_length().proposed();
     update.leios_diffusion_period_length = x.leios_diffusion_period_length().proposed();
@@ -297,7 +300,7 @@ fn with_dijkstra_update(
     update.leios_quorum_stake_threshold = x
         .leios_quorum_stake_threshold()
         .proposed()
-        .map(rational_number_to_u5c);
+        .map(|r| rational_number_to_u5c(r.into()));
     update.max_endorser_block_references_size = x.max_endorser_block_references_size().proposed();
     update.max_endorser_block_txs_size = x.max_endorser_block_txs_size().proposed();
     update.max_endorser_block_execution_units = x
@@ -310,7 +313,7 @@ fn with_dijkstra_update(
     update.peras_healing_factor = x
         .peras_healing_factor()
         .proposed()
-        .map(rational_number_to_u5c);
+        .map(|r| rational_number_to_u5c(r.into()));
     update.peras_cert_boost = x.peras_cert_boost().proposed().map(|x| x as u32);
     update.peras_target_committee_size =
         x.peras_target_committee_size().proposed().map(|x| x as u32);
@@ -323,7 +326,7 @@ fn with_dijkstra_update(
     update.peras_quorum_threshold_safety_margin = x
         .peras_quorum_threshold_safety_margin()
         .proposed()
-        .map(rational_number_to_u5c);
+        .map(|r| rational_number_to_u5c(r.into()));
     update.ref_inputs_cost_per_multi_asset_policy = x
         .ref_inputs_cost_per_multi_asset_policy()
         .proposed()
@@ -850,7 +853,9 @@ mod tests {
     /// The key 38 member a Dijkstra update maps to, for the update CBOR given and an optional override of key 38.
     fn mapped_leverage(
         cbor: &[u8],
-        key_38: Option<Option<pallas_codec::utils::Nullable<pallas_primitives::RationalNumber>>>,
+        key_38: Option<
+            Option<pallas_codec::utils::Nullable<pallas_primitives::dijkstra::NonNegativeInterval>>,
+        >,
     ) -> Option<u5c::max_pledge_leverage_update::Update> {
         let mut update: pallas_primitives::dijkstra::ProtocolParamUpdate =
             pallas_codec::minicbor::decode(cbor).expect("a parameter update map decodes");
