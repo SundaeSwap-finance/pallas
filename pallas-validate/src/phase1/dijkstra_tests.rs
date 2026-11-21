@@ -759,11 +759,11 @@ fn dijkstra_typed_features_reject_explicitly() {
         }
         let sub_bytes = hex::decode("83a200800180a0f6").unwrap();
         let sub: native::SubTransaction = minicbor::decode(&sub_bytes).unwrap();
-        let mut changed = tx.clone();
-        changed.transaction_body.sub_transactions =
+        let mut listing = tx.clone();
+        listing.transaction_body.sub_transactions =
             native::NonEmptySet::from_vec(vec![sub.clone()]);
         error(
-            dispatch(&changed, &output, &env()),
+            dispatch(&listing, &output, &env()),
             "PostAlonzo(TxInsEmpty)",
         );
         // The same sub transaction with one PlutusV4 script under witness key 8.
@@ -779,7 +779,7 @@ fn dijkstra_typed_features_reject_explicitly() {
         error(dispatch(&changed, &output, &env()), malformed);
         error(
             validate_txs(
-                &[MultiEraTx::from_dijkstra_sub(&sub, true)],
+                &[MultiEraTx::from_dijkstra_sub(&sub, &listing)],
                 &env(),
                 &UTxOs::new(),
                 &mut CertState::default(),
@@ -984,7 +984,7 @@ fn dijkstra_new_v1_v2_and_v4_scripts_are_checked() {
     });
 }
 
-pub(super) fn plutus_auxiliary(version: u8, bytes: &[u8]) -> native::AuxiliaryData {
+pub(super) fn plutus_auxiliary(version: u8, bytes: &[u8]) -> native::AuxiliaryData<'static> {
     fn script<const V: usize>(bytes: &[u8]) -> Option<Vec<pallas_primitives::PlutusScript<V>>> {
         Some(vec![pallas_primitives::PlutusScript(bytes.to_vec().into())])
     }

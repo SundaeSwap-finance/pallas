@@ -571,14 +571,10 @@ fn dijkstra_batch_sub_reference_inputs_provide_scripts_within_the_size_cap() {
 fn dijkstra_batch_sub_metadata_must_match_its_hash() {
     token_order_batch(|tx, input, sub_input| {
         // {674: "hi"}, CIP-20 message metadata.
-        let raw = [0xa1, 0x19, 0x02, 0xa2, 0x62, 0x68, 0x69];
-        let metadata = || -> KeepRaw<'static, n::AuxiliaryData> {
-            minicbor::decode::<KeepRaw<'_, n::AuxiliaryData>>(&raw)
-                .unwrap()
-                .to_owned()
-        };
+        let raw: &'static [u8] = &[0xa1, 0x19, 0x02, 0xa2, 0x62, 0x68, 0x69];
+        let metadata = || -> KeepRaw<'static, n::AuxiliaryData> { minicbor::decode(raw).unwrap() };
         for (hash, expected) in [
-            (Some(Hasher::<256>::hash(&raw)), None),
+            (Some(Hasher::<256>::hash(raw)), None),
             (Some([0; 32].into()), Some("PostAlonzo(MetadataHash)")),
             (None, Some("PostAlonzo(MetadataHash)")),
         ] {

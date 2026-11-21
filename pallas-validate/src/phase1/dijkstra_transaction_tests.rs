@@ -146,7 +146,7 @@ fn auxiliary(tx: &mut n::BlockTransaction<'_>, text: &str) {
         n::AuxiliaryData::Shelley(BTreeMap::from([(674, n::Metadatum::Text(text.into()))])),
     );
 }
-fn set_auxiliary(tx: &mut n::BlockTransaction<'_>, data: n::AuxiliaryData) {
+fn set_auxiliary<'a>(tx: &mut n::BlockTransaction<'a>, data: n::AuxiliaryData<'a>) {
     tx.auxiliary_data = Nullable::Some(data.into());
     let Nullable::Some(aux) = &tx.auxiliary_data else {
         panic!()
@@ -205,7 +205,7 @@ fn dijkstra_auxiliary_scripts_are_refused_only_when_malformed() {
         let check = |tx: &n::BlockTransaction<'_>| {
             run(tx, &inputs, &dijkstra_tests::env(), &CertState::default())
         };
-        let native = || Some(vec![n::NativeScript::InvalidBefore(0)]);
+        let native = || Some(vec![n::NativeScript::InvalidBefore(0).into()]);
         set_auxiliary(
             &mut tx,
             n::AuxiliaryData::ShelleyMa(n::ShelleyMaAuxiliaryData {
@@ -1536,11 +1536,11 @@ fn first_output<'a, 'b>(tx: &'a mut n::BlockTransaction<'b>) -> &'a mut n::Trans
 fn dijkstra_preserves_original_auxiliary_bytes() {
     dijkstra_tests::synthetic(|mut tx, input| {
         // Indefinite metadata map: same value, different committed bytes.
-        let bytes = hex::decode("bf1902a26474657374ff").unwrap();
-        let aux: KeepRaw<n::AuxiliaryData> = minicbor::decode(&bytes).unwrap();
+        let bytes: &[u8] = &[0xbf, 0x19, 0x02, 0xa2, 0x64, 0x74, 0x65, 0x73, 0x74, 0xff];
+        let aux: KeepRaw<n::AuxiliaryData> = minicbor::decode(bytes).unwrap();
         assert_ne!(minicbor::to_vec(&*aux).unwrap(), bytes);
         tx.auxiliary_data = Nullable::Some(aux.to_owned());
-        tx.transaction_body.auxiliary_data_hash = Some(Hasher::<256>::hash(&bytes));
+        tx.transaction_body.auxiliary_data_hash = Some(Hasher::<256>::hash(bytes));
         dijkstra_tests::sign(&mut tx);
         let inputs = vec![(tx.transaction_body.inputs[0].clone(), input)];
         assert!(run(&tx, &inputs, &dijkstra_tests::env(), &CertState::default()).is_ok());

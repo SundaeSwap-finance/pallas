@@ -1072,7 +1072,9 @@ fn plutus_witnesses<'a>(
 }
 
 /// The Plutus scripts in auxiliary data, with their language and bytes.
-fn auxiliary_plutus(data: &PostAlonzoAuxiliaryData) -> impl Iterator<Item = (Language, &[u8])> {
+fn auxiliary_plutus<'a>(
+    data: &'a PostAlonzoAuxiliaryData<'a>,
+) -> impl Iterator<Item = (Language, &'a [u8])> {
     let v1 = data.plutus_v1_scripts.iter().flatten();
     let v2 = data.plutus_v2_scripts.iter().flatten();
     let v3 = data.plutus_v3_scripts.iter().flatten();
