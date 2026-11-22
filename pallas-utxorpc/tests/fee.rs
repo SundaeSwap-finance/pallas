@@ -23,34 +23,32 @@ fn conway_tx() -> Vec<u8> {
 }
 
 #[test]
-fn a_byron_transaction_maps_a_zero_fee_before_v1() {
+fn a_byron_transaction_maps_no_fee() {
     let cbor = byron_tx();
     let tx = MultiEraTx::decode_for_era(Era::Byron, &cbor).unwrap();
 
+    assert_eq!(v1alpha::Mapper::new(NoLedger).map_tx(&tx).fee, None);
+    assert_eq!(v1beta::Mapper::new(NoLedger).map_tx(&tx).fee, None);
+
+    #[cfg(feature = "unstable")]
     assert_eq!(
-        v1alpha::Mapper::new(NoLedger)
-            .map_tx(&tx)
-            .fee
-            .and_then(|x| x.big_int),
-        Some(v1alpha::spec::cardano::big_int::BigInt::Int(0))
-    );
-    assert_eq!(
-        v1beta::Mapper::new(NoLedger)
-            .map_tx(&tx)
-            .fee
-            .and_then(|x| x.big_int),
-        Some(v1beta::spec::cardano::big_int::BigInt::Int(0))
+        pallas_utxorpc::v1::Mapper::new(NoLedger).map_tx(&tx).fee,
+        None
     );
 }
 
 #[cfg(feature = "unstable")]
 #[test]
-fn a_byron_transaction_maps_no_fee_in_v1() {
-    let cbor = byron_tx();
-    let tx = MultiEraTx::decode_for_era(Era::Byron, &cbor).unwrap();
+fn a_dijkstra_sub_transaction_maps_no_fee() {
+    let cbor = hex::decode(include_str!("../../test_data/dijkstra-subtx.tx").trim()).unwrap();
+    let tx = MultiEraTx::decode_for_era(Era::Dijkstra, &cbor).unwrap();
+    let sub = &tx.sub_transactions()[0];
 
+    assert_eq!(sub.fee(), None);
+    assert_eq!(v1alpha::Mapper::new(NoLedger).map_tx(sub).fee, None);
+    assert_eq!(v1beta::Mapper::new(NoLedger).map_tx(sub).fee, None);
     assert_eq!(
-        pallas_utxorpc::v1::Mapper::new(NoLedger).map_tx(&tx).fee,
+        pallas_utxorpc::v1::Mapper::new(NoLedger).map_tx(sub).fee,
         None
     );
 }
