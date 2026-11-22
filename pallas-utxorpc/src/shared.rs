@@ -23,6 +23,43 @@ macro_rules! impl_cardano_mapper_shared {
             })
         }
 
+        /// The schema's ratio for a ledger ratio, the nearest one that fits when either field is too wide.
+        fn rational_number_to_u5c(value: pallas_primitives::RationalNumber) -> u5c::RationalNumber {
+            let (numerator, denominator) = (value.numerator, value.denominator);
+            let (numerator, denominator) =
+                match (i32::try_from(numerator), u32::try_from(denominator)) {
+                    (Ok(numerator), Ok(denominator)) => (numerator, denominator),
+                    // A zero denominator names no finite value, so the pair maps to its lowest terms.
+                    _ if denominator == 0 => (1, 0),
+                    _ => {
+                        let (numerator, denominator) = $crate::ratio::nearest_ratio(
+                            numerator,
+                            denominator,
+                            i32::MAX as u32,
+                            u32::MAX,
+                        );
+                        (numerator as i32, denominator)
+                    }
+                };
+
+            u5c::RationalNumber {
+                numerator,
+                denominator,
+            }
+        }
+
+        /// The schema's integer for a Plutus integer, as big endian magnitude bytes when it is outside `i64`.
+        fn map_plutus_int(n: i128) -> u5c::big_int::BigInt {
+            // A CBOR integer outside i64 has a magnitude of exactly eight bytes.
+            if let Ok(n) = i64::try_from(n) {
+                u5c::big_int::BigInt::Int(n)
+            } else if n > 0 {
+                u5c::big_int::BigInt::BigUInt(n.to_be_bytes()[8..].to_vec().into())
+            } else {
+                u5c::big_int::BigInt::BigNInt((-1 - n).to_be_bytes()[8..].to_vec().into())
+            }
+        }
+
         #[cfg(feature = "unstable")]
         fn top_level_transaction<'b>(tx: &trv::MultiEraTx<'b>) -> Option<trv::MultiEraTx<'b>> {
             tx.top_level_transaction()
@@ -879,6 +916,25 @@ macro_rules! impl_cardano_mapper_shared {
             }
 
             #[test]
+            fn plutus_integers_beyond_i64_map_to_big_int_bytes() {
+                use u5c::big_int::BigInt::{BigNInt, BigUInt, Int};
+
+                let mapper = Mapper::new(NoLedger);
+                let map = |n: i128| {
+                    let x = alonzo::BigInt::Int(pallas_primitives::Int::try_from(n).unwrap());
+                    mapper.map_plutus_bigint(&x).big_int.unwrap()
+                };
+                let top = [0x80, 0, 0, 0, 0, 0, 0, 0];
+
+                assert_eq!(map(i64::MAX.into()), Int(i64::MAX));
+                assert_eq!(map(i64::MIN.into()), Int(i64::MIN));
+                assert_eq!(map(1 << 63), BigUInt(top.to_vec().into()));
+                assert_eq!(map((1 << 64) - 1), BigUInt(vec![0xff; 8].into()));
+                assert_eq!(map(-(1 << 63) - 1), BigNInt(top.to_vec().into()));
+                assert_eq!(map(-(1 << 64)), BigNInt(vec![0xff; 8].into()));
+            }
+
+            #[test]
             fn a_conway_reference_script_maps_to_the_field_of_its_language() {
                 let mapper = Mapper::new(NoLedger);
                 let pubkey = alonzo::NativeScript::ScriptPubkey([1; 28].into());
@@ -1628,6 +1684,62 @@ macro_rules! impl_cardano_mapper_shared {
                     .join("../test_data/babbage10.block");
                 let hex_str = std::fs::read_to_string(&path).expect("the fixture is readable");
                 hex::decode(hex_str.trim()).expect("the fixture holds hex")
+            }
+
+            #[test]
+            fn rationals_wider_than_32_bits_map_to_the_nearest_value() {
+                let map = |numerator, denominator| {
+                    let x = rational_number_to_u5c(pallas_primitives::RationalNumber {
+                        numerator,
+                        denominator,
+                    });
+                    (x.numerator, x.denominator)
+                };
+                let wide = 0xffff_ffff_ffff_fc17;
+
+                assert_eq!(map(wide, wide), (1, 1));
+                assert_eq!(map(3 << 32, 4 << 32), (3, 4));
+                assert_eq!(map(2, 4), (2, 4));
+                assert_eq!(
+                    map((1 << 63) + 1, 10_000_000_000_000_000_000),
+                    (823_865_382, 893_236_637)
+                );
+                assert_eq!(map(5_000_000_000, 7), (2_142_857_143, 3));
+                assert_eq!(
+                    map(1 << 40, 847_288_609_443),
+                    (2_012_878_384, 1_551_133_143)
+                );
+                assert_eq!(map(u64::MAX, 1), (i32::MAX, 1));
+                assert_eq!(map(1, u64::MAX), (0, 1));
+                assert_eq!(map(1, 2 * u64::from(u32::MAX)), (0, 1));
+                assert_eq!(map(u64::MAX, 0), (1, 0));
+
+                let margin = format!(
+                    "8a03581c{}5820{}0000d81e821bfffffffffffffc171bfffffffffffffc17581de0{}8080f6",
+                    "00".repeat(28),
+                    "00".repeat(32),
+                    "00".repeat(28)
+                );
+                let margin = hex::decode(margin).unwrap();
+                let raw = tx_with_redeemers(Vec::new());
+                let tx = MultiEraTx::from_conway(&raw);
+                let mapper = Mapper::new(NoLedger);
+                let alonzo: alonzo::Certificate = pallas_codec::minicbor::decode(&margin).unwrap();
+                let conway: conway::Certificate = pallas_codec::minicbor::decode(&margin).unwrap();
+
+                for cert in [
+                    MultiEraCert::AlonzoCompatible(Box::new(Cow::Owned(alonzo))),
+                    MultiEraCert::Conway(Box::new(Cow::Owned(conway))),
+                ] {
+                    let mapped = mapper.map_cert(&cert, &tx, 0).unwrap();
+                    let Some(u5c::certificate::Certificate::PoolRegistration(pool)) =
+                        mapped.certificate
+                    else {
+                        panic!("not a pool registration: {mapped:?}");
+                    };
+                    let margin = pool.margin.unwrap();
+                    assert_eq!((margin.numerator, margin.denominator), (1, 1));
+                }
             }
 
             #[test]
