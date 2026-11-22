@@ -157,6 +157,11 @@ pub async fn chainsync_tip_happy_path() {
 
     assert!(await_count > 0, "tip was never reached");
 
+    // An `Await` reply to the last request leaves the agency with the server.
+    if !client.has_agency() {
+        client.recv_while_must_reply().await.unwrap();
+    }
+
     client.send_done().await.unwrap();
 
     assert!(matches!(client.state(), chainsync::State::Done));
