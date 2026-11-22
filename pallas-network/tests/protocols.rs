@@ -72,7 +72,6 @@ async fn connect_to(relay: &PublicRelay) -> PeerClient {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn chainsync_history_happy_path() {
     let mut peer = connect_to(&PREVIEW_RELAY).await;
 
@@ -123,7 +122,6 @@ pub async fn chainsync_history_happy_path() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn chainsync_tip_happy_path() {
     let mut peer = connect_to(&PREVIEW_RELAY).await;
 
@@ -167,7 +165,6 @@ pub async fn chainsync_tip_happy_path() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn blockfetch_happy_path() {
     let mut peer = connect_to(&PREVIEW_RELAY).await;
 
@@ -1677,7 +1674,6 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn txsubmission_submit_to_mainnet_peer_n2n() {
     let tx_hash =
         hex::decode("8b6e50e09376b5021e93fe688ba9e7100e3682cebcb39970af5f4e5962bc5a3d").unwrap();

@@ -67,21 +67,20 @@ jobs:
       - name: Build
         if: env.BEHIND != '0'
         run: cargo build --workspace --all-targets --profile test
+      # Every size runs here, each test under its size's time limit.
       - name: Test
         if: env.BEHIND != '0'
-        uses: ./.github/actions/sized-tests
-        with:
-          args: --workspace
-      - name: Test blueprint feature
-        if: env.BEHIND != '0'
-        uses: ./.github/actions/sized-tests
-        with:
-          args: -p pallas-network -p pallas-network2 --features blueprint
-      - name: Test unstable feature
-        if: env.BEHIND != '0'
-        uses: ./.github/actions/sized-tests
-        with:
-          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
+        run: |
+          while read -r args; do
+            # shellcheck disable=SC2086
+            cargo nextest run --no-fail-fast --no-tests fail --run-ignored all $args
+            # shellcheck disable=SC2086
+            CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='timeout 60' cargo test --doc $args
+          done <<'COMBINATIONS'
+          --workspace
+          -p pallas-network -p pallas-network2 --features blueprint
+          -p pallas-primitives -p pallas-traverse -p pallas-utxorpc --features unstable
+          COMBINATIONS
       - name: Summary
         if: always()
         run: |

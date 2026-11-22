@@ -66,16 +66,19 @@ cargo clippy --workspace --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
-Build and test. CI runs tests with `cargo-nextest`, which skips doctests, so each `cargo nextest run`
-below is followed in CI by `cargo test --doc` with the same arguments:
+Build and test. `.config/nextest.toml` puts every test in the `small`, `medium` or `large` group
+with that size's time limit, and CI runs each group in its own job on every push. `cargo-nextest`
+skips doctests, so the small job follows each run with `cargo test --doc` under the small limit:
 
 ```sh
 cargo build --workspace --all-targets --profile test
-cargo nextest run --workspace
-cargo test --doc --workspace
+cargo nextest run --workspace --run-ignored all -E 'group(small)'
+cargo nextest run --workspace --run-ignored all -E 'group(medium)'
+cargo nextest run --workspace --run-ignored all -E 'group(large)'
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='timeout 60' cargo test --doc --workspace
 ```
 
-Feature runs:
+Feature runs, each in every group that has tests under it:
 
 ```sh
 cargo nextest run -p pallas-network -p pallas-network2 --features blueprint
@@ -83,15 +86,9 @@ cargo nextest run -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p p
 cargo nextest run -p pallas-primitives --features unstable,blueprint
 cargo nextest run -p pallas-validate --features unstable
 cargo nextest run -p pallas-validate --features phase2
+cargo nextest run -p pallas-validate --features phase2,unstable
 cargo check --workspace --all-targets --no-default-features
 cargo check --workspace --all-targets --all-features
-```
-
-The tests in the `large` group of `.config/nextest.toml` dial public peers, and CI runs them only
-in a run started by hand:
-
-```sh
-cargo nextest run --workspace --run-ignored all -E 'group(large)'
 ```
 
 A workspace-wide `--no-default-features` build unifies features across members, so CI also checks
