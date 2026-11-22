@@ -1568,11 +1568,15 @@ fn native_registration_protocol12_bytestring_operand_boundary() {
     });
 }
 
+/// Exports the extracted CLI comparison artifacts to `MUSASHI_EVAL_EXPORT`, or to a temporary directory when it is unset.
 #[test]
-#[ignore = "exports public extracted CLI comparison artifacts to MUSASHI_EVAL_EXPORT"]
 fn export_registration_cli_comparison() {
     fixture(|mut tx, mut u| {
-        let root = std::path::PathBuf::from(std::env::var("MUSASHI_EVAL_EXPORT").unwrap());
+        let root = std::env::var_os("MUSASHI_EVAL_EXPORT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::env::temp_dir().join(format!("musashi-eval-export-{}", std::process::id()))
+            });
         if let Ok(source) = std::env::var("MUSASHI_EVAL_SCRIPT") {
             replace_script(
                 &mut tx,

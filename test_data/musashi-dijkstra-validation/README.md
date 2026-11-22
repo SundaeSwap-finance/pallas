@@ -111,7 +111,7 @@ Optional independent offline evaluation with the CLI revision in the comparison:
 
 ```sh
 export DIJKSTRA_FIXTURE_EXPORT=/tmp/dijkstra-cli-replay
-cargo test --offline -p pallas-validate --features phase2,unstable export_dijkstra_cli_comparison -- --ignored
+cargo test --offline -p pallas-validate --features phase2,unstable export_dijkstra_cli_comparison
 cardano-cli dijkstra transaction calculate-plutus-script-cost offline \
   --start-time-utc 2026-09-07T00:00:00Z \
   --era-history-file test_data/musashi-phase2/dual-evaluator/cli-integer/synthetic-era-history.json \
