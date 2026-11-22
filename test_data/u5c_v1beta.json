@@ -1393,11 +1393,7 @@
       },
       {
         "auxiliary": {},
-        "collateral": {
-          "totalCollateral": {
-            "int": "0"
-          }
-        },
+        "collateral": {},
         "fee": {
           "int": "193832"
         },
@@ -2911,11 +2907,7 @@
             }
           ]
         },
-        "collateral": {
-          "totalCollateral": {
-            "int": "0"
-          }
-        },
+        "collateral": {},
         "fee": {
           "int": "706993"
         },
@@ -3031,11 +3023,7 @@
             }
           ]
         },
-        "collateral": {
-          "totalCollateral": {
-            "int": "0"
-          }
-        },
+        "collateral": {},
         "fee": {
           "int": "184729"
         },
