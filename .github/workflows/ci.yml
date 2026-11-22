@@ -348,3 +348,24 @@ jobs:
             pallas-utxorpc
             pallas-validate
           base: ${{ needs.api-baseline.outputs.rev }}
+
+  ci-passed:
+    if: always()
+    needs:
+      - fmt
+      - clippy
+      - docs
+      - small
+      - medium
+      - large
+      - features
+      - isolated-features
+      - api-baseline
+      - semver-checks
+      - public-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@v1.3.0
+        with:
+          allowed-skips: api-baseline, semver-checks, public-api
+          jobs: ${{ toJSON(needs) }}
