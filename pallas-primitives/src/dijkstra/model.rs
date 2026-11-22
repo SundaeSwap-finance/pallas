@@ -68,12 +68,20 @@ set_element_by_value!(
     StakeCredential,
     ProposalProcedure,
     VKeyWitness,
-    BootstrapWitness,
 );
 
 impl<const VERSION: usize> SetElement for PlutusScript<VERSION> {
     fn same_element(&self, other: &Self) -> bool {
         self == other
+    }
+}
+
+/// The ledger keys a bootstrap witness by the hash of its key, chain code and attributes.
+impl SetElement for BootstrapWitness {
+    fn same_element(&self, other: &Self) -> bool {
+        self.public_key == other.public_key
+            && self.chain_code == other.chain_code
+            && self.attributes == other.attributes
     }
 }
 

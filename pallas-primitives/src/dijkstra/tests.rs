@@ -3172,16 +3172,24 @@ fn proposal_element(n: u8) -> Vec<u8> {
 }
 
 fn vkey_witness_element(n: u8) -> Vec<u8> {
-    [vec![0x82], bytes_of(32, n), bytes_of(64, 0x00)].concat()
+    vkey_witness_signed(n, 0x00)
+}
+
+fn vkey_witness_signed(key: u8, signature: u8) -> Vec<u8> {
+    [vec![0x82], bytes_of(32, key), bytes_of(64, signature)].concat()
 }
 
 fn bootstrap_witness_element(n: u8) -> Vec<u8> {
+    bootstrap_witness(n, 0x00, 0x00, 0xa0)
+}
+
+fn bootstrap_witness(key: u8, signature: u8, chain_code: u8, attributes: u8) -> Vec<u8> {
     [
         vec![0x84],
-        bytes_of(32, n),
-        bytes_of(64, 0x00),
-        bytes_of(32, 0x00),
-        vec![0x41, 0xa0],
+        bytes_of(32, key),
+        bytes_of(64, signature),
+        bytes_of(32, chain_code),
+        vec![0x41, attributes],
     ]
     .concat()
 }
@@ -3543,14 +3551,70 @@ fn every_set_position_refuses_an_element_the_ledger_counts_twice() {
         .entry("one sub body with two witness sets refused")
         .or_default() += 1;
 
+    // The ledger keys a bootstrap witness by the hash of its key, chain code
+    // and attributes (`Bootstrap.hs` 115 to 116 and 158 to 162), and a key
+    // witness by its key and signature (`WitVKey.hs` 71 to 81).
+    for (name, witnesses, key, refused) in [
+        (
+            "one bootstrap key with two signatures",
+            [
+                bootstrap_witness(1, 0, 0, 0xa0),
+                bootstrap_witness(1, 1, 0, 0xa0),
+            ],
+            2,
+            true,
+        ),
+        (
+            "one bootstrap key with two chain codes",
+            [
+                bootstrap_witness(1, 0, 0, 0xa0),
+                bootstrap_witness(1, 0, 1, 0xa0),
+            ],
+            2,
+            false,
+        ),
+        (
+            "one bootstrap key with two attributes",
+            [
+                bootstrap_witness(1, 0, 0, 0xa0),
+                bootstrap_witness(1, 0, 0, 0xa1),
+            ],
+            2,
+            false,
+        ),
+        (
+            "one key witness key with two signatures",
+            [vkey_witness_signed(1, 0), vkey_witness_signed(1, 1)],
+            0,
+            false,
+        ),
+    ] {
+        let decoded = read_witnesses(&map_of(&[(key, set_of(true, &witnesses))]));
+        if refused {
+            let err = decoded.expect_err(name);
+            assert!(
+                err.to_string().contains("a repeated element"),
+                "{name}: refused for some other reason: {err}"
+            );
+            *counts.entry("one witness key twice refused").or_default() += 1;
+        } else {
+            decoded.unwrap_or_else(|err| panic!("{name}: two witnesses here, found {err}"));
+            *counts
+                .entry("witnesses differing in an identity field accepted")
+                .or_default() += 1;
+        }
+    }
+
     assert_eq!(
         counts,
         std::collections::BTreeMap::from([
             ("different elements accepted", 48),
             ("one sub body with two witness sets refused", 1),
+            ("one witness key twice refused", 1),
             ("repeated element refused", 48),
             ("two ways accepted where keyed by bytes", 2),
             ("two ways refused where keyed by value", 22),
+            ("witnesses differing in an identity field accepted", 3),
         ]),
         "a class ran on a different number of positions than the table lists"
     );
