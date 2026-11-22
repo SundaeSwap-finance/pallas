@@ -17,8 +17,6 @@ const WINDOW: Duration = Duration::from_millis(300);
 
 const SETTLE: Duration = Duration::from_millis(50);
 
-const LIMIT: Duration = Duration::from_secs(10);
-
 async fn bound() -> (TcpListener, PeerId) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -52,12 +50,9 @@ async fn ends_until(
     let mut initialized = false;
     let mut reasons = Vec::new();
 
-    let _ = tokio::time::timeout(LIMIT, async {
-        while !until(initialized, &reasons) {
-            observe(manager, pid, &mut initialized, &mut reasons).await;
-        }
-    })
-    .await;
+    while !until(initialized, &reasons) {
+        observe(manager, pid, &mut initialized, &mut reasons).await;
+    }
     let _ = tokio::time::timeout(window, async {
         loop {
             observe(manager, pid, &mut initialized, &mut reasons).await;
@@ -105,7 +100,8 @@ async fn a_demote_a_remote_close_and_a_refused_connect_emit_closed_errored_error
     initiator.execute(InitiatorCommand::IncludePeer(demoted.clone()));
     initiator.execute(InitiatorCommand::Housekeeping);
     let (initialized, mut local) = ends_until(&mut initiator, &demoted, on_init, WINDOW).await;
-    // Promotes the peer to hot, which the demote needs before it closes the connection.
+    // Promotes the peer to hot, which the demote needs before it closes the
+    // connection.
     initiator.execute(InitiatorCommand::Housekeeping);
     local.extend(ends_until(&mut initiator, &demoted, now, SETTLE).await.1);
     initiator.execute(InitiatorCommand::DemotePeer(demoted.clone()));
