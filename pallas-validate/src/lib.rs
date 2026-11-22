@@ -7,10 +7,21 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```
 //! use pallas_validate::phase1::validate_tx;
+//! # use pallas_traverse::MultiEraTx;
+//! # use pallas_validate::utils::{CertState, Environment, UTxOs, ValidationResult};
+//! # fn check(
+//! #     tx: MultiEraTx,
+//! #     tx_index: u32,
+//! #     env: Environment,
+//! #     utxos: UTxOs,
+//! #     mut cert_state: CertState,
+//! # ) -> ValidationResult {
 //!
 //! validate_tx(&tx, tx_index, &env, &utxos, &mut cert_state)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! [`phase1::validate_tx`] dispatches on the era encoded in the
