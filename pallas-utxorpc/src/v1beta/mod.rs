@@ -137,7 +137,7 @@ impl<C: LedgerContext> Mapper<C> {
                 collateral_return: tx
                     .collateral_return()
                     .map(|x| self.map_tx_output(&x, Some(tx))),
-                total_collateral: u64_to_bigint(tx.total_collateral().unwrap_or_default()),
+                total_collateral: tx.total_collateral().and_then(u64_to_bigint),
             }
             .into(),
             fee: tx.fee().and_then(u64_to_bigint),
