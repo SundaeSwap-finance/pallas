@@ -209,7 +209,6 @@ pub async fn blockfetch_happy_path() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn blockfetch_server_and_client_happy_path() {
     let block_bodies = vec![
         hex::decode("deadbeefdeadbeef").unwrap(),
@@ -306,7 +305,6 @@ pub async fn blockfetch_server_and_client_happy_path() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn chainsync_server_and_client_happy_path_n2n() {
     let point1 = Point::Specific(1, vec![0x01]);
     let point2 = Point::Specific(2, vec![0x02]);
@@ -1521,7 +1519,6 @@ pub async fn local_state_query_server_and_client_happy_path2() {
 }
 
 #[tokio::test]
-#[ignore]
 pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let test_txs = vec![(vec![0], vec![0, 0, 0]), (vec![1], vec![1, 1, 1])];
 
