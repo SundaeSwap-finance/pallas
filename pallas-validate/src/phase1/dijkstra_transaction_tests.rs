@@ -1335,12 +1335,16 @@ mod scripts {
             }
         });
     }
+    /// Exports the offline CLI comparison inputs to `DIJKSTRA_FIXTURE_EXPORT`, or to a temporary directory when it is unset.
     #[test]
-    #[ignore = "exports public offline CLI comparison inputs to DIJKSTRA_FIXTURE_EXPORT"]
     fn export_dijkstra_cli_comparison() {
         use pallas_primitives::ToCanonicalJson;
         use serde_json::json;
-        let dir = std::path::PathBuf::from(std::env::var("DIJKSTRA_FIXTURE_EXPORT").unwrap());
+        let dir = std::env::var_os("DIJKSTRA_FIXTURE_EXPORT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::env::temp_dir().join(format!("dijkstra-fixture-export-{}", std::process::id()))
+            });
         std::fs::create_dir_all(&dir).unwrap();
         let write = |name: &str, value: serde_json::Value| {
             std::fs::write(dir.join(name), serde_json::to_vec_pretty(&value).unwrap()).unwrap()

@@ -96,7 +96,7 @@ Run from the Pallas root with the pinned CLI available:
 ```sh
 MUSASHI_EVAL_EXPORT=/tmp/musashi-guard-replay \
   cargo test --offline -p pallas-validate --features phase2,unstable \
-  export_registration_cli_comparison -- --ignored
+  export_registration_cli_comparison
 python3 test_data/musashi-guard-reference/reproduce.py \
   --cli /home/rodrigo/leios-testnet/bin/cardano-cli \
   --export-dir /tmp/musashi-guard-replay
