@@ -10,8 +10,14 @@
 //!
 //! # Usage
 //!
-//! ```ignore
+//! ```
 //! use pallas_txbuilder::{BuildConway, Input, Output, StagingTransaction};
+//! # use pallas_addresses::Address;
+//! # use pallas_crypto::{hash::Hash, key::ed25519::SecretKey};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # let prev_tx_hash = Hash::from([0u8; 32]);
+//! # let recipient_address = Address::from_bech32("addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x")?;
+//! # let signing_key = SecretKey::from([1u8; 32]);
 //!
 //! let tx = StagingTransaction::new()
 //!     .input(Input::new(prev_tx_hash, 0))
@@ -21,6 +27,8 @@
 //!
 //! let signed = tx.sign(&signing_key)?;
 //! let cbor = signed.tx_bytes;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Overview
