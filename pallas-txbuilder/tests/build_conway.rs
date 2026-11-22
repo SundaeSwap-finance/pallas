@@ -234,9 +234,9 @@ fn remove_signature_leaves_remaining_witnesses() {
 /// BUG (documented, not yet fixed): removing the *only* witness panics at
 /// `model.rs` because `NonEmptySet::from_vec(vec![])` returns `None` and the
 /// builder unwraps it. The correct behaviour is to clear the witness to
-/// `None`. Un-`ignore` this in the PR that fixes the panic.
+/// `None`. Drop `should_panic` in the PR that fixes the panic.
 #[test]
-#[ignore = "remove_signature panics when emptying the witness set; fixed in a later PR"]
+#[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
 fn remove_last_signature_clears_witness_set() {
     let key = signer(6);
     let signed = minimal_tx()
@@ -261,7 +261,7 @@ fn remove_last_signature_clears_witness_set() {
 // Mint and output-asset bundles encode through `BTreeMap`-backed `Multiasset`,
 // so their order is normalised and the output is deterministic regardless of
 // the order assets were added. Redeemers, datums, and scripts are collected in
-// `HashMap` iteration order and are *not* normalised — see the #[ignore]d test.
+// `HashMap` iteration order and are *not* normalised (see the `should_panic` test).
 
 #[test]
 fn multi_asset_output_is_deterministic() {
@@ -336,10 +336,10 @@ fn mint_is_deterministic() {
 /// emitted in iteration order, so a transaction with multiple datums can
 /// encode to different bytes (and a different hash) from one build to the
 /// next. Each iteration builds the staging tx *fresh* (a fresh `HashMap` is
-/// seeded differently), which is exactly how callers hit this. Un-`ignore`
-/// this once datums/redeemers/scripts are sorted before encoding.
+/// seeded differently), which is exactly how callers hit this. Drop
+/// `should_panic` once datums/redeemers/scripts are sorted before encoding.
 #[test]
-#[ignore = "datum/redeemer/script ordering is non-deterministic; fixed in a later PR"]
+#[should_panic(expected = "the same datums must always encode identically")]
 fn multiple_datums_build_deterministically() {
     // Three distinct, valid PlutusData datums (bare CBOR integers).
     let build = || {
@@ -460,7 +460,7 @@ use pallas_txbuilder::{ExUnits, ScriptKind};
 /// builder's hash is self-consistent with the redeemers/datums it actually
 /// wrote; it is *not* a cross-check against cardano-cli, since it reuses the
 /// builder's legacy list-form redeemer encoding (a Conway map-form tx hashes
-/// differently — see the `plutus_tx_emits_map_form_redeemers` #[ignore]d test).
+/// differently, see the `plutus_tx_emits_map_form_redeemers` `should_panic` test).
 #[test]
 fn script_data_hash_matches_recomputation() {
     let cost_model: Vec<i64> = vec![1, 2, 3, 4];
@@ -501,9 +501,9 @@ fn script_data_hash_matches_recomputation() {
 /// witness set carries datums or redeemers. A datum-only transaction (no
 /// redeemers, no cost models) therefore gets `script_data_hash = None` and is
 /// rejected by the node. `pallas_primitives::ScriptData::build_for` already
-/// handles this case; the builder should use it. Un-`ignore` once it does.
+/// handles this case; the builder should use it. Drop `should_panic` once it does.
 #[test]
-#[ignore = "datum-only script_data_hash is omitted (gated on language_views); fixed in a later PR"]
+#[should_panic(expected = "datum-only tx must still carry a script_data_hash")]
 fn datum_only_sets_script_data_hash() {
     let built = StagingTransaction::new()
         .input(Input::new(hash32(0), 0))
@@ -800,8 +800,8 @@ fn reconstructs_real_native_mint_tx() {
 // mint (burn) redeemer. Cost models are intentionally omitted: this fixture is
 // used to cross-check the structural fields the builder *can* reproduce. The
 // two things it cannot — `total_collateral` and Conway map-form redeemers (and
-// therefore a matching `script_data_hash`) — are documented by the #[ignore]d
-// tests below.
+// therefore a matching `script_data_hash`) — are documented by the
+// `should_panic` tests below.
 fn plutus_spend_burn() -> StagingTransaction {
     let spent_input = "3877ed7d4384f18810d87e81d00abd0d2e7ed9b8b52ad14243f1752a8208b574";
     let out_addr = "6044030baceca347fca524d7155a456cd81b834ca58ec325a2abbaad5d";
@@ -867,10 +867,10 @@ fn reconstructs_real_plutus_spend_burn_tx() {
 /// BUG (documented, not yet fixed): the builder hardcodes `total_collateral`
 /// to `None` ([conway.rs] `total_collateral: None, // TODO`), with no setter on
 /// `StagingTransaction`. Real transactions that post collateral set it (the
-/// fixture has 579653). Un-`ignore` once a setter exists and the field is
-/// emitted.
+/// fixture has 579653). Drop `should_panic` once a setter exists and the field
+/// is emitted.
 #[test]
-#[ignore = "total_collateral is hardcoded to None with no setter; fixed in a later PR"]
+#[should_panic(expected = "builder should reproduce total_collateral")]
 fn plutus_tx_sets_total_collateral() {
     let real_bytes = hex::decode(include_str!("vectors/plutus_spend_burn.tx").trim()).unwrap();
     let real = decode(&real_bytes);
@@ -886,10 +886,10 @@ fn plutus_tx_sets_total_collateral() {
 /// BUG (documented, not yet fixed): the builder always encodes redeemers in the
 /// legacy *list* form ([conway.rs] `Redeemers::List(..)`), whereas Conway
 /// cardano-cli emits the *map* form. The two hash differently, so the builder's
-/// `script_data_hash` is incompatible with cardano-cli's. Un-`ignore` once the
-/// builder emits map-form redeemers.
+/// `script_data_hash` is incompatible with cardano-cli's. Drop `should_panic`
+/// once the builder emits map-form redeemers.
 #[test]
-#[ignore = "redeemers are emitted as a list, not the Conway map form; fixed in a later PR"]
+#[should_panic(expected = "redeemers should be encoded as a Conway map")]
 fn plutus_tx_emits_map_form_redeemers() {
     use pallas_primitives::conway::Redeemers;
 
