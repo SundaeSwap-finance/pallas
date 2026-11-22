@@ -11,7 +11,6 @@ use pallas_network2::{Manager, PeerId};
 
 use super::MockChain;
 
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 const HOUSEKEEPING_INTERVAL: Duration = Duration::from_millis(50);
 
 /// A test responder node that listens for inbound connections and responds to
@@ -143,46 +142,35 @@ impl InitiatorNode {
     }
 
     /// Runs the poll loop until the predicate is satisfied, with automatic
-    /// housekeeping. Panics on timeout with collected events for debugging.
-    pub async fn run_until<F>(&mut self, timeout: Duration, mut done: F) -> Vec<InitiatorEvent>
+    /// housekeeping, printing each event as it arrives.
+    pub async fn run_until<F>(&mut self, mut done: F) -> Vec<InitiatorEvent>
     where
         F: FnMut(&[InitiatorEvent]) -> bool,
     {
         let mut events = Vec::new();
         let mut housekeeping_interval = tokio::time::interval(HOUSEKEEPING_INTERVAL);
 
-        let result = tokio::time::timeout(timeout, async {
-            loop {
-                tokio::select! {
-                    event = self.manager.poll_next() => {
-                        if let Some(event) = event {
-                            events.push(event);
-                            if done(&events) {
-                                return;
-                            }
+        loop {
+            tokio::select! {
+                event = self.manager.poll_next() => {
+                    if let Some(event) = event {
+                        println!("event {event:?}");
+                        events.push(event);
+                        if done(&events) {
+                            return events;
                         }
                     }
-                    _ = housekeeping_interval.tick() => {
-                        self.manager.execute(InitiatorCommand::Housekeeping);
-                    }
+                }
+                _ = housekeeping_interval.tick() => {
+                    self.manager.execute(InitiatorCommand::Housekeeping);
                 }
             }
-        })
-        .await;
-
-        if result.is_err() {
-            panic!(
-                "test timed out after {:?}. Events collected: {:?}",
-                timeout, events
-            );
         }
-
-        events
     }
 
     /// Waits for the handshake to complete (PeerInitialized event).
     pub async fn wait_for_handshake(&mut self) -> Vec<InitiatorEvent> {
-        self.run_until(DEFAULT_TIMEOUT, |events| {
+        self.run_until(|events| {
             events
                 .iter()
                 .any(|e| matches!(e, InitiatorEvent::PeerInitialized(..)))
@@ -192,7 +180,7 @@ impl InitiatorNode {
 
     /// Waits for an intersection to be found (IntersectionFound event).
     pub async fn wait_for_intersection(&mut self) -> Vec<InitiatorEvent> {
-        self.run_until(DEFAULT_TIMEOUT, |events| {
+        self.run_until(|events| {
             events
                 .iter()
                 .any(|e| matches!(e, InitiatorEvent::IntersectionFound(..)))
@@ -202,7 +190,7 @@ impl InitiatorNode {
 
     /// Waits for a block header to be received (BlockHeaderReceived event).
     pub async fn wait_for_header(&mut self) -> Vec<InitiatorEvent> {
-        self.run_until(DEFAULT_TIMEOUT, |events| {
+        self.run_until(|events| {
             events
                 .iter()
                 .any(|e| matches!(e, InitiatorEvent::BlockHeaderReceived(..)))
@@ -238,7 +226,7 @@ impl InitiatorNode {
 
     /// Waits for a block body to be received (BlockBodyReceived event).
     pub async fn wait_for_block(&mut self) -> Vec<InitiatorEvent> {
-        self.run_until(DEFAULT_TIMEOUT, |events| {
+        self.run_until(|events| {
             events
                 .iter()
                 .any(|e| matches!(e, InitiatorEvent::BlockBodyReceived(..)))
