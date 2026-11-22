@@ -1,5 +1,5 @@
 /// The ratio nearest to `n / d` whose numerator is at most `max_num` and whose denominator is at most `max_den`, with ties to the smaller denominator and then the smaller value.
-pub(super) fn nearest_ratio(n: u64, d: u64, max_num: u32, max_den: u32) -> (u32, u32) {
+pub(crate) fn nearest_ratio(n: u64, d: u64, max_num: u32, max_den: u32) -> (u32, u32) {
     let (n, d) = (u128::from(n), u128::from(d));
     let (max_num, max_den) = (u128::from(max_num), u128::from(max_den));
     if n >= max_num * d {
