@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main, leios-musashi]
   pull_request:
   workflow_call:
   workflow_dispatch:
@@ -60,8 +59,101 @@ jobs:
           key: ${{ hashFiles('Cargo.toml') }}
       - run: cargo doc --workspace --no-deps
 
-  test:
-    name: Test
+  small:
+    name: Small tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Read the amaru commit pallas-validate builds
+        run: |
+          source=$(cargo metadata --format-version 1 --all-features | jq -r '. as $m
+            | ($m.packages[] | select(.name == "pallas-validate") | .id) as $validate
+            | ($m.resolve.nodes[] | select(.id == $validate) | .deps[] | select(.name == "amaru_uplc_native") | .pkg) as $pkg
+            | $m.packages[] | select(.id == $pkg) | .source')
+          if [[ ! $source =~ ^git\+([^?#]+)(\?[^#]*)?#([0-9a-f]{40})$ ]]; then
+            echo "::error::amaru_uplc_native resolves to '$source', not one git commit"
+            exit 1
+          fi
+          echo "AMARU_URL=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "AMARU_COMMIT=${BASH_REMATCH[3]}" >> "$GITHUB_ENV"
+          echo "amaru-uplc ${BASH_REMATCH[1]} ${BASH_REMATCH[3]}"
+      - name: Fetch amaru at that commit
+        run: |
+          git init -q amaru
+          git -C amaru fetch -q --depth 1 "$AMARU_URL" "$AMARU_COMMIT"
+          git -C amaru checkout -q --detach FETCH_HEAD
+      - name: Install the amaru toolchain
+        working-directory: amaru
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            amaru -> target
+          key: ${{ hashFiles('Cargo.toml', 'amaru/Cargo.toml') }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.152
+      - name: Build
+        run: cargo build --workspace --all-targets --profile test
+      - name: Test
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: --workspace
+      - name: Test blueprint feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-network -p pallas-network2 --features blueprint
+      - name: Test unstable feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
+      - name: Test unstable blueprint feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-primitives --features unstable,blueprint
+      - name: Test unstable validate feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-validate --features unstable
+      - name: Test validation with phase two enabled
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-validate --features phase2
+      - name: Test native Dijkstra validation with phase two enabled
+        uses: ./.github/actions/sized-tests
+        with:
+          size: small
+          args: -p pallas-validate --features phase2,unstable
+      - name: Run the amaru-uplc conformance suite at the pinned commit
+        working-directory: amaru
+        run: |
+          cargo nextest run --locked --no-fail-fast --no-tests fail --color never \
+            --config-file "$GITHUB_WORKSPACE/.config/amaru-conformance.toml" -E 'group(small)' \
+            -p amaru-uplc --test conformance 2>&1 | tee "$RUNNER_TEMP/conformance.log"
+          programs=$(find crates/amaru-uplc/tests/conformance -name '*.uplc' | wc -l)
+          summary=$(grep -E '^ *Summary \[' "$RUNNER_TEMP/conformance.log" || true)
+          pattern='Summary \[ *[0-9.]+s\] ([0-9]+) tests? run: ([0-9]+) passed, 0 skipped$'
+          if [[ ! $summary =~ $pattern ]] || (( programs == 0 || BASH_REMATCH[1] != BASH_REMATCH[2] || BASH_REMATCH[2] < programs )); then
+            echo "::error::'$summary' does not pass every one of the $programs conformance programs"
+            exit 1
+          fi
+          echo "$programs programs, ${BASH_REMATCH[2]} tests passed at amaru $AMARU_COMMIT"
+
+  medium:
+    name: Medium tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,36 +171,36 @@ jobs:
       - name: Test
         uses: ./.github/actions/sized-tests
         with:
+          size: medium
           args: --workspace
       - name: Test blueprint feature
         uses: ./.github/actions/sized-tests
         with:
+          size: medium
           args: -p pallas-network -p pallas-network2 --features blueprint
       - name: Test unstable feature
         uses: ./.github/actions/sized-tests
         with:
-          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network -p pallas-network2 -p pallas-hardano --features unstable
+          size: medium
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
       - name: Test unstable blueprint feature
         uses: ./.github/actions/sized-tests
         with:
+          size: medium
           args: -p pallas-primitives --features unstable,blueprint
       - name: Test unstable validate feature
         uses: ./.github/actions/sized-tests
         with:
+          size: medium
           args: -p pallas-validate --features unstable
-      - name: Test validation with phase two enabled
-        uses: ./.github/actions/sized-tests
-        with:
-          args: -p pallas-validate --features phase2
       - name: Test native Dijkstra validation with phase two enabled
         uses: ./.github/actions/sized-tests
         with:
+          size: medium
           args: -p pallas-validate --features phase2,unstable
 
-  # Large tests dial public peers, so they run only when a run is started by hand.
   large:
     name: Large tests
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +213,21 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest@0.9.152
-      - run: cargo nextest run --workspace --run-ignored all -E 'group(large)'
+      - name: Test
+        uses: ./.github/actions/sized-tests
+        with:
+          size: large
+          args: --workspace
+      - name: Test blueprint feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: large
+          args: -p pallas-network -p pallas-network2 --features blueprint
+      - name: Test unstable feature
+        uses: ./.github/actions/sized-tests
+        with:
+          size: large
+          args: -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network2 -p pallas-network -p pallas-hardano --features unstable
 
   features:
     name: Features (${{ matrix.flags }})
@@ -157,52 +263,6 @@ jobs:
       # members, so it always pulls pallas-primitives in with `json` enabled.
       # Check the crate in isolation to catch missing serde feature gating.
       - run: cargo check -p pallas-primitives --no-default-features
-
-  amaru-conformance:
-    name: amaru-uplc conformance at the pinned commit
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - name: Read the amaru commit pallas-validate builds
-        run: |
-          source=$(cargo metadata --format-version 1 --all-features | jq -r '. as $m
-            | ($m.packages[] | select(.name == "pallas-validate") | .id) as $validate
-            | ($m.resolve.nodes[] | select(.id == $validate) | .deps[] | select(.name == "amaru_uplc_native") | .pkg) as $pkg
-            | $m.packages[] | select(.id == $pkg) | .source')
-          if [[ ! $source =~ ^git\+([^?#]+)(\?[^#]*)?#([0-9a-f]{40})$ ]]; then
-            echo "::error::amaru_uplc_native resolves to '$source', not one git commit"
-            exit 1
-          fi
-          echo "AMARU_URL=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
-          echo "AMARU_COMMIT=${BASH_REMATCH[3]}" >> "$GITHUB_ENV"
-          echo "amaru-uplc ${BASH_REMATCH[1]} ${BASH_REMATCH[3]}"
-      - name: Fetch amaru at that commit
-        run: |
-          git init -q amaru
-          git -C amaru fetch -q --depth 1 "$AMARU_URL" "$AMARU_COMMIT"
-          git -C amaru checkout -q --detach FETCH_HEAD
-      - name: Install the amaru toolchain
-        working-directory: amaru
-        run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: amaru
-          key: ${{ hashFiles('amaru/Cargo.toml') }}
-      - name: Run the amaru-uplc conformance suite
-        working-directory: amaru
-        run: |
-          cargo test --locked -p amaru-uplc --test conformance 2>&1 | tee "$RUNNER_TEMP/conformance.log"
-          programs=$(find crates/amaru-uplc/tests/conformance -name '*.uplc' | wc -l)
-          result=$(grep '^test result: ' "$RUNNER_TEMP/conformance.log" || true)
-          pattern='^test result: ok\. ([0-9]+) passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in [0-9.]+s$'
-          if [[ ! $result =~ $pattern ]] || (( programs == 0 || BASH_REMATCH[1] < programs )); then
-            echo "::error::'$result' does not pass every one of the $programs conformance programs"
-            exit 1
-          fi
-          echo "$programs programs, ${BASH_REMATCH[1]} tests passed at amaru $AMARU_COMMIT"
 
   # main is the v1 lineage, where public API changes must be additive; see
   # "API compatibility" in AGENTS.md. Other targets, such as vnext, may break,
