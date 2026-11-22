@@ -34,7 +34,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     net::{Ipv4Addr, Ipv6Addr, SocketAddrV4},
-    path::Path,
     time::Duration,
 };
 
@@ -222,9 +221,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
         hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
     );
 
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
-        .await
-        .unwrap();
+    let (listener, addr) = local_listener().await;
 
     let server = tokio::spawn({
         let bodies = block_bodies.clone();
@@ -267,7 +264,7 @@ pub async fn blockfetch_server_and_client_happy_path() {
     let client = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let mut client_to_server_conn = PeerClient::connect("localhost:30003", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect(addr, 0).await.unwrap();
 
         let client_bf = client_to_server_conn.blockfetch();
 
@@ -314,15 +311,13 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
     let point1 = Point::Specific(1, vec![0x01]);
     let point2 = Point::Specific(2, vec![0x02]);
 
+    let (server_listener, addr) = local_listener().await;
+
     let server = tokio::spawn({
         let point1 = point1.clone();
         let point2 = point2.clone();
         async move {
             // server setup
-
-            let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30002))
-                .await
-                .unwrap();
 
             let (bearer, _) = Bearer::accept_tcp(&server_listener).await.unwrap();
 
@@ -434,7 +429,7 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
     });
 
     let client = tokio::spawn(async move {
-        let mut client_to_server_conn = PeerClient::connect("localhost:30002", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect(addr, 0).await.unwrap();
 
         let client_cs = client_to_server_conn.chainsync();
 
@@ -508,16 +503,11 @@ pub async fn chainsync_server_and_client_happy_path_n2n() {
 #[cfg(unix)]
 #[tokio::test]
 pub async fn local_state_query_server_and_client_happy_path() {
+    let (listener, socket_path) = local_socket("node1");
+
     let server = tokio::spawn({
         async move {
             // server setup
-            let socket_path = Path::new("node1.socket");
-
-            if socket_path.exists() {
-                fs::remove_file(socket_path).unwrap();
-            }
-
-            let listener = UnixListener::bind(socket_path).unwrap();
 
             let mut server = pallas_network::facades::NodeServer::accept_with_timeout(
                 &listener,
@@ -996,8 +986,6 @@ pub async fn local_state_query_server_and_client_happy_path() {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
-        let socket_path = "node1.socket";
-
         let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
 
         // client sends acquire
@@ -1362,16 +1350,11 @@ pub async fn local_state_query_server_and_client_happy_path() {
 #[cfg(unix)]
 #[tokio::test]
 pub async fn local_state_query_server_and_client_happy_path2() {
+    let (listener, socket_path) = local_socket("node2");
+
     let server = tokio::spawn({
         async move {
             // server setup
-            let socket_path = Path::new("node2.socket");
-
-            if socket_path.exists() {
-                fs::remove_file(socket_path).unwrap();
-            }
-
-            let listener = UnixListener::bind(socket_path).unwrap();
 
             let mut server = pallas_network::facades::NodeServer::accept_with_timeout(
                 &listener,
@@ -1479,8 +1462,6 @@ pub async fn local_state_query_server_and_client_happy_path2() {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
-        let socket_path = "node2.socket";
-
         let mut client = NodeClient::connect(socket_path, 0).await.unwrap();
 
         // client sends acquire
@@ -1544,9 +1525,7 @@ pub async fn local_state_query_server_and_client_happy_path2() {
 pub async fn txsubmission_server_and_client_happy_path_n2n() {
     let test_txs = vec![(vec![0], vec![0, 0, 0]), (vec![1], vec![1, 1, 1])];
 
-    let server_listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30001))
-        .await
-        .unwrap();
+    let (server_listener, addr) = local_listener().await;
 
     let server = tokio::spawn({
         let test_txs = test_txs.clone();
@@ -1628,7 +1607,7 @@ pub async fn txsubmission_server_and_client_happy_path_n2n() {
         let mut mempool = test_txs.clone();
 
         // client setup
-        let mut client_to_server_conn = PeerClient::connect("localhost:30001", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect(addr, 0).await.unwrap();
 
         let client_txsub = client_to_server_conn.txsubmission();
 
@@ -1819,9 +1798,7 @@ pub async fn peer_sharing_server_and_client_happy_path() {
         PeerAddress::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff), 8000),
     ];
 
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 30003))
-        .await
-        .unwrap();
+    let (listener, addr) = local_listener().await;
 
     let server = tokio::spawn({
         let addresses = peer_addresses.clone();
@@ -1862,7 +1839,7 @@ pub async fn peer_sharing_server_and_client_happy_path() {
 
         // client setup
 
-        let mut client_to_server_conn = PeerClient::connect("localhost:30003", 0).await.unwrap();
+        let mut client_to_server_conn = PeerClient::connect(addr, 0).await.unwrap();
 
         let client_ps = client_to_server_conn.peersharing();
 
@@ -1929,14 +1906,11 @@ pub async fn local_message_notification_server_and_client_happy_path() {
         ]
     }
 
+    let (listener, socket_path) = local_socket("node3");
+
     let server = tokio::spawn({
         async move {
             // server setup
-            let socket_path = Path::new("node3.socket");
-            if socket_path.exists() {
-                fs::remove_file(socket_path).unwrap();
-            }
-            let listener = UnixListener::bind(socket_path).unwrap();
             let mut server = pallas_network::facades::DmqServer::accept_with_timeout(
                 &listener,
                 0,
@@ -1987,7 +1961,6 @@ pub async fn local_message_notification_server_and_client_happy_path() {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
-        let socket_path = "node3.socket";
         let mut client = DmqClient::connect(socket_path, 0).await.unwrap();
 
         // init local msg notification client
@@ -2055,14 +2028,11 @@ pub async fn local_message_submission_server_and_client_happy_path() {
         }
     }
 
+    let (listener, socket_path) = local_socket("node4");
+
     let server = tokio::spawn({
         async move {
             // server setup
-            let socket_path = Path::new("node4.socket");
-            if socket_path.exists() {
-                fs::remove_file(socket_path).unwrap();
-            }
-            let listener = UnixListener::bind(socket_path).unwrap();
             let mut server = pallas_network::facades::DmqServer::accept_with_timeout(
                 &listener,
                 0,
@@ -2110,7 +2080,6 @@ pub async fn local_message_submission_server_and_client_happy_path() {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // client setup
-        let socket_path = "node4.socket";
         let mut client = DmqClient::connect(socket_path, 0).await.unwrap();
 
         // init local msg submission client
@@ -2165,6 +2134,20 @@ async fn local_listener() -> (TcpListener, std::net::SocketAddr) {
     let addr = listener.local_addr().unwrap();
 
     (listener, addr)
+}
+
+/// Bind a unix listener on a socket path in the temporary directory that only this test process uses.
+#[cfg(unix)]
+fn local_socket(name: &str) -> (UnixListener, std::path::PathBuf) {
+    let path = std::env::temp_dir().join(format!("{name}-{}.socket", std::process::id()));
+
+    if path.exists() {
+        fs::remove_file(&path).unwrap();
+    }
+
+    let listener = UnixListener::bind(&path).unwrap();
+
+    (listener, path)
 }
 
 /// Run a client handshake proposing `versions` against a [`PeerServer`].
