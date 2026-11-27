@@ -77,7 +77,7 @@ Feature runs:
 
 ```sh
 cargo test -p pallas-network -p pallas-network2 --features blueprint
-cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network -p pallas-hardano --features unstable
+cargo test -p pallas-primitives -p pallas-traverse -p pallas-utxorpc -p pallas-network -p pallas-network2 -p pallas-hardano --features unstable
 cargo test -p pallas-primitives --features unstable,blueprint
 cargo test -p pallas-validate --features unstable
 cargo check --workspace --all-targets --no-default-features
@@ -178,6 +178,7 @@ Where to start for common jobs:
 
 `unstable` gates the Dijkstra era, whose APIs may change between minor releases:
 
+- `pallas/unstable` turns on `pallas-network2/unstable` only with the `network2` feature.
 - `pallas-primitives/unstable` adds the `dijkstra` module.
 - `pallas-traverse/unstable` adds Dijkstra to the `MultiEra*` types and makes `MultiEraHeader`
   non-exhaustive, so a match over it needs a wildcard arm.
