@@ -54,6 +54,28 @@ pub enum Error {
 /// Default interval between keep-alive pings.
 pub const DEFAULT_KEEP_ALIVE_INTERVAL_SEC: u64 = 20;
 
+/// Handshake deadline to pass to a server facade's `accept_with_timeout`,
+/// matching the handshake time limit of the Ouroboros network.
+pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The error a server facade returns when the peer misses the handshake deadline.
+fn handshake_timed_out() -> Error {
+    Error::ConnectFailure(tokio::io::Error::new(
+        tokio::io::ErrorKind::TimedOut,
+        "handshake not completed before the deadline",
+    ))
+}
+
+/// Await `fut`, giving up once `deadline` passes, in which case it returns
+/// `None`. Without a deadline no timer is involved, so the caller does not need
+/// a Tokio runtime with timers enabled.
+async fn within<F: std::future::Future>(deadline: Option<Duration>, fut: F) -> Option<F::Output> {
+    match deadline {
+        Some(deadline) => tokio::time::timeout(deadline, fut).await.ok(),
+        None => Some(fut.await),
+    }
+}
+
 /// Handle to a spawned keep-alive loop.
 pub type KeepAliveHandle = tokio::task::JoinHandle<Result<(), Error>>;
 
@@ -106,6 +128,19 @@ impl KeepAliveLoop {
         }
     }
 
+    /// Drive a client-side keep-alive loop until it errors or every agent
+    /// holding the sender of `unused` is dropped.
+    async fn run_client_while_used(
+        client: keepalive::Client,
+        interval: Duration,
+        mut unused: tokio::sync::mpsc::Receiver<()>,
+    ) -> Result<(), Error> {
+        tokio::select! {
+            result = Self::run_client(client, interval) => result,
+            _ = unused.recv() => Ok(()),
+        }
+    }
+
     /// Spawn the loop on the current Tokio runtime.
     pub fn spawn(self) -> KeepAliveHandle {
         match self {
@@ -119,10 +154,15 @@ impl KeepAliveLoop {
 
 /// Node-to-node Ouroboros client. Bundles the chain-sync, block-fetch,
 /// tx-submission, peer-sharing, and keep-alive protocols over a single bearer.
+///
+/// The connection closes once the client is dropped, or once every agent
+/// moved out of it is. [`Self::abort`] closes it at once.
 pub struct PeerClient {
     /// Underlying running multiplexer.
     pub plexer: RunningPlexer,
-    /// Handle to the spawned keep-alive task.
+    /// Handle to the spawned keep-alive task. It ends with an error when a
+    /// keep-alive round trip fails, and with `Ok(())` once every agent of the
+    /// client is dropped.
     pub keepalive: KeepAliveHandle,
     /// Chain-sync client (node-to-node).
     pub chainsync: chainsync::N2NClient,
@@ -146,33 +186,52 @@ impl PeerClient {
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
         let mut handshake = handshake::Client::new(channel);
 
-        let cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
-        let bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
-        let txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
-        let peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+        let mut cs_channel = plexer.subscribe_client(PROTOCOL_N2N_CHAIN_SYNC);
+        let mut bf_channel = plexer.subscribe_client(PROTOCOL_N2N_BLOCK_FETCH);
+        let mut txsub_channel = plexer.subscribe_client(PROTOCOL_N2N_TX_SUBMISSION);
+        let mut peersharing_channel = plexer.subscribe_client(PROTOCOL_N2N_PEER_SHARING);
+
+        // The keep-alive loop runs while any of the caller's agents exists.
+        let (in_use, unused) = tokio::sync::mpsc::channel(1);
+        for channel in [
+            &mut cs_channel,
+            &mut bf_channel,
+            &mut txsub_channel,
+            &mut peersharing_channel,
+        ] {
+            channel.mark_in_use(in_use.clone());
+        }
+        drop(in_use);
 
         let channel = plexer.subscribe_client(PROTOCOL_N2N_KEEP_ALIVE);
         let keepalive = keepalive::Client::new(channel);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         let versions = handshake::n2n::VersionTable::v7_and_above(magic);
 
-        let handshake = handshake
-            .handshake(versions)
+        let handshake = match plexer
+            .abort_if_cancelled(handshake.handshake(versions))
             .await
-            .map_err(Error::HandshakeProtocol)?;
+        {
+            Ok(confirmation) => confirmation,
+            Err(err) => {
+                plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+        };
 
         if let handshake::Confirmation::Rejected(reason) = handshake {
             error!(?reason, "handshake refused");
+            plexer.abort_and_join().await;
             return Err(Error::IncompatibleVersion);
         }
 
-        let keepalive = KeepAliveLoop::client(
+        let keepalive = tokio::spawn(KeepAliveLoop::run_client_while_used(
             keepalive,
             Duration::from_secs(DEFAULT_KEEP_ALIVE_INTERVAL_SEC),
-        )
-        .spawn();
+            unused,
+        ));
 
         let client = Self {
             plexer,
@@ -201,31 +260,32 @@ impl PeerClient {
         let channel = plexer.subscribe_client(PROTOCOL_N2N_HANDSHAKE);
         let mut handshake = handshake::Client::new(channel);
 
-        let _plexer = plexer.spawn();
+        let plexer = plexer.spawn();
 
         let versions = handshake::n2n::VersionTable::v7_and_above_with_query(magic, true);
 
-        let handshake = handshake
-            .handshake(versions)
+        let result = match plexer
+            .abort_if_cancelled(handshake.handshake(versions))
             .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        let version_table = match handshake {
-            handshake::Confirmation::QueryReply(version_table) => {
+        {
+            Ok(handshake::Confirmation::QueryReply(version_table)) => {
                 debug!("handshake query reply received");
-                version_table
+                Ok(version_table)
             }
-            handshake::Confirmation::Accepted(_, _) => {
+            Ok(handshake::Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
-                return Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound));
+                Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            handshake::Confirmation::Rejected(reason) => {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
-                return Err(Error::IncompatibleVersion);
+                Err(Error::IncompatibleVersion)
             }
+            Err(err) => Err(Error::HandshakeProtocol(err)),
         };
 
-        Ok(version_table)
+        plexer.abort_and_join().await;
+
+        result
     }
 
     /// Get mutable access to the chain-sync client.
@@ -258,9 +318,12 @@ impl PeerClient {
         &mut self.peersharing
     }
 
-    /// Tear down the underlying multiplexer and abort all spawned tasks.
+    /// Abort the keep-alive loop and the multiplexer, and wait until both are
+    /// gone, so the connection is closed on return.
     pub async fn abort(self) {
-        self.plexer.abort().await
+        self.keepalive.abort();
+        let _ = self.keepalive.await;
+        self.plexer.abort_and_join().await;
     }
 }
 
@@ -320,25 +383,65 @@ impl PeerServer {
     }
 
     /// Accept the next connection from `listener` and complete the N2N handshake.
+    ///
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &TcpListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, None).await
+    }
+
+    /// Accept the next connection from `listener` and complete the N2N handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
+    pub async fn accept_with_timeout(
+        listener: &TcpListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &TcpListener,
+        magic: u64,
+        deadline: Option<Duration>,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_tcp(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer);
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2n::VersionTable::v7_and_above(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2n::VersionTable::v7_and_above(magic));
+
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+            None => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some((version, data)) = accepted_version {
             client.accepted_address = Some(address);
             client.accepted_version = Some((version, data));
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -390,6 +493,9 @@ impl PeerServer {
 }
 
 /// Client of N2C Ouroboros
+///
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct NodeClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -410,7 +516,7 @@ impl NodeClient {
         let tx_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_SUBMISSION);
         let mo_channel = plexer.subscribe_client(PROTOCOL_N2C_TX_MONITOR);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         Self {
             plexer,
@@ -429,22 +535,9 @@ impl NodeClient {
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Connect to a Windows named-pipe node socket and perform the N2C handshake.
@@ -460,22 +553,9 @@ impl NodeClient {
             .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Issue a query-mode handshake over `bearer` and return the node's
@@ -494,23 +574,42 @@ impl NodeClient {
         let versions = handshake::n2c::VersionTable::v15_with_query(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let handshake = client
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        match handshake {
-            Confirmation::Accepted(_, _) => {
+        let result = match plexer.abort_if_cancelled(client.handshake(versions)).await {
+            Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            Confirmation::Rejected(reason) => {
+            Ok(Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 Err(Error::IncompatibleVersion)
             }
-            Confirmation::QueryReply(version_table) => {
-                plexer.abort().await;
-                Ok(version_table)
+            Ok(Confirmation::QueryReply(version_table)) => Ok(version_table),
+            Err(err) => Err(Error::HandshakeProtocol(err)),
+        };
+
+        plexer.abort_and_join().await;
+
+        result
+    }
+
+    /// Run the handshake with `versions`. On an error or a refusal, stop the
+    /// plexer before returning, so the failed connection leaves no task behind.
+    #[cfg(any(unix, windows))]
+    async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
+        match self
+            .plexer
+            .abort_if_cancelled(self.handshake.handshake(versions))
+            .await
+        {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
+                error!(?reason, "handshake refused");
+                self.plexer.abort_and_join().await;
+                Err(Error::IncompatibleVersion)
+            }
+            Ok(_) => Ok(self),
+            Err(err) => {
+                self.plexer.abort_and_join().await;
+                Err(Error::HandshakeProtocol(err))
             }
         }
     }
@@ -593,25 +692,65 @@ impl NodeServer {
     }
 
     /// Accept the next Unix-domain connection from `listener` and complete the N2C handshake.
+    ///
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, None).await
+    }
+
+    /// Accept the next Unix-domain connection from `listener` and complete the N2C handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
+    pub async fn accept_with_timeout(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Option<Duration>,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2c::VersionTable::v10_and_above(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2c::VersionTable::v10_and_above(magic));
+
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+            None => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
@@ -655,6 +794,9 @@ impl NodeServer {
 /// Client of N2C DMQ (Decentralized Message Queue)
 ///
 /// Described in [CIP-0137](https://github.com/cardano-foundation/CIPs/tree/master/CIP-0137)
+///
+/// The connection closes once the client is dropped. [`Self::abort`] stops its
+/// tasks without waiting for them to end.
 pub struct DmqClient {
     plexer: RunningPlexer,
     handshake: handshake::N2CClient,
@@ -671,7 +813,7 @@ impl DmqClient {
         let msg_submission_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_SUBMISSION);
         let msg_notification_channel = plexer.subscribe_client(PROTOCOL_N2C_MSG_NOTIFICATION);
 
-        let plexer = plexer.spawn();
+        let plexer = plexer.spawn_until_unused();
 
         Self {
             plexer,
@@ -688,22 +830,9 @@ impl DmqClient {
             .await
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::dmq(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Connect to a DMQ node over a Windows named pipe and perform the handshake.
@@ -719,22 +848,9 @@ impl DmqClient {
             .expect("can't join tokio thread")
             .map_err(Error::ConnectFailure)?;
 
-        let mut client = Self::new(bearer);
-
         let versions = handshake::n2c::VersionTable::v10_and_above(magic);
 
-        let handshake = client
-            .handshake()
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        if let handshake::Confirmation::Rejected(reason) = handshake {
-            error!(?reason, "handshake refused");
-            return Err(Error::IncompatibleVersion);
-        }
-
-        Ok(client)
+        Self::new(bearer).confirm(versions).await
     }
 
     /// Issue a DMQ query-mode handshake and return the node's advertised version table.
@@ -752,23 +868,42 @@ impl DmqClient {
         let versions = handshake::n2c::VersionTable::dmq(magic);
         let mut client = handshake::Client::new(hs_channel);
 
-        let handshake = client
-            .handshake(versions)
-            .await
-            .map_err(Error::HandshakeProtocol)?;
-
-        match handshake {
-            Confirmation::Accepted(_, _) => {
+        let result = match plexer.abort_if_cancelled(client.handshake(versions)).await {
+            Ok(Confirmation::Accepted(_, _)) => {
                 error!("handshake accepted when we expected query reply");
                 Err(Error::HandshakeProtocol(handshake::Error::InvalidInbound))
             }
-            Confirmation::Rejected(reason) => {
+            Ok(Confirmation::Rejected(reason)) => {
                 error!(?reason, "handshake refused");
                 Err(Error::IncompatibleVersion)
             }
-            Confirmation::QueryReply(version_table) => {
-                plexer.abort().await;
-                Ok(version_table)
+            Ok(Confirmation::QueryReply(version_table)) => Ok(version_table),
+            Err(err) => Err(Error::HandshakeProtocol(err)),
+        };
+
+        plexer.abort_and_join().await;
+
+        result
+    }
+
+    /// Run the handshake with `versions`. On an error or a refusal, stop the
+    /// plexer before returning, so the failed connection leaves no task behind.
+    #[cfg(any(unix, windows))]
+    async fn confirm(mut self, versions: handshake::n2c::VersionTable) -> Result<Self, Error> {
+        match self
+            .plexer
+            .abort_if_cancelled(self.handshake.handshake(versions))
+            .await
+        {
+            Ok(handshake::Confirmation::Rejected(reason)) => {
+                error!(?reason, "handshake refused");
+                self.plexer.abort_and_join().await;
+                Err(Error::IncompatibleVersion)
+            }
+            Ok(_) => Ok(self),
+            Err(err) => {
+                self.plexer.abort_and_join().await;
+                Err(Error::HandshakeProtocol(err))
             }
         }
     }
@@ -838,25 +973,65 @@ impl DmqServer {
     }
 
     /// Accept the next DMQ connection from `listener` and complete the handshake.
+    ///
+    /// The handshake has no deadline: a peer that connects and never completes
+    /// it keeps this call waiting.
+    #[deprecated(
+        since = "1.5.0",
+        note = "the handshake has no deadline; use `accept_with_timeout(.., DEFAULT_HANDSHAKE_TIMEOUT)`"
+    )]
     pub async fn accept(listener: &UnixListener, magic: u64) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, None).await
+    }
+
+    /// Accept the next DMQ connection from `listener` and complete the handshake.
+    ///
+    /// Once connected, the peer has `deadline` to complete the handshake;
+    /// waiting for the connection itself is not bounded. A peer that misses it
+    /// is disconnected, and the call returns [`Error::ConnectFailure`] with
+    /// [`std::io::ErrorKind::TimedOut`]. Needs a Tokio runtime with timers
+    /// enabled.
+    pub async fn accept_with_timeout(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Duration,
+    ) -> Result<Self, Error> {
+        Self::accept_within(listener, magic, Some(deadline)).await
+    }
+
+    async fn accept_within(
+        listener: &UnixListener,
+        magic: u64,
+        deadline: Option<Duration>,
+    ) -> Result<Self, Error> {
         let (bearer, address) = Bearer::accept_unix(listener)
             .await
             .map_err(Error::ConnectFailure)?;
 
         let mut client = Self::new(bearer).await;
 
-        let accepted_version = client
+        let handshake = client
             .handshake()
-            .handshake_negotiated(n2c::VersionTable::dmq(magic))
-            .await
-            .map_err(Error::HandshakeProtocol)?;
+            .handshake_negotiated(n2c::VersionTable::dmq(magic));
+
+        let accepted_version = match within(deadline, handshake).await {
+            Some(Ok(version)) => version,
+            Some(Err(err)) => {
+                client.plexer.abort_and_join().await;
+                return Err(Error::HandshakeProtocol(err));
+            }
+            None => {
+                client.plexer.abort_and_join().await;
+                return Err(handshake_timed_out());
+            }
+        };
 
         if let Some(version) = accepted_version {
             client.accepted_address = Some(address);
             client.accpeted_version = Some(version);
             Ok(client)
         } else {
-            client.abort().await;
+            client.plexer.close().await;
             Err(Error::IncompatibleVersion)
         }
     }
