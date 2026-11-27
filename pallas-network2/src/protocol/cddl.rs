@@ -60,8 +60,8 @@ pub(crate) fn preprocess(schema: &str) -> String {
 }
 
 /// Validates `cbor` against rule `rule` of `schema`, panicking with the rule name
-/// on any mismatch. The single touch point for the `cddl` crate's API. Also
-/// checks the message is exactly one CBOR item, as the reader expects.
+/// on any mismatch. Also checks the message is exactly one CBOR item, as the
+/// reader expects.
 #[cfg(feature = "blueprint")]
 pub(crate) fn assert_conforms(schema: &str, rule: &str, cbor: &[u8]) {
     let mut scanner = pallas_codec::scan::Scanner::default();
@@ -74,4 +74,15 @@ pub(crate) fn assert_conforms(schema: &str, rule: &str, cbor: &[u8]) {
     let doc = format!("start = {rule}\n{schema}");
     ::cddl::validate_cbor_from_slice(&doc, cbor, None)
         .unwrap_or_else(|e| panic!("`{rule}` does not conform to CDDL: {e}"));
+}
+
+/// Validates `cbor` against rule `rule` of `schema`, panicking unless the schema
+/// parses and the bytes fail validation.
+#[cfg(all(feature = "blueprint", feature = "unstable"))]
+pub(crate) fn assert_does_not_conform(schema: &str, rule: &str, cbor: &[u8]) {
+    let doc = format!("start = {rule}\n{schema}");
+    match ::cddl::validate_cbor_from_slice(&doc, cbor, None) {
+        Err(::cddl::validator::cbor::Error::Validation(_)) => {}
+        other => panic!("`{rule}` is not refused by CDDL: {other:?}"),
+    }
 }
